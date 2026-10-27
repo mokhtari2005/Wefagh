@@ -1,19 +1,29 @@
-name: Inspect project ZIP
+
+name: Extract Wefagh Project
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  inspect:
+  extract:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Inspect ZIP contents
+      - name: Extract project ZIP
         run: |
-          echo "Checking project archive..."
-          unzip -l wefagh-v0.1.0.zip
+          unzip -o wefagh-v0.1.0.zip -d extracted
+          cp -R extracted/wefagh/. .
+          rm -rf extracted
+
+      - name: Commit extracted files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add site worker docs README.md راهنمای-شروع.md
+          git commit -m "Extract Wefagh project files" || echo "No changes to commit"
+          git push
