@@ -1,0 +1,16 @@
+name = "wefagh-api"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+
+# مسیر API روی همان دامنهٔ سایت (wefagh.ir/api/*) تا کوکی‌ها هم‌مبدأ باشند.
+# پیش از دیپلوی، زون wefagh.ir باید در Cloudflare فعال باشد.
+routes = [
+  { pattern = "wefagh.ir/api/*", zone_name = "wefagh.ir" }
+]
+
+# پس از ساخت دیتابیس با `wrangler d1 create wefagh-db` این مقدار را جایگزین کنید.
+[[d1_databases]]
+binding = "DB"
+database_name = "wefagh-db"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations"
