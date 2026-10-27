@@ -12,5 +12,5 @@ routes = [
 [[d1_databases]]
 binding = "DB"
 database_name = "wefagh-db"
-database_id = "database_id = "a02aeb28-b6e7-4423-9671-1ce3f9e3038b""
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
 migrations_dir = "migrations"
