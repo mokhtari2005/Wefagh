@@ -2,6 +2,8 @@
 import { NAV, VALUES, ABOUT_SECTIONS } from './pages.js';
 import { mountContactForm } from './contact.js';
 import { formatShamsi } from './shamsi.js';
+import { parseHash } from './route.js';
+import { loginForm, registerForm, verifyPanel, accountPanel } from './account.js';
 
 const main = document.getElementById('main');
 const nav = document.getElementById('site-nav');
@@ -19,8 +21,7 @@ function h(tag, attrs = {}, children = []) {
 }
 
 function currentRoute() {
-  const raw = location.hash.replace(/^#/, '') || '/';
-  return raw.startsWith('/') ? raw : `/${raw}`;
+  return parseHash(location.hash);
 }
 
 function renderNav(activePath) {
@@ -105,26 +106,76 @@ function pageNotFound() {
   ]);
 }
 
+function pageAccount(params) {
+  const wrap = h('div');
+  const area = h('div', { role: 'region', 'aria-live': 'polite' });
+  wrap.append(area);
+
+  const showLogin = () => {
+    area.replaceChildren(
+      h('h1', { text: 'ورود به حساب' }),
+      loginForm({
+        onSuccess: () => {
+          // بعد از ورود، صفحهٔ حساب را دوباره می‌سازیم.
+          window.location.hash = '#/account';
+          render();
+        },
+      })
+    );
+  };
+  const showRegister = () => {
+    area.replaceChildren(h('h1', { text: 'ثبت‌نام' }), registerForm({ onLoginLink: showLogin }));
+  };
+
+  if (params.mode === 'register') {
+    showRegister();
+    return wrap;
+  }
+
+  // اگر کاربر وارد است، حساب او را نشان بده؛ وگرنه فرم ورود.
+  area.replaceChildren(h('p', { class: 'loading', text: 'در حال بررسی…' }));
+  accountPanel({
+    onLogout: () => {
+      render();
+    },
+  }).then((panel) => {
+    if (panel) {
+      area.replaceChildren(panel);
+    } else {
+      showLogin();
+    }
+  });
+  return wrap;
+}
+
+function pageVerify(params) {
+  const holder = h('div');
+  verifyPanel(params.token || '').then((panel) => holder.replaceChildren(panel));
+  return holder;
+}
+
 const ROUTES = {
   '/': () => pageHome(),
   '/about': () => pageAbout(),
   '/contact': () => pageContact(),
+  '/account': (params) => pageAccount(params),
+  '/verify': (params) => pageVerify(params),
 };
 
 function render() {
-  const path = currentRoute();
+  const { path, params } = currentRoute();
   renderNav(path);
   nav.classList.remove('open');
   toggle?.setAttribute('aria-expanded', 'false');
 
   let content;
   const planned = NAV.find((n) => n.path === path && n.status === 'planned');
-  if (ROUTES[path]) content = ROUTES[path]();
+  if (ROUTES[path]) content = ROUTES[path](params);
   else if (planned) content = pagePlanned(planned);
   else content = pageNotFound();
 
   main.replaceChildren(content);
-  document.title = `${NAV.find((n) => n.path === path)?.title ?? 'صفحه پیدا نشد'} | وِفاق`;
+  document.title = `${NAV.find((n) => n.path === path)?.title ?? (path === '/verify' ? 'تأیید ایمیل' : 'صفحه پیدا نشد')} | وِفاق`;
   main.focus({ preventScroll: true });
   window.scrollTo({ top: 0, behavior: 'instant' });
 }
