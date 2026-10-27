@@ -8,7 +8,7 @@ export async function postJson(path, payload, { timeoutMs = 15000 } = {}) {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payload ?? {}),
       signal: controller.signal,
     });
     let data = null;
@@ -18,7 +18,32 @@ export async function postJson(path, payload, { timeoutMs = 15000 } = {}) {
       data = null;
     }
     return { status: res.status, ok: res.ok, data };
-  } catch (err) {
+  } catch {
+    return { status: 0, ok: false, data: null, networkError: true };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function getJson(path, { timeoutMs = 15000 } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(path, {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    let data = null;
+    try {
+      data = await res.json();
+    } catch {
+      data = null;
+    }
+    return { status: res.status, ok: res.ok, data };
+  } catch {
     return { status: 0, ok: false, data: null, networkError: true };
   } finally {
     clearTimeout(timer);
@@ -26,10 +51,6 @@ export async function postJson(path, payload, { timeoutMs = 15000 } = {}) {
 }
 
 export async function getHealth() {
-  try {
-    const res = await fetch('/api/health', { credentials: 'same-origin', cache: 'no-store' });
-    return res.ok ? await res.json() : null;
-  } catch {
-    return null;
-  }
+  const res = await getJson('/api/health');
+  return res.ok ? res.data : null;
 }

@@ -11,6 +11,7 @@ export const NAV = [
   { id: 'cooperative', path: '/cooperative', title: 'مشارکت صنفی', status: 'planned', phase: 7 },
   { id: 'membership', path: '/membership', title: 'عضویت', status: 'planned', phase: 5 },
   { id: 'contact', path: '/contact', title: 'تماس با ما' },
+  { id: 'account', path: '/account', title: 'حساب کاربری' },
 ];
 
 /** @returns {Array<{text:string, href?:string}>} فهرست ساده برای کارت‌های معرفی */
