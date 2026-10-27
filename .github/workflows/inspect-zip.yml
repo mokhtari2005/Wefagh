@@ -1,0 +1,19 @@
+name: Inspect project ZIP
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Inspect ZIP contents
+        run: |
+          echo "Checking project archive..."
+          unzip -l wefagh-v0.1.0.zip
