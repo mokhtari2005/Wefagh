@@ -20,6 +20,13 @@ export const LIMITS = Object.freeze({
 // الگوی ساده و معقول برای ایمیل (کنترل دقیق RFC لازم نیست؛ تأیید واقعی با ارسال ایمیل است).
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
+/** @returns {string|null} ایمیل نرمال‌شده یا null اگر نامعتبر است */
+export function normalizeEmail(value) {
+  const email = cleanText(value).toLowerCase();
+  if (email.length < 3 || email.length > LIMITS.emailMax || !EMAIL_RE.test(email)) return null;
+  return email;
+}
+
 // کاراکترهای کنترلی را حذف می‌کند و فاصله‌های اضافه را جمع می‌کند.
 export function cleanText(value) {
   if (typeof value !== 'string') return '';
