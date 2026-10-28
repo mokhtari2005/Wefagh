@@ -45,6 +45,7 @@ function currentRoute() {
 function renderNav(activePath) {
   const list = h('ul');
   for (const item of NAV) {
+    if (item.status === 'planned') continue; // صفحه‌های برنامه‌ریزی‌شده در ناوبری نمایش داده نمی‌شوند
     const link = h('a', { href: `#${item.path}`, text: item.title });
     if (item.path === activePath) link.setAttribute('aria-current', 'page');
     list.append(h('li', {}, [link]));

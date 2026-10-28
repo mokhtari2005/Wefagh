@@ -720,16 +720,16 @@ h1, h2, h3 { color: var(--teal-dark); }
 /* سربرگ */
 .site-header { background: rgba(246, 243, 234, 0.96); border-bottom: 1px solid var(--sand-line); box-shadow: none; }
 .header-inner { display: flex; align-items: center; gap: .9rem; min-height: 78px; padding: .6rem 0; flex-wrap: nowrap; position: relative; }
-.avatar-link { order: 1; width: 44px; height: 44px; border-radius: 50%; display: inline-grid; place-items: center; background: var(--bone); text-decoration: none; font-size: 1.2rem; flex: none; border: 2px solid var(--gold); }
-.brand { order: 2; display: flex; align-items: center; gap: .6rem; text-decoration: none; flex: none; }
+.avatar-link { width: 44px; height: 44px; border-radius: 50%; display: inline-grid; place-items: center; background: var(--bone); text-decoration: none; font-size: 1.2rem; flex: none; border: 2px solid var(--gold); }
+.brand { display: flex; align-items: center; gap: .6rem; text-decoration: none; flex: none; }
 .brand-mark { width: 46px; height: 46px; }
 .brand-name { font-size: 1.5rem; font-weight: 800; color: var(--teal-dark); }
 .brand-sub { font-size: .72rem; color: var(--ink-soft); }
-.global-search { order: 3; flex: 1 1 260px; max-width: 520px; height: 46px; border-radius: 999px; background: #ecebe3; border: 1px solid transparent; margin-inline: auto; }
+.global-search { flex: 1 1 260px; max-width: 520px; height: 46px; border-radius: 999px; background: #ecebe3; border: 1px solid transparent; margin-inline: auto; }
 .global-search button { color: var(--teal-dark); }
-.nav-toggle { order: 4; flex: none; width: 46px; height: 46px; border-radius: 12px; background: var(--paper); border: 1px solid var(--sand-line); box-shadow: var(--shadow-sm); display: inline-flex; flex-direction: column; justify-content: center; align-items: center; gap: 5px; cursor: pointer; padding: 0; }
+.nav-toggle { flex: none; width: 46px; height: 46px; border-radius: 12px; background: var(--paper); border: 1px solid var(--sand-line); box-shadow: var(--shadow-sm); display: inline-flex; flex-direction: column; justify-content: center; align-items: center; gap: 5px; cursor: pointer; padding: 0; }
 .nav-toggle span { display: block; width: 22px; height: 2px; border-radius: 2px; background: var(--teal-dark); }
-.site-nav { order: 5; }
+.site-nav { }
 
 /* بنر اصلی */
 .hero-banner { position: relative; min-height: 300px; border-radius: 22px; overflow: hidden; margin: 1rem 0 1.4rem; background: var(--teal-dark); color: #fff; display: flex; align-items: center; }
@@ -795,12 +795,14 @@ h1, h2, h3 { color: var(--teal-dark); }
 @media (max-width: 700px) {
   .header-inner { flex-wrap: wrap; min-height: 0; gap: .6rem; padding: .5rem 0; }
   .avatar-link { width: 40px; height: 40px; }
-  .brand { order: 2; margin-inline-start: auto; }
+  .brand { order: 1; }
+  .avatar-link { order: 2; margin-inline-start: auto; }
+  .nav-toggle { order: 3; }
   .brand-mark { width: 36px; height: 36px; }
   .brand-name { font-size: 1.25rem; }
   .brand-sub { font-size: .6rem; }
-  .global-search { order: 6; flex: 1 0 100%; max-width: none; margin-inline: 0; height: 42px; }
-  .nav-toggle { order: 4; width: 42px; height: 42px; }
+  .global-search { order: 4; flex: 1 0 100%; max-width: none; margin-inline: 0; height: 42px; }
+  .nav-toggle { width: 42px; height: 42px; }
   .hero-banner { min-height: 280px; }
   .hero-copy { padding: 1.3rem; }
   .hero-banner h1 { font-size: 1.6rem; }
@@ -837,3 +839,18 @@ h1, h2, h3 { color: var(--teal-dark); }
   .site-nav a:hover { background: var(--bone); }
   .site-nav a[aria-current="page"] { background: var(--teal-dark); color: #fff; }
 }
+
+/* ---------- سربرگ: لوگو و نام گروه در یک ردیف، چیدمان راست‌چین ---------- */
+.header-inner { direction: rtl; }
+.brand { display: flex; align-items: center; gap: .7rem; text-decoration: none; color: var(--teal-dark); min-width: 0; }
+.brand-logo { width: auto; height: 60px; flex: none; }
+.brand-text { font-size: .95rem; font-weight: 700; line-height: 1.6; color: var(--teal-dark); white-space: nowrap; }
+.brand-text strong { color: var(--gold); font-weight: 800; }
+@media (max-width: 700px) {
+  .brand-logo { height: 50px; }
+  .brand-text { font-size: .76rem; line-height: 1.5; white-space: normal; max-width: 200px; }
+  .site-header .container.header-inner { gap: .5rem; }
+}
+@media (max-width: 380px) { .brand-text { max-width: 170px; font-size: .7rem; } }
+.site-footer .footer-inner { justify-content: center; text-align: center; flex-direction: column; }
+.site-footer .footer-logo { margin: 0 auto .4rem; }
