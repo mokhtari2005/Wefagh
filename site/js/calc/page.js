@@ -5,6 +5,7 @@ import { findRule, rulesFor } from './rates.js';
 import { formatShamsi } from '../shamsi.js';
 import { parseShamsiInput, isoToShamsiInput } from '../jalali.js';
 import { shamsiField } from '../shamsi-field.js';
+import { normalizeLimitations, formatNumbersInLine, formatRial, statusLabel } from './result-format.js';
 
 function h(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
@@ -17,29 +18,63 @@ function h(tag, attrs = {}, children = []) {
   return node;
 }
 
-function resultBox(result) {
+/** کارت نتیجه: یک الگوی مشترک برای همهٔ محاسبه‌گرها. متن فقط با textContent نمایش داده می‌شود. */
+function resultBox(result, form = null) {
   if (!result.ok) {
     return h('div', { class: 'notice', role: 'alert', text: 'ورودی‌ها را بررسی کنید؛ تاریخ‌ها باید شمسی و معتبر باشند (مثال: ۱۴۰۵/۰۸/۰۶) و مبالغ و نرخ‌ها عددی باشند.' });
   }
-  const box = h('div', { class: 'result', role: 'status', 'aria-live': 'polite' });
-  box.append(h('h3', { text: 'نتیجه' }));
-  // تاریخ‌های میلادی داخل مراحل را برای کاربر شمسی نشان می‌دهیم.
-  const shamsiLine = (line) => line.replace(/\d{4}-\d{2}-\d{2}/g, (iso) => isoToShamsiInput(iso));
-  for (const line of result.steps) box.append(h('p', { text: shamsiLine(line) }));
-  if (result.lastDay) {
-    box.append(h('p', { class: 'lead', text: `آخرین روز: ${formatShamsi(new Date(result.lastDay + 'T12:00:00Z'))}` }));
-  }
-  if (typeof result.interest === 'number') {
-    box.append(h('p', { class: 'lead', text: `خسارت: ${result.interest.toLocaleString('fa-IR')} (جمع با اصل: ${result.total.toLocaleString('fa-IR')})` }));
-  }
+  const status = result.status ? statusLabel(result.status) : null;
+  const head = h('div', { class: 'result-head' }, [
+    h('h3', { text: result.title || 'نتیجهٔ محاسبه' }),
+    ...(status ? [h('span', { class: `status-badge ${status.tone}`, text: status.text })] : []),
+  ]);
+  const box = h('div', { class: 'result', role: 'status', 'aria-live': 'polite' }, [head]);
+
+  // مبلغ نهایی: برجسته و با واحد صریح
   if (typeof result.fee === 'number') {
-    box.append(h('p', { class: 'lead', text: `مبلغ: ${result.fee.toLocaleString('fa-IR')} ریال` }));
+    box.append(h('div', { class: 'amount-block' }, [
+      h('span', { class: 'amount-label', text: 'مبلغ محاسبه‌شده' }),
+      h('span', { class: 'amount-value', text: formatRial(result.fee) }),
+    ]));
   }
-  box.append(h('h4', { text: 'محدودیت‌ها' }));
-  const ul = h('ul');
-  for (const item of result.limitations) ul.append(h('li', { text: item }));
-  box.append(ul);
-  box.append(h('p', { class: 'muted', text: `نسخهٔ قاعده: ${result.ruleVersion}` }));
+
+  const facts = [];
+  if (result.lastDay) facts.push(['آخرین روز', formatShamsi(new Date(result.lastDay + 'T12:00:00Z'))]);
+  if (typeof result.interest === 'number') facts.push(['خسارت', formatRial(result.interest)]);
+  if (typeof result.total === 'number') facts.push(['جمع با اصل', formatRial(result.total)]);
+  if (facts.length) {
+    box.append(h('dl', { class: 'facts' }, facts.flatMap(([k, v]) => [h('dt', { text: k }), h('dd', { text: v })])));
+  }
+
+  // جزئیات: هر مرحله یک مورد؛ تاریخ‌های میلادی شمسی و عددها جداکننده دارند
+  const shamsiLine = (line) => line.replace(/\d{4}-\d{2}-\d{2}/g, (iso) => isoToShamsiInput(iso));
+  const steps = Array.isArray(result.steps) ? result.steps : [];
+  if (steps.length) {
+    box.append(h('h4', { text: 'جزئیات محاسبه' }));
+    const ol = h('ol', { class: 'steps' });
+    for (const line of steps) ol.append(h('li', { text: formatNumbersInLine(shamsiLine(line)) }));
+    box.append(ol);
+  }
+
+  // محدودیت‌ها: فقط اگر وجود دارند؛ هر مورد کامل و جدا
+  const limits = normalizeLimitations(result.limitations);
+  if (limits.length) {
+    box.append(h('h4', { text: 'محدودیت‌ها' }));
+    const ul = h('ul', { class: 'limits' });
+    for (const item of limits) ul.append(h('li', { text: item }));
+    box.append(ul);
+  }
+
+  if (result.ruleVersion) box.append(h('p', { class: 'muted', text: `نسخهٔ قاعده: ${result.ruleVersion}` }));
+
+  // اقدامات کاربر
+  if (form) {
+    const again = h('button', { class: 'btn small secondary', type: 'button', text: 'محاسبه مجدد' });
+    again.addEventListener('click', () => form.requestSubmit());
+    const edit = h('button', { class: 'btn small secondary', type: 'button', text: 'ویرایش ورودی‌ها' });
+    edit.addEventListener('click', () => form.querySelector('input, select, textarea')?.focus());
+    box.append(h('div', { class: 'row result-actions' }, [again, edit]));
+  }
   return box;
 }
 
@@ -63,7 +98,7 @@ function deadlineTool() {
     e.preventDefault();
     const noticeDate = parseShamsiInput(notice.input.value) ?? '';
     const result = deadline({ noticeDate, days: Number(days.value) });
-    out.replaceChildren(resultBox(result));
+    out.replaceChildren(resultBox(result, form));
   });
   return h('section', { class: 'tool' }, [h('h2', { text: 'محاسبه مواعد قانونی' }), form]);
 }
@@ -90,7 +125,7 @@ function delayTool() {
       startDate: parseShamsiInput(start.input.value) ?? '',
       endDate: parseShamsiInput(end.input.value) ?? '',
     });
-    out.replaceChildren(resultBox(result));
+    out.replaceChildren(resultBox(result, form));
   });
   return h('section', { class: 'tool' }, [h('h2', { text: 'خسارت تأخیر تأدیه (روش ساده)' }), form]);
 }
@@ -126,17 +161,22 @@ function ruleTool({ title, amountLabel, group, submitLabel, note }) {
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const rule = findRule(RATE_YEAR, select.value);
-    if (!rule) return out.replaceChildren(resultBox({ ok: false }));
+    if (!rule) return out.replaceChildren(resultBox({ ok: false }, form));
     const r = applyRule(rule, { amount: Number(amount.value) });
     if (!r.ok && r.error === 'RULE_UNVERIFIED') return out.replaceChildren(unverifiedBox(rule));
-    if (!r.ok) return out.replaceChildren(resultBox({ ok: false }));
+    if (!r.ok) return out.replaceChildren(resultBox({ ok: false }, form));
+    const approval = rule.status === 'user_approved'
+      ? 'این نتیجه بر اساس تأیید کاربر برای استفاده در ماشین‌حساب است؛ احراز رسمی از روزنامهٔ رسمی انجام نشده است.'
+      : null;
     out.replaceChildren(resultBox({
       ok: true,
+      title: title,
+      status: rule.status,
       ruleVersion: `${rule.id} / سال ${RATE_YEAR}`,
       steps: r.steps,
       fee: r.fee,
-      limitations: [note, rule.status === 'user_approved' ? 'این نتیجه بر اساس تأیید کاربر برای استفاده در ماشین‌حساب است؛ احراز رسمی از روزنامهٔ رسمی انجام نشده است.' : ''].filter(Boolean).join(' '),
-    }));
+      limitations: [note, approval],
+    }, form));
   });
   return h('section', { class: 'tool' }, [h('h2', { text: title }), form]);
 }

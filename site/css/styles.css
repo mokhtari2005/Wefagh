@@ -418,3 +418,54 @@ form.form { display: grid; gap: 14px; max-width: 640px; }
   .modules .module:nth-child(6) { flex-direction: column; align-items: stretch; }
 }
 .hero + section { margin-top: var(--space-4); }
+
+/* ---------- کارت نتیجهٔ محاسبه‌گرها (الگوی مشترک) ---------- */
+.result {
+  margin-top: var(--space-2);
+  padding: clamp(1.1rem, 3vw, 1.6rem);
+  border-radius: var(--radius);
+  background: var(--paper);
+  border: 1px solid var(--sand-line);
+  box-shadow: var(--shadow-sm);
+  direction: rtl;
+  overflow-wrap: anywhere;
+}
+.result-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+.result-head h3 { margin: 0; font-size: 1.15rem; }
+.status-badge {
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.2rem 0.75rem;
+  border-radius: 999px;
+  background: var(--bone);
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.status-badge.ok { background: #dfeee4; color: var(--ok); }
+.status-badge.warn { background: #f3e3c4; color: #6b4a12; }
+.amount-block {
+  margin: var(--space-2) 0;
+  padding: 1rem 1.2rem;
+  border-radius: var(--radius-sm);
+  background: var(--ink);
+  color: var(--cream);
+  display: grid;
+  gap: 0.2rem;
+}
+.amount-label { font-size: 0.9rem; color: var(--gold); }
+.amount-value { font-size: clamp(1.5rem, 4vw, 2rem); font-weight: 800; letter-spacing: 0; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1rem; margin: var(--space-2) 0; }
+.facts dt { color: var(--ink-soft); }
+.facts dd { margin: 0; font-weight: 700; }
+.result h4 { margin: var(--space-2) 0 0.4rem; font-size: 1rem; color: var(--ink-soft); }
+.steps { padding-inline-start: 1.4rem; margin: 0; }
+.steps li { margin-bottom: 0.35rem; }
+.limits { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.5rem; }
+.limits li {
+  padding: 0.6rem 0.9rem;
+  border-inline-start: 3px solid var(--gold);
+  background: var(--cream);
+  border-radius: var(--radius-sm);
+  font-size: 0.95rem;
+}
+.result-actions { margin-top: var(--space-2); }
