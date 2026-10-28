@@ -844,13 +844,13 @@ h1, h2, h3 { color: var(--teal-dark); }
 .header-inner { direction: rtl; }
 .brand { display: flex; align-items: center; gap: .7rem; text-decoration: none; color: var(--teal-dark); min-width: 0; }
 .brand-logo { width: auto; height: 60px; flex: none; }
-.brand-text { font-size: .95rem; font-weight: 700; line-height: 1.6; color: var(--teal-dark); white-space: nowrap; }
+.brand-text { display: block; font-size: .95rem; font-weight: 700; line-height: 1.6; color: var(--teal-dark); white-space: nowrap; text-align: right; }
 .brand-text strong { color: var(--gold); font-weight: 800; }
 @media (max-width: 700px) {
   .brand-logo { height: 50px; }
-  .brand-text { font-size: .76rem; line-height: 1.5; white-space: normal; max-width: 200px; }
+  .brand-text { font-size: .8rem; line-height: 1.5; white-space: normal; max-width: 230px; text-align: right; }
   .site-header .container.header-inner { gap: .5rem; }
 }
-@media (max-width: 380px) { .brand-text { max-width: 170px; font-size: .7rem; } }
+@media (max-width: 380px) { .brand-text { max-width: 200px; font-size: .74rem; } }
 .site-footer .footer-inner { justify-content: center; text-align: center; flex-direction: column; }
 .site-footer .footer-logo { margin: 0 auto .4rem; }
