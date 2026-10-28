@@ -89,3 +89,56 @@ export function delayInterest({ principal, ratePercent, startDate, endDate }) {
     ],
   };
 }
+
+/**
+ * فرمول عمومی «درصد با کف و سقف»: clamp(مبلغ × درصد ÷ ۱۰۰، کف، سقف).
+ * نرخ، کف و سقف را کاربر از آیین‌نامهٔ معتبر وارد می‌کند؛ این تابع هیچ نرخ قانونی را نمی‌داند.
+ */
+export function percentFee({ amount, percent, min = 0, max = null, label }) {
+  if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0) return { ok: false, error: 'INVALID_AMOUNT' };
+  if (typeof percent !== 'number' || !Number.isFinite(percent) || percent < 0 || percent > 100) return { ok: false, error: 'INVALID_RATE' };
+  if (typeof min !== 'number' || !Number.isFinite(min) || min < 0) return { ok: false, error: 'INVALID_MIN' };
+  if (max !== null && (typeof max !== 'number' || !Number.isFinite(max) || max < min)) return { ok: false, error: 'INVALID_MAX' };
+
+  const raw = Math.round((amount * percent) / 100);
+  let fee = Math.max(raw, min);
+  if (max !== null) fee = Math.min(fee, max);
+  return {
+    ok: true,
+    ruleVersion: RULE_VERSION,
+    fee,
+    steps: [
+      `مبلغ مبنا: ${amount}`,
+      `درصد وارد‌شده: ${percent}٪ ⇒ ${raw}`,
+      `کف: ${min}`,
+      max === null ? 'سقف: وارد نشده' : `سقف: ${max}`,
+      `${label} = ${fee}`,
+    ],
+  };
+}
+
+export function courtFee({ claimAmount, percent, min = 0, max = null }) {
+  const r = percentFee({ amount: claimAmount, percent, min, max, label: 'هزینه دادرسی' });
+  if (!r.ok) return r;
+  return {
+    ...r,
+    limitations: [
+      'نرخ، کف و سقف هزینهٔ دادرسی باید از آیین‌نامهٔ معتبر و مربوط به زمان طرح دعوا وارد شود؛ این نسخه نرخ‌ها را نمی‌داند.',
+      'اگر جدول نرخ پلکانی است، هر پله را جداگانه محاسبه کنید؛ این ابزار یک نرخ واحد دارد.',
+      'عدد پیش‌نویس است و پیش از ثبت دادخواست باید بازبینی شود.',
+    ],
+  };
+}
+
+export function attorneyFee({ amount, percent, min = 0, max = null }) {
+  const r = percentFee({ amount, percent, min, max, label: 'حق‌الوکاله' });
+  if (!r.ok) return r;
+  return {
+    ...r,
+    limitations: [
+      'حق‌الوکاله بر اساس آیین‌نامهٔ حق‌الوکاله و توافق کتبی وکیل و موکل تعیین می‌شود؛ این ابزار جای توافق را نمی‌گیرد.',
+      'اگر مبلغ توافق‌شده ثابت است یا جدول پلکانی دارد، از این عدد به‌عنوان مرجع استفاده کنید، نه تعیین نهایی.',
+      'عدد پیش‌نویس است و پیش از امضای قرارداد باید بازبینی شود.',
+    ],
+  };
+}
