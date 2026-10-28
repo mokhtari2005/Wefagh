@@ -3,6 +3,7 @@ import { validateContact } from './validate.js';
 import { saveContactMessage } from './contact.js';
 import { json, readJsonBody } from './http.js';
 import { register, verifyEmail, login, logout, me } from './auth/routes.js';
+import { handleAcademy } from './academy/routes.js';
 
 // برای سازگاری با تست‌های قبلی، json را از اینجا هم صادر می‌کنیم.
 export { json };
@@ -61,6 +62,11 @@ export default {
       }
       if (!env.DB) return json({ ok: false, error: 'DB_NOT_CONFIGURED' }, 503);
       return handler(request, env);
+    }
+
+    if (path.startsWith('/api/academy/')) {
+      const res = await handleAcademy(request, env, path);
+      if (res) return res;
     }
 
     return json({ ok: false, error: 'NOT_FOUND' }, 404);

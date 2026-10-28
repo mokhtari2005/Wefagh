@@ -4,14 +4,13 @@
 export const NAV = [
   { id: 'home', path: '/', title: 'خانه' },
   { id: 'about', path: '/about', title: 'درباره وِفاق' },
-  { id: 'academy', path: '/academy', title: 'آکادمی', status: 'planned', phase: 3 },
-  { id: 'calculators', path: '/calculators', title: 'محاسبه‌گرها', status: 'planned', phase: 2 },
+  { id: 'academy', path: '/academy', title: 'آکادمی' },
+  { id: 'calculators', path: '/calculators', title: 'محاسبه‌گرها' },
   { id: 'media', path: '/media', title: 'رسانه و پادکست', status: 'planned', phase: 4 },
   { id: 'laws', path: '/laws', title: 'بانک قوانین', status: 'planned', phase: 6 },
   { id: 'cooperative', path: '/cooperative', title: 'مشارکت صنفی', status: 'planned', phase: 7 },
-  { id: 'membership', path: '/membership', title: 'عضویت', status: 'planned', phase: 5 },
   { id: 'contact', path: '/contact', title: 'تماس با ما' },
-  { id: 'account', path: '/account', title: 'حساب کاربری' },
+  { id: 'account', path: '/account', title: 'عضویت و حساب' },
 ];
 
 /** @returns {Array<{text:string, href?:string}>} فهرست ساده برای کارت‌های معرفی */
