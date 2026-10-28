@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>وِفاق | گروه وکلای مدافع فرهنگ، اندیشه و قانون</title>
   <meta name="description" content="گروه وکلای مدافع فرهنگ، اندیشه و قانون وفاق: مشاوره، آموزش، رسانه و ابزارهای حقوقی.">
-  <meta name="theme-color" content="#f7f4eb">
+  <meta name="theme-color" content="#134e44">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -14,24 +14,16 @@
 
   <header class="site-header">
     <div class="container header-inner">
+      <a class="avatar-link" href="#/account" aria-label="حساب کاربری"><span aria-hidden="true">👤</span></a>
       <a class="brand" href="#/" aria-label="صفحهٔ اصلی وِفاق">
-        <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true" focusable="false">
-          <circle cx="20" cy="20" r="19" fill="#3e2723"/>
-          <path d="M11 15h18M20 15v12M14 27h12" stroke="#f7f4eb" stroke-width="2" stroke-linecap="round" fill="none"/>
-          <circle cx="11" cy="20" r="2.6" fill="#b99a62"/>
-          <circle cx="29" cy="20" r="2.6" fill="#b99a62"/>
-        </svg>
-        <span class="brand-text">
-          <span class="brand-name">وِفاق</span>
-          <span class="brand-sub">گروه وکلای مدافع فرهنگ، اندیشه و قانون</span>
-        </span>
+        <img class="brand-logo" src="assets/images/wefagh-logo.webp" width="640" height="640" alt="لوگوی وِفاق">
       </a>
-      <button class="nav-toggle" type="button" aria-label="باز کردن منو" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span></button>
       <form class="global-search" id="global-search" role="search">
         <label class="visually-hidden" for="global-search-input">جست‌وجو در بخش‌های وفاق</label>
         <input id="global-search-input" type="search" placeholder="جست‌وجو در دوره‌ها، پرونده‌ها، مقاله‌ها…" autocomplete="off">
-        <button type="submit" aria-label="جست‌وجو">⌕</button>
+        <button type="submit" aria-label="جست‌وجو"><span aria-hidden="true">⌕</span></button>
       </form>
+      <button class="nav-toggle" type="button" aria-label="باز کردن منو" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span></button>
       <nav id="site-nav" class="site-nav" aria-label="ناوبری اصلی"></nav>
     </div>
   </header>
@@ -42,17 +34,18 @@
 
   <footer class="site-footer">
     <div class="container footer-inner">
+      <img class="footer-logo" src="assets/images/wefagh-logo.webp" width="640" height="640" alt="" loading="lazy">
       <p>© <span id="year"></span> گروه وکلای مدافع فرهنگ، اندیشه و قانون وِفاق</p>
       <p>ایمیل: <a href="mailto:Vefagh.lawyers@gmail.com">Vefagh.lawyers@gmail.com</a></p>
     </div>
   </footer>
 
   <nav class="bottom-nav" aria-label="دسترسی سریع پایین صفحه">
-    <a href="#/account" data-bottom-route="/account"><span aria-hidden="true">♙</span><small>حساب</small></a>
-    <a href="#/deadlines" data-bottom-route="/deadlines"><span aria-hidden="true">▦</span><small>موعدها</small></a>
+    <a href="#/account" data-bottom-route="/account"><span aria-hidden="true">👤</span><small>حساب کاربری</small></a>
+    <a href="#/deadlines" data-bottom-route="/deadlines"><span aria-hidden="true">📅</span><small>مواعد</small></a>
     <a href="#/" data-bottom-route="/"><span class="bottom-home" aria-hidden="true">⌂</span><small>خانه</small></a>
-    <a href="#/academy" data-bottom-route="/academy"><span aria-hidden="true">▤</span><small>دوره‌ها</small></a>
-    <button type="button" id="bottom-more" aria-label="نمایش منوی بیشتر"><span aria-hidden="true">⠿</span><small>بیشتر</small></button>
+    <a href="#/academy" data-bottom-route="/academy"><span aria-hidden="true">📖</span><small>دوره‌ها</small></a>
+    <button type="button" id="bottom-more" aria-label="نمایش منوی بیشتر"><span aria-hidden="true">▦</span><small>بیشتر</small></button>
   </nav>
   <script type="module" src="js/app.js"></script>
 </body>
