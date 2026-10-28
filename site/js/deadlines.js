@@ -3,6 +3,8 @@ import { getJson, postJson, sendJson } from './api.js';
 import { messageFor } from './auth-messages.js';
 import { deadline as computeDeadline } from './calc/core.js';
 import { formatShamsi } from './shamsi.js';
+import { parseShamsiInput, isoToShamsiInput } from './jalali.js';
+import { shamsiField } from './shamsi-field.js';
 import { h } from './dom.js';
 import { todayIso, statusOf, sortDeadlines, upcomingOpen, KIND_LABELS, STATUS_LABELS } from './deadlines-core.js';
 
@@ -87,22 +89,27 @@ function addForm(onSaved) {
   const title = h('input', { type: 'text', maxlength: '150', required: '' });
   const caseNo = h('input', { type: 'text', maxlength: '60' });
   const kind = h('select', {}, Object.entries(KIND_LABELS).map(([v, t]) => h('option', { value: v, text: t })));
-  const due = h('input', { type: 'date', required: '' });
+  const due = shamsiField('dl-due', 'تاریخ مهلت یا جلسه (شمسی)', { required: true });
   const note = h('textarea', { rows: '3', maxlength: '1000' });
   const status = h('p', { class: 'form-status', role: 'status', 'aria-live': 'polite' });
 
-  // محاسبه از تاریخ ابلاغ
-  const notice = h('input', { type: 'date' });
+  // محاسبه از تاریخ ابلاغ (شمسی)
+  const notice = shamsiField('dl-notice', 'تاریخ ابلاغ (شمسی)');
   const days = h('input', { type: 'number', min: '0', max: '3650', step: '1', inputmode: 'numeric' });
   const calcOut = h('p', { class: 'muted', role: 'status' });
   const calcBtn = h('button', { class: 'btn', type: 'button', text: 'محاسبه و پرکردن تاریخ' });
   calcBtn.addEventListener('click', () => {
-    const r = computeDeadline({ noticeDate: notice.value, days: Number(days.value) });
-    if (!r.ok) {
-      calcOut.textContent = 'تاریخ ابلاغ و مدت مهلت را درست وارد کنید.';
+    const noticeIso = parseShamsiInput(notice.input.value);
+    if (!noticeIso) {
+      calcOut.textContent = 'تاریخ ابلاغ را به شکل ۱۴۰۵/۰۸/۰۶ وارد کنید.';
       return;
     }
-    due.value = r.lastDay;
+    const r = computeDeadline({ noticeDate: noticeIso, days: Number(days.value) });
+    if (!r.ok) {
+      calcOut.textContent = 'مدت مهلت را درست وارد کنید.';
+      return;
+    }
+    due.input.value = isoToShamsiInput(r.lastDay);
     calcOut.textContent = `آخرین روز پیشنهادی: ${shamsi(r.lastDay)}. ${r.limitations[0]} قاعدهٔ شروع مهلت را وکیل تأیید کند.`;
   });
 
@@ -112,10 +119,10 @@ function addForm(onSaved) {
     field('dl-title', 'عنوان (مثلاً: جلسه دادگاه، مهلت اعتراض)', title),
     field('dl-case', 'شمارهٔ پرونده (اختیاری)', caseNo),
     field('dl-kind', 'نوع', kind),
-    field('dl-due', 'تاریخ مهلت یا جلسه', due),
+    due.node,
     h('fieldset', { class: 'checklist' }, [
       h('legend', { text: 'محاسبه از تاریخ ابلاغ (اختیاری)' }),
-      field('dl-notice', 'تاریخ ابلاغ', notice),
+      notice.node,
       field('dl-days', 'مدت مهلت (روز)', days),
       calcBtn,
       calcOut,
@@ -127,6 +134,12 @@ function addForm(onSaved) {
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const dueIso = parseShamsiInput(due.input.value);
+    if (!dueIso) {
+      status.className = 'form-status err';
+      status.textContent = 'تاریخ مهلت را به شکل ۱۴۰۵/۰۸/۰۶ (شمسی) وارد کنید.';
+      return;
+    }
     submit.disabled = true;
     status.className = 'form-status';
     status.textContent = 'در حال ثبت…';
@@ -134,7 +147,7 @@ function addForm(onSaved) {
       title: title.value,
       caseNo: caseNo.value,
       kind: kind.value,
-      dueDate: due.value,
+      dueDate: dueIso,
       note: note.value,
     });
     submit.disabled = false;
