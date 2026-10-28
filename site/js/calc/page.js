@@ -1,5 +1,7 @@
 // صفحهٔ محاسبه‌گرها. فرم‌ها با DOM امن ساخته می‌شوند؛ خروجی فقط متن است. تاریخ‌ها شمسی وارد می‌شوند.
-import { deadline, delayInterest, courtFee, attorneyFee } from './core.js';
+import { deadline, delayInterest } from './core.js';
+import { applyRule } from './engine.js';
+import { findRule, rulesFor } from './rates.js';
 import { formatShamsi } from '../shamsi.js';
 import { parseShamsiInput, isoToShamsiInput } from '../jalali.js';
 import { shamsiField } from '../shamsi-field.js';
@@ -94,29 +96,40 @@ function delayTool() {
 }
 
 /** هزینهٔ دادرسی و حق‌الوکاله: فرمول «درصد با کف و سقف»؛ نرخ‌ها را کاربر از آیین‌نامهٔ معتبر وارد می‌کند. */
-function percentTool({ title, amountLabel, submitLabel, run }) {
+const RATE_YEAR = 1405;
+
+function unverifiedBox(rule) {
+  return h('div', { class: 'notice', role: 'alert' }, [
+    h('p', { text: `نرخ «${rule.title}» هنوز از متن رسمی احراز نشده است، پس محاسبه انجام نمی‌شود.` }),
+    h('p', { class: 'muted', text: `مستند موردنظر: ${rule.legal.citation}` }),
+  ]);
+}
+
+/** ابزار قاعده‌محور: کاربر نوع/مرحله را انتخاب می‌کند و موتور فقط قاعدهٔ تأییدشده را اعمال می‌کند. */
+function ruleTool({ title, amountLabel, group, submitLabel, note }) {
+  const select = h('select', {}, rulesFor(RATE_YEAR, group).map((r) => h('option', { value: r.id, text: r.title })));
   const amount = h('input', { type: 'number', min: '0', step: '1', required: '', inputmode: 'numeric' });
-  const percent = h('input', { type: 'number', min: '0', max: '100', step: '0.01', required: '', inputmode: 'decimal' });
-  const min = h('input', { type: 'number', min: '0', step: '1', value: '0', inputmode: 'numeric' });
-  const max = h('input', { type: 'number', min: '0', step: '1', placeholder: 'خالی = بدون سقف', inputmode: 'numeric' });
   const out = h('div');
   const form = h('form', { class: 'form', novalidate: '', 'aria-label': title }, [
+    field(`${title}-kind`, 'نوع و مرحله', select),
     field(`${title}-amount`, amountLabel, amount),
-    field(`${title}-percent`, 'نرخ (٪) — از آیین‌نامهٔ معتبر وارد کنید', percent),
-    field(`${title}-min`, 'کف (ریال، اختیاری)', min),
-    field(`${title}-max`, 'سقف (ریال، اختیاری)', max),
     h('button', { class: 'btn', type: 'submit', text: submitLabel }),
     out,
   ]);
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    const result = run({
-      amount: Number(amount.value),
-      percent: Number(percent.value),
-      min: min.value === '' ? 0 : Number(min.value),
-      max: max.value === '' ? null : Number(max.value),
-    });
-    out.replaceChildren(resultBox(result));
+    const rule = findRule(RATE_YEAR, select.value);
+    if (!rule) return out.replaceChildren(resultBox({ ok: false }));
+    const r = applyRule(rule, { amount: Number(amount.value) });
+    if (!r.ok && r.error === 'RULE_UNVERIFIED') return out.replaceChildren(unverifiedBox(rule));
+    if (!r.ok) return out.replaceChildren(resultBox({ ok: false }));
+    out.replaceChildren(resultBox({
+      ok: true,
+      ruleVersion: `${rule.id} / سال ${RATE_YEAR}`,
+      steps: r.steps,
+      fee: r.fee,
+      limitations: note,
+    }));
   });
   return h('section', { class: 'tool' }, [h('h2', { text: title }), form]);
 }
@@ -130,17 +143,19 @@ export function calculatorsPage() {
       text: 'این ابزارها پیش‌نویس محاسباتی هستند و جای تشخیص وکیل را نمی‌گیرند. نرخ‌ها، کف و سقف‌ها را خودتان از منبع رسمی و معتبر وارد می‌کنید؛ این نسخه هیچ نرخ قانونی را از پیش نمی‌داند. تاریخ‌ها شمسی وارد می‌شوند.',
     }),
     deadlineTool(),
-    percentTool({
+    ruleTool({
       title: 'هزینهٔ دادرسی',
-      amountLabel: 'مبلغ خواسته (ریال)',
-      submitLabel: 'محاسبه هزینهٔ دادرسی',
-      run: ({ amount, percent, min, max }) => courtFee({ claimAmount: amount, percent, min, max }),
-    }),
-    percentTool({
-      title: 'حق‌الوکاله',
       amountLabel: 'مبلغ مبنا (ریال)',
-      submitLabel: 'محاسبه حق‌الوکاله',
-      run: ({ amount, percent, min, max }) => attorneyFee({ amount, percent, min, max }),
+      group: 'court',
+      submitLabel: 'محاسبه هزینهٔ دادرسی',
+      note: ['مبنای محاسبه (خواسته یا محکوم‌به) و نحوهٔ اعمال هر پله باید مطابق متن رسمی باشد.', 'این ابزار پیش‌نویس است و پیش از ثبت دادخواست باید بازبینی شود.'],
+    }),
+    ruleTool({
+      title: 'حق‌الوکاله قانونی',
+      amountLabel: 'مبلغ مبنا (ریال)',
+      group: 'attorney',
+      submitLabel: 'محاسبه حق‌الوکاله قانونی',
+      note: ['این عدد تعرفهٔ قانونی است؛ حق‌الوکالهٔ توافقی جداگانه تعیین می‌شود.', 'مالیات، سهم صندوق و سایر کسورات محاسبه نشده‌اند و نیاز به احراز مبنای قانونی دارند.'],
     }),
     delayTool(),
   ]);
