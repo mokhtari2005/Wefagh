@@ -9,6 +9,9 @@ import { mootCourtPage } from './moot.js';
 import { calculatorsPage } from './calc/page.js';
 import { mediaHome, articlePage } from './media.js';
 import { deadlinesPage, upcomingCard } from './deadlines.js';
+import { casesPage } from './cases.js';
+import { dashboardPage } from './dashboard.js';
+import { adminPage } from './admin.js';
 
 /** صفحه‌ای که داده‌اش ناهمگام است: یک جای نگه‌دار می‌سازد و بعد پر می‌کند. */
 function lazy(fn) {
@@ -47,6 +50,10 @@ function renderNav(activePath) {
     list.append(h('li', {}, [link]));
   }
   nav.replaceChildren(list);
+  document.querySelectorAll('[data-bottom-route]').forEach((link) => {
+    if (link.getAttribute('data-bottom-route') === activePath) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+  });
 }
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -88,59 +95,41 @@ const MODULES = [
 ];
 
 function pageHome() {
-  const hero = h('section', { class: 'hero', 'aria-labelledby': 'hero-title' }, [
-    h('div', {}, [
-      h('span', { class: 'section-kicker', text: 'وِفاق · گروه وکلای مدافع فرهنگ، اندیشه و قانون' }),
-      h('h1', { id: 'hero-title' }, [
-        document.createTextNode('دانش حقوقی، '),
-        h('span', { class: 'hero-title-accent', text: 'گفت‌وگو' }),
-        document.createTextNode(' و کنش حرفه‌ای'),
-      ]),
-      h('p', { class: 'lead', text: 'آموزش، رسانه، تمرین دادرسی و ابزارهای حقوقی؛ برای شهروندان و اهالی حقوق.' }),
-      h('div', { class: 'hero-actions' }, [
-        h('a', { class: 'btn-link', href: '#/academy', text: 'ورود به دنیای وِفاق' }),
-        h('a', { class: 'btn-link secondary', href: '#/calculators', text: 'استفاده از ابزارهای حقوقی' }),
-      ]),
-      h('p', { class: 'muted', text: `امروز: ${formatShamsi(new Date())}` }),
-    ]),
-    heroArt(),
-  ]);
-
-  const modules = h('div', { class: 'modules' });
-  MODULES.forEach((m, i) => {
-    modules.append(h('a', { class: 'module', href: m.href }, [
-      h('span', { class: 'module-index', text: String(i + 1).padStart(2, '۰').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]) }),
-      h('h3', { class: 'module-title', text: m.title }),
-      h('p', { class: 'module-desc', text: m.desc }),
-      h('span', { class: 'module-cta', text: `${m.cta} ←` }),
-    ]));
-  });
-  const navSection = h('section', {}, [
-    h('span', { class: 'section-kicker', text: 'از کجا شروع کنیم' }),
-    h('h2', { text: 'شش مسیر، یک گفت‌وگو' }),
-    modules,
-  ]);
-
-  const deadlinesSection = h('section', {}, [lazy(upcomingCard)]);
-
-  const editorial = h('div', { class: 'editorial' });
-  for (const v of VALUES) {
-    editorial.append(h('div', { class: 'editorial-item' }, [h('h3', { text: v.title }), h('p', { text: v.text })]));
-  }
-  const valuesSection = h('section', {}, [h('h2', { text: 'ارزش‌های ما' }), editorial]);
-
-  const cta = h('section', { class: 'cta-band', 'aria-labelledby': 'cta-title' }, [
-    h('div', {}, [
-      h('h2', { id: 'cta-title', text: 'به وِفاق بپیوندید' }),
-      h('p', { text: 'عضویت برای ادامهٔ آموزش، ذخیرهٔ پیشرفت و دسترسی به امکانات اعضا.' }),
-    ]),
-    h('div', { class: 'row' }, [
-      h('a', { class: 'btn', href: '#/account', text: 'ثبت‌نام یا ورود' }),
-      h('a', { class: 'btn secondary light', href: '#/contact', text: 'تماس با ما' }),
+  const root = h('div', { class: 'home-dashboard' });
+  const hero = h('section', { class: 'dashboard-hero', 'aria-labelledby': 'hero-title' }, [
+    h('div', { class: 'dashboard-hero-copy' }, [
+      h('span', { class: 'section-kicker', text: 'آکادمی علمی حقوقی وفاق' }),
+      h('h1', { id: 'hero-title' }, [document.createTextNode('به آکادمی '), h('span', { text: 'وفاق' }), document.createTextNode(' خوش آمدید')]),
+      h('p', { text: 'مسیر حرفه‌ای شدن در وکالت؛ از آموزش تا تجربه. با دوره‌های تخصصی، پرونده‌های شبیه‌سازی‌شده و تمرین‌های عملی، مهارت‌های خود را تقویت کنید.' }),
+      h('a', { class: 'btn-link hero-button', href: '#/academy', text: 'مشاهدهٔ دوره‌ها ←' }),
     ]),
   ]);
 
-  return h('div', {}, [hero, navSection, deadlinesSection, valuesSection, cta]);
+  const metrics = h('section', { class: 'dashboard-overview', 'aria-label': 'نمای کلی پیشرفت' }, [
+    h('article', { class: 'overview-card progress-card' }, [
+      h('div', { class: 'progress-ring', 'aria-label': 'پیشرفت نمونه ۶۸ درصد' }, [h('span', { text: '۶۸٪' })]),
+      h('div', {}, [h('h2', { text: 'پیشرفت کلی شما' }), h('p', { text: 'مسیر تبدیل شدن به یک وکیل حرفه‌ای' }), h('div', { class: 'progress-track', role: 'progressbar', 'aria-valuenow': '68', 'aria-valuemin': '0', 'aria-valuemax': '100' }, [h('span')]), h('small', { text: 'برای مشاهدهٔ پیشرفت واقعی وارد حساب خود شوید.' })]),
+    ]),
+    h('article', { class: 'overview-card skill-card' }, [h('span', { class: 'feature-icon', text: '⚖' }), h('h2', { text: 'سطح مهارت فعلی' }), h('strong', { text: 'در مسیر یادگیری' }), h('a', { href: '#/dashboard', text: 'گزارش عملکرد ←' })]),
+    h('a', { class: 'overview-card course-card', href: '#/academy' }, [h('span', { class: 'mini-label', text: 'شروع مسیر یادگیری' }), h('span', { class: 'feature-icon', text: '◎' }), h('h2', { text: 'دوره‌های کاربردی حقوقی' }), h('p', { text: 'آموزش مرحله‌به‌مرحله با تمرین‌های عملی' }), h('span', { class: 'card-cta', text: 'ادامهٔ یادگیری ←' })]),
+    h('a', { class: 'overview-card practice-card', href: '#/moot-court' }, [h('span', { class: 'mini-label', text: 'تمرین پیشنهادی' }), h('h2', { text: 'موت‌کورت و دفاع شفاهی' }), h('p', { text: 'پروندهٔ آموزشی را بررسی کنید و از موضع خود دفاع کنید.' }), h('span', { class: 'card-cta', text: 'شروع تمرین ←' })]),
+  ]);
+
+  const quick = h('section', { class: 'quick-section' }, [h('div', { class: 'section-heading' }, [h('div', {}, [h('span', { class: 'section-kicker', text: 'یادگیری در عمل' }), h('h2', { text: 'دسترسی سریع به کارگاه‌ها' })]), h('a', { href: '#/academy', text: 'همهٔ بخش‌ها ←' })])]);
+  const quickItems = [
+    ['🎓', 'دوره‌های آموزشی', '#/academy'], ['📚', 'بانک پرونده‌ها', '#/cases'], ['🎙', 'موت‌کورت صوتی', '#/moot-court'], ['🗓', 'تقویم مواعد', '#/deadlines'], ['🧮', 'ابزارهای حقوقی', '#/calculators'], ['🤝', 'مهارت مذاکره', '#/academy'], ['🛡', 'اخلاق حرفه‌ای', '#/academy'], ['☷', 'آزمون مهارتی', '#/dashboard'],
+  ];
+  const quickGrid = h('div', { class: 'quick-grid' });
+  quickItems.forEach(([icon, title, href]) => quickGrid.append(h('a', { class: 'quick-tile', href }, [h('span', { class: 'quick-icon', text: icon }), h('span', { text: title })])));
+  quick.append(quickGrid);
+
+  const lower = h('section', { class: 'dashboard-lower' }, [
+    h('article', { class: 'panel deadline-panel' }, [h('div', { class: 'section-heading' }, [h('h2', { text: 'موعدهای پیش‌رو' }), h('a', { href: '#/deadlines', text: 'مشاهدهٔ تقویم ←' })]), lazy(upcomingCard)]),
+    h('article', { class: 'panel quote-panel' }, [h('div', { class: 'quote-image' }, [h('p', { text: 'وکیل موفق، فقط به قانون مسلط نیست؛ بلکه می‌داند چگونه از آن استفاده کند.' })]), h('h2', { text: 'به‌روز بمانید' }), h('p', { text: 'مقاله‌ها، پادکست‌ها و نکته‌های کاربردی برای رشد حرفه‌ای.' }), h('a', { class: 'btn-link', href: '#/media', text: 'مطالعهٔ مطالب وفاق ←' })]),
+  ]);
+  const cta = h('section', { class: 'learning-cta' }, [h('div', {}, [h('h2', { text: 'به سوی آینده‌ای روشن در مسیر وکالت' }), h('p', { text: 'با آکادمی وفاق، دانش، مهارت و اعتمادبه‌نفس را هم‌زمان تجربه کنید.' })]), h('a', { class: 'btn-link secondary', href: '#/account', text: 'شروع مسیر آموزشی ←' })]);
+  root.append(hero, metrics, quick, lower, cta);
+  return root;
 }
 
 function pageAbout() {
@@ -242,6 +231,9 @@ const ROUTES = {
   '/account': (params) => pageAccount(params),
   '/verify': (params) => pageVerify(params),
   '/academy': () => lazy(academyList),
+  '/dashboard': () => lazy(dashboardPage),
+  '/admin': () => lazy(adminPage),
+  '/cases': () => lazy(() => casesPage()),
   '/moot-court': () => mootCourtPage(),
   '/calculators': () => calculatorsPage(),
   '/media': () => lazy(mediaHome),
@@ -257,13 +249,14 @@ function render() {
   let content;
   const planned = NAV.find((n) => n.path === path && n.status === 'planned');
   if (ROUTES[path]) content = ROUTES[path](params);
+  else if (path.startsWith('/cases/')) content = lazy(() => casesPage(decodeURIComponent(path.slice('/cases/'.length))));
   else if (path.startsWith('/media/')) content = lazy(() => articlePage(decodeURIComponent(path.slice('/media/'.length))));
   else if (path.startsWith('/academy/')) content = lazy(() => academyCourse(decodeURIComponent(path.slice('/academy/'.length))));
   else if (planned) content = pagePlanned(planned);
   else content = pageNotFound();
 
   main.replaceChildren(content);
-  const EXTRA_TITLES = { '/verify': 'تأیید ایمیل', '/moot-court': 'موت کورت' };
+  const EXTRA_TITLES = { '/admin': 'مدیریت محتوا', '/dashboard': 'داشبورد من', '/verify': 'تأیید ایمیل', '/moot-court': 'موت کورت', '/cases': 'بانک پرونده‌ها' };
   const navTitle = NAV.find((n) => n.path === path)?.title;
   const title = navTitle ?? EXTRA_TITLES[path] ?? (path.startsWith('/academy/') ? 'آکادمی' : 'صفحه پیدا نشد');
   document.title = `${title} | وِفاق`;
@@ -274,6 +267,39 @@ function render() {
 toggle?.addEventListener('click', () => {
   const open = nav.classList.toggle('open');
   toggle.setAttribute('aria-expanded', String(open));
+});
+
+const bottomMore = document.getElementById('bottom-more');
+bottomMore?.addEventListener('click', () => {
+  const open = nav.classList.toggle('open');
+  toggle?.setAttribute('aria-expanded', String(open));
+  if (open) nav.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+});
+
+const searchForm = document.getElementById('global-search');
+const searchInput = document.getElementById('global-search-input');
+searchForm?.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const query = (searchInput?.value || '').trim().toLocaleLowerCase('fa');
+  if (!query) return;
+  const candidates = [
+    ...NAV.map((item) => ({ title: item.title, path: item.path })),
+    { title: 'موت‌کورت و تمرین دادرسی', path: '/moot-court' },
+    { title: 'تمرین دادرسی', path: '/moot-court' },
+    { title: 'مقاله‌ها و پادکست‌ها', path: '/media' },
+    { title: 'تمرین‌ها و عملکرد من', path: '/dashboard' },
+  ];
+  const match = candidates.find((item) => item.title.toLocaleLowerCase('fa').includes(query))
+    || candidates.find((item) => query.includes(item.title.toLocaleLowerCase('fa')));
+  if (match) location.hash = `#${match.path}`;
+  else {
+    const notice = document.getElementById('search-feedback') || document.createElement('p');
+    notice.id = 'search-feedback';
+    notice.className = 'search-feedback';
+    notice.setAttribute('role', 'status');
+    notice.textContent = 'بخش مستقیمی با این عبارت پیدا نشد؛ از منوی وفاق یکی از بخش‌ها را انتخاب کنید.';
+    searchForm.insertAdjacentElement('afterend', notice);
+  }
 });
 
 document.getElementById('year').textContent = formatShamsi(new Date()).split(' ').pop();

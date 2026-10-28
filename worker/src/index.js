@@ -6,6 +6,10 @@ import { register, verifyEmail, login, logout, me } from './auth/routes.js';
 import { handleAcademy } from './academy/routes.js';
 import { handleMedia } from './media/routes.js';
 import { handleDeadlines } from './deadlines/routes.js';
+import { handleCases } from './cases/routes.js';
+import { handleDashboard } from './dashboard.js';
+import { handleAdmin } from './admin.js';
+import { handleAdminMedia } from './admin-media.js';
 
 // برای سازگاری با تست‌های قبلی، json را از اینجا هم صادر می‌کنیم.
 export { json };
@@ -66,13 +70,33 @@ export default {
       return handler(request, env);
     }
 
+    if (path === '/api/admin/content' || path.startsWith('/api/admin/content/')) {
+      const res = await handleAdmin(request, env, path);
+      if (res) return res;
+    }
+
+    if (path === '/api/admin/media' || path.startsWith('/api/admin/media/')) {
+      const res = await handleAdminMedia(request, env, path);
+      if (res) return res;
+    }
+
+    if (path.startsWith('/api/dashboard/')) {
+      const res = await handleDashboard(request, env, path);
+      if (res) return res;
+    }
+
     if (path === '/api/deadlines' || path.startsWith('/api/deadlines/')) {
       const res = await handleDeadlines(request, env, path);
       if (res) return res;
     }
 
+    if (path === '/api/cases' || path.startsWith('/api/cases/') || path === '/api/moot/sessions' || path.startsWith('/api/moot/sessions/')) {
+      const res = await handleCases(request, env, path);
+      if (res) return res;
+    }
+
     if (path.startsWith('/api/media/')) {
-      const res = await handleMedia(request, path);
+      const res = await handleMedia(request, env, path);
       if (res) return res;
     }
 

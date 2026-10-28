@@ -179,6 +179,7 @@ export async function accountPanel({ onLogout }) {
     h('p', { text: `نام: ${user.displayName}` }),
     h('p', { dir: 'ltr', text: user.email }),
     user.roles?.length ? h('p', { class: 'muted', text: `نقش‌ها: ${user.roles.join('، ')}` }) : h('span'),
+    user.roles?.some((role) => ['admin', 'super_admin', 'academy_manager', 'media_editor'].includes(role)) ? h('p', {}, [h('a', { class: 'btn secondary', href: '#/admin', text: 'ورود به مدیریت محتوا' })]) : h('span'),
     logout,
     status,
   ]);

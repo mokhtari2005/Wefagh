@@ -1,9 +1,10 @@
-// موت کورت: تمرین ساختاریافتهٔ دادرسی روی یک پروندهٔ فرضی.
-// هیچ ارزیابی هوش مصنوعی ندارد؛ خودارزیابی با چک‌لیست انجام می‌شود. پاسخ‌ها روی سرور ذخیره نمی‌شوند.
+// موت‌کورت آموزشی با ذخیرهٔ اختیاری محلی و ذخیرهٔ پایدار برای کاربران واردشده.
 import { h } from './dom.js';
+import { getJson, postJson, sendJson } from './api.js';
+import { COACH_ROLES, getCoachPrompt, evaluateOralAnswer } from './moot-coach.js';
 
-// پروندهٔ کاملاً فرضی؛ نام‌ها و وقایع ساختگی‌اند و به شخص یا پرونده‌ای واقعی ربط ندارند.
 export const CASE = Object.freeze({
+  id: 'contract-delivery-delay',
   title: 'پروندهٔ فرضی: تأخیر در تحویل کالا',
   facts: [
     'آقای «الف» (فروشنده) و شرکت «ب» (خریدار) قراردادی برای خرید ۱۰۰ دستگاه دربارهٔ تاریخ معین تحویل امضا کردند.',
@@ -24,8 +25,7 @@ export const CASE = Object.freeze({
     'درخواست نهایی من برای دادگاه روشن و قابل اجراست.',
     'نتیجه‌گیری‌ام را به‌صورت «اگر ... آنگاه ...» و با احتمال‌های دیگر سنجیده‌ام.',
   ],
-  outlineHint:
-    'ساختار پیشنهادی: ۱) خلاصهٔ وقایع با ارجاع به متن پرونده؛ ۲) برای هر مسئله: قاعده، واقعه، نتیجه؛ ۳) پاسخ به دفاع طرف مقابل؛ ۴) درخواست نهایی. ارزیابی نهایی با وکیل یا استاد است.',
+  outlineHint: 'ساختار پیشنهادی: ۱) خلاصهٔ وقایع با ارجاع به متن پرونده؛ ۲) برای هر مسئله: قاعده، واقعه، نتیجه؛ ۳) پاسخ به دفاع طرف مقابل؛ ۴) درخواست نهایی. ارزیابی نهایی با وکیل یا استاد است.',
 });
 
 export function scoreRubric(checked, total) {
@@ -44,91 +44,282 @@ export function mootCourtPage() {
   const wrap = h('div', { class: 'moot' }, [
     h('span', { class: 'section-kicker', text: 'تمرین دادرسی · پروندهٔ فرضی آموزشی' }),
     h('h1', { text: 'موت‌کورت' }),
-    h('p', { class: 'lead', text: 'یک پروندهٔ فرضی را مرحله‌به‌مرحله تحلیل کنید: ابتدا وقایع، سپس پاسخ به مسائل، و در پایان خودارزیابی.' }),
-    h('div', {
-      class: 'notice',
-      role: 'note',
-      text: 'این تمرین پروندهٔ فرضی دارد و جایگزین مشاورهٔ حقوقی نیست. ارزیابی با چک‌لیست خودتان انجام می‌شود، نه هوش مصنوعی. پاسخ‌ها ذخیره نمی‌شوند؛ قبل از خروج از صفحه متن خود را کپی کنید.',
-    }),
+    h('p', { class: 'lead', text: 'یک پروندهٔ فرضی را مرحله‌به‌مرحله تحلیل کنید و در صورت ورود به حساب، تمرین را ذخیره کنید و بعداً ادامه دهید.' }),
   ]);
+  const accountBar = h('section', { class: 'case-panel', 'aria-label': 'ذخیره و بازیابی تمرین' }, [h('h2', { text: 'تمرین‌های من' })]);
+  const accountStatus = h('p', { class: 'muted', role: 'status', 'aria-live': 'polite', text: 'در حال بررسی وضعیت حساب…' });
+  const sessionSelect = h('select', { 'aria-label': 'انتخاب تمرین ذخیره‌شده' });
+  const newSession = h('button', { class: 'btn', type: 'button', text: 'شروع تمرین ذخیره‌شونده' });
+  const saveStatus = h('p', { class: 'muted', role: 'status', 'aria-live': 'polite', text: 'هنوز تمرینی انتخاب نشده است.' });
+  accountBar.append(accountStatus, h('div', { class: 'row' }, [sessionSelect, newSession]), saveStatus);
+  wrap.append(accountBar, h('div', { class: 'notice', role: 'note', text: 'این تمرین فرضی و آموزشی است و جایگزین مشاورهٔ حقوقی نیست. اگر وارد حساب نشده‌اید، می‌توانید تمرین کنید اما پاسخ‌ها فقط تا وقتی صفحه باز است نگه داشته می‌شوند.' }));
 
-  // نوار مراحل
-  const stepItems = STAGES.map((st, i) =>
-    h('li', { 'data-stage': st.id }, [h('span', { class: 'num', text: String(i + 1) }), h('span', { text: st.title })])
-  );
+  const stepItems = STAGES.map((st, i) => h('li', { 'data-stage': st.id }, [h('span', { class: 'num', text: String(i + 1) }), h('span', { text: st.title })]));
   const stepper = h('ol', { class: 'stepper', 'aria-label': 'مراحل تمرین' }, stepItems);
   wrap.append(stepper);
-
   const answers = {};
   const boxes = [];
   const panels = {};
 
-  // مرحله ۱: وقایع و مسائل
-  const factsPanel = h('section', { class: 'case-panel' }, [
-    h('h2', { text: CASE.title }),
-    h('h3', { text: 'وقایع' }),
-  ]);
+  const factsPanel = h('section', { class: 'case-panel' }, [h('h2', { text: CASE.title }), h('h3', { text: 'وقایع' })]);
   const facts = h('ol');
-  for (const f of CASE.facts) facts.append(h('li', { text: f }));
+  CASE.facts.forEach((f) => facts.append(h('li', { text: f })));
   factsPanel.append(facts, h('h3', { text: 'مسائل حقوقی' }));
   const issuesList = h('ol');
-  for (const issue of CASE.issues) issuesList.append(h('li', { text: issue.text }));
+  CASE.issues.forEach((issue) => issuesList.append(h('li', { text: issue.text })));
   factsPanel.append(issuesList);
   panels.facts = factsPanel;
 
-  // مرحله ۲: پاسخ‌ها
   const answersPanel = h('form', { class: 'form', novalidate: '', 'aria-label': 'پاسخ موت‌کورت' });
+
+  // شبیه‌ساز پرسش قاضی/طرف مقابل: بازخورد قاعده‌مند و محلی، بدون ادعای مدل هوش مصنوعی.
+  const coachPanel = h('section', { class: 'case-panel moot-coach', 'aria-label': 'پرسش‌گر آموزشی' }, [
+    h('h2', { text: 'پرسش‌گر آموزشی' }),
+    h('p', { text: 'به پرسش قاضی یا وکیل طرف مقابل پاسخ دهید. بازخورد بر اساس وجود نشانه‌های استدلال در متن است و جایگزین ارزیابی استاد یا بررسی حقوقی نیست.' }),
+  ]);
+  const coachRole = h('select', { 'aria-label': 'نقش پرسش‌گر' }, [
+    h('option', { value: 'judge', text: 'قاضی' }),
+    h('option', { value: 'opposing', text: 'وکیل طرف مقابل' }),
+  ]);
+  const coachQuestion = h('p', { class: 'lead', role: 'status', 'aria-live': 'polite', text: getCoachPrompt('judge', 0) });
+  const coachAnswer = h('textarea', { rows: '4', maxlength: '3000', 'aria-label': 'پاسخ به پرسش‌گر', placeholder: 'پاسخ شفاهی خود را به‌صورت متن بنویسید…' });
+  const coachFeedback = h('div', { class: 'coach-feedback', role: 'status', 'aria-live': 'polite' });
+  const coachSubmit = h('button', { class: 'btn', type: 'button', text: 'ارزیابی ساختار پاسخ' });
+  const coachNext = h('button', { class: 'btn secondary', type: 'button', text: 'پرسش بعدی' });
+  let coachIndex = 0;
+  function updateCoachPrompt() {
+    coachQuestion.textContent = getCoachPrompt(coachRole.value, coachIndex);
+    coachFeedback.replaceChildren();
+  }
+  coachRole.addEventListener('change', () => { coachIndex = 0; updateCoachPrompt(); });
+  coachNext.addEventListener('click', () => { coachIndex += 1; updateCoachPrompt(); });
+  coachSubmit.addEventListener('click', () => {
+    const result = evaluateOralAnswer(coachAnswer.value);
+    coachFeedback.replaceChildren(
+      h('p', { class: 'lead', text: `امتیاز ساختاری اولیه: ${result.score}٪` }),
+      h('ul', {}, result.checks.map((item) => h('li', { text: `${item.passed ? '✓' : '○'} ${item.label}` }))),
+      h('p', { class: 'muted', text: result.note }),
+    );
+  });
+  coachPanel.append(h('div', { class: 'row' }, [coachRole]), coachQuestion, coachAnswer, h('div', { class: 'row' }, [coachSubmit, coachNext]), coachFeedback);
+  answersPanel.append(coachPanel);
+
+  // ضبط تمرین شفاهی فقط در مرورگر انجام می‌شود؛ فایل صوتی به سرور ارسال نمی‌شود.
+  const audioPanel = h('section', { class: 'case-panel oral-practice', 'aria-label': 'تمرین شفاهی و ضبط صدا' }, [
+    h('h2', { text: 'تمرین شفاهی و ضبط صدا' }),
+    h('p', { text: 'یک دفاع کوتاه ۱ تا ۳ دقیقه‌ای ارائه کنید. برای ضبط، اجازهٔ میکروفون لازم است. صدا فقط در همین صفحه نگه‌داری می‌شود و با بارگذاری مجدد صفحه از بین می‌رود.' }),
+  ]);
+  const audioStatus = h('p', { class: 'muted', role: 'status', 'aria-live': 'polite', text: 'هنوز صدایی ضبط نشده است.' });
+  const recordStart = h('button', { class: 'btn', type: 'button', text: 'شروع ضبط صدا' });
+  const recordStop = h('button', { class: 'btn secondary', type: 'button', text: 'پایان ضبط', disabled: '' });
+  const audioPlayer = h('audio', { controls: '', preload: 'metadata', hidden: '', 'aria-label': 'پخش صدای ضبط‌شده' });
+  audioPlayer.classList.add('oral-player');
+  const audioDownload = h('a', { class: 'btn secondary', hidden: '', download: 'wefagh-moot-court.webm', text: 'دریافت فایل صوتی' });
+  audioPanel.append(h('div', { class: 'row oral-controls' }, [recordStart, recordStop]), audioStatus, audioPlayer, audioDownload);
+  let mediaRecorder = null;
+  let mediaStream = null;
+  let audioChunks = [];
+  let audioUrl = null;
+  let audioLimitTimer = null;
+  function releaseMicrophone() {
+    if (mediaStream) mediaStream.getTracks().forEach((track) => track.stop());
+    mediaStream = null;
+    if (audioLimitTimer) { clearTimeout(audioLimitTimer); audioLimitTimer = null; }
+  }
+  function clearAudioUrl() {
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    audioUrl = null;
+  }
+  recordStart.addEventListener('click', async () => {
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      audioStatus.textContent = 'مرورگر یا محیط فعلی از ضبط صدا پشتیبانی نمی‌کند. از مرورگر به‌روز و اتصال امن HTTPS استفاده کنید.';
+      return;
+    }
+    recordStart.disabled = true;
+    audioStatus.textContent = 'در انتظار اجازهٔ دسترسی به میکروفون…';
+    try {
+      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find((type) => MediaRecorder.isTypeSupported?.(type));
+      mediaRecorder = mimeType ? new MediaRecorder(mediaStream, { mimeType }) : new MediaRecorder(mediaStream);
+      audioChunks = [];
+      mediaRecorder.addEventListener('dataavailable', (event) => {
+        if (event.data && event.data.size) audioChunks.push(event.data);
+      });
+      mediaRecorder.addEventListener('error', () => {
+        audioStatus.textContent = 'در ضبط صدا خطایی رخ داد. لطفاً دوباره تلاش کنید.';
+        recordStart.disabled = false;
+        recordStop.disabled = true;
+        releaseMicrophone();
+      });
+      mediaRecorder.addEventListener('stop', () => {
+        releaseMicrophone();
+        recordStart.disabled = false;
+        recordStop.disabled = true;
+        if (!audioChunks.length) {
+          audioStatus.textContent = 'صدای قابل استفاده‌ای ضبط نشد. مجوز میکروفون را بررسی و دوباره تلاش کنید.';
+          return;
+        }
+        const type = mediaRecorder?.mimeType || audioChunks[0].type || 'audio/webm';
+        const blob = new Blob(audioChunks, { type });
+        clearAudioUrl();
+        audioUrl = URL.createObjectURL(blob);
+        audioPlayer.src = audioUrl;
+        audioPlayer.hidden = false;
+        audioDownload.href = audioUrl;
+        audioDownload.download = type.includes('mp4') ? 'wefagh-moot-court.m4a' : 'wefagh-moot-court.webm';
+        audioDownload.hidden = false;
+        audioStatus.textContent = `ضبط تمام شد · حجم فایل ${(blob.size / 1024).toFixed(0)} کیلوبایت. برای شنیدن از پخش‌کننده استفاده کنید.`;
+      }, { once: true });
+      mediaRecorder.start();
+      recordStop.disabled = false;
+      audioStatus.textContent = 'در حال ضبط… حداکثر زمان ضبط ۵ دقیقه است.';
+      audioLimitTimer = setTimeout(() => {
+        if (mediaRecorder?.state === 'recording') mediaRecorder.stop();
+      }, 5 * 60 * 1000);
+    } catch (error) {
+      releaseMicrophone();
+      recordStart.disabled = false;
+      audioStatus.textContent = error?.name === 'NotAllowedError'
+        ? 'دسترسی میکروفون رد شد. مجوز میکروفون را در تنظیمات مرورگر فعال کنید.'
+        : 'میکروفون در دسترس نیست. اتصال امن HTTPS و تنظیمات دستگاه را بررسی کنید.';
+    }
+  });
+  recordStop.addEventListener('click', () => {
+    if (mediaRecorder?.state === 'recording') mediaRecorder.stop();
+  });
+  audioPanel.append(h('p', { class: 'muted', text: 'نکتهٔ حریم خصوصی: این نسخه صدا را بارگذاری یا در حساب ذخیره نمی‌کند؛ فایل را در صورت نیاز با دکمهٔ دریافت، روی دستگاه خود نگه دارید.' }));
+  answersPanel.append(audioPanel);
+
   CASE.issues.forEach((issue, i) => {
     const ta = h('textarea', { id: `moot-${issue.id}`, rows: '6', maxlength: '4000' });
+    ta.addEventListener('input', scheduleSave);
+    ta.addEventListener('blur', () => { if (saveTimer) clearTimeout(saveTimer); saveNow(); });
     answers[issue.id] = ta;
     answersPanel.append(h('div', { class: 'field' }, [h('label', { for: `moot-${issue.id}`, text: `مسئلهٔ ${i + 1}: ${issue.text}` }), ta]));
   });
   panels.answers = answersPanel;
 
-  // مرحله ۳: چک‌لیست و ثبت
   const checkPanel = h('form', { class: 'form', novalidate: '', 'aria-label': 'خودارزیابی موت‌کورت' });
   const checklist = h('fieldset', { class: 'checklist' }, [h('legend', { text: 'چک‌لیست خودارزیابی' })]);
   CASE.rubric.forEach((item, i) => {
     const cb = h('input', { type: 'checkbox', id: `rub-${i}` });
+    cb.addEventListener('change', scheduleSave);
     boxes.push(cb);
     checklist.append(h('label', { class: 'check-item', for: `rub-${i}` }, [cb, document.createTextNode(' ' + item)]));
   });
   checkPanel.append(checklist);
   const out = h('div', { role: 'status', 'aria-live': 'polite' });
-  const submit = h('button', { class: 'btn', type: 'submit', text: 'ثبت خودارزیابی' });
-  checkPanel.append(h('div', { class: 'row' }, [submit]));
+  checkPanel.append(h('div', { class: 'row' }, [h('button', { class: 'btn', type: 'submit', text: 'ثبت خودارزیابی' })]));
   panels.check = checkPanel;
 
-  // مرحله ۴: نتیجه
   const resultPanel = h('section', { class: 'case-panel' }, [h('h2', { text: 'نتیجهٔ تمرین' }), out]);
-  const reset = h('button', { class: 'btn secondary', type: 'button', text: 'پاک کردن و شروع دوباره' });
+  const reset = h('button', { class: 'btn secondary', type: 'button', text: 'پاک کردن پاسخ‌ها' });
   resultPanel.append(h('div', { class: 'row' }, [reset]));
   panels.result = resultPanel;
-
   let current = 0;
+  let userSignedIn = false;
+  let activeSessionId = null;
+  let saveTimer = null;
+  let saving = false;
+  let saveAgain = false;
   const prev = h('button', { class: 'btn secondary', type: 'button', text: '→ مرحلهٔ قبلی' });
   const next = h('button', { class: 'btn', type: 'button', text: 'مرحلهٔ بعد ←' });
   const nav = h('div', { class: 'row moot-nav' }, [prev, next]);
   const body = h('div', { class: 'moot-body' }, STAGES.map((st) => panels[st.id]));
   wrap.append(body, nav);
 
+  function payload() {
+    return {
+      caseId: CASE.id,
+      title: `موت‌کورت — ${CASE.title.replace('پروندهٔ فرضی: ', '')}`,
+      answers: Object.fromEntries(Object.entries(answers).map(([key, ta]) => [key, ta.value])),
+      rubric: boxes.map((b) => b.checked),
+      stage: STAGES[current].id,
+      score: current === 3 ? scoreRubric(boxes.filter((b) => b.checked).length, boxes.length) : null,
+    };
+  }
+  function loadPayload(session) {
+    for (const [key, ta] of Object.entries(answers)) ta.value = typeof session.answers?.[key] === 'string' ? session.answers[key] : '';
+    boxes.forEach((b, i) => { b.checked = Boolean(session.rubric?.[i]); });
+    out.replaceChildren();
+    if (session.score !== null && session.score !== undefined) {
+      out.append(h('p', { class: 'lead', text: `آخرین خودارزیابی ذخیره‌شده: ${session.score}٪ معیارها رعایت شده‌اند.` }));
+      out.append(h('p', { text: `پاسخ‌های کامل (حداقل ۴۰ نویسه): ${Object.values(answers).filter((ta) => ta.value.trim().length >= 40).length} از ${CASE.issues.length}.` }));
+      out.append(h('p', { class: 'muted', text: CASE.outlineHint }));
+    }
+    const idx = STAGES.findIndex((s) => s.id === session.stage);
+    show(idx < 0 ? 0 : idx);
+    saveStatus.textContent = `تمرین شمارهٔ ${session.id} بازیابی شد.`;
+  }
   function show(index) {
     current = Math.max(0, Math.min(STAGES.length - 1, index));
     STAGES.forEach((st, i) => {
       panels[st.id].hidden = i !== current;
       const li = stepper.children[i];
       li.classList.toggle('done', i < current);
-      if (i === current) li.setAttribute('aria-current', 'step');
-      else li.removeAttribute('aria-current');
+      if (i === current) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
     });
     prev.hidden = current === 0;
     next.hidden = current === STAGES.length - 1;
+    if (activeSessionId) scheduleSave();
     panels[STAGES[current].id].querySelector('h2, textarea, input, button')?.focus?.({ preventScroll: true });
   }
-
+  async function refreshSessions(selectedId = null) {
+    const res = await getJson('/api/moot/sessions');
+    if (!res.ok) return;
+    sessionSelect.replaceChildren(h('option', { value: '', text: 'انتخاب تمرین ذخیره‌شده…' }));
+    for (const session of res.data.sessions || []) {
+      const date = session.updatedAt ? new Date(session.updatedAt).toLocaleDateString('fa-IR') : '';
+      sessionSelect.append(h('option', { value: String(session.id), text: `${session.title} · ${date}` }));
+    }
+    if (selectedId) sessionSelect.value = String(selectedId);
+  }
+  async function saveNow() {
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+    if (!userSignedIn || !activeSessionId) return;
+    if (saving) { saveAgain = true; return; }
+    saving = true;
+    saveStatus.textContent = 'در حال ذخیرهٔ پاسخ‌ها…';
+    try {
+      const result = await sendJson('PATCH', `/api/moot/sessions/${activeSessionId}`, payload());
+      if (result.ok) saveStatus.textContent = `ذخیره شد · ${new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}`;
+      else if (result.status === 401) saveStatus.textContent = 'نشست ورود منقضی شده است؛ دوباره وارد حساب شوید.';
+      else saveStatus.textContent = 'ذخیره انجام نشد. اتصال را بررسی کنید و دوباره تلاش کنید.';
+    } finally {
+      saving = false;
+      if (saveAgain) { saveAgain = false; saveNow(); }
+    }
+  }
+  function scheduleSave() {
+    if (!userSignedIn || !activeSessionId) return;
+    if (saveTimer) clearTimeout(saveTimer);
+    saveStatus.textContent = 'تغییرات ثبت شد؛ در انتظار ذخیره…';
+    saveTimer = setTimeout(saveNow, 700);
+  }
   prev.addEventListener('click', () => show(current - 1));
   next.addEventListener('click', () => show(current + 1));
-
+  sessionSelect.addEventListener('change', async () => {
+    if (!sessionSelect.value) return;
+    if (activeSessionId) await saveNow();
+    const res = await getJson(`/api/moot/sessions/${encodeURIComponent(sessionSelect.value)}`);
+    if (res.ok) { activeSessionId = res.data.session.id; loadPayload(res.data.session); }
+    else saveStatus.textContent = 'بازیابی تمرین انجام نشد.';
+  });
+  newSession.addEventListener('click', async () => {
+    if (!userSignedIn) { window.location.hash = '#/account'; return; }
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+    activeSessionId = null;
+    for (const ta of Object.values(answers)) ta.value = '';
+    for (const b of boxes) b.checked = false;
+    out.replaceChildren();
+    show(0);
+    const created = await postJson('/api/moot/sessions', { ...payload(), title: `تمرین جدید — ${CASE.title.replace('پروندهٔ فرضی: ', '')}` });
+    if (!created.ok || !created.data?.id) { saveStatus.textContent = 'ساخت تمرین ناموفق بود. لطفاً دوباره تلاش کنید.'; return; }
+    activeSessionId = created.data.id;
+    saveStatus.textContent = 'تمرین جدید ساخته شد.';
+    await refreshSessions(activeSessionId);
+    await saveNow();
+  });
   checkPanel.addEventListener('submit', (e) => {
     e.preventDefault();
     const checked = boxes.filter((b) => b.checked).length;
@@ -140,15 +331,32 @@ export function mootCourtPage() {
       h('p', { class: 'muted', text: CASE.outlineHint })
     );
     show(3);
+    scheduleSave();
   });
-
   reset.addEventListener('click', () => {
     for (const ta of Object.values(answers)) ta.value = '';
     for (const b of boxes) b.checked = false;
     out.replaceChildren();
     show(0);
+    scheduleSave();
   });
 
+  getJson('/api/me').then(async (me) => {
+    userSignedIn = me.ok && Boolean(me.data?.user);
+    if (!userSignedIn) {
+      accountStatus.textContent = 'برای ذخیره و بازیابی تمرین‌ها، ابتدا وارد حساب شوید.';
+      newSession.textContent = 'ورود برای ذخیرهٔ تمرین';
+      sessionSelect.disabled = true;
+      return;
+    }
+    accountStatus.textContent = `خوش آمدید ${me.data.user.displayName || ''}؛ تمرین‌ها به حساب شما متصل‌اند.`;
+    await refreshSessions();
+  }).catch(() => { accountStatus.textContent = 'وضعیت حساب در دسترس نیست.'; });
+  window.addEventListener('pagehide', () => {
+    if (mediaRecorder?.state === 'recording') mediaRecorder.stop();
+    releaseMicrophone();
+    clearAudioUrl();
+  }, { once: true });
   show(0);
   return wrap;
 }

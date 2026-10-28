@@ -5,6 +5,8 @@ export const NAV = [
   { id: 'home', path: '/', title: 'خانه' },
   { id: 'about', path: '/about', title: 'درباره وِفاق' },
   { id: 'academy', path: '/academy', title: 'آکادمی' },
+  { id: 'dashboard', path: '/dashboard', title: 'داشبورد من' },
+  { id: 'cases', path: '/cases', title: 'بانک پرونده‌ها' },
   { id: 'calculators', path: '/calculators', title: 'محاسبه‌گرها' },
   { id: 'deadlines', path: '/deadlines', title: 'تقویم مواعد' },
   { id: 'media', path: '/media', title: 'رسانه و پادکست' },
