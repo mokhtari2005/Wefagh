@@ -5,6 +5,7 @@ import { cleanText, normalizeEmail } from '../validate.js';
 import { hashPassword, verifyPassword, validatePasswordPolicy } from './password.js';
 import { generateToken, hashToken, addMs, SESSION_TTL_MS, EMAIL_TOKEN_TTL_MS } from './token.js';
 import { sendMail } from '../email/gmail.js';
+import { validateProfile } from './profile.js';
 
 export const LOCK_THRESHOLD = 5;
 export const LOCK_MINUTES = 15;
@@ -38,10 +39,16 @@ export async function register(request, env) {
   const pol = validatePasswordPolicy(body.password);
   if (!pol.ok) errors.password = pol.error;
   if (displayName.length < 2 || displayName.length > 100) errors.displayName = 'نام نمایشی باید بین ۲ و ۱۰۰ نویسه باشد.';
+  const profileCheck = validateProfile(body.profile);
+  if (!profileCheck.ok) Object.assign(errors, profileCheck.errors);
   if (Object.keys(errors).length > 0) return json({ ok: false, error: 'VALIDATION_FAILED', errors }, 422);
+  const profile = profileCheck.value;
 
   const existing = await env.DB.prepare('SELECT id FROM users WHERE email = ?1').bind(email).first();
   if (existing) return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
+  // شماره تکراری: پاسخ عمومی همان ایمیل تکراری؛ شماره‌های ثبت‌شده فاش نمی‌شوند.
+  const phoneTaken = await env.DB.prepare('SELECT user_id FROM user_profiles WHERE phone = ?1').bind(profile.phone).first();
+  if (phoneTaken) return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
 
   const passwordHash = await hashPassword(body.password);
   let userId;
@@ -53,6 +60,15 @@ export async function register(request, env) {
     userId = row?.id;
   } catch (err) {
     // ثبت همزمان دو درخواست با یک ایمیل: پاسخ عمومی؛ سایر خطاها به کاربر نشان داده نمی‌شوند.
+    if (String(err?.message || '').includes('UNIQUE')) return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
+    return json({ ok: false, error: 'INTERNAL_ERROR' }, 500);
+  }
+
+  try {
+    await insertProfile(env, userId, profile);
+  } catch (err) {
+    // پروفایل ذخیره نشد: حساب ناقص نماند.
+    await env.DB.prepare('DELETE FROM users WHERE id = ?1').bind(userId).run();
     if (String(err?.message || '').includes('UNIQUE')) return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
     return json({ ok: false, error: 'INTERNAL_ERROR' }, 500);
   }
@@ -80,6 +96,43 @@ export async function register(request, env) {
     // ارسال ایمیل ناموفق؛ کاربر در پاسخ عمومی متوجه جزئیات نمی‌شود. ارسال مجدد در مرحلهٔ بعد اضافه می‌شود.
   }
   return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
+}
+
+async function insertProfile(env, userId, p) {
+  await env.DB
+    .prepare(`INSERT INTO user_profiles (user_id, phone, province, city, professional_status, bar_association,
+        license_number, license_year, experience_band, practice_areas, learning_goal, skill_areas, skill_level,
+        learning_format, notes) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)`)
+    .bind(userId, p.phone, p.province, p.city, p.professionalStatus, p.barAssociation, p.licenseNumber,
+      p.licenseYear, p.experienceBand, JSON.stringify(p.practiceAreas), p.learningGoal,
+      JSON.stringify(p.skillAreas), p.skillLevel, p.learningFormat, p.notes)
+    .run();
+}
+
+export async function getProfile(env, userId) {
+  const row = await env.DB
+    .prepare(`SELECT phone, province, city, professional_status, bar_association, license_number, license_year,
+        experience_band, practice_areas, learning_goal, skill_areas, skill_level, learning_format, notes
+        FROM user_profiles WHERE user_id = ?1`)
+    .bind(userId)
+    .first();
+  if (!row) return null;
+  return {
+    phone: row.phone,
+    province: row.province,
+    city: row.city,
+    professionalStatus: row.professional_status,
+    barAssociation: row.bar_association,
+    licenseNumber: row.license_number,
+    licenseYear: row.license_year,
+    experienceBand: row.experience_band,
+    practiceAreas: JSON.parse(row.practice_areas || '[]'),
+    learningGoal: row.learning_goal,
+    skillAreas: JSON.parse(row.skill_areas || '[]'),
+    skillLevel: row.skill_level,
+    learningFormat: row.learning_format,
+    notes: row.notes,
+  };
 }
 
 export async function verifyEmail(request, env) {
@@ -184,5 +237,7 @@ export async function currentUser(request, env) {
 export async function me(request, env) {
   const user = await currentUser(request, env);
   if (!user) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
-  return json({ ok: true, user });
+  // پروفایل فقط به خود کاربر نمایش داده می‌شود (این مسیر فقط برای کاربر وارد شده است).
+  const profile = await getProfile(env, user.id);
+  return json({ ok: true, user: { ...user, profile } });
 }
