@@ -19,7 +19,14 @@ async function publishedCase(env, slug) {
 
 async function publishedCaseSummaries(env) {
   if (!env.DB) return [];
-  const result = await env.DB.prepare("SELECT slug, title, summary, payload_json FROM admin_content WHERE kind = 'case' AND status = 'published' ORDER BY title LIMIT 200").all();
+  let result;
+  try {
+    result = await env.DB.prepare("SELECT slug, title, summary, payload_json FROM admin_content WHERE kind = 'case' AND status = 'published' ORDER BY title LIMIT 200").all();
+  } catch (error) {
+    // جدول محتوای مدیریت در این دیتابیس هنوز نیست: پرونده‌های داخلی همچنان نمایش داده می‌شوند.
+    console.error('managed case content unavailable', String(error?.message || error).slice(0, 120));
+    return [];
+  }
   return (result?.results || []).flatMap((row) => {
     try { const p = JSON.parse(row.payload_json); return [{ id: row.slug, title: row.title, summary: row.summary, area: p.area, level: p.level, issueCount: p.issues.length }]; } catch { return []; }
   });
@@ -88,8 +95,13 @@ export async function handleCases(request, env, path) {
 
   if (path === '/api/moot/sessions') {
     if (request.method === 'GET') {
-      const rows = await env.DB.prepare('SELECT * FROM moot_sessions WHERE user_id = ?1 ORDER BY updated_at DESC, id DESC LIMIT 100').bind(user.id).all();
-      return json({ ok: true, sessions: (rows?.results || []).map(toDto) });
+      try {
+        const rows = await env.DB.prepare('SELECT * FROM moot_sessions WHERE user_id = ?1 ORDER BY updated_at DESC, id DESC LIMIT 100').bind(user.id).all();
+        return json({ ok: true, sessions: (rows?.results || []).map(toDto) });
+      } catch (error) {
+        console.error('moot_sessions unavailable', String(error?.message || error).slice(0, 120));
+        return json({ ok: false, error: 'SERVICE_UNAVAILABLE' }, 503);
+      }
     }
     if (request.method !== 'POST') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'GET, POST' });
     const parsed = await readJsonBody(request);

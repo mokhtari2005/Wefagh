@@ -7,7 +7,14 @@ const ID_RE = /^[a-z0-9-]{1,64}$/;
 
 async function publishedCourses(env) {
   if (!env.DB) return [];
-  const rows = await env.DB.prepare("SELECT slug, title, summary, payload_json FROM admin_content WHERE kind = 'course' AND status = 'published' ORDER BY title LIMIT 200").all();
+  let rows;
+  try {
+    rows = await env.DB.prepare("SELECT slug, title, summary, payload_json FROM admin_content WHERE kind = 'course' AND status = 'published' ORDER BY title LIMIT 200").all();
+  } catch (error) {
+    // جدول محتوای مدیریت در این دیتابیس هنوز نیست: دوره‌های داخلی همچنان نمایش داده می‌شوند.
+    console.error('managed course content unavailable', String(error?.message || error).slice(0, 120));
+    return [];
+  }
   return (rows?.results || []).flatMap((row) => {
     try { const payload = JSON.parse(row.payload_json); return [{ id: row.slug, title: row.title, summary: row.summary, level: payload.level, lessons: payload.lessons }]; } catch { return []; }
   });
@@ -17,7 +24,13 @@ async function getCourse(env, id) {
   const builtIn = findCourse(id);
   if (builtIn) return builtIn;
   if (!env.DB) return null;
-  const row = await env.DB.prepare("SELECT slug, title, summary, payload_json FROM admin_content WHERE kind = 'course' AND status = 'published' AND slug = ?1").bind(id).first();
+  let row;
+  try {
+    row = await env.DB.prepare("SELECT slug, title, summary, payload_json FROM admin_content WHERE kind = 'course' AND status = 'published' AND slug = ?1").bind(id).first();
+  } catch (error) {
+    console.error('managed course content unavailable', String(error?.message || error).slice(0, 120));
+    return null;
+  }
   if (!row) return null;
   try { const payload = JSON.parse(row.payload_json); return { id: row.slug, title: row.title, summary: row.summary, level: payload.level, lessons: payload.lessons }; } catch { return null; }
 }
