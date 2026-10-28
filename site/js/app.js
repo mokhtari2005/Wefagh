@@ -4,6 +4,19 @@ import { mountContactForm } from './contact.js';
 import { formatShamsi } from './shamsi.js';
 import { parseHash } from './route.js';
 import { loginForm, registerForm, verifyPanel, accountPanel } from './account.js';
+import { academyList, academyCourse } from './academy.js';
+import { mootCourtPage } from './moot.js';
+import { calculatorsPage } from './calc/page.js';
+
+/** صفحه‌ای که داده‌اش ناهمگام است: یک جای نگه‌دار می‌سازد و بعد پر می‌کند. */
+function lazy(fn) {
+  const holder = h('div', {}, [h('p', { class: 'loading', role: 'status', text: 'در حال بارگذاری…' })]);
+  Promise.resolve()
+    .then(fn)
+    .then((node) => holder.replaceChildren(node))
+    .catch(() => holder.replaceChildren(h('p', { class: 'form-status err', role: 'alert', text: 'بارگذاری صفحه ناموفق بود.' })));
+  return holder;
+}
 
 const main = document.getElementById('main');
 const nav = document.getElementById('site-nav');
@@ -160,6 +173,9 @@ const ROUTES = {
   '/contact': () => pageContact(),
   '/account': (params) => pageAccount(params),
   '/verify': (params) => pageVerify(params),
+  '/academy': () => lazy(academyList),
+  '/moot-court': () => mootCourtPage(),
+  '/calculators': () => calculatorsPage(),
 };
 
 function render() {
@@ -171,11 +187,15 @@ function render() {
   let content;
   const planned = NAV.find((n) => n.path === path && n.status === 'planned');
   if (ROUTES[path]) content = ROUTES[path](params);
+  else if (path.startsWith('/academy/')) content = lazy(() => academyCourse(decodeURIComponent(path.slice('/academy/'.length))));
   else if (planned) content = pagePlanned(planned);
   else content = pageNotFound();
 
   main.replaceChildren(content);
-  document.title = `${NAV.find((n) => n.path === path)?.title ?? (path === '/verify' ? 'تأیید ایمیل' : 'صفحه پیدا نشد')} | وِفاق`;
+  const EXTRA_TITLES = { '/verify': 'تأیید ایمیل', '/moot-court': 'موت کورت' };
+  const navTitle = NAV.find((n) => n.path === path)?.title;
+  const title = navTitle ?? EXTRA_TITLES[path] ?? (path.startsWith('/academy/') ? 'آکادمی' : 'صفحه پیدا نشد');
+  document.title = `${title} | وِفاق`;
   main.focus({ preventScroll: true });
   window.scrollTo({ top: 0, behavior: 'instant' });
 }
