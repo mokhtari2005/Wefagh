@@ -7,6 +7,7 @@ import { loginForm, registerForm, verifyPanel, accountPanel } from './account.js
 import { academyList, academyCourse } from './academy.js';
 import { mootCourtPage } from './moot.js';
 import { calculatorsPage } from './calc/page.js';
+import { mediaHome, articlePage } from './media.js';
 
 /** صفحه‌ای که داده‌اش ناهمگام است: یک جای نگه‌دار می‌سازد و بعد پر می‌کند. */
 function lazy(fn) {
@@ -176,6 +177,7 @@ const ROUTES = {
   '/academy': () => lazy(academyList),
   '/moot-court': () => mootCourtPage(),
   '/calculators': () => calculatorsPage(),
+  '/media': () => lazy(mediaHome),
 };
 
 function render() {
@@ -187,6 +189,7 @@ function render() {
   let content;
   const planned = NAV.find((n) => n.path === path && n.status === 'planned');
   if (ROUTES[path]) content = ROUTES[path](params);
+  else if (path.startsWith('/media/')) content = lazy(() => articlePage(decodeURIComponent(path.slice('/media/'.length))));
   else if (path.startsWith('/academy/')) content = lazy(() => academyCourse(decodeURIComponent(path.slice('/academy/'.length))));
   else if (planned) content = pagePlanned(planned);
   else content = pageNotFound();
