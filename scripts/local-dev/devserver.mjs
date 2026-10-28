@@ -14,7 +14,9 @@ const MIG = join(REPO, 'worker', 'migrations');
 const { default: worker } = await import(join(REPO, 'worker/src/index.js'));
 
 const db = new DatabaseSync(':memory:');
-const files = (await import('node:fs')).readdirSync(MIG).filter((f) => f.endsWith('.sql')).sort();
+// MAX_MIGRATION=0004 یعنی فقط migrationهای تا ۰۰۰۴ اجرا شوند (برای بازتولید خطای دیتابیس ناقص).
+const maxMig = process.env.MAX_MIGRATION || '9999';
+const files = (await import('node:fs')).readdirSync(MIG).filter((f) => f.endsWith('.sql') && f.slice(0, 4) <= maxMig).sort();
 const migrationLog = [];
 for (const f of files) {
   try {
@@ -77,6 +79,7 @@ createServer(async (req, res) => {
       res.writeHead(r.status, out);
       res.end(Buffer.from(await r.arrayBuffer()));
     } catch (e) {
+      console.error('API error', url.pathname, e?.message);
       res.writeHead(500, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ ok: false, error: 'DEV_SERVER_ERROR' }));
     }

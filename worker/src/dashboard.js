@@ -10,12 +10,21 @@ export async function handleDashboard(request, env, path) {
   const user = await currentUser(request, env);
   if (!user) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
 
+  // جدول‌های اختیاری (تمرین‌ها و محتوای مدیریت) ممکن است در دیتابیس هنوز نباشند؛ خطا فقط ثبت می‌شود و بخش خالی می‌ماند.
+  const optional = async (name, run) => {
+    try {
+      return await run();
+    } catch (error) {
+      console.error('dashboard optional source unavailable', name, String(error?.message || error).slice(0, 120));
+      return { results: [] };
+    }
+  };
   const [enrollmentRows, progressRows, mootRows, deadlineRows, managedCourseRows] = await Promise.all([
     env.DB.prepare('SELECT course_id FROM enrollments WHERE user_id = ?1 ORDER BY created_at DESC').bind(user.id).all(),
     env.DB.prepare('SELECT course_id, lesson_id FROM lesson_progress WHERE user_id = ?1').bind(user.id).all(),
-    env.DB.prepare('SELECT id, case_id, title, stage, score, updated_at FROM moot_sessions WHERE user_id = ?1 ORDER BY updated_at DESC, id DESC LIMIT 100').bind(user.id).all(),
+    optional('moot_sessions', () => env.DB.prepare('SELECT id, case_id, title, stage, score, updated_at FROM moot_sessions WHERE user_id = ?1 ORDER BY updated_at DESC, id DESC LIMIT 100').bind(user.id).all()),
     env.DB.prepare("SELECT id, title, due_date, kind, done FROM deadlines WHERE user_id = ?1 AND done = 0 AND due_date >= ?2 ORDER BY due_date ASC, id ASC LIMIT 5").bind(user.id, new Date().toISOString().slice(0, 10)).all(),
-    env.DB.prepare("SELECT slug, title, payload_json FROM admin_content WHERE kind = 'course' AND status = 'published'").all(),
+    optional('admin_content', () => env.DB.prepare("SELECT slug, title, payload_json FROM admin_content WHERE kind = 'course' AND status = 'published'").all()),
   ]);
 
   const enrolledIds = (enrollmentRows?.results || []).map((row) => row.course_id);
