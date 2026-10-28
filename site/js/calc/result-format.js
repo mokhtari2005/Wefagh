@@ -3,7 +3,7 @@
 /** محدودیت‌ها همیشه فهرستی از رشته‌های کامل‌اند. رشتهٔ تنها یک مورد است، نه فهرست حروف. */
 export function normalizeLimitations(value) {
   if (value === null || value === undefined) return [];
-  const list = Array.isArray(value) ? value : [value];
+  const list = (Array.isArray(value) ? value : [value]).flat();
   return list
     .filter((x) => typeof x === 'string')
     .map((s) => s.replace(/\s+/g, ' ').trim())
