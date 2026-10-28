@@ -72,3 +72,22 @@ export function applyRule(rule, { amount }) {
   }
   return { ok: false, error: 'RULE_UNVERIFIED' };
 }
+
+// محاسبهٔ آزمایشی با هشدار. جداست از applyRule و هرگز به‌جای نتیجهٔ تأییدشده نمایش داده نمی‌شود.
+// برای هر تفسیر ثبت‌شده، یک نتیجه برمی‌گرداند؛ هیچ‌کدام قطعی نیست.
+export const TRIAL_WARNING = 'محاسبهٔ آزمایشی: این مبلغ قطعی و قانونی نیست؛ مبنا یا تفسیر هنوز احراز نشده است.';
+
+export function trialFee(rule, { amount }) {
+  if (!rule) return { ok: false, error: 'NO_RULE' };
+  if (rule.status === 'verified') return { ok: false, error: 'USE_VERIFIED_PATH' };
+  if (rule.kind !== 'tiered') return { ok: false, error: 'NOT_TIERED' };
+  const tiers = rule.candidateTiers || rule.tiers;
+  const modes = rule.interpretation?.readings || [rule.mode];
+  const results = {};
+  for (const mode of modes) {
+    const r = tieredFee({ amount, tiers, mode, min: rule.min ?? 0, max: rule.max ?? null });
+    if (r.error) return { ok: false, error: r.error };
+    results[mode] = r.fee;
+  }
+  return { ok: true, trial: true, status: rule.status, warning: TRIAL_WARNING, results };
+}

@@ -32,8 +32,8 @@ export const VERIFICATION_LOG = [
   },
   {
     date: '2026-10-28',
-    target: 'اصالت اسناد (آیین‌نامه حق‌الوکاله، جدول ۱۶ ۱۴۰۵)',
-    outcome: 'کاربر اعلام کرد اصالت اسناد مورد تأیید اوست. این تأیید از سوی کاربر است؛ خود این ابزار روزنامهٔ رسمی را ندیده و شماره/تاریخ/نشانی منبع رسمی ثبت نشده است. وضعیت قواعد هنوز text_read است و تا ارائهٔ منبع رسمی و تصمیم دربارهٔ تفسیر جدول ۱۶ (کل‌مبلغ/پله‌ای و مبنای ارزش خواسته/محکوم‌به) فعال نمی‌شود.',
+    target: 'پذیرش اسناد توسط کاربر (بدون احراز رسمی)',
+    outcome: 'کاربر اسناد ارائه‌شده (بازنشر آیین‌نامه، بازنشر جدول ۱۶، لایحه بودجه) را برای ادامهٔ کار پذیرفته است: userAccepted = true. این پذیرش مشاهدهٔ مستقل روزنامهٔ رسمی نیست: independentlyVerifiedOfficialSource = false.',
   },
   {
     date: '2026-10-28',
@@ -47,11 +47,58 @@ export const VERIFICATION_LOG = [
   },
 ];
 
+
+// فراداده اسناد. userAccepted یعنی کاربر برای ادامهٔ کار پذیرفته؛ این به‌معنای احراز رسمی نیست.
+export const SOURCE_DOCUMENTS = [
+  {
+    id: 'attorney-regulation-republication',
+    title: 'آیین‌نامه تعرفه حق‌الوکاله ۱۳۹۸ (بازنشر)',
+    origin: 'بازنشر در پایگاه اختبار (پاورقی PDF: www.ekhtebar.ir)',
+    observedSourceUrl: 'پاورقی PDF: www.ekhtebar.ir (نشانی کامل در این گزارش ثبت نشده)',
+    pagesRead: '۱ تا ۱۵ از ۱۹',
+    userAccepted: true,
+    independentlyVerifiedOfficialSource: false,
+  },
+  {
+    id: 'judicial-fees-republication-1405',
+    title: 'تعرفه خدمات قضایی و هزینه دادرسی ۱۴۰۵ (بازنشر)',
+    origin: 'بازنشر در پایگاه اختبار',
+    observedSourceUrl: 'نشانی کامل ثبت نشده',
+    pagesRead: '۱ تا ۳ از ۷',
+    userAccepted: true,
+    independentlyVerifiedOfficialSource: false,
+  },
+  {
+    id: 'budget-bill-1405',
+    title: 'لایحه بودجه سال ۱۴۰۵ کل کشور (سازمان برنامه و بودجه)',
+    origin: 'لایحه، نه قانون تصویب‌شده',
+    observedSourceUrl: 'فایل پیوست؛ نشانی منبع ثبت نشده',
+    pagesRead: '۱ تا ۸، ۲۵۸ تا ۲۹۲ از ۳۱۹',
+    userAccepted: true,
+    independentlyVerifiedOfficialSource: false,
+  },
+];
+
+// وضعیت‌های جدا برای ماده ۹ و هزینه دادرسی: متن، تفسیر، اصالت و قابلیت فعال‌سازی
+const ART9_DETAIL = {
+  textObserved: 'متن بازنشرشده مشاهده شده (attorney-regulation-republication)',
+  interpretation: 'عبارت «نسبت به مازاد» به‌صورت پلکانی بررسی شده است',
+  officialAuthentication: 'احراز نشده (روزنامهٔ رسمی دیده نشده)',
+  activationAllowed: false,
+};
+const COURT_DETAIL = {
+  textObserved: 'لایحه ۱۴۰۵ و بازنشر جدول ۱۶ مشاهده شده‌اند',
+  interpretation: 'دو محاسبه (کل‌مبلغ و پلکانی) در گزارش آزمون نگه داشته شده؛ هیچ‌کدام قطعی نیست؛ مبنای ارزش خواسته/محکوم‌به حل نشده است',
+  officialAuthentication: 'احراز نشده (تصویب و روزنامهٔ رسمی دیده نشده)',
+  activationAllowed: false,
+};
+
 export const RATES_BY_YEAR = {
   1405: [
     // ---------- هزینه دادرسی (جدول ۱۶ — متن بودجه و بازنشر) ----------
     {
       id: 'court-fee-financial-first',
+      statusDetail: COURT_DETAIL,
       title: 'هزینه دادرسی — دعاوی مالی، مرحلهٔ بدوی',
       group: 'court',
       status: 'text_read',
@@ -146,6 +193,7 @@ export const RATES_BY_YEAR = {
     // ---------- حق‌الوکاله (آیین‌نامه ۱۳۹۸/۱۲/۲۸، متن بازنشرشده) ----------
     {
       id: 'attorney-article9-financial-nonfinal',
+      statusDetail: ART9_DETAIL,
       title: 'حق‌الوکاله — دعوای مالی، حکم غیرقطعی (ماده ۹ بند الف تا ث)',
       group: 'attorney',
       status: 'text_read',
@@ -170,6 +218,7 @@ export const RATES_BY_YEAR = {
     },
     {
       id: 'attorney-article9-financial-final',
+      statusDetail: ART9_DETAIL,
       title: 'حق‌الوکاله — دعوای مالی، حکم قطعی از حیث بهای خواسته (ماده ۹)',
       group: 'attorney',
       status: 'text_read',

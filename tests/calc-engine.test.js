@@ -183,3 +183,54 @@ test('فهرست قواعد: هر kind شناخته‌شده است و قاعد�
     }
   }
 });
+
+// ---- وضعیت منبع/تفسیر/اصالت جدا، و محاسبهٔ آزمایشی با هشدار ----
+import { trialFee, TRIAL_WARNING } from '../site/js/calc/engine.js';
+import { SOURCE_DOCUMENTS } from '../site/js/calc/rates.js';
+
+test('هر سند: پذیرش کاربر ثبت شده، احراز رسمی مستقل نیست', () => {
+  assert.ok(SOURCE_DOCUMENTS.length >= 3);
+  for (const d of SOURCE_DOCUMENTS) {
+    assert.equal(d.userAccepted, true, d.id);
+    assert.equal(d.independentlyVerifiedOfficialSource, false, d.id);
+  }
+});
+
+test('ماده ۹: متن و تفسیر دیده شده، اما اصالت رسمی احراز و فعال‌سازی مجاز نیست', () => {
+  for (const id of ['attorney-article9-financial-nonfinal', 'attorney-article9-financial-final']) {
+    const d = findRule(1405, id).statusDetail;
+    assert.equal(d.activationAllowed, false, id);
+    assert.match(d.officialAuthentication, /احراز نشده/, id);
+    assert.match(d.textObserved, /مشاهده شده/, id);
+  }
+});
+
+test('محاسبهٔ آزمایشی جدول ۱۶: هر دو نتیجه (کل مبلغ و پلکانی) با هشدار، بدون قطعی‌شدن', () => {
+  const rule = findRule(1405, 'court-fee-financial-first');
+  const r = trialFee(rule, { amount: 300000000 });
+  assert.equal(r.ok, true);
+  assert.equal(r.trial, true);
+  assert.equal(r.warning, TRIAL_WARNING);
+  assert.equal(r.results.whole, 10500000);      // ۳٫۵٪ × ۳۰۰ م
+  assert.equal(r.results.incremental, 8500000); // ۲٫۵٪ × ۲۰۰ م + ۳٫۵٪ × ۱۰۰ م
+  assert.equal(applyRule(rule, { amount: 300000000 }).error, 'RULE_UNVERIFIED');
+});
+
+test('محاسبهٔ آزمایشی جدول ۱۶: مرز ۲۰۰ میلیون و یک ریال بالاتر', () => {
+  const rule = findRule(1405, 'court-fee-financial-first');
+  assert.equal(trialFee(rule, { amount: 200000000 }).results.whole, 5000000);
+  assert.equal(trialFee(rule, { amount: 200000000 }).results.incremental, 5000000);
+  assert.equal(trialFee(rule, { amount: 200000001 }).results.whole, 7000000);
+});
+
+test('محاسبهٔ آزمایشی ماده ۹ فقط پلکانی است و مبلغ قطعی ساخته نمی‌شود', () => {
+  const rule = findRule(1405, 'attorney-article9-financial-nonfinal');
+  const r = trialFee(rule, { amount: 1000000000 });
+  assert.deepEqual(Object.keys(r.results), ['incremental']);
+  assert.equal(r.results.incremental, 75000000);
+});
+
+test('محاسبهٔ آزمایشی هرگز برای قاعدهٔ تأییدشده یا غیرپلکانی اجرا نمی‌شود', () => {
+  assert.equal(trialFee({ ...findRule(1405, 'court-fee-financial-first'), status: 'verified' }, { amount: 1 }).error, 'USE_VERIFIED_PATH');
+  assert.equal(trialFee(findRule(1405, 'court-fee-non-financial'), { amount: 1 }).error, 'NOT_TIERED');
+});
