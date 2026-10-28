@@ -819,3 +819,21 @@ h1, h2, h3 { color: var(--teal-dark); }
 .brand { padding: 0; }
 .footer-logo { width: 96px; height: auto; display: block; margin-bottom: .6rem; }
 @media (max-width: 700px) { .brand-logo { height: 58px; } }
+
+/* ---------- پانوشت: کنتراست و چیدمان ---------- */
+.site-footer { background: var(--paper); border-top: 1px solid var(--sand-line); color: var(--ink); margin-top: 2.5rem; padding: 1.6rem 0 2.2rem; }
+.site-footer .footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.site-footer p { margin: 0; color: var(--ink-soft); font-size: .92rem; }
+.site-footer a { color: var(--teal-dark); font-weight: 600; }
+.site-footer .footer-logo { margin: 0; width: 84px; }
+
+/* ---------- ناوبری دسکتاپ: نوار افقی زیر سربرگ ---------- */
+@media (min-width: 861px) {
+  .nav-toggle, #bottom-more { display: none; }
+  .header-inner { flex-wrap: wrap; }
+  .site-nav { position: static; display: block !important; order: 7; flex: 1 0 100%; max-width: none; border: 0; box-shadow: none; background: transparent; padding: 0 0 .6rem; inset: auto; }
+  .site-nav ul { display: flex; flex-wrap: wrap; gap: .3rem; justify-content: center; }
+  .site-nav a { width: auto; min-height: 36px; padding: .35rem .6rem; border-radius: 999px; font-size: .88rem; display: inline-flex; align-items: center; color: var(--teal-dark); text-decoration: none; }
+  .site-nav a:hover { background: var(--bone); }
+  .site-nav a[aria-current="page"] { background: var(--teal-dark); color: #fff; }
+}
