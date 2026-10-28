@@ -99,10 +99,17 @@ function delayTool() {
 const RATE_YEAR = 1405;
 
 function unverifiedBox(rule) {
-  return h('div', { class: 'notice', role: 'alert' }, [
-    h('p', { text: `نرخ «${rule.title}» هنوز از متن رسمی احراز نشده است، پس محاسبه انجام نمی‌شود.` }),
-    h('p', { class: 'muted', text: `مستند موردنظر: ${rule.legal.citation}` }),
-  ]);
+  const reason = rule.status === 'text_read'
+    ? 'متن بازنشرشده خوانده شده، اما با روزنامهٔ رسمی تطبیق نشده است.'
+    : 'منبع قابل استناد برای این نرخ احراز نشده است.';
+  const children = [
+    h('p', { text: `محاسبه برای «${rule.title}» انجام نمی‌شود.` }),
+    h('p', { text: `دلیل: ${reason}` }),
+    h('p', { class: 'muted', text: `مستند: ${rule.legal.citation}` }),
+  ];
+  if (rule.interpretation?.note) children.push(h('p', { class: 'muted', text: `مسئلهٔ تفسیری: ${rule.interpretation.note}` }));
+  if (rule.note) children.push(h('p', { class: 'muted', text: rule.note }));
+  return h('div', { class: 'notice', role: 'alert' }, children);
 }
 
 /** ابزار قاعده‌محور: کاربر نوع/مرحله را انتخاب می‌کند و موتور فقط قاعدهٔ تأییدشده را اعمال می‌کند. */
