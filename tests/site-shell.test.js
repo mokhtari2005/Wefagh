@@ -9,8 +9,14 @@ const here = dirname(fileURLToPath(import.meta.url));
 const site = join(here, '..', 'site');
 const html = readFileSync(join(site, 'index.html'), 'utf8');
 
-test('لوگوی رسمی وِفاق در سربرگ و فایل آن موجود است', () => {
-  assert.match(html, /<img class="brand-logo" src="assets\/images\/wefagh-logo\.webp"/);
+test('سربرگ بدون لوگو است و نام گروه در آن نمایش داده می‌شود', () => {
+  const header = html.match(/<header class="site-header">[\s\S]*?<\/header>/)[0];
+  assert.doesNotMatch(header, /<img/);
+  assert.match(header, /class="brand-text">گروه وکلای مدافع فرهنگ، اندیشه و قانون/);
+});
+
+test('فایل لوگو برای فوتر موجود است', () => {
+  assert.match(html, /class="footer-logo" src="assets\/images\/wefagh-logo\.webp"/);
   assert.ok(existsSync(join(site, 'assets', 'images', 'wefagh-logo.webp')));
 });
 
