@@ -135,7 +135,7 @@ function ruleTool({ title, amountLabel, group, submitLabel, note }) {
       ruleVersion: `${rule.id} / سال ${RATE_YEAR}`,
       steps: r.steps,
       fee: r.fee,
-      limitations: note,
+      limitations: [note, rule.status === 'user_approved' ? 'این نتیجه بر اساس تأیید کاربر برای استفاده در ماشین‌حساب است؛ احراز رسمی از روزنامهٔ رسمی انجام نشده است.' : ''].filter(Boolean).join(' '),
     }));
   });
   return h('section', { class: 'tool' }, [h('h2', { text: title }), form]);
