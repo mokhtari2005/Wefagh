@@ -54,3 +54,33 @@ export async function getHealth() {
   const res = await getJson('/api/health');
   return res.ok ? res.data : null;
 }
+
+/** PATCH/DELETE با همان قرارداد پاسخ getJson/postJson. */
+export async function sendJson(method, path, payload, { timeoutMs = 15000 } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const init = {
+      method,
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    };
+    if (payload !== undefined) {
+      init.headers['Content-Type'] = 'application/json';
+      init.body = JSON.stringify(payload);
+    }
+    const res = await fetch(path, init);
+    let data = null;
+    try {
+      data = await res.json();
+    } catch {
+      data = null;
+    }
+    return { status: res.status, ok: res.ok, data };
+  } catch {
+    return { status: 0, ok: false, data: null, networkError: true };
+  } finally {
+    clearTimeout(timer);
+  }
+}

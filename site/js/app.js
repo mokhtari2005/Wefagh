@@ -8,6 +8,7 @@ import { academyList, academyCourse } from './academy.js';
 import { mootCourtPage } from './moot.js';
 import { calculatorsPage } from './calc/page.js';
 import { mediaHome, articlePage } from './media.js';
+import { deadlinesPage, upcomingCard } from './deadlines.js';
 
 /** صفحه‌ای که داده‌اش ناهمگام است: یک جای نگه‌دار می‌سازد و بعد پر می‌کند. */
 function lazy(fn) {
@@ -73,7 +74,9 @@ function pageHome() {
   }
   values.append(valuesGrid);
 
-  return h('div', {}, [hero, h('h2', { text: 'بخش‌ها' }), cards, values]);
+  const deadlinesSection = h('section', {}, [h('h2', { text: 'تقویم مواعد دادرسی' }), lazy(upcomingCard)]);
+
+  return h('div', {}, [hero, deadlinesSection, h('h2', { text: 'بخش‌ها' }), cards, values]);
 }
 
 function pageAbout() {
@@ -178,6 +181,7 @@ const ROUTES = {
   '/moot-court': () => mootCourtPage(),
   '/calculators': () => calculatorsPage(),
   '/media': () => lazy(mediaHome),
+  '/deadlines': () => lazy(deadlinesPage),
 };
 
 function render() {

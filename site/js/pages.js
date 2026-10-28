@@ -6,6 +6,7 @@ export const NAV = [
   { id: 'about', path: '/about', title: 'درباره وِفاق' },
   { id: 'academy', path: '/academy', title: 'آکادمی' },
   { id: 'calculators', path: '/calculators', title: 'محاسبه‌گرها' },
+  { id: 'deadlines', path: '/deadlines', title: 'تقویم مواعد' },
   { id: 'media', path: '/media', title: 'رسانه و پادکست' },
   { id: 'laws', path: '/laws', title: 'بانک قوانین', status: 'planned', phase: 6 },
   { id: 'cooperative', path: '/cooperative', title: 'مشارکت صنفی', status: 'planned', phase: 7 },
