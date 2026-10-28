@@ -114,3 +114,72 @@ test('بازه‌ها (range) هرگز یک مبلغ انتخاب‌شده بر�
     assert.equal(applyRule({ ...r, status: 'verified' }, { amount: 1000 }).error, 'RULE_UNVERIFIED', r.id);
   }
 });
+
+// ---- قواعد افزوده‌شده در این مرحله: متن خوانده شده، هنوز فعال نیست ----
+
+test('ماده ۲۵ (اجرای احکام حقوقی): کف ۴ م و سقف ۲٪ محکوم‌به؛ محاسبهٔ دستی مستقل', () => {
+  // محاسبهٔ دستی: min(max(محکوم‌به×۲٪, ۴ م), ...) — سقف ۲٪ با کف ۴ م اعمال می‌شود
+  const manual = (base) => Math.max(4000000, Math.round(base * 0.02));
+  assert.equal(manual(100000000), 4000000);   // ۲٪ = ۲ م < کف ۴ م
+  assert.equal(manual(200000000), 4000000);   // ۲٪ = ۴ م
+  assert.equal(manual(1000000000), 20000000); // ۲٪ = ۲۰ م
+  const rule = findRule(1405, 'attorney-article25-enforcement-judgment');
+  assert.equal(rule.maxPercent, 2);
+  assert.equal(rule.min, 4000000);
+  assert.equal(applyRule({ ...rule, status: 'verified' }, { amount: 1000000000 }).error, 'RULE_UNVERIFIED');
+});
+
+test('ماده ۲۵ (سایر امور اجرایی): بازهٔ ۴ م تا ۱۵۰ م، بدون محاسبهٔ مبلغ', () => {
+  const rule = findRule(1405, 'attorney-article25-enforcement');
+  assert.equal(rule.min, 4000000);
+  assert.equal(rule.max, 150000000);
+});
+
+test('ماده ۲۱: تقسیم ۶۰٪ نخستین و ۴۰٪ تجدیدنظر و جمعشان ۱۰۰٪ است', () => {
+  const rule = findRule(1405, 'attorney-article21-stage-split');
+  const total = rule.shares.reduce((a, s) => a + s.share, 0);
+  assert.ok(Math.abs(total - 1) < 1e-9);
+  assert.equal(rule.shares.find((s) => s.stage === 'first').share, 0.6);
+});
+
+test('ماده ۱۲: سهم‌ها نسبت به حق‌الوکالهٔ همان مرحله‌اند و هیچ‌کدام بدون ورودی مرحله محاسبه نمی‌شوند', () => {
+  const rule = findRule(1405, 'attorney-article12-termination');
+  assert.deepEqual(rule.items.map((i) => i.share), [0.25, 0.5, 1, 0.25, 0.5]);
+  assert.equal(applyRule({ ...rule, status: 'verified' }, { amount: 1000000 }).error, 'RULE_UNVERIFIED');
+});
+
+test('ماده ۱۴: طبقه‌ها بازه‌اند؛ بازهٔ کلی از کمترین کف تا بیشترین سقف طبقات است (محاسبهٔ دستی)', () => {
+  const a = findRule(1405, 'attorney-article14-criminal-a');
+  assert.equal(a.min, Math.min(...a.classes.map((c) => c.min)));
+  assert.equal(a.max, Math.max(...a.classes.map((c) => c.max)));
+  const b = findRule(1405, 'attorney-article14-criminal-b');
+  assert.equal(b.min, Math.min(...b.classes.map((c) => c.min)));
+  assert.equal(b.max, Math.max(...b.classes.map((c) => c.max)));
+  assert.equal(applyRule({ ...a, status: 'verified' }, { amount: 1000 }).error, 'RULE_UNVERIFIED');
+});
+
+test('ماده ۲۴: تشخیصی است و هرگز محاسبه نمی‌شود', () => {
+  const rule = findRule(1405, 'attorney-article24-withdrawal');
+  assert.equal(rule.kind, 'discretionary');
+  assert.equal(applyRule({ ...rule, status: 'verified' }, { amount: 1000 }).error, 'RULE_UNVERIFIED');
+});
+
+test('جدول ۱۶ (لایحه ۱۴۰۵): سه نرخ ۲٫۵٪ / ۴٫۵٪ / ۵٫۵٪ و ۳٫۵٪ ثبت شده، مبنا «ارزش خواسته» است', () => {
+  assert.deepEqual(findRule(1405, 'court-fee-financial-first').candidateTiers, [
+    { upTo: 200000000, percent: 2.5 },
+    { upTo: null, percent: 3.5 },
+  ]);
+  assert.equal(findRule(1405, 'court-fee-financial-appeal').tiers[0].percent, 4.5);
+  assert.equal(findRule(1405, 'court-fee-financial-cassation').tiers[0].percent, 5.5);
+  assert.match(findRule(1405, 'court-fee-financial-first').base, /ارزش خواسته/);
+});
+
+test('فهرست قواعد: هر kind شناخته‌شده است و قاعدهٔ غیر از tiered/fixed محاسبه نمی‌شود', () => {
+  const known = new Set(['tiered', 'fixed', 'range', 'share', 'discretionary']);
+  for (const r of RATES_BY_YEAR[1405]) {
+    assert.ok(known.has(r.kind), `kind ناشناخته: ${r.id}`);
+    if (r.kind !== 'tiered' && r.kind !== 'fixed') {
+      assert.equal(applyRule({ ...r, status: 'verified' }, { amount: 1000000 }).error, 'RULE_UNVERIFIED', r.id);
+    }
+  }
+});
