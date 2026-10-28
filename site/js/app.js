@@ -96,39 +96,80 @@ const MODULES = [
 
 function pageHome() {
   const root = h('div', { class: 'home-dashboard' });
-  const hero = h('section', { class: 'dashboard-hero', 'aria-labelledby': 'hero-title' }, [
-    h('div', { class: 'dashboard-hero-copy' }, [
-      h('span', { class: 'section-kicker', text: 'آکادمی علمی حقوقی وفاق' }),
-      h('h1', { id: 'hero-title' }, [document.createTextNode('به آکادمی '), h('span', { text: 'وفاق' }), document.createTextNode(' خوش آمدید')]),
-      h('p', { text: 'مسیر حرفه‌ای شدن در وکالت؛ از آموزش تا تجربه. با دوره‌های تخصصی، پرونده‌های شبیه‌سازی‌شده و تمرین‌های عملی، مهارت‌های خود را تقویت کنید.' }),
-      h('a', { class: 'btn-link hero-button', href: '#/academy', text: 'مشاهدهٔ دوره‌ها ←' }),
+
+  const hero = h('section', { class: 'hero-banner', 'aria-labelledby': 'hero-title' }, [
+    h('img', { class: 'hero-bg', src: 'assets/images/legal-hero.webp', alt: '', width: '1200', height: '400', loading: 'eager' }),
+    h('div', { class: 'hero-copy' }, [
+      h('h1', { id: 'hero-title' }, [document.createTextNode('به آکادمی '), h('span', { class: 'accent', text: 'وفاق' }), document.createTextNode(' خوش آمدید')]),
+      h('p', { class: 'hero-sub', text: 'مسیر حرفه‌ای شدن در وکالت؛ از آموزش تا تجربه' }),
+      h('p', { class: 'hero-desc', text: 'با دوره‌های تخصصی، پرونده‌های شبیه‌سازی‌شده و تمرین‌های عملی، مهارت‌های خود را تقویت کنید و با اطمینان در مسیر حرفه‌ای وکالت گام بردارید.' }),
+      h('a', { class: 'btn-gold', href: '#/academy', text: 'مشاهدهٔ دوره‌ها ‹' }),
     ]),
   ]);
 
-  const metrics = h('section', { class: 'dashboard-overview', 'aria-label': 'نمای کلی پیشرفت' }, [
-    h('article', { class: 'overview-card progress-card' }, [
-      h('div', { class: 'progress-ring', 'aria-label': 'پیشرفت نمونه ۶۸ درصد' }, [h('span', { text: '۶۸٪' })]),
-      h('div', {}, [h('h2', { text: 'پیشرفت کلی شما' }), h('p', { text: 'مسیر تبدیل شدن به یک وکیل حرفه‌ای' }), h('div', { class: 'progress-track', role: 'progressbar', 'aria-valuenow': '68', 'aria-valuemin': '0', 'aria-valuemax': '100' }, [h('span')]), h('small', { text: 'برای مشاهدهٔ پیشرفت واقعی وارد حساب خود شوید.' })]),
+  const stats = h('section', { class: 'stat-row', 'aria-label': 'نمای کلی پیشرفت' }, [
+    h('article', { class: 'stat-card progress-card' }, [
+      h('div', { class: 'progress-ring', role: 'img', 'aria-label': 'پیشرفت نمونه ۶۸ درصد' }, [h('span', { text: '۶۸٪' })]),
+      h('div', {}, [
+        h('h2', { text: 'پیشرفت کلی شما' }),
+        h('p', { class: 'muted', text: 'مسیر تبدیل شدن به یک وکیل حرفه‌ای' }),
+        h('small', { class: 'sample-note', text: 'نمونه؛ پیشرفت واقعی پس از ورود نمایش داده می‌شود.' }),
+      ]),
     ]),
-    h('article', { class: 'overview-card skill-card' }, [h('span', { class: 'feature-icon', text: '⚖' }), h('h2', { text: 'سطح مهارت فعلی' }), h('strong', { text: 'در مسیر یادگیری' }), h('a', { href: '#/dashboard', text: 'گزارش عملکرد ←' })]),
-    h('a', { class: 'overview-card course-card', href: '#/academy' }, [h('span', { class: 'mini-label', text: 'شروع مسیر یادگیری' }), h('span', { class: 'feature-icon', text: '◎' }), h('h2', { text: 'دوره‌های کاربردی حقوقی' }), h('p', { text: 'آموزش مرحله‌به‌مرحله با تمرین‌های عملی' }), h('span', { class: 'card-cta', text: 'ادامهٔ یادگیری ←' })]),
-    h('a', { class: 'overview-card practice-card', href: '#/moot-court' }, [h('span', { class: 'mini-label', text: 'تمرین پیشنهادی' }), h('h2', { text: 'موت‌کورت و دفاع شفاهی' }), h('p', { text: 'پروندهٔ آموزشی را بررسی کنید و از موضع خود دفاع کنید.' }), h('span', { class: 'card-cta', text: 'شروع تمرین ←' })]),
+    h('article', { class: 'stat-card level-card' }, [
+      h('span', { class: 'level-icon', 'aria-hidden': 'true', text: '⚖' }),
+      h('h2', { text: 'سطح مهارت فعلی' }),
+      h('strong', { text: 'در مسیر یادگیری' }),
+      h('a', { class: 'btn-outline-light', href: '#/dashboard', text: 'گزارش عملکرد' }),
+    ]),
+    h('a', { class: 'stat-card course-card', href: '#/academy' }, [
+      h('span', { class: 'mini-label', text: 'دوره‌های آموزشی' }),
+      h('h2', { text: 'آموزش کاربردی حقوقی' }),
+      h('p', { class: 'muted', text: 'آموزش مرحله‌به‌مرحله با تمرین‌های عملی' }),
+      h('span', { class: 'btn-pill', text: 'ادامهٔ یادگیری' }),
+    ]),
+    h('a', { class: 'stat-card practice-card', href: '#/moot-court' }, [
+      h('span', { class: 'mini-label', text: 'تمرین پیشنهادی' }),
+      h('h2', { text: 'موت‌کورت و دفاع شفاهی' }),
+      h('p', { class: 'muted', text: 'پروندهٔ آموزشی فرضی را بررسی کنید و از موضع خود دفاع کنید.' }),
+      h('span', { class: 'btn-pill', text: 'شروع تمرین' }),
+    ]),
   ]);
 
-  const quick = h('section', { class: 'quick-section' }, [h('div', { class: 'section-heading' }, [h('div', {}, [h('span', { class: 'section-kicker', text: 'یادگیری در عمل' }), h('h2', { text: 'دسترسی سریع به کارگاه‌ها' })]), h('a', { href: '#/academy', text: 'همهٔ بخش‌ها ←' })])]);
   const quickItems = [
-    ['🎓', 'دوره‌های آموزشی', '#/academy'], ['📚', 'بانک پرونده‌ها', '#/cases'], ['🎙', 'موت‌کورت صوتی', '#/moot-court'], ['🗓', 'تقویم مواعد', '#/deadlines'], ['🧮', 'ابزارهای حقوقی', '#/calculators'], ['🤝', 'مهارت مذاکره', '#/academy'], ['🛡', 'اخلاق حرفه‌ای', '#/academy'], ['☷', 'آزمون مهارتی', '#/dashboard'],
+    ['🎓', 'دوره‌های آموزشی', '#/academy'], ['🗂', 'کارگاه تنظیم اوراق', '#/cases'], ['🤝', 'کارگاه مذاکره و سازش', '#/academy'],
+    ['👥', 'مصاحبه با موکل', '#/academy'], ['🎙', 'موت‌کورت صوتی', '#/moot-court'], ['📁', 'بانک پرونده‌ها', '#/cases'],
+    ['🧮', 'ابزارهای حقوقی', '#/calculators'], ['🛡', 'اخلاق حرفه‌ای', '#/academy'],
   ];
-  const quickGrid = h('div', { class: 'quick-grid' });
-  quickItems.forEach(([icon, title, href]) => quickGrid.append(h('a', { class: 'quick-tile', href }, [h('span', { class: 'quick-icon', text: icon }), h('span', { text: title })])));
-  quick.append(quickGrid);
+  const quick = h('section', { class: 'quick-section', 'aria-labelledby': 'quick-title' }, [
+    h('h2', { id: 'quick-title', class: 'block-title', text: 'دسترسی سریع به کارگاه‌ها' }),
+    h('div', { class: 'quick-grid' }, quickItems.map(([icon, title, href]) =>
+      h('a', { class: 'quick-tile', href }, [h('span', { class: 'quick-icon', 'aria-hidden': 'true', text: icon }), h('span', { text: title })]))),
+  ]);
 
   const lower = h('section', { class: 'dashboard-lower' }, [
-    h('article', { class: 'panel deadline-panel' }, [h('div', { class: 'section-heading' }, [h('h2', { text: 'موعدهای پیش‌رو' }), h('a', { href: '#/deadlines', text: 'مشاهدهٔ تقویم ←' })]), lazy(upcomingCard)]),
-    h('article', { class: 'panel quote-panel' }, [h('div', { class: 'quote-image' }, [h('p', { text: 'وکیل موفق، فقط به قانون مسلط نیست؛ بلکه می‌داند چگونه از آن استفاده کند.' })]), h('h2', { text: 'به‌روز بمانید' }), h('p', { text: 'مقاله‌ها، پادکست‌ها و نکته‌های کاربردی برای رشد حرفه‌ای.' }), h('a', { class: 'btn-link', href: '#/media', text: 'مطالعهٔ مطالب وفاق ←' })]),
+    h('article', { class: 'panel deadline-panel' }, [
+      h('div', { class: 'section-heading' }, [h('h2', { class: 'block-title', text: 'موعدهای پیش‌رو' }), h('a', { href: '#/deadlines', text: 'مشاهدهٔ تقویم کامل ‹' })]),
+      lazy(upcomingCard),
+    ]),
+    h('article', { class: 'panel quote-panel' }, [
+      h('div', { class: 'quote-image' }, [h('p', { text: 'وکیل موفق، فقط به قانون مسلط نیست؛ بلکه می‌داند چگونه از آن استفاده کند.' })]),
+      h('h2', { class: 'block-title', text: 'به‌روز بمانید' }),
+      h('p', { class: 'muted', text: 'مقاله‌ها، پادکست‌ها و نکته‌های کاربردی برای رشد حرفه‌ای.' }),
+      h('a', { class: 'btn-pill', href: '#/media', text: 'مطالعهٔ مطالب وفاق' }),
+    ]),
   ]);
-  const cta = h('section', { class: 'learning-cta' }, [h('div', {}, [h('h2', { text: 'به سوی آینده‌ای روشن در مسیر وکالت' }), h('p', { text: 'با آکادمی وفاق، دانش، مهارت و اعتمادبه‌نفس را هم‌زمان تجربه کنید.' })]), h('a', { class: 'btn-link secondary', href: '#/account', text: 'شروع مسیر آموزشی ←' })]);
-  root.append(hero, metrics, quick, lower, cta);
+
+  const cta = h('section', { class: 'learning-cta' }, [
+    h('img', { class: 'cta-bg', src: 'assets/images/legal-hero.webp', alt: '', width: '1200', height: '400', loading: 'lazy' }),
+    h('div', { class: 'cta-copy' }, [
+      h('h2', { text: 'به سوی آینده‌ای روشن در مسیر وکالت' }),
+      h('p', { text: 'با آکادمی وفاق، دانش، مهارت و اعتمادبه‌نفس را هم‌زمان تجربه کنید.' }),
+    ]),
+    h('a', { class: 'btn-outline-light cta-button', href: '#/account', text: 'شروع مسیر آموزشی ‹' }),
+  ]);
+
+  root.append(hero, stats, quick, lower, cta);
   return root;
 }
 
