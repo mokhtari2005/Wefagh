@@ -45,6 +45,7 @@ function setup({ adminEmail } = {}) {
   db.exec('PRAGMA foreign_keys = ON;');
   db.exec(migration('0001_init.sql'));
   db.exec(migration('0002_auth.sql'));
+  db.exec(migration('0008_registration_profile.sql'));
   const sent = [];
   const env = {
     DB: d1Like(db),
@@ -69,10 +70,27 @@ async function call(env, path, { method = 'POST', body, cookie } = {}) {
   return worker.fetch(req, env);
 }
 
+const validProfile = {
+  phone: '۰۹۱۲۳۴۵۶۷۸۹',
+  province: 'تهران',
+  city: 'تهران',
+  professionalStatus: 'trainee',
+  barAssociation: 'کانون وکلای دادگستری تهران',
+  licenseNumber: '',
+  licenseYear: '',
+  experienceBand: 'under_2',
+  practiceAreas: ['civil', 'contracts'],
+  learningGoal: 'licence_exam',
+  skillAreas: ['pleadings'],
+  skillLevel: 'beginner',
+  learningFormat: 'case_based',
+  notes: '',
+};
 const validUser = {
   email: 'Shahram@Example.com',
   password: 'رمز-امن-۱۴۰۵',
   displayName: 'شهرام مختاری',
+  profile: validProfile,
 };
 
 function tokenFromMail(sent) {

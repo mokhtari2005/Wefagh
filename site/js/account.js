@@ -1,6 +1,7 @@
 // صفحات حساب کاربری: ورود، ثبت‌نام، تأیید ایمیل، و نمایش حساب. DOM امن (بدون innerHTML با داده).
 import { postJson, getJson } from './api.js';
-import { messageFor, REGISTER_SENT } from './auth-messages.js';
+import { messageFor } from './auth-messages.js';
+import { PROFESSIONAL_STATUS, EXPERIENCE_BANDS, PRACTICE_AREAS, LEARNING_GOALS, SKILL_AREAS, LEARNING_FORMATS, toLatinDigits } from './registration-options.js';
 
 function h(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
@@ -78,64 +79,8 @@ export function loginForm({ onSuccess, onRegister }) {
   return form;
 }
 
-// ---------- ثبت‌نام ----------
-export function registerForm({ onLoginLink }) {
-  const displayName = h('input', { type: 'text', name: 'displayName', autocomplete: 'name', maxlength: '100', required: '' });
-  const email = h('input', { type: 'email', name: 'email', autocomplete: 'email', dir: 'ltr', maxlength: '254', required: '' });
-  const password = h('input', { type: 'password', name: 'password', autocomplete: 'new-password', maxlength: '128', required: '' });
-  password.setAttribute('minlength', '10');
-
-  const errNodes = {
-    displayName: fieldError('reg-name'),
-    email: fieldError('reg-email'),
-    password: fieldError('reg-password'),
-  };
-  const status = h('p', { class: 'form-status', role: 'status', 'aria-live': 'polite' });
-  const submit = h('button', { class: 'btn', type: 'submit', text: 'ساختن حساب' });
-
-  const form = h('form', { class: 'form', novalidate: '', 'aria-label': 'فرم ثبت‌نام' }, [
-    field('reg-name', 'نام نمایشی', displayName),
-    errNodes.displayName,
-    field('reg-email', 'ایمیل', email),
-    errNodes.email,
-    field('reg-password', 'رمز عبور (حداقل ۱۰ نویسه)', password),
-    errNodes.password,
-    submit,
-    status,
-    h('p', {}, [h('a', { href: '#/account', text: 'قبلاً حساب دارید؟ وارد شوید' })]),
-  ]);
-
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const values = {
-      displayName: displayName.value.trim(),
-      email: email.value.trim(),
-      password: password.value,
-    };
-    submit.disabled = true;
-    setStatus(status, 'در حال ثبت…');
-    const res = await postJson('/api/auth/register', values);
-    submit.disabled = false;
-
-    if (res.ok) {
-      applyFieldErrors({}, errNodes);
-      password.value = '';
-      form.reset();
-      // پاسخ عمومی: عمداً نمی‌گوید ایمیل تکراری بوده یا نه.
-      setStatus(status, REGISTER_SENT, 'ok');
-      return;
-    }
-    if (res.status === 422 && res.data?.errors) {
-      applyFieldErrors(res.data.errors, errNodes);
-      setStatus(status, messageFor('VALIDATION_FAILED'), 'err');
-      return;
-    }
-    const code = res.networkError ? 'NETWORK' : res.data?.error;
-    setStatus(status, messageFor(code), 'err');
-  });
-
-  return form;
-}
+// فرم ثبت‌نام چندمرحله‌ای در register.js است.
+export { registerForm } from './register.js';
 
 // ---------- تأیید ایمیل (از لینک ایمیل) ----------
 export async function verifyPanel(token) {
@@ -158,6 +103,22 @@ export async function verifyPanel(token) {
 }
 
 // ---------- حساب من ----------
+/** خلاصهٔ پروفایل ثبت‌نام؛ فقط برای خود کاربر نمایش داده می‌شود. */
+function profileSummary(p) {
+  const list = (keys, map) => keys.map((k) => map[k]).filter(Boolean).join('، ') || '—';
+  const rows = [
+    ['شمارهٔ تلفن', toLatinDigits(p.phone)],
+    ['محل فعالیت', `${p.province}، ${p.city}`],
+    ['وضعیت حرفه‌ای', PROFESSIONAL_STATUS[p.professionalStatus]],
+    ['سابقه', EXPERIENCE_BANDS[p.experienceBand]],
+    ['حوزه‌های فعالیت', list(p.practiceAreas, PRACTICE_AREAS)],
+    ['هدف آموزشی', LEARNING_GOALS[p.learningGoal]],
+    ['مهارت‌های موردنظر', list(p.skillAreas, SKILL_AREAS)],
+    ['روش آموزشی', LEARNING_FORMATS[p.learningFormat]],
+  ];
+  return h('dl', { class: 'review-summary' }, rows.map(([k, v]) => h('div', { class: 'review-row' }, [h('dt', { text: k }), h('dd', { text: v || '—' })])));
+}
+
 export async function accountPanel({ onLogout }) {
   const res = await getJson('/api/me');
   if (!res.ok) return null;
@@ -178,6 +139,7 @@ export async function accountPanel({ onLogout }) {
     h('h1', { text: 'حساب من' }),
     h('p', { text: `نام: ${user.displayName}` }),
     h('p', { dir: 'ltr', text: user.email }),
+    user.profile ? profileSummary(user.profile) : h('p', { class: 'muted', text: 'پروفایل آموزشی برای این حساب ثبت نشده است.' }),
     user.roles?.length ? h('p', { class: 'muted', text: `نقش‌ها: ${user.roles.join('، ')}` }) : h('span'),
     user.roles?.some((role) => ['admin', 'super_admin', 'academy_manager', 'media_editor'].includes(role)) ? h('p', {}, [h('a', { class: 'btn secondary', href: '#/admin', text: 'ورود به مدیریت محتوا' })]) : h('span'),
     logout,
