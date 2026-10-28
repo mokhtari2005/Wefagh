@@ -11,6 +11,8 @@
     "test": "node --test tests/*.test.js",
     "check": "node --check site/js/app.js && node --check site/js/contact.js && node --check site/js/api.js && node --check site/js/shamsi.js && node --check site/js/pages.js && node --check site/js/dashboard.js && node --check site/js/admin.js && node --check worker/src/admin.js && node --check worker/src/admin-media.js && node --check worker/src/media/routes.js && node --check worker/src/cases/routes.js && node --check worker/src/index.js && node --check worker/src/dashboard.js && node --check worker/src/validate.js && node --check worker/src/contact.js",
     "dev:site": "python3 -m http.server 8080 --directory site",
-    "verify": "npm run check && npm test"
+    "verify": "npm run check && npm test",
+    "dev:local-api": "node scripts/local-dev/devserver.mjs",
+    "smoke:api": "node scripts/local-dev/smoke.mjs"
   }
 }

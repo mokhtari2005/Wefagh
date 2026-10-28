@@ -114,7 +114,16 @@ export function mootCourtPage() {
   const recordStop = h('button', { class: 'btn secondary', type: 'button', text: 'پایان ضبط', disabled: '' });
   const audioPlayer = h('audio', { controls: '', preload: 'metadata', hidden: '', 'aria-label': 'پخش صدای ضبط‌شده' });
   audioPlayer.classList.add('oral-player');
-  const audioDownload = h('a', { class: 'btn secondary', hidden: '', download: 'wefagh-moot-court.webm', text: 'دریافت فایل صوتی' });
+  const audioDownload = h('button', { class: 'btn secondary', type: 'button', hidden: '', text: 'دریافت فایل صوتی' });
+  audioDownload.addEventListener('click', () => {
+    if (!audioUrl) return;
+    const link = document.createElement('a');
+    link.href = audioUrl;
+    link.download = audioDownload.dataset.filename || 'wefagh-moot-court.webm';
+    document.body.append(link);
+    link.click();
+    link.remove();
+  });
   audioPanel.append(h('div', { class: 'row oral-controls' }, [recordStart, recordStop]), audioStatus, audioPlayer, audioDownload);
   let mediaRecorder = null;
   let mediaStream = null;
@@ -165,8 +174,7 @@ export function mootCourtPage() {
         audioUrl = URL.createObjectURL(blob);
         audioPlayer.src = audioUrl;
         audioPlayer.hidden = false;
-        audioDownload.href = audioUrl;
-        audioDownload.download = type.includes('mp4') ? 'wefagh-moot-court.m4a' : 'wefagh-moot-court.webm';
+        audioDownload.dataset.filename = type.includes('mp4') ? 'wefagh-moot-court.m4a' : 'wefagh-moot-court.webm';
         audioDownload.hidden = false;
         audioStatus.textContent = `ضبط تمام شد · حجم فایل ${(blob.size / 1024).toFixed(0)} کیلوبایت. برای شنیدن از پخش‌کننده استفاده کنید.`;
       }, { once: true });
