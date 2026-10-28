@@ -5,6 +5,23 @@ import { COURSES, courseSummaries, findCourse, findLesson } from './catalog.js';
 
 const ID_RE = /^[a-z0-9-]{1,64}$/;
 
+async function publishedCourses(env) {
+  if (!env.DB) return [];
+  const rows = await env.DB.prepare("SELECT slug, title, summary, payload_json FROM admin_content WHERE kind = 'course' AND status = 'published' ORDER BY title LIMIT 200").all();
+  return (rows?.results || []).flatMap((row) => {
+    try { const payload = JSON.parse(row.payload_json); return [{ id: row.slug, title: row.title, summary: row.summary, level: payload.level, lessons: payload.lessons }]; } catch { return []; }
+  });
+}
+
+async function getCourse(env, id) {
+  const builtIn = findCourse(id);
+  if (builtIn) return builtIn;
+  if (!env.DB) return null;
+  const row = await env.DB.prepare("SELECT slug, title, summary, payload_json FROM admin_content WHERE kind = 'course' AND status = 'published' AND slug = ?1").bind(id).first();
+  if (!row) return null;
+  try { const payload = JSON.parse(row.payload_json); return { id: row.slug, title: row.title, summary: row.summary, level: payload.level, lessons: payload.lessons }; } catch { return null; }
+}
+
 async function requireUser(request, env) {
   const user = await currentUser(request, env);
   return user;
@@ -14,14 +31,16 @@ export async function handleAcademy(request, env, path) {
   // فهرست دوره‌ها
   if (path === '/api/academy/courses') {
     if (request.method !== 'GET') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'GET' });
-    return json({ ok: true, courses: courseSummaries() });
+    const managed = await publishedCourses(env);
+    const summaries = managed.map((c) => ({ id: c.id, title: c.title, level: c.level, summary: c.summary, lessonCount: c.lessons.length }));
+    return json({ ok: true, courses: [...courseSummaries(), ...summaries] });
   }
 
   // جزئیات یک دوره با درس‌ها
   const detail = path.match(/^\/api\/academy\/courses\/([a-z0-9-]{1,64})$/);
   if (detail) {
     if (request.method !== 'GET') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'GET' });
-    const course = findCourse(detail[1]);
+    const course = findCourse(detail[1]) || await getCourse(env, detail[1]);
     if (!course) return json({ ok: false, error: 'NOT_FOUND' }, 404);
     return json({
       ok: true,
@@ -43,7 +62,7 @@ export async function handleAcademy(request, env, path) {
     const parsed = await readJsonBody(request);
     if (parsed.error) return parsed.error;
     const courseId = parsed.body?.courseId;
-    if (typeof courseId !== 'string' || !ID_RE.test(courseId) || !findCourse(courseId)) {
+    if (typeof courseId !== 'string' || !ID_RE.test(courseId) || !(findCourse(courseId) || await getCourse(env, courseId))) {
       return json({ ok: false, error: 'VALIDATION_FAILED', errors: { courseId: 'دوره نامعتبر است.' } }, 422);
     }
     await env.DB
@@ -61,7 +80,7 @@ export async function handleAcademy(request, env, path) {
     const parsed = await readJsonBody(request);
     if (parsed.error) return parsed.error;
     const { courseId, lessonId } = parsed.body || {};
-    const course = typeof courseId === 'string' && ID_RE.test(courseId) ? findCourse(courseId) : null;
+    const course = typeof courseId === 'string' && ID_RE.test(courseId) ? (findCourse(courseId) || await getCourse(env, courseId)) : null;
     const lesson = course && typeof lessonId === 'string' && ID_RE.test(lessonId) ? findLesson(course, lessonId) : null;
     if (!course || !lesson) {
       return json({ ok: false, error: 'VALIDATION_FAILED', errors: { lessonId: 'درس نامعتبر است.' } }, 422);
@@ -86,7 +105,7 @@ export async function handleAcademy(request, env, path) {
     if (!user) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
     const url = new URL(request.url);
     const courseId = url.searchParams.get('courseId') || '';
-    const course = ID_RE.test(courseId) ? findCourse(courseId) : null;
+    const course = ID_RE.test(courseId) ? (findCourse(courseId) || await getCourse(env, courseId)) : null;
     if (!course) return json({ ok: false, error: 'VALIDATION_FAILED' }, 422);
     const enr = await env.DB
       .prepare('SELECT 1 AS x FROM enrollments WHERE user_id = ?1 AND course_id = ?2')

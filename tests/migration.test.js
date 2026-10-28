@@ -20,7 +20,7 @@ try {
 function d1Like(db) {
   return {
     prepare(sql) {
-      const stmt = db.prepare(sql);
+      const stmt = db.prepare(sql.replace(/\?\d+/g, '?'));
       return {
         bind(...args) {
           return {

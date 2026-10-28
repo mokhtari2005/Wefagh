@@ -22,7 +22,7 @@ npx wrangler d1 create wefagh-db
 ```bash
 npx wrangler d1 migrations apply wefagh-db --remote
 ```
-✅ فایل `migrations/0001_init.sql` روی SQLite واقعی (`node:sqlite` در Node 22) اجرا و آزموده شد؛ اجرای روی D1 واقعی هنوز انجام نشده است.
+✅ فایل مهاجرت‌های `0001` تا `0007` روی SQLite داخلی Node آزموده شده‌اند؛ اجرای روی D1 واقعی هنوز انجام نشده است. هر مهاجرت جدید را پیش از استقرار Worker روی D1 اجرا کنید. مهاجرت `0007_admin_media.sql` جدول مستقل مدیریت مقاله‌ها و پادکست‌ها را می‌سازد.
 
 ## مرحله ۳: استقرار Worker (API)
 ```bash
