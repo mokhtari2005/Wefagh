@@ -33,51 +33,103 @@ export function scoreRubric(checked, total) {
   return Math.round((checked / total) * 100);
 }
 
+const STAGES = [
+  { id: 'facts', title: 'وقایع و مسائل' },
+  { id: 'answers', title: 'تنظیم پاسخ' },
+  { id: 'check', title: 'خودارزیابی' },
+  { id: 'result', title: 'نتیجه' },
+];
+
 export function mootCourtPage() {
-  const wrap = h('div', {}, [
-    h('h1', { text: 'موت کورت (تمرین دادرسی)' }),
+  const wrap = h('div', { class: 'moot' }, [
+    h('span', { class: 'section-kicker', text: 'تمرین دادرسی · پروندهٔ فرضی آموزشی' }),
+    h('h1', { text: 'موت‌کورت' }),
+    h('p', { class: 'lead', text: 'یک پروندهٔ فرضی را مرحله‌به‌مرحله تحلیل کنید: ابتدا وقایع، سپس پاسخ به مسائل، و در پایان خودارزیابی.' }),
     h('div', {
       class: 'notice',
       role: 'note',
       text: 'این تمرین پروندهٔ فرضی دارد و جایگزین مشاورهٔ حقوقی نیست. ارزیابی با چک‌لیست خودتان انجام می‌شود، نه هوش مصنوعی. پاسخ‌ها ذخیره نمی‌شوند؛ قبل از خروج از صفحه متن خود را کپی کنید.',
     }),
-    h('h2', { text: CASE.title }),
   ]);
 
-  const facts = h('ul');
-  for (const f of CASE.facts) facts.append(h('li', { text: f }));
-  wrap.append(h('h3', { text: 'وقایع' }), facts);
+  // نوار مراحل
+  const stepItems = STAGES.map((st, i) =>
+    h('li', { 'data-stage': st.id }, [h('span', { class: 'num', text: String(i + 1) }), h('span', { text: st.title })])
+  );
+  const stepper = h('ol', { class: 'stepper', 'aria-label': 'مراحل تمرین' }, stepItems);
+  wrap.append(stepper);
 
   const answers = {};
-  const form = h('form', { class: 'form', novalidate: '', 'aria-label': 'پاسخ موت کورت' });
-  wrap.append(form);
-  CASE.issues.forEach((issue, i) => {
-    const ta = h('textarea', { id: `moot-${issue.id}`, rows: '5', maxlength: '4000' });
-    answers[issue.id] = ta;
-    form.append(
-      h('div', { class: 'field' }, [
-        h('label', { for: `moot-${issue.id}`, text: `مسئلهٔ ${i + 1}: ${issue.text}` }),
-        ta,
-      ])
-    );
-  });
-
-  // چک‌لیست خودارزیابی
   const boxes = [];
+  const panels = {};
+
+  // مرحله ۱: وقایع و مسائل
+  const factsPanel = h('section', { class: 'case-panel' }, [
+    h('h2', { text: CASE.title }),
+    h('h3', { text: 'وقایع' }),
+  ]);
+  const facts = h('ol');
+  for (const f of CASE.facts) facts.append(h('li', { text: f }));
+  factsPanel.append(facts, h('h3', { text: 'مسائل حقوقی' }));
+  const issuesList = h('ol');
+  for (const issue of CASE.issues) issuesList.append(h('li', { text: issue.text }));
+  factsPanel.append(issuesList);
+  panels.facts = factsPanel;
+
+  // مرحله ۲: پاسخ‌ها
+  const answersPanel = h('form', { class: 'form', novalidate: '', 'aria-label': 'پاسخ موت‌کورت' });
+  CASE.issues.forEach((issue, i) => {
+    const ta = h('textarea', { id: `moot-${issue.id}`, rows: '6', maxlength: '4000' });
+    answers[issue.id] = ta;
+    answersPanel.append(h('div', { class: 'field' }, [h('label', { for: `moot-${issue.id}`, text: `مسئلهٔ ${i + 1}: ${issue.text}` }), ta]));
+  });
+  panels.answers = answersPanel;
+
+  // مرحله ۳: چک‌لیست و ثبت
+  const checkPanel = h('form', { class: 'form', novalidate: '', 'aria-label': 'خودارزیابی موت‌کورت' });
   const checklist = h('fieldset', { class: 'checklist' }, [h('legend', { text: 'چک‌لیست خودارزیابی' })]);
   CASE.rubric.forEach((item, i) => {
     const cb = h('input', { type: 'checkbox', id: `rub-${i}` });
     boxes.push(cb);
     checklist.append(h('label', { class: 'check-item', for: `rub-${i}` }, [cb, document.createTextNode(' ' + item)]));
   });
-  form.append(checklist);
-
+  checkPanel.append(checklist);
   const out = h('div', { role: 'status', 'aria-live': 'polite' });
   const submit = h('button', { class: 'btn', type: 'submit', text: 'ثبت خودارزیابی' });
-  const reset = h('button', { class: 'btn', type: 'button', text: 'پاک کردن پاسخ‌ها' });
-  form.append(h('div', { class: 'row' }, [submit, reset]), out);
+  checkPanel.append(h('div', { class: 'row' }, [submit]));
+  panels.check = checkPanel;
 
-  form.addEventListener('submit', (e) => {
+  // مرحله ۴: نتیجه
+  const resultPanel = h('section', { class: 'case-panel' }, [h('h2', { text: 'نتیجهٔ تمرین' }), out]);
+  const reset = h('button', { class: 'btn secondary', type: 'button', text: 'پاک کردن و شروع دوباره' });
+  resultPanel.append(h('div', { class: 'row' }, [reset]));
+  panels.result = resultPanel;
+
+  let current = 0;
+  const prev = h('button', { class: 'btn secondary', type: 'button', text: '→ مرحلهٔ قبلی' });
+  const next = h('button', { class: 'btn', type: 'button', text: 'مرحلهٔ بعد ←' });
+  const nav = h('div', { class: 'row moot-nav' }, [prev, next]);
+  const body = h('div', { class: 'moot-body' }, STAGES.map((st) => panels[st.id]));
+  wrap.append(body, nav);
+
+  function show(index) {
+    current = Math.max(0, Math.min(STAGES.length - 1, index));
+    STAGES.forEach((st, i) => {
+      panels[st.id].hidden = i !== current;
+      const li = stepper.children[i];
+      li.classList.toggle('done', i < current);
+      if (i === current) li.setAttribute('aria-current', 'step');
+      else li.removeAttribute('aria-current');
+    });
+    prev.hidden = current === 0;
+    next.hidden = current === STAGES.length - 1;
+    panels[STAGES[current].id].querySelector('h2, textarea, input, button')?.focus?.({ preventScroll: true });
+  }
+
+  prev.addEventListener('click', () => show(current - 1));
+  next.addEventListener('click', () => show(current + 1));
+
+  checkPanel.addEventListener('submit', (e) => {
     e.preventDefault();
     const checked = boxes.filter((b) => b.checked).length;
     const filled = Object.values(answers).filter((ta) => ta.value.trim().length >= 40).length;
@@ -87,13 +139,16 @@ export function mootCourtPage() {
       h('p', { text: `پاسخ‌های کامل (حداقل ۴۰ نویسه): ${filled} از ${CASE.issues.length}.` }),
       h('p', { class: 'muted', text: CASE.outlineHint })
     );
+    show(3);
   });
 
   reset.addEventListener('click', () => {
     for (const ta of Object.values(answers)) ta.value = '';
     for (const b of boxes) b.checked = false;
     out.replaceChildren();
+    show(0);
   });
 
+  show(0);
   return wrap;
 }

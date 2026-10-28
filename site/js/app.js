@@ -49,34 +49,98 @@ function renderNav(activePath) {
   nav.replaceChildren(list);
 }
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs = {}, children = []) {
+  const node = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  for (const c of children) node.append(c);
+  return node;
+}
+
+/** تصویر شاخص صفحهٔ اصلی: ترکیب هندسی از ترازو، خطوط گفت‌وگو و گره‌های دانش. */
+function heroArt() {
+  return svgEl('svg', { class: 'hero-art', viewBox: '0 0 400 400', role: 'img', 'aria-label': 'نقش انتزاعی از ترازو و خطوط پیوند' }, [
+    svgEl('circle', { cx: '200', cy: '200', r: '150', class: 'stroke' }),
+    svgEl('circle', { cx: '200', cy: '200', r: '105', class: 'stroke' }),
+    svgEl('circle', { cx: '200', cy: '200', r: '62', class: 'soft' }),
+    svgEl('path', { d: 'M90 190 H310', class: 'stroke', 'stroke-width': '2.5' }),
+    svgEl('path', { d: 'M200 110 V300', class: 'stroke', 'stroke-width': '2.5' }),
+    svgEl('path', { d: 'M90 190 Q120 260 150 190', class: 'stroke' }),
+    svgEl('path', { d: 'M250 190 Q280 260 310 190', class: 'stroke' }),
+    svgEl('path', { d: 'M140 300 H260', class: 'stroke', 'stroke-width': '2.5' }),
+    svgEl('circle', { cx: '90', cy: '190', r: '7', class: 'gold' }),
+    svgEl('circle', { cx: '310', cy: '190', r: '7', class: 'gold' }),
+    svgEl('circle', { cx: '200', cy: '110', r: '6', class: 'teal' }),
+    svgEl('circle', { cx: '200', cy: '300', r: '6', class: 'teal' }),
+    svgEl('path', { d: 'M200 110 L330 60 M200 300 L70 340', class: 'stroke', 'stroke-dasharray': '4 6' }),
+    svgEl('circle', { cx: '330', cy: '60', r: '5', class: 'gold' }),
+    svgEl('circle', { cx: '70', cy: '340', r: '5', class: 'gold' }),
+  ]);
+}
+
+const MODULES = [
+  { title: 'آکادمی مجازی وکالت', desc: 'دوره‌های کوتاه و کارگاه‌های عملی برای دانشجویان حقوق، کارآموزان و وکلا.', href: '#/academy', cta: 'ورود به آکادمی' },
+  { title: 'موت‌کورت و تمرین دادرسی', desc: 'تمرین مرحله‌ای روی پرونده‌های فرضی آموزشی، با چک‌لیست خودارزیابی.', href: '#/moot-court', cta: 'شروع تمرین' },
+  { title: 'میز ابزارهای حقوقی', desc: 'محاسبه‌گرهای منبع‌دار. نتیجهٔ هر ابزار وضعیت احراز خود را نشان می‌دهد.', href: '#/calculators', cta: 'باز کردن ابزارها' },
+  { title: 'رسانه و پادکست', desc: 'یادداشت‌های حقوقی و قسمت‌های «شنبه‌ها با وِفاق».', href: '#/media', cta: 'مطالب و پادکست' },
+  { title: 'تقویم مواعد', desc: 'یادآوری مهلت‌های دادرسی با تاریخ شمسی؛ نتیجه پیش از تأیید قطعی نیست.', href: '#/deadlines', cta: 'تقویم مواعد' },
+  { title: 'عضویت و شبکهٔ اعضا', desc: 'ورود، ثبت‌نام و دسترسی به امکانات ویژهٔ اعضا.', href: '#/account', cta: 'ورود یا عضویت' },
+];
+
 function pageHome() {
-  const hero = h('section', { class: 'hero' }, [
-    h('h1', { text: 'وِفاق' }),
-    h('p', { class: 'lead', text: 'گروه وکلای مدافع فرهنگ، اندیشه و قانون' }),
-    h('p', { text: 'آموزش حقوقی، مشاوره، رسانه و ابزارهای کاربردی برای شهروندان و اهالی حقوق.' }),
-    h('p', { class: 'muted', text: `امروز: ${formatShamsi(new Date())}` }),
+  const hero = h('section', { class: 'hero', 'aria-labelledby': 'hero-title' }, [
+    h('div', {}, [
+      h('span', { class: 'section-kicker', text: 'وِفاق · گروه وکلای مدافع فرهنگ، اندیشه و قانون' }),
+      h('h1', { id: 'hero-title' }, [
+        document.createTextNode('دانش حقوقی، '),
+        h('span', { class: 'hero-title-accent', text: 'گفت‌وگو' }),
+        document.createTextNode(' و کنش حرفه‌ای'),
+      ]),
+      h('p', { class: 'lead', text: 'آموزش، رسانه، تمرین دادرسی و ابزارهای حقوقی؛ برای شهروندان و اهالی حقوق.' }),
+      h('div', { class: 'hero-actions' }, [
+        h('a', { class: 'btn-link', href: '#/academy', text: 'ورود به دنیای وِفاق' }),
+        h('a', { class: 'btn-link secondary', href: '#/calculators', text: 'استفاده از ابزارهای حقوقی' }),
+      ]),
+      h('p', { class: 'muted', text: `امروز: ${formatShamsi(new Date())}` }),
+    ]),
+    heroArt(),
   ]);
 
-  const cards = h('div', { class: 'cards' });
-  for (const item of NAV.filter((n) => n.path !== '/')) {
-    const badge = item.status === 'planned' ? h('span', { class: 'badge', text: `به‌زودی · فاز ${item.phase}` }) : null;
-    const card = h('a', { class: 'card', href: `#${item.path}` }, [
-      ...(badge ? [badge] : []),
-      h('h3', { text: item.title }),
-    ]);
-    cards.append(card);
-  }
+  const modules = h('div', { class: 'modules' });
+  MODULES.forEach((m, i) => {
+    modules.append(h('a', { class: 'module', href: m.href }, [
+      h('span', { class: 'module-index', text: String(i + 1).padStart(2, '۰').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]) }),
+      h('h3', { class: 'module-title', text: m.title }),
+      h('p', { class: 'module-desc', text: m.desc }),
+      h('span', { class: 'module-cta', text: `${m.cta} ←` }),
+    ]));
+  });
+  const navSection = h('section', {}, [
+    h('span', { class: 'section-kicker', text: 'از کجا شروع کنیم' }),
+    h('h2', { text: 'شش مسیر، یک گفت‌وگو' }),
+    modules,
+  ]);
 
-  const values = h('section', {}, [h('h2', { text: 'ارزش‌های ما' })]);
-  const valuesGrid = h('div', { class: 'cards' });
+  const deadlinesSection = h('section', {}, [lazy(upcomingCard)]);
+
+  const editorial = h('div', { class: 'editorial' });
   for (const v of VALUES) {
-    valuesGrid.append(h('div', { class: 'card' }, [h('h3', { text: v.title }), h('p', { text: v.text })]));
+    editorial.append(h('div', { class: 'editorial-item' }, [h('h3', { text: v.title }), h('p', { text: v.text })]));
   }
-  values.append(valuesGrid);
+  const valuesSection = h('section', {}, [h('h2', { text: 'ارزش‌های ما' }), editorial]);
 
-  const deadlinesSection = h('section', {}, [h('h2', { text: 'تقویم مواعد دادرسی' }), lazy(upcomingCard)]);
+  const cta = h('section', { class: 'cta-band', 'aria-labelledby': 'cta-title' }, [
+    h('div', {}, [
+      h('h2', { id: 'cta-title', text: 'به وِفاق بپیوندید' }),
+      h('p', { text: 'عضویت برای ادامهٔ آموزش، ذخیرهٔ پیشرفت و دسترسی به امکانات اعضا.' }),
+    ]),
+    h('div', { class: 'row' }, [
+      h('a', { class: 'btn', href: '#/account', text: 'ثبت‌نام یا ورود' }),
+      h('a', { class: 'btn secondary light', href: '#/contact', text: 'تماس با ما' }),
+    ]),
+  ]);
 
-  return h('div', {}, [hero, deadlinesSection, h('h2', { text: 'بخش‌ها' }), cards, values]);
+  return h('div', {}, [hero, navSection, deadlinesSection, valuesSection, cta]);
 }
 
 function pageAbout() {
