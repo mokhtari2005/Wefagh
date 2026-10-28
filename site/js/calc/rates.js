@@ -1,67 +1,38 @@
-// قواعد نرخ هزینه‌ها، به‌تفکیک سال. هر قاعده منبع، تاریخ‌ها و وضعیت احراز دارد.
+// قواعد نرخ هزینه‌ها، به‌تفکیک سال. هر قاعده منبع، تاریخ‌ها، وضعیت احراز و تفسیر جدا دارد.
 //
 // وضعیت‌ها:
-//   'unverified' ⇒ هنوز متن قابل‌استناد نخوانده شده یا مبنای محاسبه مشخص نیست؛ محاسبه نمی‌شود.
-//   'text_read'  ⇒ متن خوانده شده (بازنشر یا لایحه)؛ هنوز با روزنامهٔ رسمی/قانون لازم‌الاجرا تطبیق نشده؛ محاسبه نمی‌شود.
-//   'verified'   ⇒ با روزنامهٔ رسمی یا پایگاه ملی قوانین تطبیق شده؛ فقط در این حالت موتور آن را اعمال می‌کند.
+//   'unverified'    ⇒ هنوز متن قابل‌استناد یا مبنای محاسبه مشخص نیست؛ محاسبه نمی‌شود.
+//   'text_read'     ⇒ متن خوانده شده؛ تفسیر یا تأیید کاربر ندارد؛ محاسبه نمی‌شود.
+//   'user_approved' ⇒ کاربر برای استفاده در ماشین‌حساب تأیید کرده (userApproval). احراز رسمی مستقل نیست؛ موتور اعمال می‌کند.
+//   'verified'      ⇒ با روزنامهٔ رسمی یا پایگاه ملی قوانین احراز شده؛ هنوز هیچ قاعده‌ای چنین نیست.
 //
-// kind:
-//   'tiered'        پلکانی (tiers + mode)؛ موتور محاسبه می‌کند اگر verified باشد
-//   'fixed'         مبلغ ثابت؛ موتور محاسبه می‌کند اگر verified باشد
-//   'range'         بازهٔ حداقل–حداکثر؛ انتخاب مبلغ با مرجع تصمیم است؛ محاسبه نمی‌شود
-//   'share'         سهم از مبلغ/مرحلهٔ دیگر (نیازمند ورودی مرحله)؛ محاسبه نمی‌شود
-//   'discretionary' تشخیص کانون یا مرجع؛ محاسبه نمی‌شود
-// «candidateTiers»، «candidate» و «note» فقط ردیابی‌اند و هیچ‌جا در محاسبه استفاده نمی‌شوند.
-
-// گزارش احراز: هر تلاش و نتیجه. نتیجهٔ «بازنشر» یا «لایحه» تأیید رسمی نیست.
-export const VERIFICATION_LOG = [
-  {
-    date: '2026-10-28',
-    target: 'آیین‌نامه تعرفه حق‌الوکاله، مواد ۱ تا ۳۴ (فایل پیوست fd69f537)',
-    outcome: 'متن بازنشرشدهٔ اختبار (صفحات ۱ تا ۱۵ از ۱۹ خوانده شد). مواد ۹، ۱۲، ۱۳، ۱۴، ۲۱، ۲۴، ۲۵ و تبصره‌های مرتبط در متن دیده شد. مطابقت با روزنامهٔ رسمی یا پایگاه ملی قوانین انجام نشده است.',
-  },
-  {
-    date: '2026-10-28',
-    target: 'جدول ۱۶ ۱۴۰۵ — بازنشر اختبار (فایل پیوست c2bcc731)',
-    outcome: 'بازنشر اختبار (۷ صفحه؛ صفحات ۱ تا ۳ خوانده شد). ردیف‌های ۲٫۵٪ / ۳٫۵٪ / ۴٫۵٪ / ۵٫۵٪ و اقلام ثابت در آن دیده شد. مطابقت با روزنامهٔ رسمی انجام نشده است.',
-  },
-  {
-    date: '2026-10-28',
-    target: 'لایحه بودجه ۱۴۰۵ کل کشور، سازمان برنامه و بودجه، ۳۱۹ صفحه (فایل پیوست 3454ce79)',
-    outcome: 'این یک «لایحه» است، نه قانون تصویب‌شده. بخش دادگستری جدول ۱۶ (کد ۱۴۰۱۰۱، صفحات چاپی ۲۸۸ تا ۲۹۱) خوانده شد. ردیف‌های هزینه دادرسی موضوع بند (۱۲) ماده (۳) با ۲٫۵٪ تا ۲۰۰ میلیون ریال، ۳٫۵٪ بیش از ۲۰۰ میلیون ریال، ۴٫۵٪ تجدیدنظر، ۵٫۵٪ فرجام‌خواهی؛ مبنای همه «ارزش خواسته» است. ردیف‌های اقلام ثابت (اجرای موقت، اعتراض، بهای نامشخص) نیز دیده شد. تصویب مجلس، اصلاحات احتمالی و روزنامهٔ رسمی ثبت نشده است؛ مطابقت انجام نشده است.',
-  },
-  {
-    date: '2026-10-28',
-    target: 'پذیرش اسناد توسط کاربر (بدون احراز رسمی)',
-    outcome: 'کاربر اسناد ارائه‌شده (بازنشر آیین‌نامه، بازنشر جدول ۱۶، لایحه بودجه) را برای ادامهٔ کار پذیرفته است: userAccepted = true. این پذیرش مشاهدهٔ مستقل روزنامهٔ رسمی نیست: independentlyVerifiedOfficialSource = false.',
-  },
-  {
-    date: '2026-10-28',
-    target: 'کیت‌ست: هزینه دادرسی و حق‌الوکاله و تمبر',
-    outcome: 'هزینه دادرسی: بدون عدد. حق‌الوکاله: طبقات متفاوت با مستند ۱۳۸۵/۴/۲۷ که با متن ۱۳۹۸ تناقض دارد. استفاده نشد؛ فقط برای تطبیق.',
-  },
-  {
-    date: '2026-10-28',
-    target: 'تلاش‌های ناموفق: ekhtebar.ir (robots)، rrk.ir، dotic.ir، rooznamehrasmi.ir، rc.majlis.ir، websitevakil.ir، iranvekalat.ir، danesh.dadrah.ir',
-    outcome: 'دسترسی ممکن نشد. متن روزنامهٔ رسمی یا پایگاه ملی قوانین خوانده نشد.',
-  },
-];
-
+// kind: 'tiered' | 'fixed' | 'range' (بازه، مبلغ انتخاب نمی‌شود) | 'share' (سهم از مرحله) | 'discretionary' (تشخیص مرجع)
+// «note»، «statusDetail» و «interpretation» فقط ردیابی‌اند.
 
 // فراداده اسناد. userAccepted یعنی کاربر برای ادامهٔ کار پذیرفته؛ این به‌معنای احراز رسمی نیست.
 export const SOURCE_DOCUMENTS = [
   {
+    id: 'attorney-regulation-scan-1399',
+    title: 'آیین‌نامه تعرفه حق‌الوکاله، حق‌المشاوره و هزینه سفر وکلای دادگستری (اسکن با سربرگ و امضا، شمارهٔ ۹۰۰۰/۱۴۷۲/۱۰۰ تاریخ ۱۳۹۹/۱/۹ ؛ نامهٔ ارجاع شمارهٔ ۹۰۰۰/۱۶۴۸/۱۰۰ تاریخ ۱۳۹۹/۰۱/۰۹)',
+    origin: 'اسکن ارائه‌شده توسط کاربر (فایل 011936f5)؛ سربرگ قوهٔ قضاییه، نامهٔ معاونت تدوین و امضای مدیرکل دبیرخانه',
+    observedSourceUrl: 'ندارد (اسکن فایل)',
+    pagesRead: '۱ تا ۸ از ۸ (کامل)',
+    userAccepted: true,
+    independentlyVerifiedOfficialSource: false,
+    note: 'اسکن از روی سند اصالت فیزیکی/دیجیتال را نشان نمی‌دهد؛ روزنامهٔ رسمی دیده نشده است. متن ماده‌ها با بازنشر اختبار مطابق بررسی شد.',
+  },
+  {
     id: 'attorney-regulation-republication',
-    title: 'آیین‌نامه تعرفه حق‌الوکاله ۱۳۹۸ (بازنشر)',
+    title: 'آیین‌نامه تعرفه حق‌الوکاله ۱۳۹۸ (بازنشر اختبار)',
     origin: 'بازنشر در پایگاه اختبار (پاورقی PDF: www.ekhtebar.ir)',
-    observedSourceUrl: 'پاورقی PDF: www.ekhtebar.ir (نشانی کامل در این گزارش ثبت نشده)',
+    observedSourceUrl: 'پاورقی PDF: www.ekhtebar.ir (نشانی کامل ثبت نشده)',
     pagesRead: '۱ تا ۱۵ از ۱۹',
     userAccepted: true,
     independentlyVerifiedOfficialSource: false,
   },
   {
     id: 'judicial-fees-republication-1405',
-    title: 'تعرفه خدمات قضایی و هزینه دادرسی ۱۴۰۵ (بازنشر)',
+    title: 'تعرفه خدمات قضایی و هزینه دادرسی ۱۴۰۵ (بازنشر اختبار)',
     origin: 'بازنشر در پایگاه اختبار',
     observedSourceUrl: 'نشانی کامل ثبت نشده',
     pagesRead: '۱ تا ۳ از ۷',
@@ -73,136 +44,171 @@ export const SOURCE_DOCUMENTS = [
     title: 'لایحه بودجه سال ۱۴۰۵ کل کشور (سازمان برنامه و بودجه)',
     origin: 'لایحه، نه قانون تصویب‌شده',
     observedSourceUrl: 'فایل پیوست؛ نشانی منبع ثبت نشده',
-    pagesRead: '۱ تا ۸، ۲۵۸ تا ۲۹۲ از ۳۱۹',
+    pagesRead: '۱ تا ۸، ۲۵۸ تا ۲۹۱ از ۳۱۹',
     userAccepted: true,
     independentlyVerifiedOfficialSource: false,
   },
 ];
 
-// وضعیت‌های جدا برای ماده ۹ و هزینه دادرسی: متن، تفسیر، اصالت و قابلیت فعال‌سازی
+const USER_APPROVAL = {
+  by: 'user',
+  date: '2026-10-28',
+  scope: 'calculator-use',
+  officialVerified: false,
+};
+
+// وضعیت‌های جدا: متن، تفسیر، اصالت رسمی، و مجوز فعال‌سازی
 const ART9_DETAIL = {
-  textObserved: 'متن بازنشرشده مشاهده شده (attorney-regulation-republication)',
-  interpretation: 'عبارت «نسبت به مازاد» به‌صورت پلکانی بررسی شده است',
-  officialAuthentication: 'احراز نشده (روزنامهٔ رسمی دیده نشده)',
-  activationAllowed: false,
+  textObserved: 'متن در بازنشر اختبار و اسکن کاربر (۱۳۹۹/۱/۹) مطابق بررسی شد',
+  interpretation: 'عبارت «نسبت به مازاد» تفسیر پله‌ای است (بررسی متن)',
+  officialAuthentication: 'احراز رسمی نشده؛ روزنامهٔ رسمی دیده نشده',
+  activationBasis: 'تأیید کاربر برای استفاده در ماشین‌حساب',
 };
 const COURT_DETAIL = {
   textObserved: 'لایحه ۱۴۰۵ و بازنشر جدول ۱۶ مشاهده شده‌اند',
-  interpretation: 'دو محاسبه (کل‌مبلغ و پلکانی) در گزارش آزمون نگه داشته شده؛ هیچ‌کدام قطعی نیست؛ مبنای ارزش خواسته/محکوم‌به حل نشده است',
-  officialAuthentication: 'احراز نشده (تصویب و روزنامهٔ رسمی دیده نشده)',
-  activationAllowed: false,
+  interpretation: 'تفسیر پله‌ای و مبنای «ارزش خواسته» توسط کاربر تعیین شده؛ تفسیر کل‌مبلغ رد شده است',
+  officialAuthentication: 'احراز رسمی نشده (تصویب مجلس و روزنامهٔ رسمی دیده نشده)',
+  activationBasis: 'تأیید کاربر برای استفاده در ماشین‌حساب',
 };
+
+export const VERIFICATION_LOG = [
+  {
+    date: '2026-10-28',
+    target: 'آیین‌نامه حق‌الوکاله ۱۳۹۸ — اسکن کاربر (011936f5)',
+    outcome: 'اسکن کامل ۸ صفحه خوانده شد. سربرگ قوهٔ قضاییه و نامهٔ ارجاع با امضا دیده شد. متن مواد ۹، ۱۲، ۱۴، ۲۱، ۲۴، ۲۵ با بازنشر مطابق است. اصالت فیزیکی یا رسمی از روی اسکن قابل احراز نیست؛ روزنامهٔ رسمی دیده نشده است.',
+  },
+  {
+    date: '2026-10-28',
+    target: 'تفسیر و واحد توسط کاربر',
+    outcome: 'کاربر تعیین کرد: مبنای تجدیدنظر و فرجام «ارزش خواسته» است؛ هزینه بدوی تا ۲۰۰ میلیون ۲٫۵٪ و مازاد ۳٫۵٪ (پله‌ای)؛ واحد اقلام ثابت «ریال». این تصمیم کاربر است و به‌عنوان احراز رسمی ثبت نشده است.',
+  },
+  {
+    date: '2026-10-28',
+    target: 'پذیرش اسناد توسط کاربر',
+    outcome: 'کاربر اسناد را برای ادامهٔ کار پذیرفته است (userAccepted). independentlyVerifiedOfficialSource = false برای همه.',
+  },
+  {
+    date: '2026-10-28',
+    target: 'لایحه بودجه ۱۴۰۵ و بازنشر جدول ۱۶',
+    outcome: 'بخش دادگستری جدول ۱۶ (صفحات چاپی ۲۸۸ تا ۲۹۱) با بازنشر تطابق متنی دارد. سرستون لایحه «یکصد ریال» است، پس مبلغ‌های ۱۵٬۰۰۰ و ۳٬۰۰۰ در لایحه با ضرب در ۱۰۰ همان ۱٬۵۰۰٬۰۰۰ و ۳۰۰٬۰۰۰ ریال بازنشر می‌شوند. تصویب مجلس و روزنامهٔ رسمی ثبت نشده است.',
+  },
+  {
+    date: '2026-10-28',
+    target: 'تلاش‌های ناموفق: ekhtebar.ir (robots)، rrk.ir، dotic.ir، rooznamehrasmi.ir، rc.majlis.ir، edalatsara.com (robots)، websitevakil.ir، iranvekalat.ir، danesh.dadrah.ir',
+    outcome: 'دسترسی ممکن نشد. روزنامهٔ رسمی و نظریه‌های مشورتی خوانده نشدند.',
+  },
+];
 
 export const RATES_BY_YEAR = {
   1405: [
-    // ---------- هزینه دادرسی (جدول ۱۶ — متن بودجه و بازنشر) ----------
+    // ---------- هزینه دادرسی (جدول ۱۶) ----------
     {
       id: 'court-fee-financial-first',
-      statusDetail: COURT_DETAIL,
       title: 'هزینه دادرسی — دعاوی مالی، مرحلهٔ بدوی',
       group: 'court',
-      status: 'text_read',
-      legal: { citation: 'جدول ۱۶ لایحه/بازنشر ۱۴۰۵ — هزینه دادرسی موضوع بند (۱۲) ماده (۳) قانون وصول برخی درآمدهای دولت', approvedOn: null, effectiveFrom: null, sourceUrl: null },
+      status: 'user_approved',
+      userApproval: USER_APPROVAL,
+      statusDetail: COURT_DETAIL,
+      legal: { citation: 'جدول ۱۶ ۱۴۰۵ — هزینه دادرسی موضوع بند (۱۲) ماده (۳) قانون وصول برخی درآمدهای دولت (لایحه و بازنشر)', approvedOn: null, effectiveFrom: null, sourceUrl: null },
       lastReviewed: '2026-10-28',
       base: 'ارزش خواسته',
       kind: 'tiered',
-      mode: null,
-      tiers: null,
-      candidateTiers: [
+      mode: 'incremental',
+      tiers: [
         { upTo: 200000000, percent: 2.5 },
         { upTo: null, percent: 3.5 },
       ],
       interpretation: {
-        note: 'متن: «تا ۲۰۰ میلیون ریال: ۲٫۵٪ ارزش خواسته» و «بیش از ۲۰۰ میلیون ریال: ۳٫۵٪ ارزش خواسته». تفسیر ۱ (کل مبلغ): ۳٫۵٪ بر کل ارزش خواسته. تفسیر ۲ (پله‌ای): ۲٫۵٪ بر ۲۰۰ میلیون و ۳٫۵٪ بر مازاد. متن صراحت ندارد که عبارت «بیش از» به‌صورت مازاد محاسبه شود؛ تا تصمیم مرجع معتبر یا متن قانون لازم‌الاجرا، فعال نمی‌شود.',
-        readings: ['whole', 'incremental'],
+        note: 'تفسیر پله‌ای: ۲٫۵٪ تا ۲۰۰ میلیون و ۳٫۵٪ بر مازاد. تفسیر کل‌مبلغ (۳٫۵٪ بر کل) به تصمیم کاربر رد شده است.',
+        readings: ['incremental'],
       },
-      note: 'مبنای «ارزش خواسته» است؛ کاربر «محکوم‌به» گفته بود. هر دو متن موجود (لایحه و بازنشر) «ارزش خواسته» می‌گویند؛ قانون لازم‌الاجرا هنوز بررسی نشده است.',
     },
     {
       id: 'court-fee-financial-appeal',
       title: 'هزینه دادرسی — دعاوی مالی، تجدیدنظر',
       group: 'court',
-      status: 'text_read',
-      legal: { citation: 'جدول ۱۶ لایحه/بازنشر ۱۴۰۵ — مرحلهٔ تجدیدنظر', approvedOn: null, effectiveFrom: null, sourceUrl: null },
+      status: 'user_approved',
+      userApproval: USER_APPROVAL,
+      legal: { citation: 'جدول ۱۶ ۱۴۰۵ — مرحلهٔ تجدیدنظر', approvedOn: null, effectiveFrom: null, sourceUrl: null },
       lastReviewed: '2026-10-28',
-      base: 'ارزش خواسته (طبق متن لایحه و بازنشر)',
+      base: 'ارزش خواسته',
       kind: 'tiered',
       mode: 'whole',
       tiers: [{ upTo: null, percent: 4.5 }],
-      note: 'نرخ ثابت ۴٫۵٪ بدون پله؛ مبنا «ارزش خواسته» است، نه «محکوم‌به» که کاربر گفته بود.',
+      note: 'مبنا «ارزش خواسته» (تصمیم کاربر و متن جدول). «محکوم‌به» که قبلاً گفته شده بود، کنار گذاشته شد.',
     },
     {
       id: 'court-fee-financial-cassation',
       title: 'هزینه دادرسی — دعاوی مالی، فرجام‌خواهی',
       group: 'court',
-      status: 'text_read',
-      legal: { citation: 'جدول ۱۶ لایحه/بازنشر ۱۴۰۵ — مرحلهٔ فرجام‌خواهی', approvedOn: null, effectiveFrom: null, sourceUrl: null },
+      status: 'user_approved',
+      userApproval: USER_APPROVAL,
+      legal: { citation: 'جدول ۱۶ ۱۴۰۵ — مرحلهٔ فرجام‌خواهی', approvedOn: null, effectiveFrom: null, sourceUrl: null },
       lastReviewed: '2026-10-28',
-      base: 'ارزش خواسته (طبق متن لایحه و بازنشر)',
+      base: 'ارزش خواسته',
       kind: 'tiered',
       mode: 'whole',
       tiers: [{ upTo: null, percent: 5.5 }],
-      note: 'نرخ ثابت ۵٫۵٪؛ مبنا همانند تجدیدنظر.',
+      note: 'مبنا همانند تجدیدنظر.',
     },
     {
       id: 'court-fee-unknown-value',
       title: 'هزینه دادرسی — دعوای مالی با بهای خواستهٔ نامشخص',
       group: 'court',
-      status: 'text_read',
-      legal: { citation: 'جدول ۱۶ لایحه/بازنشر ۱۴۰۵', approvedOn: null, effectiveFrom: null, sourceUrl: null },
+      status: 'user_approved',
+      userApproval: USER_APPROVAL,
+      legal: { citation: 'جدول ۱۶ ۱۴۰۵', approvedOn: null, effectiveFrom: null, sourceUrl: null },
       lastReviewed: '2026-10-28',
       kind: 'fixed',
       fixedAmount: 1500000,
-      note: 'لایحه مبلغ «۱۵٬۰۰۰» را با سرستون «یکصد ریال» (در لایحه) و «قران» (در ستون نرخ) نشان می‌دهد؛ واحد با بازنشر (۱٬۵۰۰٬۰۰۰ ریال) یکی نیست. تا روشن نشود فعال نمی‌شود.',
+      unit: 'ریال',
     },
     {
       id: 'court-fee-interim-enforcement',
       title: 'هزینه اجرای موقت احکام (کلیه مراجع)',
       group: 'court',
-      status: 'text_read',
-      legal: { citation: 'جدول ۱۶ لایحه/بازنشر ۱۴۰۵', approvedOn: null, effectiveFrom: null, sourceUrl: null },
+      status: 'user_approved',
+      userApproval: USER_APPROVAL,
+      legal: { citation: 'جدول ۱۶ ۱۴۰۵', approvedOn: null, effectiveFrom: null, sourceUrl: null },
       lastReviewed: '2026-10-28',
       kind: 'fixed',
       fixedAmount: 300000,
-      note: 'واحد همانند ردیف بهای نامشخص بررسی نشده است.',
+      unit: 'ریال',
     },
     {
       id: 'court-fee-interlocutory-objection',
       title: 'هزینهٔ اعتراض و تجدیدنظر از قرارهای قابل تجدیدنظر',
       group: 'court',
-      status: 'text_read',
-      legal: { citation: 'جدول ۱۶ لایحه/بازنشر ۱۴۰۵', approvedOn: null, effectiveFrom: null, sourceUrl: null },
+      status: 'user_approved',
+      userApproval: USER_APPROVAL,
+      legal: { citation: 'جدول ۱۶ ۱۴۰۵', approvedOn: null, effectiveFrom: null, sourceUrl: null },
       lastReviewed: '2026-10-28',
       kind: 'fixed',
       fixedAmount: 300000,
-      note: 'واحد همانند ردیف بهای نامشخص بررسی نشده است.',
+      unit: 'ریال',
     },
     {
       id: 'court-fee-non-financial',
       title: 'هزینه دادرسی — دعاوی غیرمالی و تأمین دلیل/خواسته',
       group: 'court',
       status: 'text_read',
-      legal: { citation: 'جدول ۱۶ لایحه/بازنشر ۱۴۰۵ — «طبق بخشنامه رئیس قوه قضاییه»', approvedOn: null, effectiveFrom: null, sourceUrl: null },
+      legal: { citation: 'جدول ۱۶ ۱۴۰۵ — «طبق بخشنامه رئیس قوه قضاییه»', approvedOn: null, effectiveFrom: null, sourceUrl: null },
       lastReviewed: '2026-10-28',
       kind: 'range',
       min: 400000,
       max: 1800000,
-      note: 'بازه‌ای است که متن نوع دعوا را تعیین نمی‌کند؛ مبلغ دقیق بدون بخشنامهٔ معتبر انتخاب نمی‌شود.',
+      note: 'بازه‌ای است؛ مبلغ دقیق بدون بخشنامهٔ معتبر انتخاب نمی‌شود.',
     },
 
-    // ---------- حق‌الوکاله (آیین‌نامه ۱۳۹۸/۱۲/۲۸، متن بازنشرشده) ----------
+    // ---------- حق‌الوکاله (آیین‌نامه ۱۳۹۸/۱۲/۲۸) ----------
     {
       id: 'attorney-article9-financial-nonfinal',
-      statusDetail: ART9_DETAIL,
       title: 'حق‌الوکاله — دعوای مالی، حکم غیرقطعی (ماده ۹ بند الف تا ث)',
       group: 'attorney',
-      status: 'text_read',
-      legal: {
-        citation: 'آیین‌نامه تعرفه حق‌الوکاله، حق‌المشاوره و هزینه سفر وکلای دادگستری، ماده ۹',
-        approvedOn: '1398/12/28',
-        effectiveFrom: null,
-        sourceUrl: null,
-      },
+      status: 'user_approved',
+      userApproval: USER_APPROVAL,
+      statusDetail: ART9_DETAIL,
+      legal: { citation: 'آیین‌نامه تعرفه حق‌الوکاله، ماده ۹', approvedOn: '1398/12/28', effectiveFrom: null, sourceUrl: null },
       lastReviewed: '2026-10-28',
       base: 'بهای خواسته',
       kind: 'tiered',
@@ -214,21 +220,22 @@ export const RATES_BY_YEAR = {
         { upTo: 30000000000, percent: 4 },
         { upTo: null, percent: 3 },
       ],
-      note: 'متن ماده ۹: «الف- تا ۵۰۰ میلیون ریال: ۸٪؛ ب- نسبت به مازاد بر ۵۰۰ میلیون تا ۲ میلیارد: ۷٪؛ پ- نسبت به مازاد بر ۲ میلیارد تا ۱۰ میلیارد: ۵٪؛ ت- نسبت به مازاد بر ۱۰ میلیارد تا ۳۰ میلیارد: ۴٪؛ ث- از مبلغ ۳۰ میلیارد به بالا: ۳٪». عبارت «نسبت به مازاد» پلکانی بودن را نشان می‌دهد. با روزنامهٔ رسمی تطبیق نشده است.',
+      note: 'متن: الف تا ۵۰۰ م ۸٪؛ ب نسبت به مازاد تا ۲ میلیارد ۷٪؛ پ نسبت به مازاد تا ۱۰ میلیارد ۵٪؛ ت نسبت به مازاد تا ۳۰ میلیارد ۴٪؛ ث از ۳۰ میلیارد به بالا ۳٪.',
     },
     {
       id: 'attorney-article9-financial-final',
-      statusDetail: ART9_DETAIL,
-      title: 'حق‌الوکاله — دعوای مالی، حکم قطعی از حیث بهای خواسته (ماده ۹)',
+      title: 'حق‌الوکاله — دعوای مالی، حکم قطعی از حیث بهای خواسته (ماده ۹ — ۱۰٪)',
       group: 'attorney',
-      status: 'text_read',
-      legal: { citation: 'آیین‌نامه تعرفه حق‌الوکاله، ماده ۹ (با لحاظ ماده ۶۲ آیین دادرسی مدنی)', approvedOn: '1398/12/28', effectiveFrom: null, sourceUrl: null },
+      status: 'user_approved',
+      userApproval: USER_APPROVAL,
+      statusDetail: ART9_DETAIL,
+      legal: { citation: 'آیین‌نامه تعرفه حق‌الوکاله، ماده ۹ (حکم قطعی از حیث بهای خواسته)', approvedOn: '1398/12/28', effectiveFrom: null, sourceUrl: null },
       lastReviewed: '2026-10-28',
       base: 'بهای خواسته',
       kind: 'tiered',
       mode: 'whole',
       tiers: [{ upTo: null, percent: 10 }],
-      note: 'نرخ ۱۰٪ جدا از بندهای غیرقطعی نگهداری می‌شود و با آن ادغام نمی‌شود. تبصرهٔ ماده ۶۲ (صفحهٔ ۶ فایل) مربوط به بهای خواستهٔ نامشخص است و در این قاعده لحاظ نشده است.',
+      note: 'جدا از بندهای غیرقطعی نگهداری می‌شود. تبصرهٔ ماده ۶۲ (بهای نامشخص) در این قاعده لحاظ نشده است.',
     },
     {
       id: 'attorney-article12-termination',
@@ -245,7 +252,7 @@ export const RATES_BY_YEAR = {
         { label: 'سقوط تجدیدنظرخواهی پیش از پاسخ', share: 0.25, stage: 'appeal' },
         { label: 'سقوط تجدیدنظرخواهی پس از پاسخ', share: 0.5, stage: 'appeal' },
       ],
-      note: 'سهم‌ها نسبت به حق‌الوکالهٔ همان مرحله است؛ بنابراین به ورودی مبلغ مرحله نیاز دارد و موتور آن را محاسبه نمی‌کند. «حق‌الوکاله مرحله» بر اساس ماده ۹ یا ۱۳ کدام است، تصمیم‌گیری جدا لازم دارد.',
+      note: 'سهم‌ها نسبت به حق‌الوکالهٔ همان مرحله‌اند؛ مبلغ مرحله ورودی است و موتور محاسبه نمی‌کند.',
     },
     {
       id: 'attorney-article13-family',
@@ -257,7 +264,7 @@ export const RATES_BY_YEAR = {
       kind: 'range',
       min: 5000000,
       max: 200000000,
-      note: 'بازهٔ قانونی؛ مبلغ دقیق در داخل بازه توافقی یا تصمیم مرجع است و این ابزار انتخاب نمی‌کند.',
+      note: 'بازهٔ قانونی؛ مبلغ دقیق توافقی یا با تصمیم مرجع است.',
     },
     {
       id: 'attorney-article13-nonfinancial',
@@ -286,7 +293,7 @@ export const RATES_BY_YEAR = {
         { label: 'تعزیری درجه ۲ و ۳', min: 30000000, max: 1000000000 },
         { label: 'سایر جرایم', min: 10000000, max: 500000000 },
       ],
-      note: 'طبقه‌بندی جرم با مرجع تصمیم است؛ این ابزار طبقه را تعیین نمی‌کند. تبصرهٔ ۱ ماده ۱۴: ۵۰٪ مربوط به تحقیق در دادسرا، ۳۰٪ دادگاه بدوی، ۲۰٪ تجدیدنظر. تبصرهٔ ۳ (ماده ۱۴): به ازای هر جرم اضافه‌تر ۲۰٪ به حق‌الوکاله افزوده می‌شود. این موارد محاسبه نشده‌اند.',
+      note: 'طبقه‌بندی جرم با مرجع تصمیم است. تبصرهٔ ۱ (۵۰/۳۰/۲۰) و تبصرهٔ ۳ (۲۰٪ به‌ازای هر جرم اضافه) محاسبه نشده‌اند.',
     },
     {
       id: 'attorney-article14-criminal-b',
@@ -303,7 +310,7 @@ export const RATES_BY_YEAR = {
         { label: 'تعزیری درجه ۶', min: 5000000, max: 300000000 },
         { label: 'سایر جرایم', min: 2000000, max: 200000000 },
       ],
-      note: 'طبقه‌بندی جرم با مرجع تصمیم است. تبصرهٔ ۱ ماده ۱۴ (تقسیم ۵۰/۳۰/۲۰) عمومی است و متن آن برای این بند نیز صادق است.',
+      note: 'طبقه‌بندی جرم با مرجع تصمیم است؛ تبصرهٔ ۱ ماده ۱۴ عمومی است.',
     },
     {
       id: 'attorney-article21-stage-split',
@@ -317,7 +324,7 @@ export const RATES_BY_YEAR = {
         { stage: 'first', share: 0.6 },
         { stage: 'appeal', share: 0.4 },
       ],
-      note: 'این تقسیم برای مبلغ کل حق‌الوکاله مواد ۹ و ۱۳ و ۲۰ است. محاسبه نمی‌شود، چون مبلغ کل از قاعدهٔ دیگری می‌آید.',
+      note: 'مبلغ کل از قاعدهٔ دیگری می‌آید؛ این قاعده محاسبه نمی‌شود.',
     },
     {
       id: 'attorney-article24-withdrawal',
@@ -327,7 +334,7 @@ export const RATES_BY_YEAR = {
       legal: { citation: 'آیین‌نامه ۱۳۹۸، ماده ۲۴', approvedOn: '1398/12/28', effectiveFrom: null, sourceUrl: null },
       lastReviewed: '2026-10-28',
       kind: 'discretionary',
-      note: 'اگر پرونده آمادهٔ صدور رأی باشد: تمام حق‌الوکالهٔ آن مرحله. در غیر این صورت: به تناسب کار انجام‌شده، به تشخیص کانون یا مرکز تعیین می‌شود. تشخیص نیاز به ورودی انسانی دارد.',
+      note: 'پرونده آمادهٔ رأی: تمام حق‌الوکالهٔ آن مرحله. در غیر این صورت به تناسب کار انجام‌شده و به تشخیص کانون یا مرکز.',
     },
     {
       id: 'attorney-article25-enforcement-judgment',
@@ -341,7 +348,7 @@ export const RATES_BY_YEAR = {
       max: null,
       maxPercent: 2,
       percentBase: 'مبلغ محکوم‌به یا مورد اجرا',
-      note: 'متن: «حداقل چهار میلیون ریال و حداکثر دو درصد مبلغ محکوم‌به یا مورد اجرا». سقف ۱۵۰ میلیون در متن این بند ذکر نشده است.',
+      note: 'متن: حداقل ۴ م و حداکثر ۲٪ محکوم‌به. این قاعده هنوز بازه است و محاسبه نمی‌شود.',
     },
     {
       id: 'attorney-article25-enforcement',
@@ -353,7 +360,7 @@ export const RATES_BY_YEAR = {
       kind: 'range',
       min: 4000000,
       max: 150000000,
-      note: 'متن: «نسبت به دیگر موارد حداقل چهار میلیون ریال و حداکثر تا مبلغ یکصد و پنجاه میلیون ریال». مبنای سقف دو درصد جدا است.',
+      note: 'متن: نسبت به دیگر موارد حداقل ۴ م و حداکثر ۱۵۰ م.',
     },
   ],
 };

@@ -4,6 +4,11 @@ export const ENGINE_VERSION = '1.0.0';
 
 const ROUND = (n) => Math.round(n);
 
+// وضعیت‌هایی که موتور اعمال می‌کند:
+//   verified      ⇒ با منبع رسمی احراز شده (هنوز هیچ قاعده‌ای چنین نیست)
+//   user_approved ⇒ کاربر برای استفاده در ماشین‌حساب پذیرفته؛ احراز رسمی مستقل نیست
+export const APPLIED_STATUSES = new Set(['verified', 'user_approved']);
+
 function validateTiers(tiers) {
   if (!Array.isArray(tiers) || tiers.length === 0) return false;
   let prev = -1;
@@ -62,7 +67,7 @@ function finish(raw, min, max, steps) {
 
 /** ماشین‌حساب قاعده بر اساس نوع آن. قاعدهٔ تأییدنشده هرگز محاسبه نمی‌شود. */
 export function applyRule(rule, { amount }) {
-  if (!rule || rule.status !== 'verified') return { ok: false, error: 'RULE_UNVERIFIED' };
+  if (!rule || !APPLIED_STATUSES.has(rule.status)) return { ok: false, error: 'RULE_UNVERIFIED' };
   if (rule.kind === 'fixed') {
     if (typeof rule.fixedAmount !== 'number') return { ok: false, error: 'RULE_UNVERIFIED' };
     return finish(rule.fixedAmount, 0, null, [`مبلغ ثابت طبق ${rule.legal.citation} ⇒ ${rule.fixedAmount}`]);
@@ -79,7 +84,7 @@ export const TRIAL_WARNING = 'محاسبهٔ آزمایشی: این مبلغ ق�
 
 export function trialFee(rule, { amount }) {
   if (!rule) return { ok: false, error: 'NO_RULE' };
-  if (rule.status === 'verified') return { ok: false, error: 'USE_VERIFIED_PATH' };
+  if (APPLIED_STATUSES.has(rule.status)) return { ok: false, error: 'USE_APPROVED_PATH' };
   if (rule.kind !== 'tiered') return { ok: false, error: 'NOT_TIERED' };
   const tiers = rule.candidateTiers || rule.tiers;
   const modes = rule.interpretation?.readings || [rule.mode];
