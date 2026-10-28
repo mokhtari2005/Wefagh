@@ -40,7 +40,7 @@ test('بدون mode یا جدول معتبر، قاعده تأییدنشده ا�
 
 test('قاعدهٔ تأییدنشده هرگز محاسبه نمی‌شود، حتی اگر عدد کاندید داشته باشد', () => {
   const rule = findRule(1405, 'court-fee-financial-first');
-  assert.equal(rule.status, 'unverified');
+  assert.notEqual(rule.status, 'verified');
   assert.equal(applyRule(rule, { amount: 100000000 }).error, 'RULE_UNVERIFIED');
 });
 
@@ -58,7 +58,7 @@ test('فهرست قواعد سالانه: هر قاعده منبع، تاریخ 
       ids.add(r.id);
       assert.ok(r.legal.citation, `بدون استناد: ${r.id}`);
       assert.match(r.lastReviewed, /^\d{4}-\d{2}-\d{2}$/);
-      assert.ok(['verified', 'unverified'].includes(r.status));
+      assert.ok(['verified', 'unverified', 'text_read'].includes(r.status), r.id);
       if (r.status === 'verified') {
         assert.ok(r.legal.approvedOn && r.legal.effectiveFrom && r.legal.sourceUrl, `قاعدهٔ تأییدشده بدون مستند کامل: ${r.id}`);
         assert.ok(r.kind === 'fixed' ? typeof r.fixedAmount === 'number' : Array.isArray(r.tiers) && r.mode, `داده ناقص: ${r.id}`);
@@ -67,6 +67,50 @@ test('فهرست قواعد سالانه: هر قاعده منبع، تاریخ 
   }
 });
 
-test('هیچ قاعدهٔ ۱۴۰۵ هنوز تأییدشده نیست (تا متن رسمی بررسی شود)', () => {
-  for (const r of RATES_BY_YEAR[1405]) assert.equal(r.status, 'unverified', r.id);
+test('هیچ قاعدهٔ ۱۴۰۵ هنوز تأییدشده نیست؛ متن بازنشرشده محاسبه را فعال نمی‌کند', () => {
+  for (const r of RATES_BY_YEAR[1405]) {
+    assert.notEqual(r.status, 'verified', r.id);
+    assert.equal(applyRule(r, { amount: 100000000 }).error, 'RULE_UNVERIFIED', r.id);
+  }
+});
+
+// محاسبهٔ دستی مستقل از متن ماده ۹ (بدون فعال‌سازی: فقط یک کپی با وضعیت آزمایشی در تست).
+const art9 = findRule(1405, 'attorney-article9-financial-nonfinal');
+const art9Test = { ...art9, status: 'verified' };
+test('ماده ۹ (پلکانی بر مازاد): مرزها و نتیجهٔ دستی', () => {
+  const cases = [
+    [0, 0],
+    [300000000, 24000000], // ۳۰۰ م × ۸٪
+    [500000000, 40000000], // مرز دقیق بند الف
+    [500000001, 40000000], // یک واحد بالاتر: ۱ × ۷٪ = ۰ پس از گرد کردن
+    [1000000000, 75000000], // ۴۰ م + ۵۰۰ م × ۷٪ = ۳۵ م
+    [2000000000, 145000000], // مرز بند ب: ۴۰ م + ۱٫۵ میلیارد × ۷٪ = ۱۰۵ م
+    [10000000000, 545000000], // مرز بند پ: ۱۴۵ م + ۸ میلیارد × ۵٪ = ۴۰۰ م
+    [30000000000, 1345000000], // مرز بند ت: ۵۴۵ م + ۲۰ میلیارد × ۴٪ = ۸۰۰ م
+    [40000000000, 1645000000], // بند ث: ۱٬۳۴۵ م + ۱۰ میلیارد × ۳٪ = ۳۰۰ م
+  ];
+  for (const [amount, expected] of cases) {
+    const r = applyRule(art9Test, { amount });
+    assert.equal(r.ok, true, String(amount));
+    assert.equal(r.fee, expected, `مبلغ ${amount}`);
+  }
+});
+
+test('ماده ۹ تبصره/بند حکم قطعی: ۱۰٪ بدون پله', () => {
+  const r = applyRule({ ...findRule(1405, 'attorney-article9-financial-final'), status: 'verified' }, { amount: 1000000 });
+  assert.equal(r.fee, 100000);
+});
+
+test('مقایسه دو تفسیر دادرسی بدوی (فقط آزمون مفهومی؛ فعال نیست)', () => {
+  const tiers = [{ upTo: 200000000, percent: 2.5 }, { upTo: null, percent: 3.5 }];
+  // ۳۰۰ میلیون: تفسیر کل مبلغ = ۱۰٫۵ م؛ تفسیر پله‌ای = ۵ م + ۳٫۵ م = ۸٫۵ م
+  assert.equal(tieredFee({ amount: 300000000, tiers, mode: 'whole' }).fee, 10500000);
+  assert.equal(tieredFee({ amount: 300000000, tiers, mode: 'incremental' }).fee, 8500000);
+  assert.equal(applyRule(findRule(1405, 'court-fee-financial-first'), { amount: 300000000 }).error, 'RULE_UNVERIFIED');
+});
+
+test('بازه‌ها (range) هرگز یک مبلغ انتخاب‌شده برنمی‌گردانند', () => {
+  for (const r of RATES_BY_YEAR[1405].filter((x) => x.kind === 'range')) {
+    assert.equal(applyRule({ ...r, status: 'verified' }, { amount: 1000 }).error, 'RULE_UNVERIFIED', r.id);
+  }
 });
