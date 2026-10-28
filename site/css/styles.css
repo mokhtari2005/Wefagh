@@ -854,3 +854,26 @@ h1, h2, h3 { color: var(--teal-dark); }
 @media (max-width: 380px) { .brand-text { max-width: 200px; font-size: .74rem; } }
 .site-footer .footer-inner { justify-content: center; text-align: center; flex-direction: column; }
 .site-footer .footer-logo { margin: 0 auto .4rem; }
+
+/* ---- Oral practice recorder (mockup: timer, red button, waveform) ---- */
+.rec-card { text-align: center; display: grid; justify-items: center; gap: var(--space-2); padding-block: var(--space-4); }
+.rec-card .rec-title { margin: 0; }
+.rec-card .rec-lead { margin: 0; max-width: 60ch; }
+.rec-timer { font-size: 2.25rem; font-weight: 700; font-variant-numeric: tabular-nums; direction: ltr; letter-spacing: .05em; color: var(--text, #1f2933); }
+.rec-wave { display: flex; align-items: center; justify-content: center; gap: 4px; height: 64px; width: 100%; max-width: 420px; direction: ltr; }
+.rec-wave span { display: block; width: 4px; height: 6px; border-radius: 2px; background: var(--accent, #7a1f2b); opacity: .85; transition: height .08s linear; }
+.rec-controls { display: grid; place-items: center; }
+.rec-button { width: 84px; height: 84px; border-radius: 50%; border: 6px solid #fff; background: #d62828; box-shadow: 0 0 0 2px #d62828; display: grid; place-items: center; cursor: pointer; padding: 0; }
+.rec-button:hover { background: #b71c1c; }
+.rec-button:focus-visible { outline: 3px solid var(--focus, #1a73e8); outline-offset: 3px; }
+.rec-button:disabled { opacity: .55; cursor: wait; }
+.rec-dot { display: block; width: 26px; height: 26px; border-radius: 50%; background: #fff; }
+.rec-button.recording .rec-dot { border-radius: 4px; width: 24px; height: 24px; }
+.rec-button.recording { animation: rec-pulse 1.2s ease-in-out infinite; }
+@keyframes rec-pulse { 0%, 100% { box-shadow: 0 0 0 2px #d62828; } 50% { box-shadow: 0 0 0 10px rgba(214, 40, 40, .18); } }
+.rec-hint { margin: 0; }
+.rec-status { margin: 0; min-height: 1.5em; }
+.rec-card .oral-player { margin-inline: auto; }
+.rec-card .oral-controls { justify-content: center; }
+.rec-privacy { font-size: .9rem; margin: 0; max-width: 60ch; }
+@media (prefers-reduced-motion: reduce) { .rec-button.recording { animation: none; } }

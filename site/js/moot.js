@@ -105,46 +105,121 @@ export function mootCourtPage() {
   answersPanel.append(coachPanel);
 
   // ضبط تمرین شفاهی فقط در مرورگر انجام می‌شود؛ فایل صوتی به سرور ارسال نمی‌شود.
-  const audioPanel = h('section', { class: 'case-panel oral-practice', 'aria-label': 'تمرین شفاهی و ضبط صدا' }, [
-    h('h2', { text: 'تمرین شفاهی و ضبط صدا' }),
-    h('p', { text: 'یک دفاع کوتاه ۱ تا ۳ دقیقه‌ای ارائه کنید. برای ضبط، اجازهٔ میکروفون لازم است. صدا فقط در همین صفحه نگه‌داری می‌شود و با بارگذاری مجدد صفحه از بین می‌رود.' }),
+  const MAX_MS = 5 * 60 * 1000;
+  const audioPanel = h('section', { class: 'case-panel oral-practice rec-card', 'aria-label': 'تمرین شفاهی و ضبط صدا' }, [
+    h('h2', { class: 'rec-title', text: 'پاسخ خود را ضبط کنید' }),
+    h('p', { class: 'muted rec-lead', text: 'یک دفاع کوتاه ۱ تا ۳ دقیقه‌ای ارائه کنید. صدا فقط در همین صفحه نگه‌داری می‌شود و با بارگذاری مجدد صفحه از بین می‌رود.' }),
   ]);
-  const audioStatus = h('p', { class: 'muted', role: 'status', 'aria-live': 'polite', text: 'هنوز صدایی ضبط نشده است.' });
-  const recordStart = h('button', { class: 'btn', type: 'button', text: 'شروع ضبط صدا' });
-  const recordStop = h('button', { class: 'btn secondary', type: 'button', text: 'پایان ضبط', disabled: '' });
+  const recTimer = h('div', { class: 'rec-timer', role: 'timer', 'aria-live': 'off', text: '00:00' });
+  const recBars = h('div', { class: 'rec-wave', 'aria-hidden': 'true' }, Array.from({ length: 28 }, () => h('span')));
+  const recButton = h('button', { class: 'rec-button', type: 'button', 'aria-label': 'شروع ضبط صدا' }, [h('span', { class: 'rec-dot', 'aria-hidden': 'true' })]);
+  const recHint = h('p', { class: 'rec-hint muted', text: 'برای شروع، دکمهٔ قرمز را بزنید.' });
+  const audioStatus = h('p', { class: 'muted rec-status', role: 'status', 'aria-live': 'polite', text: 'هنوز صدایی ضبط نشده است.' });
   const audioPlayer = h('audio', { controls: '', preload: 'metadata', hidden: '', 'aria-label': 'پخش صدای ضبط‌شده' });
   audioPlayer.classList.add('oral-player');
-  const audioDownload = h('button', { class: 'btn secondary', type: 'button', hidden: '', text: 'دریافت فایل صوتی' });
-  audioDownload.addEventListener('click', () => {
+  const playButton = h('button', { class: 'btn secondary', type: 'button', hidden: '', text: 'پخش' });
+  const downloadButton = h('button', { class: 'btn secondary', type: 'button', hidden: '', text: 'دریافت فایل' });
+  const resetButton = h('button', { class: 'btn secondary', type: 'button', hidden: '', text: 'ضبط دوباره' });
+  playButton.addEventListener('click', () => {
+    if (!audioUrl) return;
+    audioPlayer.hidden = false;
+    audioPlayer.play().catch(() => { audioStatus.textContent = 'پخش شروع نشد. روی نوار پخش‌کننده بزنید یا فایل را دریافت کنید.'; });
+  });
+  downloadButton.addEventListener('click', () => {
     if (!audioUrl) return;
     const link = document.createElement('a');
     link.href = audioUrl;
-    link.download = audioDownload.dataset.filename || 'wefagh-moot-court.webm';
+    link.download = downloadButton.dataset.filename || 'wefagh-moot-court.webm';
     document.body.append(link);
     link.click();
     link.remove();
   });
-  audioPanel.append(h('div', { class: 'row oral-controls' }, [recordStart, recordStop]), audioStatus, audioPlayer, audioDownload);
+  resetButton.addEventListener('click', () => {
+    clearAudioUrl();
+    audioPlayer.removeAttribute('src');
+    audioPlayer.hidden = true;
+    playButton.hidden = true;
+    downloadButton.hidden = true;
+    resetButton.hidden = true;
+    recTimer.textContent = '00:00';
+    recHint.textContent = 'برای شروع، دکمهٔ قرمز را بزنید.';
+    audioStatus.textContent = 'هنوز صدایی ضبط نشده است.';
+  });
+  audioPanel.append(
+    recTimer,
+    recBars,
+    h('div', { class: 'rec-controls' }, [recButton]),
+    recHint,
+    audioStatus,
+    audioPlayer,
+    h('div', { class: 'row oral-controls' }, [playButton, downloadButton, resetButton]),
+  );
   let mediaRecorder = null;
   let mediaStream = null;
   let audioChunks = [];
   let audioUrl = null;
   let audioLimitTimer = null;
+  let tickTimer = null;
+  let levelFrame = null;
+  let audioContext = null;
+  let recordStartedAt = 0;
+  function stopMeters() {
+    if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+    if (levelFrame) { cancelAnimationFrame(levelFrame); levelFrame = null; }
+    recBars.querySelectorAll('span').forEach((bar) => { bar.style.height = '6px'; });
+    if (audioContext) { audioContext.close().catch(() => {}); audioContext = null; }
+  }
   function releaseMicrophone() {
     if (mediaStream) mediaStream.getTracks().forEach((track) => track.stop());
     mediaStream = null;
     if (audioLimitTimer) { clearTimeout(audioLimitTimer); audioLimitTimer = null; }
+    stopMeters();
   }
   function clearAudioUrl() {
     if (audioUrl) URL.revokeObjectURL(audioUrl);
     audioUrl = null;
   }
-  recordStart.addEventListener('click', async () => {
+  function formatTime(ms) {
+    const total = Math.floor(ms / 1000);
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+  }
+  function startMeters(stream) {
+    const bars = [...recBars.querySelectorAll('span')];
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    try {
+      audioContext = new AC();
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      audioContext.createMediaStreamSource(stream).connect(analyser);
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const draw = () => {
+        analyser.getByteFrequencyData(data);
+        bars.forEach((bar, i) => {
+          const v = data[Math.floor((i / bars.length) * data.length)] / 255;
+          bar.style.height = `${6 + Math.round(v * 54)}px`;
+        });
+        levelFrame = requestAnimationFrame(draw);
+      };
+      draw();
+    } catch {
+      audioContext = null;
+    }
+  }
+  function setRecordingUi(recording) {
+    recButton.classList.toggle('recording', recording);
+    recButton.setAttribute('aria-label', recording ? 'پایان ضبط' : 'شروع ضبط صدا');
+  }
+  recButton.addEventListener('click', async () => {
+    if (mediaRecorder?.state === 'recording') {
+      mediaRecorder.stop();
+      return;
+    }
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
       audioStatus.textContent = 'مرورگر یا محیط فعلی از ضبط صدا پشتیبانی نمی‌کند. از مرورگر به‌روز و اتصال امن HTTPS استفاده کنید.';
       return;
     }
-    recordStart.disabled = true;
+    recButton.disabled = true;
     audioStatus.textContent = 'در انتظار اجازهٔ دسترسی به میکروفون…';
     try {
       mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -156,14 +231,15 @@ export function mootCourtPage() {
       });
       mediaRecorder.addEventListener('error', () => {
         audioStatus.textContent = 'در ضبط صدا خطایی رخ داد. لطفاً دوباره تلاش کنید.';
-        recordStart.disabled = false;
-        recordStop.disabled = true;
+        setRecordingUi(false);
+        recButton.disabled = false;
         releaseMicrophone();
       });
       mediaRecorder.addEventListener('stop', () => {
         releaseMicrophone();
-        recordStart.disabled = false;
-        recordStop.disabled = true;
+        setRecordingUi(false);
+        recButton.disabled = false;
+        recHint.textContent = 'ضبط تمام شد. می‌توانید پخش کنید یا دوباره ضبط کنید.';
         if (!audioChunks.length) {
           audioStatus.textContent = 'صدای قابل استفاده‌ای ضبط نشد. مجوز میکروفون را بررسی و دوباره تلاش کنید.';
           return;
@@ -174,28 +250,34 @@ export function mootCourtPage() {
         audioUrl = URL.createObjectURL(blob);
         audioPlayer.src = audioUrl;
         audioPlayer.hidden = false;
-        audioDownload.dataset.filename = type.includes('mp4') ? 'wefagh-moot-court.m4a' : 'wefagh-moot-court.webm';
-        audioDownload.hidden = false;
-        audioStatus.textContent = `ضبط تمام شد · حجم فایل ${(blob.size / 1024).toFixed(0)} کیلوبایت. برای شنیدن از پخش‌کننده استفاده کنید.`;
+        playButton.hidden = false;
+        downloadButton.dataset.filename = type.includes('mp4') ? 'wefagh-moot-court.m4a' : 'wefagh-moot-court.webm';
+        downloadButton.hidden = false;
+        resetButton.hidden = false;
+        audioStatus.textContent = `ضبط تمام شد · مدت ${formatTime(Date.now() - recordStartedAt)} · حجم ${(blob.size / 1024).toFixed(0)} کیلوبایت.`;
+        audioPlayer.scrollIntoView({ block: 'center', behavior: 'smooth' });
       }, { once: true });
+      recordStartedAt = Date.now();
       mediaRecorder.start();
-      recordStop.disabled = false;
-      audioStatus.textContent = 'در حال ضبط… حداکثر زمان ضبط ۵ دقیقه است.';
+      setRecordingUi(true);
+      recButton.disabled = false;
+      recHint.textContent = 'در حال ضبط… دوباره برای پایان بزنید.';
+      audioStatus.textContent = 'در حال ضبط. حداکثر زمان ۵ دقیقه است.';
+      recTimer.textContent = '00:00';
+      tickTimer = setInterval(() => { recTimer.textContent = formatTime(Date.now() - recordStartedAt); }, 250);
+      startMeters(mediaStream);
       audioLimitTimer = setTimeout(() => {
         if (mediaRecorder?.state === 'recording') mediaRecorder.stop();
-      }, 5 * 60 * 1000);
+      }, MAX_MS);
     } catch (error) {
       releaseMicrophone();
-      recordStart.disabled = false;
+      recButton.disabled = false;
       audioStatus.textContent = error?.name === 'NotAllowedError'
         ? 'دسترسی میکروفون رد شد. مجوز میکروفون را در تنظیمات مرورگر فعال کنید.'
         : 'میکروفون در دسترس نیست. اتصال امن HTTPS و تنظیمات دستگاه را بررسی کنید.';
     }
   });
-  recordStop.addEventListener('click', () => {
-    if (mediaRecorder?.state === 'recording') mediaRecorder.stop();
-  });
-  audioPanel.append(h('p', { class: 'muted', text: 'نکتهٔ حریم خصوصی: این نسخه صدا را بارگذاری یا در حساب ذخیره نمی‌کند؛ فایل را در صورت نیاز با دکمهٔ دریافت، روی دستگاه خود نگه دارید.' }));
+  audioPanel.append(h('p', { class: 'muted rec-privacy', text: 'نکتهٔ حریم خصوصی: این نسخه صدا را بارگذاری یا در حساب ذخیره نمی‌کند؛ در صورت نیاز فایل را با دکمهٔ «دریافت فایل» روی دستگاه خود نگه دارید.' }));
   answersPanel.append(audioPanel);
 
   CASE.issues.forEach((issue, i) => {
