@@ -37,3 +37,7 @@ test('برچسب وضعیت برای هر وضعیت قاعده درست است 
   assert.equal(statusLabel('verified').text, 'احراز شده');
   assert.equal(statusLabel(undefined).text, 'محاسبه‌شده');
 });
+
+test('فهرست تودرتو یک‌سطحی باز می‌شود؛ یادداشت‌های قاعده نمایش داده می‌شوند', () => {
+  assert.deepEqual(normalizeLimitations([['الف', 'ب'], 'ج', null]), ['الف', 'ب', 'ج']);
+});

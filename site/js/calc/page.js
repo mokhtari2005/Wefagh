@@ -1,5 +1,5 @@
 // صفحهٔ محاسبه‌گرها. فرم‌ها با DOM امن ساخته می‌شوند؛ خروجی فقط متن است. تاریخ‌ها شمسی وارد می‌شوند.
-import { deadline, delayInterest } from './core.js';
+import { delayInterest } from './core.js';
 import { applyRule } from './engine.js';
 import { findRule, rulesFor } from './rates.js';
 import { formatShamsi } from '../shamsi.js';
@@ -83,26 +83,6 @@ function field(id, label, input) {
   return h('div', { class: 'field' }, [h('label', { for: id, text: label }), input]);
 }
 
-function deadlineTool() {
-  const notice = shamsiField('dl-notice', 'تاریخ ابلاغ (شمسی)', { required: true });
-  const days = h('input', { type: 'number', min: '0', max: '3650', step: '1', required: '', inputmode: 'numeric' });
-  const out = h('div');
-  const submit = h('button', { class: 'btn', type: 'submit', text: 'محاسبه مهلت' });
-  const form = h('form', { class: 'form', novalidate: '', 'aria-label': 'محاسبه مواعد' }, [
-    notice.node,
-    field('dl-days', 'مدت مهلت (روز)', days),
-    submit,
-    out,
-  ]);
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const noticeDate = parseShamsiInput(notice.input.value) ?? '';
-    const result = deadline({ noticeDate, days: Number(days.value) });
-    out.replaceChildren(resultBox(result, form));
-  });
-  return h('section', { class: 'tool' }, [h('h2', { text: 'محاسبه مواعد قانونی' }), form]);
-}
-
 function delayTool() {
   const principal = h('input', { type: 'number', min: '1', step: '1', required: '', inputmode: 'numeric' });
   const rate = h('input', { type: 'number', min: '0', max: '100', step: '0.01', required: '', inputmode: 'decimal' });
@@ -175,7 +155,7 @@ function ruleTool({ title, amountLabel, group, submitLabel, note }) {
       ruleVersion: `${rule.id} / سال ${RATE_YEAR}`,
       steps: r.steps,
       fee: r.fee,
-      limitations: [note, approval],
+      limitations: [...(Array.isArray(note) ? note : [note]), approval],
     }, form));
   });
   return h('section', { class: 'tool' }, [h('h2', { text: title }), form]);
@@ -189,7 +169,6 @@ export function calculatorsPage() {
       role: 'note',
       text: 'این ابزارها پیش‌نویس محاسباتی هستند و جای تشخیص وکیل را نمی‌گیرند. نرخ‌ها، کف و سقف‌ها را خودتان از منبع رسمی و معتبر وارد می‌کنید؛ این نسخه هیچ نرخ قانونی را از پیش نمی‌داند. تاریخ‌ها شمسی وارد می‌شوند.',
     }),
-    deadlineTool(),
     ruleTool({
       title: 'هزینهٔ دادرسی',
       amountLabel: 'مبلغ مبنا (ریال)',
