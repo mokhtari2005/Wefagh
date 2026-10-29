@@ -55,7 +55,7 @@ export async function getAccessToken({ clientId, clientSecret, refreshToken, fet
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
   });
-  if (!res.ok) throw new Error('GMAIL_TOKEN_FAILED');
+  if (!res.ok) throw await providerError('GMAIL_TOKEN_FAILED', res);
   const data = await res.json();
   if (!data.access_token) throw new Error('GMAIL_TOKEN_MISSING');
   return data.access_token;
@@ -84,6 +84,32 @@ export async function sendMail({ env, to, subject, text, fetchImpl = fetch }) {
     },
     body: JSON.stringify({ raw }),
   });
-  if (!res.ok) throw new Error('GMAIL_SEND_FAILED');
+  if (!res.ok) throw await providerError('GMAIL_SEND_FAILED', res);
   return { ok: true };
+}
+
+// دلیل خطای Google فقط اگر یک کد ساده (حروف و _) باشد ثبت می‌شود؛ هرگز متن آزاد یا توکن.
+const SAFE_REASON = /^[A-Za-z_]{1,40}$/;
+
+/**
+ * خطای قابل‌لاگ: پیام ثابت کد خطا، وضعیت HTTP، و کد دلیل Google (در صورت امن بودن).
+ * بدنهٔ پاسخ هرگز در پیام خطا نمی‌رود.
+ */
+async function providerError(code, res) {
+  const err = new Error(code);
+  err.status = res.status;
+  try {
+    const data = await res.json();
+    // ترتیب: دلیل دقیق‌تر Gmail، سپس کد کلی Gmail، و کد OAuth (invalid_grant و...).
+    const candidates = [
+      typeof data?.error?.errors?.[0]?.reason === 'string' ? data.error.errors[0].reason : null,
+      typeof data?.error?.status === 'string' ? data.error.status : null,
+      typeof data?.error === 'string' ? data.error : null,
+    ];
+    const reason = candidates.find((c) => c && SAFE_REASON.test(c));
+    if (reason) err.reason = reason;
+  } catch {
+    // بدنهٔ غیر JSON: فقط وضعیت HTTP ثبت می‌شود.
+  }
+  return err;
 }
