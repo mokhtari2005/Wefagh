@@ -2,6 +2,7 @@
 import { h } from './dom.js';
 import { getJson, postJson, sendJson } from './api.js';
 import { COACH_ROLES, getCoachPrompt, evaluateOralAnswer } from './moot-coach.js';
+import { oralDefensePanel } from './moot-oral.js';
 
 /** نوع فایل ضبط را از بایت‌های ابتدایی تشخیص می‌دهد (WebM، MP4/M4A، Ogg). */
 async function detectAudioType(blob, fallback) {
@@ -122,7 +123,7 @@ export function mootCourtPage() {
     );
   });
   coachPanel.append(h('div', { class: 'row' }, [coachRole]), coachQuestion, coachAnswer, h('div', { class: 'row' }, [coachSubmit, coachNext]), coachFeedback);
-  answersPanel.append(coachPanel);
+  answersPanel.append(coachPanel, oralDefensePanel());
 
   // ضبط تمرین شفاهی فقط در مرورگر انجام می‌شود؛ فایل صوتی به سرور ارسال نمی‌شود.
   const MAX_MS = 5 * 60 * 1000;
