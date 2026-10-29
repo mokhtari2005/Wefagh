@@ -104,3 +104,20 @@ test('logError شامل وضعیت و دلیل امن است و هیچ Secret ی
   assert.equal(entry.reason, 'invalid_grant');
   for (const s of SECRETS) assert.ok(!lines[0].includes(s));
 });
+
+test('تنظیمات ناقص: نام متغیرهای خالی در خطا و لاگ است، بدون مقدار', async () => {
+  const err = await failureOf(async () => new Response('{}'), { ...SECRET_ENV, GMAIL_REFRESH_TOKEN: '', GMAIL_FROM: '' });
+  assert.equal(err.message, 'MAIL_NOT_CONFIGURED');
+  assert.deepEqual(err.missing, ['GMAIL_REFRESH_TOKEN', 'GMAIL_FROM']);
+  const lines = [];
+  const orig = console.error;
+  console.error = (l) => lines.push(String(l));
+  try {
+    logError('auth.send_verification', err);
+  } finally {
+    console.error = orig;
+  }
+  const entry = JSON.parse(lines[0]);
+  assert.deepEqual(entry.missing, ['GMAIL_REFRESH_TOKEN', 'GMAIL_FROM']);
+  for (const s of SECRETS.concat(['vefagh.lawyers@gmail.com'])) assert.ok(!lines[0].includes(s));
+});
