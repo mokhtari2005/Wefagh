@@ -6,6 +6,7 @@ import { formatShamsi } from './shamsi.js';
 import { parseShamsiInput, isoToShamsiInput } from './jalali.js';
 import { shamsiField } from './shamsi-field.js';
 import { h } from './dom.js';
+import { shamsiCalendar } from './calendar.js';
 import { todayIso, statusOf, sortDeadlines, upcomingOpen, KIND_LABELS, STATUS_LABELS } from './deadlines-core.js';
 
 function shamsi(iso) {
@@ -57,6 +58,8 @@ export async function deadlinesPage() {
     h('h1', { text: 'تقویم مواعد دادرسی' }),
     h('p', { class: 'lead', text: 'مواعد پرونده‌های خود را ثبت کنید و یادآوری ببینید. این اطلاعات فقط برای شما نمایش داده می‌شود.' }),
   ]);
+  // تقویم عمومی برای همه، بدون ورود؛ مواعد شخصی فقط برای کاربر واردشده
+  wrap.append(shamsiCalendar());
   const me = await getJson('/api/me');
   if (!me.ok) {
     wrap.append(loginNote());

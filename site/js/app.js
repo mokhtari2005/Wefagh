@@ -5,6 +5,7 @@ import { formatShamsi } from './shamsi.js';
 import { parseHash } from './route.js';
 import { loginForm, registerForm, verifyPanel, accountPanel } from './account.js';
 import { academyList, academyCourse, ACADEMY_TOOLS } from './academy.js';
+import { shamsiCalendar } from './calendar.js';
 import { mootCourtPage } from './moot.js';
 import { calculatorsPage } from './calc/page.js';
 import { mediaHome, articlePage } from './media.js';
@@ -165,7 +166,8 @@ function pageHome() {
     h('a', { class: 'btn-outline-light cta-button', href: '#/account', text: 'شروع مسیر آموزشی ‹' }),
   ]);
 
-  root.append(hero, stats, quick, lower, cta);
+  const calendarSection = h('section', { class: 'home-calendar', 'aria-label': 'تقویم شمسی' }, [shamsiCalendar()]);
+  root.append(hero, stats, quick, lower, calendarSection, cta);
   return root;
 }
 
