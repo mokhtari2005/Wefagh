@@ -191,3 +191,55 @@ test('نرمال‌سازی شماره در سرور و سایت یکسان اس
     assert.equal(serverProfile.normalizePhone(v), siteOptions.normalizePhone(v), v);
   }
 });
+
+// ---- حالت ناقص: مهاجرت ۰۰۰۸ روی این دیتابیس اجرا نشده ----
+import { hashPassword } from '../worker/src/auth/password.js';
+
+function setupWithoutProfiles() {
+  const db = new DatabaseSync(':memory:');
+  db.exec('PRAGMA foreign_keys = ON;');
+  for (const f of ['0001_init.sql', '0002_auth.sql']) db.exec(migration(f));
+  const env = { DB: d1Like(db), PUBLIC_BASE_URL: 'https://wefagh.ir', mailer: async () => {} };
+  return { db, env };
+}
+
+test('بدون جدول پروفایل: کاربر قدیمی می‌تواند وارد شود و /api/me بدون پروفایل پاسخ 200 بدهد', { skip }, async () => {
+  const { db, env } = setupWithoutProfiles();
+  db.prepare("INSERT INTO users (email, password_hash, display_name, email_verified_at) VALUES (?,?,?,datetime('now'))")
+    .run('old@example.com', await hashPassword('رمز-قدیمی-۱۴۰۴'), 'کاربر قدیمی');
+  const login = await call(env, '/api/auth/login', { body: { email: 'old@example.com', password: 'رمز-قدیمی-۱۴۰۴' } });
+  assert.equal(login.status, 200, 'ورود کاربر قدیمی نباید به پروفایل وابسته باشد');
+  const cookie = (login.headers.get('set-cookie') || '').match(/wefagh_session=[^;]+/)[0];
+  const me = await call(env, '/api/me', { method: 'GET', cookie });
+  assert.equal(me.status, 200);
+  const body = await me.json();
+  assert.equal(body.user.email, 'old@example.com');
+  assert.equal(body.user.profile, null);
+});
+
+test('بدون جدول پروفایل: ثبت‌نام با ۵۰۳ رد می‌شود و هیچ کاربر ناقصی ساخته نمی‌شود', { skip }, async () => {
+  const { db, env } = setupWithoutProfiles();
+  const res = await call(env, '/api/auth/register', { body: user(8) });
+  assert.equal(res.status, 503);
+  assert.equal((await res.json()).error, 'SERVICE_UNAVAILABLE');
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM users').get().n, 0);
+});
+
+test('خطای سرور در گزارش فنی نام خطا را دارد ولی ایمیل، رمز یا پروفایل را ندارد', { skip }, async () => {
+  const { env } = setupWithoutProfiles();
+  const logs = [];
+  const original = console.error;
+  console.error = (...args) => logs.push(args.join(' '));
+  try {
+    await call(env, '/api/auth/register', { body: user(9) });
+    await call(env, '/api/auth/register', { body: user(10) });
+  } finally {
+    console.error = original;
+  }
+  assert.ok(logs.length >= 1, 'باید گزارش فنی ثبت شود');
+  const all = logs.join('\n');
+  assert.ok(all.includes('register.phone_check'));
+  for (const secret of [user(9).password, user(9).email, '09120000009', user(9).displayName]) {
+    assert.ok(!all.includes(secret), `گزارش نباید شامل ${secret} باشد`);
+  }
+});

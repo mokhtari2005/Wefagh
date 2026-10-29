@@ -67,7 +67,13 @@ export default {
         return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: method });
       }
       if (!env.DB) return json({ ok: false, error: 'DB_NOT_CONFIGURED' }, 503);
-      return handler(request, env);
+      try {
+        return await handler(request, env);
+      } catch (err) {
+        // هر خطای پیش‌بینی‌نشده: پاسخ JSON امن و گزارش فنی بدون داده‌های کاربر.
+        console.error(JSON.stringify({ where: `route:${path}`, error: err?.name || 'Error' }));
+        return json({ ok: false, error: 'INTERNAL_ERROR' }, 500);
+      }
     }
 
     if (path === '/api/admin/content' || path.startsWith('/api/admin/content/')) {

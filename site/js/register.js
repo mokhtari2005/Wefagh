@@ -13,6 +13,13 @@ const STEP_KEYS = [
   ['professionalStatus', 'barAssociation', 'licenseNumber', 'licenseYear', 'experienceBand', 'practiceAreas'],
   ['learningGoal', 'skillAreas', 'skillLevel', 'learningFormat', 'notes'],
 ];
+/** نام فارسی هر فیلد برای پیام خطای سرور. */
+const FIELD_LABELS = {
+  displayName: 'نام', phone: 'شمارهٔ تلفن', email: 'ایمیل', province: 'استان', city: 'شهر', password: 'رمز عبور',
+  professionalStatus: 'وضعیت حرفه‌ای', barAssociation: 'کانون یا مرجع صدور', licenseNumber: 'شمارهٔ پروانه',
+  licenseYear: 'سال پروانه', experienceBand: 'سابقهٔ فعالیت', practiceAreas: 'حوزه‌های فعالیت',
+  learningGoal: 'هدف آموزشی', skillAreas: 'مهارت‌ها', skillLevel: 'سطح مهارت', learningFormat: 'روش آموزشی', notes: 'توضیحات',
+};
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 /** عدد را با ارقام فارسی نمایش می‌دهد. */
@@ -381,8 +388,11 @@ export function registerForm() {
       for (const [key, msg] of Object.entries(errors)) setError(key, msg);
       const step = STEP_KEYS.findIndex((keys) => keys.some((k) => errors[k]));
       renderStep(step < 0 ? 0 : step);
+      const names = Object.keys(errors).map((k) => FIELD_LABELS[k] || 'یکی از فیلدها').filter((v, i, a) => a.indexOf(v) === i);
       status.className = 'form-status err';
-      status.textContent = messageFor('VALIDATION_FAILED');
+      status.textContent = names.length
+        ? `این فیلدها نامعتبرند: ${names.join('، ')}. خطای هر فیلد زیر همان فیلد نشان داده شده است.`
+        : messageFor('VALIDATION_FAILED');
       return;
     }
     status.className = 'form-status err';
