@@ -1011,3 +1011,11 @@ h1, h2, h3 { color: var(--teal-dark); }
 .swatch-green { background: #134e44; }
 .swatch-navy { background: #1b2a4a; }
 .swatch-pencil { background: #4b4b48; }
+
+/* فهرست کارت‌های آیکونی آکادمی (فقط مقصدهای واقعی) */
+.academy-tools { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin: 1.25rem 0 1.75rem; }
+.academy-tool { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .55rem; min-height: 104px; padding: .8rem .5rem; border-radius: 16px; background: var(--paper); border: 1px solid var(--sand-line); box-shadow: var(--shadow-sm); color: var(--ink); text-decoration: none; text-align: center; font-size: .9rem; font-weight: 700; line-height: 1.5; transition: transform .15s ease, box-shadow .15s ease; }
+.academy-tool:hover, .academy-tool:focus-visible { transform: translateY(-2px); box-shadow: var(--shadow); }
+.academy-tool-icon { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: var(--deep); color: var(--gold); font-size: 1.3rem; }
+@media (max-width: 700px) { .academy-tools { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; } .academy-tool { min-height: 96px; font-size: .82rem; } }
+@media (prefers-reduced-motion: reduce) { .academy-tool { transition: none; } }

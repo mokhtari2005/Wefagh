@@ -4,7 +4,7 @@ import { mountContactForm } from './contact.js';
 import { formatShamsi } from './shamsi.js';
 import { parseHash } from './route.js';
 import { loginForm, registerForm, verifyPanel, accountPanel } from './account.js';
-import { academyList, academyCourse } from './academy.js';
+import { academyList, academyCourse, ACADEMY_TOOLS } from './academy.js';
 import { mootCourtPage } from './moot.js';
 import { calculatorsPage } from './calc/page.js';
 import { mediaHome, articlePage } from './media.js';
@@ -137,15 +137,10 @@ function pageHome() {
     ]),
   ]);
 
-  const quickItems = [
-    ['🎓', 'دوره‌های آموزشی', '#/academy'], ['🗂', 'کارگاه تنظیم اوراق', '#/cases'], ['🤝', 'کارگاه مذاکره و سازش', '#/academy'],
-    ['👥', 'مصاحبه با موکل', '#/academy'], ['🎙', 'موت‌کورت صوتی', '#/moot-court'], ['📁', 'بانک پرونده‌ها', '#/cases'],
-    ['🧮', 'ابزارهای حقوقی', '#/calculators'], ['🛡', 'اخلاق حرفه‌ای', '#/academy'],
-  ];
   const quick = h('section', { class: 'quick-section', 'aria-labelledby': 'quick-title' }, [
-    h('h2', { id: 'quick-title', class: 'block-title', text: 'دسترسی سریع به کارگاه‌ها' }),
-    h('div', { class: 'quick-grid' }, quickItems.map(([icon, title, href]) =>
-      h('a', { class: 'quick-tile', href }, [h('span', { class: 'quick-icon', 'aria-hidden': 'true', text: icon }), h('span', { text: title })]))),
+    h('h2', { id: 'quick-title', class: 'block-title', text: 'دسترسی سریع' }),
+    h('div', { class: 'quick-grid' }, ACADEMY_TOOLS.map((item) =>
+      h('a', { class: 'quick-tile', href: item.href }, [h('span', { class: 'quick-icon', 'aria-hidden': 'true', text: item.icon }), h('span', { text: item.title })]))),
   ]);
 
   const lower = h('section', { class: 'dashboard-lower' }, [
