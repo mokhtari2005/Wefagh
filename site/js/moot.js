@@ -3,6 +3,26 @@ import { h } from './dom.js';
 import { getJson, postJson, sendJson } from './api.js';
 import { COACH_ROLES, getCoachPrompt, evaluateOralAnswer } from './moot-coach.js';
 
+/** نوع فایل ضبط را از بایت‌های ابتدایی تشخیص می‌دهد (WebM، MP4/M4A، Ogg). */
+async function detectAudioType(blob, fallback) {
+  try {
+    const head = new Uint8Array(await blob.slice(0, 12).arrayBuffer());
+    const tag = String.fromCharCode(...head.slice(4, 8));
+    if (head[0] === 0x1a && head[1] === 0x45 && head[2] === 0xdf && head[3] === 0xa3) return 'audio/webm';
+    if (tag === 'ftyp') return 'audio/mp4';
+    if (head[0] === 0x4f && head[1] === 0x67 && head[2] === 0x67 && head[3] === 0x53) return 'audio/ogg';
+  } catch {
+    // نوع از روی mimeType ادامه می‌یابد.
+  }
+  return String(fallback || '').split(';')[0];
+}
+
+function extensionFor(type) {
+  if (type.includes('mp4')) return '.m4a';
+  if (type.includes('ogg')) return '.ogg';
+  return '.webm';
+}
+
 export const CASE = Object.freeze({
   id: 'contract-delivery-delay',
   title: 'پروندهٔ فرضی: تأخیر در تحویل کالا',
@@ -123,7 +143,10 @@ export function mootCourtPage() {
   playButton.addEventListener('click', () => {
     if (!audioUrl) return;
     audioPlayer.hidden = false;
-    audioPlayer.play().catch(() => { audioStatus.textContent = 'پخش شروع نشد. روی نوار پخش‌کننده بزنید یا فایل را دریافت کنید.'; });
+    audioPlayer.play().catch((err) => {
+      if (err?.name === 'NotAllowedError') audioStatus.textContent = 'مرورگر پخش خودکار را متوقف کرد. دوباره روی «پخش» بزنید یا نوار پخش‌کننده را استفاده کنید.';
+      else showPlaybackFailure(err?.name || 'play');
+    });
   });
   downloadButton.addEventListener('click', () => {
     if (!audioUrl) return;
@@ -158,6 +181,12 @@ export function mootCourtPage() {
   let mediaStream = null;
   let audioChunks = [];
   let audioUrl = null;
+  let chosenMime = '';
+  let recordedMs = 0;
+  let recordedBytes = 0;
+  let recordedType = '';
+  let playbackToken = 0;
+  let playableConfirmed = false;
   let audioLimitTimer = null;
   let tickTimer = null;
   let levelFrame = null;
@@ -210,6 +239,21 @@ export function mootCourtPage() {
     recButton.classList.toggle('recording', recording);
     recButton.setAttribute('aria-label', recording ? 'پایان ضبط' : 'شروع ضبط صدا');
   }
+  function showPlaybackFailure(code) {
+    if (!audioUrl) return;
+    recHint.textContent = 'پخش این ضبط ممکن نشد. فایل را دریافت کنید.';
+    audioStatus.textContent = `پخش این ضبط در مرورگر شما انجام نشد (کد ${code}). فایل را با «دریافت فایل» ذخیره کنید و با برنامهٔ پخش‌کنندهٔ خود باز کنید.`;
+    audioStatus.className = 'muted rec-status err';
+  }
+  audioPlayer.addEventListener('loadedmetadata', () => {
+    if (!audioUrl) return;
+    playableConfirmed = true;
+    audioStatus.className = 'muted rec-status';
+    recHint.textContent = 'آماده: می‌توانید پخش کنید یا فایل را دریافت کنید.';
+    const seconds = Number.isFinite(audioPlayer.duration) ? Math.round(audioPlayer.duration * 1000) : recordedMs;
+    audioStatus.textContent = `ضبط آماده است · مدت ${formatTime(seconds)} · ${(recordedBytes / 1024).toFixed(0)} کیلوبایت · نوع ${recordedType || 'ناشناخته'}`;
+  });
+  audioPlayer.addEventListener('error', () => { if (audioUrl) showPlaybackFailure(audioPlayer.error?.code ?? 'error'); });
   recButton.addEventListener('click', async () => {
     if (mediaRecorder?.state === 'recording') {
       mediaRecorder.stop();
@@ -220,10 +264,12 @@ export function mootCourtPage() {
       return;
     }
     recButton.disabled = true;
+    audioStatus.className = 'muted rec-status';
     audioStatus.textContent = 'در انتظار اجازهٔ دسترسی به میکروفون…';
     try {
       mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find((type) => MediaRecorder.isTypeSupported?.(type));
+      chosenMime = mimeType || '';
       mediaRecorder = mimeType ? new MediaRecorder(mediaStream, { mimeType }) : new MediaRecorder(mediaStream);
       audioChunks = [];
       mediaRecorder.addEventListener('dataavailable', (event) => {
@@ -235,30 +281,44 @@ export function mootCourtPage() {
         recButton.disabled = false;
         releaseMicrophone();
       });
-      mediaRecorder.addEventListener('stop', () => {
+      mediaRecorder.addEventListener('stop', async () => {
         releaseMicrophone();
         setRecordingUi(false);
         recButton.disabled = false;
-        recHint.textContent = 'ضبط تمام شد. می‌توانید پخش کنید یا دوباره ضبط کنید.';
-        if (!audioChunks.length) {
-          audioStatus.textContent = 'صدای قابل استفاده‌ای ضبط نشد. مجوز میکروفون را بررسی و دوباره تلاش کنید.';
+        const chunks = audioChunks;
+        audioChunks = [];
+        const total = chunks.reduce((n, c) => n + c.size, 0);
+        if (!total) {
+          recHint.textContent = 'برای ضبط دوباره، دکمهٔ قرمز را بزنید.';
+          audioStatus.textContent = 'صدایی ضبط نشد (فایل خالی است). مجوز میکروفون را بررسی و دوباره تلاش کنید.';
           return;
         }
-        const type = mediaRecorder?.mimeType || audioChunks[0].type || 'audio/webm';
-        const blob = new Blob(audioChunks, { type });
+        // نوع فایل از روی بایت‌های خود فایل تشخیص داده می‌شود؛ Safari ممکن است mimeType را خالی بگذارد.
+        const type = await detectAudioType(chunks[0], mediaRecorder?.mimeType || chosenMime);
+        const blob = new Blob(chunks, { type });
+        recordedMs = Date.now() - recordStartedAt;
+        recordedBytes = blob.size;
+        recordedType = type;
+        playableConfirmed = false;
         clearAudioUrl();
         audioUrl = URL.createObjectURL(blob);
+        const token = ++playbackToken;
         audioPlayer.src = audioUrl;
         audioPlayer.hidden = false;
         playButton.hidden = false;
-        downloadButton.dataset.filename = type.includes('mp4') ? 'wefagh-moot-court.m4a' : 'wefagh-moot-court.webm';
+        downloadButton.dataset.filename = `wefagh-moot-court${extensionFor(type)}`;
         downloadButton.hidden = false;
         resetButton.hidden = false;
-        audioStatus.textContent = `ضبط تمام شد · مدت ${formatTime(Date.now() - recordStartedAt)} · حجم ${(blob.size / 1024).toFixed(0)} کیلوبایت.`;
+        recHint.textContent = 'ضبط تمام شد. در حال بررسی قابلیت پخش…';
+        audioStatus.textContent = `فایل ساخته شد: ${formatTime(recordedMs)} · ${(recordedBytes / 1024).toFixed(0)} کیلوبایت. در حال بررسی پخش…`;
         audioPlayer.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        // اگر پس از ۵ ثانیه فایل بارگذاری نشد، موفقیت کاذب نشان داده نمی‌شود.
+        setTimeout(() => {
+          if (token === playbackToken && !playableConfirmed) showPlaybackFailure(audioPlayer.error?.code ?? 'timeout');
+        }, 5000);
       }, { once: true });
       recordStartedAt = Date.now();
-      mediaRecorder.start();
+      mediaRecorder.start(1000);
       setRecordingUi(true);
       recButton.disabled = false;
       recHint.textContent = 'در حال ضبط… دوباره برای پایان بزنید.';
