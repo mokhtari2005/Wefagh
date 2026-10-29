@@ -9,7 +9,15 @@ import { validateProfile } from './profile.js';
 
 /** گزارش فنی بدون داده‌های کاربر: فقط نام خطا و محل آن (هرگز ایمیل، رمز یا پروفایل). */
 export function logError(where, err) {
-  console.error(JSON.stringify({ where, error: err?.name || 'Error', detail: String(err?.message || '').slice(0, 200) }));
+  const entry = { where, error: err?.name || 'Error', detail: String(err?.message || '').slice(0, 200) };
+  if (Number.isInteger(err?.status)) entry.status = err.status;
+  if (typeof err?.reason === 'string' && /^[A-Za-z_]{1,40}$/.test(err.reason)) entry.reason = err.reason;
+  console.error(JSON.stringify(entry));
+}
+
+/** رویداد عملیاتی بدون ایمیل یا توکن؛ فقط دلیل بازگشت ارسال مجدد. */
+function logOutcome(where, outcome) {
+  console.info(JSON.stringify({ where, outcome }));
 }
 
 export const LOCK_THRESHOLD = 5;
@@ -142,19 +150,34 @@ export async function resendVerification(request, env) {
     .prepare('SELECT id, status, email_verified_at FROM users WHERE email = ?1')
     .bind(email)
     .first();
-  if (!user || user.status !== 'active' || user.email_verified_at) return generic();
+  if (!user) {
+    logOutcome('auth.resend', 'no_account');
+    return generic();
+  }
+  if (user.status !== 'active') {
+    logOutcome('auth.resend', 'not_active');
+    return generic();
+  }
+  if (user.email_verified_at) {
+    logOutcome('auth.resend', 'already_verified');
+    return generic();
+  }
 
   const recent = await env.DB
     .prepare("SELECT created_at FROM email_tokens WHERE user_id = ?1 AND purpose = 'verify_email' AND used_at IS NULL ORDER BY created_at DESC LIMIT 1")
     .bind(user.id)
     .first();
-  if (recent && Date.now() - Date.parse(recent.created_at) < RESEND_COOLDOWN_MS) return generic();
+  if (recent && Date.now() - Date.parse(recent.created_at) < RESEND_COOLDOWN_MS) {
+    logOutcome('auth.resend', 'cooldown');
+    return generic();
+  }
 
   await env.DB
     .prepare("UPDATE email_tokens SET used_at = ?1 WHERE user_id = ?2 AND purpose = 'verify_email' AND used_at IS NULL")
     .bind(new Date().toISOString(), user.id)
     .run();
-  await issueVerificationEmail(env, user.id, email);
+  const sent = await issueVerificationEmail(env, user.id, email);
+  logOutcome('auth.resend', sent ? 'sent' : 'send_failed');
   return generic();
 }
 
