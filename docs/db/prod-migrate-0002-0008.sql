@@ -1,7 +1,7 @@
 -- Combined manual migration for the production D1 database wefagh-db.
 -- Applies worker/migrations/0002_auth.sql .. 0008_registration_profile.sql in order.
 -- Source of truth remains worker/migrations/*.sql; this file has the same DDL, comments removed,
--- and is verified to produce an identical schema (see docs/db/README note in the PR).
+-- and is verified to produce an identical schema (see the pull request description).
 -- Safe to run more than once: every CREATE uses IF NOT EXISTS. No DROP, ALTER, UPDATE or DELETE.
 -- Run in the Cloudflare D1 Console for wefagh-db as ONE complete paste. Do not paste fragments.
 CREATE TABLE IF NOT EXISTS users (
