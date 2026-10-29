@@ -262,3 +262,108 @@ test('متد اشتباه روی مسیر احراز هویت با ۴۰۵ رد �
   const res = await call(env, '/api/auth/login', { method: 'GET' });
   assert.equal(res.status, 405);
 });
+
+// ---- ارسال ایمیل تأیید: خطای سرویس، ارسال مجدد، انقضا ----
+
+function ageTokens(db, minutes) {
+  db.prepare("UPDATE email_tokens SET created_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ?1)").run(`-${minutes} minutes`);
+}
+
+test('خطای سرویس ایمیل ثبت‌نام را خراب نمی‌کند: پاسخ عمومی، کاربر ساخته و لاگ ثبت می‌شود', { skip }, async () => {
+  const { db, env } = setup();
+  const logs = [];
+  const orig = console.error;
+  console.error = (line) => logs.push(String(line));
+  env.mailer = async () => {
+    throw new Error('MAIL_NOT_CONFIGURED');
+  };
+  try {
+    const res = await call(env, '/api/auth/register', { body: validUser });
+    assert.equal(res.status, 202);
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM users').get().n, 1);
+    assert.ok(logs.some((l) => l.includes('auth.send_verification') && l.includes('MAIL_NOT_CONFIGURED')));
+    assert.ok(!logs.some((l) => /token=/.test(l)), 'لاگ نباید توکن را داشته باشد');
+  } finally {
+    console.error = orig;
+  }
+});
+
+test('ارسال مجدد: برای حساب تأییدنشده ایمیل تازه می‌فرستد و لینک قبلی باطل می‌شود', { skip }, async () => {
+  const { db, env, sent } = setup();
+  await call(env, '/api/auth/register', { body: validUser });
+  const oldToken = tokenFromMail(sent);
+  ageTokens(db, 2);
+
+  const res = await call(env, '/api/auth/resend-verification', { body: { email: 'shahram@example.com' } });
+  assert.equal(res.status, 202);
+  assert.equal(sent.length, 2);
+  const newToken = tokenFromMail(sent);
+  assert.notEqual(newToken, oldToken);
+
+  const stale = await call(env, '/api/auth/verify-email', { body: { token: oldToken } });
+  assert.equal(stale.status, 400);
+  const fresh = await call(env, '/api/auth/verify-email', { body: { token: newToken } });
+  assert.equal(fresh.status, 200);
+  assert.ok(db.prepare('SELECT email_verified_at FROM users').get().email_verified_at);
+});
+
+test('ارسال مجدد در کمتر از یک دقیقه ایمیل تکراری نمی‌فرستد', { skip }, async () => {
+  const { env, sent } = setup();
+  await call(env, '/api/auth/register', { body: validUser });
+  const res = await call(env, '/api/auth/resend-verification', { body: { email: validUser.email } });
+  assert.equal(res.status, 202);
+  assert.equal(sent.length, 1);
+});
+
+test('ارسال مجدد برای ایمیل ناموجود یا حساب تأییدشده ایمیلی نمی‌فرستد و پاسخ یکسان است', { skip }, async () => {
+  const { db, env, sent } = setup();
+  await call(env, '/api/auth/register', { body: validUser });
+  const token = tokenFromMail(sent);
+  await call(env, '/api/auth/verify-email', { body: { token } });
+
+  const verified = await call(env, '/api/auth/resend-verification', { body: { email: validUser.email } });
+  const unknown = await call(env, '/api/auth/resend-verification', { body: { email: 'nobody@example.com' } });
+  assert.equal(verified.status, 202);
+  assert.equal(unknown.status, 202);
+  assert.equal((await verified.json()).message, (await unknown.json()).message);
+  assert.equal(sent.length, 1);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM users').get().n, 1);
+});
+
+test('ارسال مجدد با ایمیل نامعتبر ۴۲۲ می‌دهد', { skip }, async () => {
+  const { env } = setup();
+  const res = await call(env, '/api/auth/resend-verification', { body: { email: 'not-an-email' } });
+  assert.equal(res.status, 422);
+});
+
+test('توکن تأیید منقضی‌شده رد می‌شود', { skip }, async () => {
+  const { db, env, sent } = setup();
+  await call(env, '/api/auth/register', { body: validUser });
+  const token = tokenFromMail(sent);
+  db.prepare("UPDATE email_tokens SET expires_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 minutes')").run();
+  const res = await call(env, '/api/auth/verify-email', { body: { token } });
+  assert.equal(res.status, 400);
+  assert.equal((await res.json()).error, 'INVALID_TOKEN');
+});
+
+test('ارسال مجدد پس از خطای سرویس، حساب گیرکرده را آزاد می‌کند', { skip }, async () => {
+  const { db, env, sent } = setup();
+  const failing = env.mailer;
+  env.mailer = async () => {
+    throw new Error('GMAIL_SEND_FAILED');
+  };
+  const orig = console.error;
+  console.error = () => {};
+  try {
+    await call(env, '/api/auth/register', { body: validUser });
+  } finally {
+    console.error = orig;
+  }
+  env.mailer = failing;
+  ageTokens(db, 2);
+  await call(env, '/api/auth/resend-verification', { body: { email: validUser.email } });
+  assert.equal(sent.length, 1);
+  const token = tokenFromMail(sent);
+  const ok = await call(env, '/api/auth/verify-email', { body: { token } });
+  assert.equal(ok.status, 200);
+});

@@ -74,7 +74,21 @@ export function loginForm({ onSuccess, onRegister }) {
     const code = res.networkError ? 'NETWORK' : res.data?.error;
     setStatus(status, messageFor(code), 'err');
     password.value = '';
+    if (code === 'EMAIL_NOT_VERIFIED') showResend(values.email);
   });
+
+  // ارسال مجدد لینک تأیید برای حساب تأییدنشده. پاسخ سرور همیشه عمومی است.
+  function showResend(address) {
+    if (form.querySelector('.resend-verification')) return;
+    const btn = h('button', { class: 'btn resend-verification', type: 'button', text: 'ارسال مجدد ایمیل تأیید' });
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      const r = await postJson('/api/auth/resend-verification', { email: address });
+      setStatus(status, r.ok ? (r.data?.message || 'ایمیل تأیید ارسال شد.') : messageFor(r.networkError ? 'NETWORK' : r.data?.error), r.ok ? 'ok' : 'err');
+      setTimeout(() => { btn.disabled = false; }, 60 * 1000);
+    });
+    submit.after(btn);
+  }
 
   return form;
 }

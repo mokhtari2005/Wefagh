@@ -15,6 +15,8 @@ export function logError(where, err) {
 export const LOCK_THRESHOLD = 5;
 export const LOCK_MINUTES = 15;
 const GENERIC_REGISTER_MSG = 'اگر این نشانی معتبر باشد، ایمیل تأیید برای شما ارسال شد.';
+const RESEND_MSG = 'اگر این حساب در انتظار تأیید باشد، ایمیل تأیید دوباره ارسال شد.';
+const RESEND_COOLDOWN_MS = 60 * 1000;
 
 // هش ساختگی برای یکسان‌سازی زمان پاسخ وقتی کاربر وجود ندارد.
 let dummyHashPromise;
@@ -92,6 +94,17 @@ export async function register(request, env) {
     await env.DB.prepare("INSERT OR IGNORE INTO user_roles (user_id, role) VALUES (?1, 'super_admin')").bind(userId).run();
   }
 
+  // ارسال ناموفق کاربر را خطا نمی‌بیند (پاسخ عمومی)؛ کاربر می‌تواند از /api/auth/resend-verification استفاده کند.
+  await issueVerificationEmail(env, userId, email);
+  return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
+}
+
+/**
+ * توکن تأیید تازه می‌سازد و ایمیل را می‌فرستد. خطای ارسال فقط در لاگ ثبت می‌شود
+ * (بدون مقادیر حساس)، تا پاسخ عمومی ثبت‌نام یا ارسال مجدد تغییر نکند.
+ * @returns {Promise<boolean>} true اگر ایمیل با موفقیت به سرویس ارسال داده شد.
+ */
+async function issueVerificationEmail(env, userId, email) {
   const token = generateToken();
   const now = new Date();
   await env.DB
@@ -106,10 +119,43 @@ export async function register(request, env) {
       subject: 'تأیید حساب وِفاق',
       text: `برای تأیید حساب خود روی لینک زیر کلیک کنید (تا ۳۰ دقیقه معتبر است):\n${link}\n\nاگر شما درخواست نکرده‌اید، این پیام را نادیده بگیرید.`,
     });
-  } catch {
-    // ارسال ایمیل ناموفق؛ کاربر در پاسخ عمومی متوجه جزئیات نمی‌شود. ارسال مجدد در مرحلهٔ بعد اضافه می‌شود.
+    return true;
+  } catch (err) {
+    logError('auth.send_verification', err);
+    return false;
   }
-  return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
+}
+
+/**
+ * ارسال مجدد ایمیل تأیید. پاسخ همیشه عمومی است تا وجود حساب فاش نشود.
+ * ایمیل فقط برای حساب فعال و تأییدنشده و با فاصلهٔ حداقل یک دقیقه فرستاده می‌شود.
+ * لینک‌های تأیید قبلی باطل می‌شوند تا فقط آخرین لینک معتبر باشد.
+ */
+export async function resendVerification(request, env) {
+  const parsed = await readJsonBody(request);
+  if (parsed.error) return parsed.error;
+  const email = normalizeEmail(parsed.body?.email);
+  if (!email) return json({ ok: false, error: 'VALIDATION_FAILED', errors: { email: 'نشانی ایمیل معتبر نیست.' } }, 422);
+
+  const generic = () => json({ ok: true, message: RESEND_MSG }, 202);
+  const user = await env.DB
+    .prepare('SELECT id, status, email_verified_at FROM users WHERE email = ?1')
+    .bind(email)
+    .first();
+  if (!user || user.status !== 'active' || user.email_verified_at) return generic();
+
+  const recent = await env.DB
+    .prepare("SELECT created_at FROM email_tokens WHERE user_id = ?1 AND purpose = 'verify_email' AND used_at IS NULL ORDER BY created_at DESC LIMIT 1")
+    .bind(user.id)
+    .first();
+  if (recent && Date.now() - Date.parse(recent.created_at) < RESEND_COOLDOWN_MS) return generic();
+
+  await env.DB
+    .prepare("UPDATE email_tokens SET used_at = ?1 WHERE user_id = ?2 AND purpose = 'verify_email' AND used_at IS NULL")
+    .bind(new Date().toISOString(), user.id)
+    .run();
+  await issueVerificationEmail(env, user.id, email);
+  return generic();
 }
 
 async function insertProfile(env, userId, p) {

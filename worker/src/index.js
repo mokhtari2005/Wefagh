@@ -2,7 +2,7 @@
 import { validateContact } from './validate.js';
 import { saveContactMessage } from './contact.js';
 import { json, readJsonBody } from './http.js';
-import { register, verifyEmail, login, logout, me } from './auth/routes.js';
+import { register, verifyEmail, resendVerification, login, logout, me } from './auth/routes.js';
 import { handleAcademy } from './academy/routes.js';
 import { handleMedia } from './media/routes.js';
 import { handleDeadlines } from './deadlines/routes.js';
@@ -39,6 +39,7 @@ async function handleContact(request, env) {
 const AUTH_ROUTES = {
   '/api/auth/register': ['POST', register],
   '/api/auth/verify-email': ['POST', verifyEmail],
+  '/api/auth/resend-verification': ['POST', resendVerification],
   '/api/auth/login': ['POST', login],
   '/api/auth/logout': ['POST', logout],
   '/api/me': ['GET', me],
