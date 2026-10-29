@@ -39,3 +39,16 @@ test('فونت Vazirmatn با font-display و مسیر نسبی بارگذاری
   assert.match(css, /url\("\.\.\/assets\/fonts\/Vazirmatn-UI-FD-Regular\.woff2"\)/);
   assert.match(css, /font-display: swap/);
 });
+
+test('نوار پایین، هیرو و کارت مهارت از توکن --deep پوسته پیروی می‌کنند', () => {
+  for (const name of ['green', 'navy', 'pencil']) {
+    const scope = name === 'green' ? css : css;
+    assert.match(scope, /--deep-rgb:/);
+  }
+  assert.match(css, /\.bottom-nav \{[^}]*rgba\(var\(--deep-rgb\), \.98\)/);
+  assert.match(css, /\.dashboard-hero \{[^}]*rgba\(var\(--deep-rgb\), \.97\)/);
+  assert.match(css, /\.skill-card \{[^}]*var\(--deep\)/);
+  assert.doesNotMatch(css, /rgba\(9,\s*49,\s*48/);
+  assert.doesNotMatch(css, /#104d4b/);
+  assert.doesNotMatch(css, /rgba\(13,\s*73,\s*71,\s*\.98\)/);
+});
