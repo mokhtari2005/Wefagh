@@ -20,10 +20,32 @@ function loginHint() {
   ]);
 }
 
+// فقط مقصدهای واقعی و فعال سایت. هر مورد باید به یک مسیر موجود در app.js اشاره کند.
+export const ACADEMY_TOOLS = [
+  { icon: '🎓', title: 'دوره‌های آموزشی', href: '#/academy' },
+  { icon: '🎙', title: 'تمرین دادرسی و موت‌کورت', href: '#/moot-court' },
+  { icon: '📁', title: 'بانک پرونده‌ها', href: '#/cases' },
+  { icon: '🧮', title: 'ابزارهای حقوقی', href: '#/calculators' },
+  { icon: '📅', title: 'تقویم مواعد', href: '#/deadlines' },
+  { icon: '📰', title: 'مطالب و پادکست', href: '#/media' },
+  { icon: '📊', title: 'داشبورد من', href: '#/dashboard' },
+  { icon: '👤', title: 'حساب کاربری', href: '#/account' },
+];
+
+export function academyToolCards(items = ACADEMY_TOOLS) {
+  return h('nav', { class: 'academy-tools', 'aria-label': 'بخش‌های آکادمی' },
+    items.map((item) => h('a', { class: 'academy-tool', href: item.href }, [
+      h('span', { class: 'academy-tool-icon', 'aria-hidden': 'true', text: item.icon }),
+      h('span', { class: 'academy-tool-title', text: item.title }),
+    ])));
+}
+
 export async function academyList() {
   const wrap = h('div', {}, [
     h('h1', { text: 'آکادمی وِفاق' }),
     h('p', { class: 'lead', text: 'دوره‌های کوتاه برای دانشجویان حقوق، کارآموزان و وکلا.' }),
+    academyToolCards(),
+    h('h2', { text: 'دوره‌ها' }),
   ]);
   const grid = h('div', { class: 'cards' });
   wrap.append(grid);
@@ -41,16 +63,6 @@ export async function academyList() {
       ])
     );
   }
-  wrap.append(
-    h('h2', { text: 'تمرین‌های عملی' }),
-    h('div', { class: 'cards' }, [
-      h('a', { class: 'card', href: '#/moot-court' }, [
-        h('span', { class: 'badge', text: 'تمرین ساختاریافته' }),
-        h('h3', { text: 'موت کورت (تمرین دادرسی)' }),
-        h('p', { text: 'یک پروندهٔ فرضی را تحلیل کنید، لایحه بنویسید و با چک‌لیست خودارزیابی کنید.' }),
-      ]),
-    ])
-  );
   return wrap;
 }
 
