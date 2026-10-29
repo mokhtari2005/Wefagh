@@ -66,8 +66,13 @@ export async function getAccessToken({ clientId, clientSecret, refreshToken, fet
  *           to: string, subject: string, text: string, fetchImpl?: typeof fetch }} args
  */
 export async function sendMail({ env, to, subject, text, fetchImpl = fetch }) {
-  if (!env.GMAIL_CLIENT_ID || !env.GMAIL_CLIENT_SECRET || !env.GMAIL_REFRESH_TOKEN || !env.GMAIL_FROM) {
-    throw new Error('MAIL_NOT_CONFIGURED');
+  // فقط نام متغیرهای خالی ثبت می‌شود؛ مقدار هیچ Secretی در خطا یا لاگ نیست.
+  const required = ['GMAIL_CLIENT_ID', 'GMAIL_CLIENT_SECRET', 'GMAIL_REFRESH_TOKEN', 'GMAIL_FROM'];
+  const missing = required.filter((name) => !env[name]);
+  if (missing.length > 0) {
+    const err = new Error('MAIL_NOT_CONFIGURED');
+    err.missing = missing;
+    throw err;
   }
   const accessToken = await getAccessToken({
     clientId: env.GMAIL_CLIENT_ID,
