@@ -15,9 +15,22 @@ test('سربرگ بدون لوگو است و نام گروه در آن نمای�
   assert.match(header, /class="brand-text">گروه وکلای مدافع فرهنگ، اندیشه و قانون/);
 });
 
-test('فایل لوگو برای فوتر موجود است', () => {
-  assert.match(html, /class="footer-logo" src="assets\/images\/wefagh-logo\.webp"/);
-  assert.ok(existsSync(join(site, 'assets', 'images', 'wefagh-logo.webp')));
+test('فوتر لوگو ندارد و انتخاب پوسته رنگی را دارد', () => {
+  const footer = html.match(/<footer class="site-footer">[\s\S]*?<\/footer>/)[0];
+  assert.doesNotMatch(footer, /<img/);
+  assert.match(footer, /class="theme-picker"/);
+  for (const name of ['green', 'navy', 'pencil']) {
+    assert.match(footer, new RegExp('data-theme-choice="' + name + '"'));
+  }
+});
+
+test('اسکریپت پوسته پیش از رندر در head بارگذاری می‌شود و فونت محلی موجود است', () => {
+  const head = html.match(/<head>[\s\S]*?<\/head>/)[0];
+  assert.match(head, /<script src="js\/theme\.js"><\/script>/);
+  for (const f of ['Regular', 'SemiBold', 'Bold']) {
+    assert.ok(existsSync(join(site, 'assets', 'fonts', 'Vazirmatn-UI-FD-' + f + '.woff2')));
+  }
+  assert.ok(existsSync(join(site, 'assets', 'fonts', 'OFL.txt')));
 });
 
 test('نوار ناوبری پایین پنج پیوند دارد و دکمهٔ خانه در میانه است', () => {

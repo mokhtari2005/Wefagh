@@ -1,5 +1,27 @@
 /* تم وِفاق — هویت بصری: کرم روشن، بژ، قهوه‌ای عمیق، دارچینی، طلایی مات (تأکیدی)، سبزآبی (تعاملی).
-   فونت: Vazirmatn در صورت نصب سیستمی؛ در غیر این صورت فونت‌های فارسی سیستم. (فونت وب میزبانی‌شده هنوز اضافه نشده است.) */
+   فونت: Vazirmatn (UI با ارقام فارسی) میزبانی‌شده در assets/fonts؛ مجوز SIL OFL در همان پوشه. */
+
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("../assets/fonts/Vazirmatn-UI-FD-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("../assets/fonts/Vazirmatn-UI-FD-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("../assets/fonts/Vazirmatn-UI-FD-Bold.woff2") format("woff2");
+  font-weight: 700 800;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
   /* رنگ‌ها: زمینهٔ روشن و آرام؛ تیره فقط برای بخش‌های شاخص */
@@ -932,3 +954,54 @@ h1, h2, h3 { color: var(--teal-dark); }
   .seg + .seg { border-inline-start: 0; border-top: 1.5px solid var(--teal); }
   .reg-actions .btn { flex: 1 1 auto; min-height: 48px; }
 }
+
+/* ---- پوسته‌های رنگی: سبز (پیش‌فرض، همان مقادیر :root پایانی)، سرمه‌ای و مدادی.
+   انتخاب با ویژگی data-theme روی <html> اعمال می‌شود (js/theme.js). ---- */
+:root[data-theme="navy"] {
+  --cream: #f3f5fa;
+  --paper: #ffffff;
+  --bone: #e2e7f1;
+  --sand-line: #cdd5e3;
+  --ink: #1b2a4a;
+  --ink-soft: #3d4b68;
+  --cinnamon: #3f5a8a;
+  --gold: #b8943f;
+  --teal: #2c4a7c;
+  --teal-dark: #1c3257;
+  --shadow-sm: 0 2px 8px rgba(27, 42, 74, 0.07);
+  --shadow: 0 10px 30px rgba(27, 42, 74, 0.1);
+}
+:root[data-theme="pencil"] {
+  --cream: #f3f3f1;
+  --paper: #fbfbfa;
+  --bone: #e4e4e1;
+  --sand-line: #cdcdc8;
+  --ink: #2e2e2e;
+  --ink-soft: #5a5a57;
+  --cinnamon: #6b6b66;
+  --gold: #9c8a6a;
+  --teal: #4b4b48;
+  --teal-dark: #2f2f2d;
+  --shadow-sm: 0 2px 8px rgba(46, 46, 46, 0.07);
+  --shadow: 0 10px 30px rgba(46, 46, 46, 0.1);
+}
+
+/* ---- آیکون هدر و انتخاب پوسته در فوتر ---- */
+.brand-icon { width: 30px; height: 30px; flex: none; color: var(--teal); }
+.theme-picker {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px;
+  border: 0; margin: 0 0 12px; padding: 0;
+}
+.theme-picker legend { font-size: 0.85rem; color: var(--ink-soft); padding: 0 0 6px; float: inline-start; }
+.theme-picker button {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 36px; padding: 4px 12px; border-radius: 999px;
+  border: 1.5px solid var(--sand-line); background: var(--paper); color: var(--ink);
+  font: inherit; font-size: 0.85rem; cursor: pointer;
+}
+.theme-picker button[aria-pressed="true"] { border-color: var(--teal); box-shadow: 0 0 0 2px var(--teal) inset; }
+.theme-picker button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+.swatch { width: 14px; height: 14px; border-radius: 50%; display: inline-block; border: 1px solid rgba(0,0,0,.15); }
+.swatch-green { background: #134e44; }
+.swatch-navy { background: #1b2a4a; }
+.swatch-pencil { background: #4b4b48; }

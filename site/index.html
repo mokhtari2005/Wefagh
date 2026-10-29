@@ -8,6 +8,7 @@
   <meta name="theme-color" content="#134e44">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/styles.css">
+  <script src="js/theme.js"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">رفتن به محتوای اصلی</a>
@@ -15,6 +16,7 @@
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="#/" aria-label="صفحهٔ اصلی گروه وکلای مدافع فرهنگ، اندیشه و قانون وِفاق">
+        <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M7 21h10M5 7h14M5 7l-3 6a3 3 0 0 0 6 0L5 7zM19 7l-3 6a3 3 0 0 0 6 0l-3-6z"/></svg>
         <span class="brand-text">گروه وکلای مدافع فرهنگ، اندیشه و قانون&nbsp;ـ&nbsp;<strong>وِفاق</strong></span>
       </a>
       <form class="global-search" id="global-search" role="search">
@@ -34,7 +36,12 @@
 
   <footer class="site-footer">
     <div class="container footer-inner">
-      <img class="footer-logo" src="assets/images/wefagh-logo.webp" width="640" height="640" alt="" loading="lazy">
+      <fieldset class="theme-picker">
+        <legend>پوستهٔ رنگی</legend>
+        <button type="button" data-theme-choice="green" aria-pressed="true"><span class="swatch swatch-green" aria-hidden="true"></span>سبز وفاق</button>
+        <button type="button" data-theme-choice="navy" aria-pressed="false"><span class="swatch swatch-navy" aria-hidden="true"></span>سرمه‌ای</button>
+        <button type="button" data-theme-choice="pencil" aria-pressed="false"><span class="swatch swatch-pencil" aria-hidden="true"></span>مدادی</button>
+      </fieldset>
       <p>© <span id="year"></span> گروه وکلای مدافع فرهنگ، اندیشه و قانون وِفاق</p>
     </div>
   </footer>
