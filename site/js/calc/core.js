@@ -17,6 +17,16 @@ function toIso(date) {
   return date.toISOString().slice(0, 10);
 }
 
+/**
+ * عدد ورودی فرم. خانهٔ خالی یا فقط فاصله NaN می‌شود؛ Number('') صفر می‌دهد و نباید بی‌صدا پذیرفته شود.
+ * @returns {number}
+ */
+export function strictNumber(value) {
+  if (typeof value === 'number') return value;
+  if (typeof value !== 'string' || value.trim() === '') return NaN;
+  return Number(value.trim());
+}
+
 /** @returns {string|null} تاریخ جدید به‌صورت YYYY-MM-DD */
 export function addDays(isoDate, days) {
   const base = parseIsoDate(isoDate);

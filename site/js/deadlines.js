@@ -1,7 +1,7 @@
 // تقویم مواعد شخصی: صفحه کامل، و کارت «مواعد نزدیک» برای صفحهٔ اول. DOM امن؛ داده‌ها فقط متن‌اند.
 import { getJson, postJson, sendJson } from './api.js';
 import { messageFor } from './auth-messages.js';
-import { deadline as computeDeadline } from './calc/core.js';
+import { deadline as computeDeadline, strictNumber } from './calc/core.js';
 import { formatShamsi } from './shamsi.js';
 import { parseShamsiInput, isoToShamsiInput } from './jalali.js';
 import { shamsiField } from './shamsi-field.js';
@@ -107,7 +107,7 @@ function addForm(onSaved) {
       calcOut.textContent = 'تاریخ ابلاغ را به شکل ۱۴۰۵/۰۸/۰۶ وارد کنید.';
       return;
     }
-    const r = computeDeadline({ noticeDate: noticeIso, days: Number(days.value) });
+    const r = computeDeadline({ noticeDate: noticeIso, days: strictNumber(days.value) });
     if (!r.ok) {
       calcOut.textContent = 'مدت مهلت را درست وارد کنید.';
       return;
