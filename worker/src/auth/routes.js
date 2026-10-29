@@ -7,6 +7,11 @@ import { generateToken, hashToken, addMs, SESSION_TTL_MS, EMAIL_TOKEN_TTL_MS } f
 import { sendMail } from '../email/gmail.js';
 import { validateProfile } from './profile.js';
 
+/** گزارش فنی بدون داده‌های کاربر: فقط نام خطا و محل آن (هرگز ایمیل، رمز یا پروفایل). */
+export function logError(where, err) {
+  console.error(JSON.stringify({ where, error: err?.name || 'Error', detail: String(err?.message || '').slice(0, 200) }));
+}
+
 export const LOCK_THRESHOLD = 5;
 export const LOCK_MINUTES = 15;
 const GENERIC_REGISTER_MSG = 'اگر این نشانی معتبر باشد، ایمیل تأیید برای شما ارسال شد.';
@@ -47,7 +52,14 @@ export async function register(request, env) {
   const existing = await env.DB.prepare('SELECT id FROM users WHERE email = ?1').bind(email).first();
   if (existing) return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
   // شماره تکراری: پاسخ عمومی همان ایمیل تکراری؛ شماره‌های ثبت‌شده فاش نمی‌شوند.
-  const phoneTaken = await env.DB.prepare('SELECT user_id FROM user_profiles WHERE phone = ?1').bind(profile.phone).first();
+  let phoneTaken;
+  try {
+    phoneTaken = await env.DB.prepare('SELECT user_id FROM user_profiles WHERE phone = ?1').bind(profile.phone).first();
+  } catch (err) {
+    // جدول پروفایل در این محیط وجود ندارد (مهاجرت ۰۰۰۸ اجرا نشده): ثبت‌نامی ساخته نمی‌شود.
+    logError('register.phone_check', err);
+    return json({ ok: false, error: 'SERVICE_UNAVAILABLE' }, 503);
+  }
   if (phoneTaken) return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
 
   const passwordHash = await hashPassword(body.password);
@@ -61,6 +73,7 @@ export async function register(request, env) {
   } catch (err) {
     // ثبت همزمان دو درخواست با یک ایمیل: پاسخ عمومی؛ سایر خطاها به کاربر نشان داده نمی‌شوند.
     if (String(err?.message || '').includes('UNIQUE')) return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
+    logError('register.insert_user', err);
     return json({ ok: false, error: 'INTERNAL_ERROR' }, 500);
   }
 
@@ -70,6 +83,7 @@ export async function register(request, env) {
     // پروفایل ذخیره نشد: حساب ناقص نماند.
     await env.DB.prepare('DELETE FROM users WHERE id = ?1').bind(userId).run();
     if (String(err?.message || '').includes('UNIQUE')) return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
+    logError('register.insert_profile', err);
     return json({ ok: false, error: 'INTERNAL_ERROR' }, 500);
   }
 
@@ -110,12 +124,19 @@ async function insertProfile(env, userId, p) {
 }
 
 export async function getProfile(env, userId) {
-  const row = await env.DB
-    .prepare(`SELECT phone, province, city, professional_status, bar_association, license_number, license_year,
+  let row;
+  try {
+    row = await env.DB
+      .prepare(`SELECT phone, province, city, professional_status, bar_association, license_number, license_year,
         experience_band, practice_areas, learning_goal, skill_areas, skill_level, learning_format, notes
         FROM user_profiles WHERE user_id = ?1`)
-    .bind(userId)
-    .first();
+      .bind(userId)
+      .first();
+  } catch (err) {
+    // نبود جدول پروفایل نباید صفحهٔ حساب کاربران قدیمی را از کار بیندازد.
+    logError('me.profile_lookup', err);
+    return null;
+  }
   if (!row) return null;
   return {
     phone: row.phone,
