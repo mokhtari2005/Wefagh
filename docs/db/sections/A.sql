@@ -1,11 +1,5 @@
 -- Section A: users, sessions, email_tokens, user_roles (0002)
 -- ASCII only. Run as one paste into the D1 Console for wefagh-db. Safe to re-run.
--- Combined manual migration for the production D1 database wefagh-db.
--- Applies worker/migrations/0002_auth.sql .. 0008_registration_profile.sql in order.
--- Source of truth remains worker/migrations/*.sql; this file has the same DDL, comments removed,
--- and is verified to produce an identical schema (see the pull request description).
--- Safe to run more than once: every CREATE uses IF NOT EXISTS. No DROP, ALTER, UPDATE or DELETE.
--- Run in the Cloudflare D1 Console for wefagh-db as ONE complete paste. Do not paste fragments.
 CREATE TABLE IF NOT EXISTS users (
   id                INTEGER PRIMARY KEY AUTOINCREMENT,
   email             TEXT    NOT NULL UNIQUE COLLATE NOCASE CHECK (length(email) BETWEEN 3 AND 254),
