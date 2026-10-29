@@ -1,5 +1,5 @@
 // صفحهٔ محاسبه‌گرها. فرم‌ها با DOM امن ساخته می‌شوند؛ خروجی فقط متن است. تاریخ‌ها شمسی وارد می‌شوند.
-import { delayInterest } from './core.js';
+import { delayInterest, strictNumber } from './core.js';
 import { applyRule } from './engine.js';
 import { findRule, rulesFor } from './rates.js';
 import { formatShamsi } from '../shamsi.js';
@@ -19,9 +19,17 @@ function h(tag, attrs = {}, children = []) {
 }
 
 /** کارت نتیجه: یک الگوی مشترک برای همهٔ محاسبه‌گرها. متن فقط با textContent نمایش داده می‌شود. */
+const INPUT_MESSAGES = {
+  INVALID_DATES: 'تاریخ شروع و پایان باید شمسی و معتبر باشد (مثال: ۱۴۰۵/۰۸/۰۶) و پایان بعد از شروع باشد.',
+  INVALID_PRINCIPAL: 'اصل دین باید عددی بزرگ‌تر از صفر باشد.',
+  INVALID_RATE: 'نرخ باید عددی بین ۰ و ۱۰۰ باشد. نرخ را از منبع رسمی همان دوره وارد کنید.',
+  INVALID_AMOUNT: 'مبلغ باید عددی نامنفی باشد.',
+};
+
 function resultBox(result, form = null) {
   if (!result.ok) {
-    return h('div', { class: 'notice', role: 'alert', text: 'ورودی‌ها را بررسی کنید؛ تاریخ‌ها باید شمسی و معتبر باشند (مثال: ۱۴۰۵/۰۸/۰۶) و مبالغ و نرخ‌ها عددی باشند.' });
+    const specific = INPUT_MESSAGES[result.error];
+    return h('div', { class: 'notice', role: 'alert', text: specific || 'ورودی‌ها را بررسی کنید؛ تاریخ‌ها باید شمسی و معتبر باشند (مثال: ۱۴۰۵/۰۸/۰۶) و مبالغ و نرخ‌ها عددی باشند.' });
   }
   const status = result.status ? statusLabel(result.status) : null;
   const head = h('div', { class: 'result-head' }, [
@@ -100,8 +108,8 @@ function delayTool() {
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const result = delayInterest({
-      principal: Number(principal.value),
-      ratePercent: Number(rate.value),
+      principal: strictNumber(principal.value),
+      ratePercent: strictNumber(rate.value),
       startDate: parseShamsiInput(start.input.value) ?? '',
       endDate: parseShamsiInput(end.input.value) ?? '',
     });
@@ -142,7 +150,7 @@ function ruleTool({ title, amountLabel, group, submitLabel, note }) {
     e.preventDefault();
     const rule = findRule(RATE_YEAR, select.value);
     if (!rule) return out.replaceChildren(resultBox({ ok: false }, form));
-    const r = applyRule(rule, { amount: Number(amount.value) });
+    const r = applyRule(rule, { amount: strictNumber(amount.value) });
     if (!r.ok && r.error === 'RULE_UNVERIFIED') return out.replaceChildren(unverifiedBox(rule));
     if (!r.ok) return out.replaceChildren(resultBox({ ok: false }, form));
     const approval = rule.status === 'user_approved'
