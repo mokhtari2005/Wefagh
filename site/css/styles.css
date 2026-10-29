@@ -1019,3 +1019,19 @@ h1, h2, h3 { color: var(--teal-dark); }
 .academy-tool-icon { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: var(--deep); color: var(--gold); font-size: 1.3rem; }
 @media (max-width: 700px) { .academy-tools { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; } .academy-tool { min-height: 96px; font-size: .82rem; } }
 @media (prefers-reduced-motion: reduce) { .academy-tool { transition: none; } }
+
+/* تقویم شمسی عمومی (بدون ورود) */
+.calendar-card { background: var(--paper); border: 1px solid var(--sand-line); border-radius: var(--radius-lg); padding: 1rem; box-shadow: var(--shadow-sm); display: grid; gap: .75rem; }
+.calendar-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.calendar-title { margin: 0; font-size: 1.1rem; }
+.calendar-card .cal-nav { min-height: 40px; font-size: .85rem; }
+.calendar-grid-wrap { overflow-x: auto; }
+.calendar-table { width: 100%; border-collapse: separate; border-spacing: 4px; table-layout: fixed; min-width: 280px; }
+.calendar-table th { font-size: .75rem; font-weight: 700; color: var(--ink-soft); padding: .3rem 0; }
+.calendar-table td { height: 40px; text-align: center; border-radius: 10px; }
+.calendar-table td.cal-empty { background: transparent; }
+.calendar-table td.cal-day { background: #f1ede2; font-size: .9rem; }
+.calendar-table td.cal-today { background: var(--deep); color: var(--gold); font-weight: 800; }
+.calendar-note { font-size: .82rem; margin: 0; }
+.calendar-card .cal-today-btn { justify-self: center; width: auto; min-width: 120px; }
+.calendar-table th { letter-spacing: 0; }
