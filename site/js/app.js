@@ -6,6 +6,7 @@ import { parseHash } from './route.js';
 import { loginForm, registerForm, verifyPanel, accountPanel } from './account.js';
 import { academyList, academyCourse, ACADEMY_TOOLS } from './academy.js';
 import { shamsiCalendar } from './calendar.js';
+import { assistantPage } from './assistant.js';
 import { mootCourtPage } from './moot.js';
 import { calculatorsPage } from './calc/page.js';
 import { mediaHome, articlePage } from './media.js';
@@ -274,6 +275,7 @@ const ROUTES = {
   '/admin': () => lazy(adminPage),
   '/cases': () => lazy(() => casesPage()),
   '/moot-court': () => mootCourtPage(),
+  '/assistant': () => assistantPage(),
   '/calculators': () => calculatorsPage(),
   '/media': () => lazy(mediaHome),
   '/deadlines': () => lazy(deadlinesPage),
@@ -295,7 +297,7 @@ function render() {
   else content = pageNotFound();
 
   main.replaceChildren(content);
-  const EXTRA_TITLES = { '/admin': 'مدیریت محتوا', '/dashboard': 'داشبورد من', '/verify': 'تأیید ایمیل', '/moot-court': 'موت کورت', '/cases': 'بانک پرونده‌ها' };
+  const EXTRA_TITLES = { '/admin': 'مدیریت محتوا', '/dashboard': 'داشبورد من', '/verify': 'تأیید ایمیل', '/moot-court': 'موت کورت', '/cases': 'بانک پرونده‌ها', '/assistant': 'دستیار هوشمند وکیل' };
   const navTitle = NAV.find((n) => n.path === path)?.title;
   const title = navTitle ?? EXTRA_TITLES[path] ?? (path.startsWith('/academy/') ? 'آکادمی' : 'صفحه پیدا نشد');
   document.title = `${title} | وِفاق`;

@@ -24,6 +24,7 @@ function loginHint() {
 export const ACADEMY_TOOLS = [
   { icon: '🎓', title: 'دوره‌های آموزشی', href: '#/academy' },
   { icon: '🎙', title: 'تمرین دادرسی و موت‌کورت', href: '#/moot-court' },
+  { icon: '⚖️', title: 'دستیار هوشمند وکیل', href: '#/assistant' },
   { icon: '📁', title: 'بانک پرونده‌ها', href: '#/cases' },
   { icon: '🧮', title: 'ابزارهای حقوقی', href: '#/calculators' },
   { icon: '📅', title: 'تقویم مواعد', href: '#/deadlines' },
