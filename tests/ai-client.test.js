@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { historyForApi, validAnswer, ANSWER_MAX, hearingScript, stepStates, SPEAKER_LABEL, VOICE_FOR } from '../site/js/moot-ai.js';
+import { historyForApi, validAnswer, ANSWER_MAX, hearingScript, stepStates, SPEAKER_LABEL, VOICE_FOR, GROUP_LABELS } from '../site/js/moot-ai.js';
 import { trimHistory, summarizeReply, ASSISTANT_NOTICE } from '../site/js/assistant.js';
 import { silentWavBlob, AI_ERROR_TEXT, errorText, baseMime } from '../site/js/ai-client.js';
 
@@ -20,8 +20,18 @@ test('فهرست مراحل رسیدگی به ترتیب منشی، طرح اد�
   assert.equal(steps[3].stage, 'defense');
   assert.ok(steps.some((s) => s.speaker === 'judge' && s.stage === 'judge_question_plaintiff'));
   assert.ok(steps.some((s) => s.stage === 'documents'));
-  assert.equal(steps.at(-1).speaker, 'clerk');
-  assert.ok(steps.every((s) => s.speaker === 'clerk' || s.stage || s.label));
+  assert.equal(steps.at(-1).speaker, 'judge');
+  assert.equal(steps.at(-1).stage, 'verdict');
+  assert.ok(steps.every((s) => s.speaker === 'clerk' || s.stage));
+});
+
+test('هر گام به یکی از ۱۲ مرحلهٔ نمایشی تعلق دارد و مراحل به ترتیب هستند', () => {
+  const steps = hearingScript();
+  const groups = steps.map((s) => s.group);
+  assert.ok(groups.every((g) => Number.isInteger(g) && g >= 1 && g <= GROUP_LABELS.length));
+  assert.deepEqual([...new Set(groups)], [...new Set(groups)].sort((a, b) => a - b));
+  assert.equal(GROUP_LABELS.length, 12);
+  assert.ok(steps.some((s) => s.group === 9 && s.stage === 'final_plaintiff'));
 });
 
 test('وضعیت مراحل: گذشته، جاری، آینده', () => {
