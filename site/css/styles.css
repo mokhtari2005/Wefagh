@@ -1044,3 +1044,29 @@ h1, h2, h3 { color: var(--teal-dark); }
 .assistant-output { display: grid; gap: .6rem; margin-top: 1rem; }
 .assistant-output textarea, .oral-ai textarea, .assistant-workspace textarea { width: 100%; }
 .oral-ai .row, .assistant-workspace .row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+
+/* جلسهٔ شبیه‌سازی دادگاه */
+.hearing-setup { display: grid; gap: .6rem; }
+.hearing-setup label { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.hearing { display: grid; gap: .75rem; min-width: 0; }
+.hearing-banner { margin: 0; padding: .75rem .9rem; border-radius: 14px; background: var(--deep); color: var(--gold); font-weight: 800; font-size: .95rem; line-height: 1.6; }
+.hearing-steps { list-style: none; margin: 0; padding: .25rem 0; display: flex; gap: .4rem; overflow-x: auto; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
+.hearing-step { flex: 0 0 auto; scroll-snap-align: start; display: flex; align-items: center; gap: .35rem; padding: .35rem .6rem; border-radius: 999px; border: 1px solid var(--sand-line); background: var(--paper); font-size: .78rem; white-space: nowrap; color: var(--ink-soft); }
+.hearing-step .num { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: #e8e4d6; font-weight: 800; font-size: .7rem; }
+.hearing-step.done { color: var(--ink); }
+.hearing-step.done .num { background: var(--teal); color: #fff; }
+.hearing-step.current { border-color: var(--gold); color: var(--ink); font-weight: 800; box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 35%, transparent); }
+.hearing-step.current .num { background: var(--gold); color: var(--deep); }
+.hearing-log { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; max-height: 420px; overflow-y: auto; padding-inline-end: .25rem; }
+.hearing-line { padding: .6rem .8rem; border-radius: 14px; background: #f1ede2; border: 1px solid var(--sand-line); border-inline-start: 4px solid var(--sand-line); line-height: 1.8; font-size: .92rem; overflow-wrap: anywhere; }
+.hearing-line.clerk { border-inline-start-color: var(--ink-soft); }
+.hearing-line.judge { border-inline-start-color: var(--gold); }
+.hearing-line.plaintiff { border-inline-start-color: var(--teal); }
+.hearing-line.defendant { border-inline-start-color: var(--cinnamon); }
+.hearing-line strong { display: inline-block; margin-inline-end: .25rem; }
+.hearing-input { display: grid; gap: .5rem; }
+.hearing-input textarea { width: 100%; }
+.hearing-audio { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.hearing-audio label { display: inline-flex; align-items: center; gap: .3rem; font-size: .85rem; }
+.hearing .row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+@media (prefers-reduced-motion: reduce) { .hearing-steps { scroll-behavior: auto; } }

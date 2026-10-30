@@ -101,6 +101,13 @@ export function createPlayer() {
       }
     },
     stop() { audio.pause(); },
+    /** سرعت پخش؛ بین ۰٫۵ تا ۲ مجاز است و زیر و بم صدا حفظ می‌شود. */
+    setRate(rate) {
+      const r = Math.min(2, Math.max(0.5, Number(rate) || 1));
+      audio.playbackRate = r;
+      audio.preservesPitch = true;
+      return r;
+    },
     dispose() {
       audio.pause();
       if (currentUrl) URL.revokeObjectURL(currentUrl);
