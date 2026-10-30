@@ -7,6 +7,7 @@ import { handleAcademy } from './academy/routes.js';
 import { handleMedia } from './media/routes.js';
 import { handleDeadlines } from './deadlines/routes.js';
 import { handleCases } from './cases/routes.js';
+import { handleMootBank } from './moot/routes.js';
 import { handleDashboard } from './dashboard.js';
 import { handleAdmin } from './admin.js';
 import { handleAdminMedia } from './admin-media.js';
@@ -95,6 +96,11 @@ export default {
 
     if (path === '/api/deadlines' || path.startsWith('/api/deadlines/')) {
       const res = await handleDeadlines(request, env, path);
+      if (res) return res;
+    }
+
+    if (path === '/api/moot/cases' || path.startsWith('/api/moot/cases/') || path === '/api/moot/history') {
+      const res = await handleMootBank(request, env, path);
       if (res) return res;
     }
 

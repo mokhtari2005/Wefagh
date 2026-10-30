@@ -5,7 +5,12 @@ import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
 import worker from '../worker/src/index.js';
 import { hashToken } from '../worker/src/auth/token.js';
-import { CASES } from '../worker/src/cases/catalog.js';
+import batch01 from '../worker/src/moot/bank/batch-01.js';
+import { createTestDb } from './helpers/d1-sqlite.js';
+
+// آزمون مسیر خواندن: پرونده‌های زیر مستقیم در جدول منتشرشده قرار می‌گیرند تا خواندن از پایگاه داده سنجیده شود.
+// این داده‌ها محتوای آموزشی تأییدشده نیستند؛ گیت انتشار در مسیر نوشتن (admin) آزموده می‌شود.
+const CASES = batch01.slice(0, 2).map((c) => ({ id: c.id, subject: c.subject }));
 
 let DatabaseSync;
 let sqliteAvailable = true;
@@ -24,34 +29,40 @@ function d1Like(db) {
   } };
 }
 async function setup() {
-  const db = new DatabaseSync(':memory:');
-  db.exec('PRAGMA foreign_keys = ON;');
-  for (const f of ['0001_init.sql', '0002_auth.sql', '0003_academy.sql', '0004_deadlines.sql', '0005_casework.sql']) db.exec(migration(f));
-  const user = db.prepare("INSERT INTO users (email, password_hash, display_name, email_verified_at) VALUES ('case@example.com','h','دانشجو','2026-01-01T00:00:00Z') RETURNING id").get();
+  const db = createTestDb();
+  const admin = db.raw.prepare("INSERT INTO users (email, password_hash, display_name, email_verified_at) VALUES ('admin@example.com','h','مدیر','2026-01-01T00:00:00Z') RETURNING id").get();
+  for (const c of batch01.slice(0, 2)) {
+    db.raw.prepare("INSERT INTO admin_content (kind, slug, title, summary, status, payload_json, created_by) VALUES ('case', ?, ?, ?, 'published', ?, ?)")
+      .run(c.id, c.title, c.subject.slice(0, 400).padEnd(10, '.'), JSON.stringify(c), admin.id);
+  }
+  const user = db.raw.prepare("INSERT INTO users (email, password_hash, display_name, email_verified_at) VALUES ('case@example.com','h','دانشجو','2026-01-01T00:00:00Z') RETURNING id").get();
   const token = 'case-test-session-token-123456';
-  db.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?,?,?)').run(await hashToken(token), user.id, '2099-01-01T00:00:00.000Z');
-  return { db, env: { DB: d1Like(db) }, cookie: `wefagh_session=${token}` };
+  db.raw.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?,?,?)').run(await hashToken(token), user.id, '2099-01-01T00:00:00.000Z');
+  return { db, env: { DB: db }, cookie: `wefagh_session=${token}` };
 }
 function req(path, { method = 'GET', body, cookie } = {}) {
   const headers = {}; if (body !== undefined) headers['content-type'] = 'application/json'; if (cookie) headers.cookie = cookie;
   return new Request(`https://wefagh.ir${path}`, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined });
 }
 
-test('فهرست بانک پرونده‌ها فقط خلاصه را نشان می‌دهد و جزئیات برای شناسهٔ معتبر موجود است', async () => {
-  const list = await worker.fetch(req('/api/cases'), {});
+test('فهرست بانک پرونده‌ها فقط خلاصه را نشان می‌دهد و جزئیات عمومی بدون بخش‌های داوری است', async () => {
+  const { env } = await setup();
+  const list = await worker.fetch(req('/api/cases'), env);
   assert.equal(list.status, 200);
   const body = await list.json();
   assert.equal(body.total, CASES.length);
   assert.ok(body.cases.every((c) => !('facts' in c) && c.issueCount > 0));
-  const detail = await worker.fetch(req(`/api/cases/${CASES[0].id}`), {});
+  const detail = await worker.fetch(req(`/api/cases/${CASES[0].id}`), env);
   assert.equal(detail.status, 200);
-  assert.ok((await detail.json()).case.facts.length > 0);
-  assert.equal((await worker.fetch(req('/api/cases/not-real'), {})).status, 404);
+  const item = (await detail.json()).case;
+  assert.ok(item.facts.length > 0);
+  assert.ok(!('judge_questions' in item) && !('verdict' in item) && !('strengths_weaknesses' in item));
+  assert.equal((await worker.fetch(req('/api/cases/not-real'), env)).status, 404);
 });
 
 test('ذخیرهٔ تمرین نیازمند ورود است و داده‌ها پس از ایجاد قابل بازیابی و ویرایش‌اند', { skip }, async () => {
   const data = { caseId: CASES[0].id, title: 'تمرین اول', answers: { 'proof-delay': 'تحلیل کوتاه آموزشی' }, rubric: [true, false], stage: 'answers', score: 50 };
-  assert.equal((await worker.fetch(req('/api/moot/sessions', { method: 'POST', body: data }), { DB: (await setup()).env.DB })).status, 401);
+  assert.equal((await worker.fetch(req('/api/moot/sessions', { method: 'POST', body: data }), (await setup()).env)).status, 401);
   const { env, cookie } = await setup();
   const created = await worker.fetch(req('/api/moot/sessions', { method: 'POST', body: data, cookie }), env);
   assert.equal(created.status, 201);

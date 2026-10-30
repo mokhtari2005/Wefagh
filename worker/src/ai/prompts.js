@@ -1,26 +1,5 @@
 // پرونده‌ها و دستورهای سیستمی هوش مصنوعی. همه روی سرور نگه‌داری می‌شوند؛ مرورگر دستور سیستمی نمی‌فرستد.
 
-export const MOOT_CASES = Object.freeze({
-  'contract-delivery-delay': Object.freeze({
-    title: 'پروندهٔ فرضی آموزشی: تأخیر در تحویل کالا',
-    parties: Object.freeze({
-      plaintiff: 'شرکت «ب» (خریدار، خواهان دعوای مطالبهٔ خسارت تأخیر و فسخ جزئی)',
-      defendant: 'آقای «الف» (فروشنده، خوانده)',
-    }),
-    subject: 'مطالبهٔ خسارت تأخیر در تحویل ۱۰۰ دستگاه و فسخ جزئی قرارداد',
-    facts: [
-      'آقای «الف» (فروشنده) و شرکت «ب» (خریدار) قراردادی برای خرید ۱۰۰ دستگاه دربارهٔ تاریخ معین تحویل امضا کردند.',
-      'تحویل کالا با ۴۰ روز تأخیر انجام شد. خریدار دعوای مطالبهٔ خسارت تأخیر و فسخ جزئی قرارداد را طرح کرده است.',
-      'فروشنده ادعا می‌کند تأخیر ناشی از اعتصاب سراسری حمل‌ونقل بوده که پیش از امضای قرارداد اعلام شده بود.',
-      'در قرارداد بندی دربارهٔ حوادث غیرمترقبه و نحوهٔ اعلام آن وجود دارد، ولی شرط خسارت تأخیر به‌صورت مبلغ ثابت تعیین نشده است.',
-    ],
-    issues: [
-      'آیا تأخیر در تحویل محرز است و چه کسی باید آن را اثبات کند؟',
-      'آیا اعتصاب حمل‌ونقل می‌تواند عذر موجه باشد؛ و آیا فروشنده آن را به‌موقع اعلام کرده است؟',
-      'اگر خسارت تعلق بگیرد، مبنای محاسبه و میزان آن بر چه اساسی باید تعیین شود؟',
-    ],
-  }),
-});
 
 export const LEGAL_DISCLAIMER = 'این متن با کمک هوش مصنوعی تهیه شده و پیش‌نویس اولیه است. پیش از استفاده یا ارائه به مرجع قضایی، تمام وقایع، مستندات، استنادهای قانونی و انطباق آن با قوانین و مقررات جاری و اصلاحات بعدی را بررسی و تأیید کنید. خروجی هوش مصنوعی جایگزین بررسی حرفه‌ای وکیل نیست.';
 
@@ -48,8 +27,12 @@ export const HEARING_STAGES = Object.freeze({
   verdict: 'جمع‌بندی آموزشی قاضی: قاضی نقاط قوت و ضعف استدلال‌های طرفین را خلاصه می‌کند. این یک رأی قطعی نیست و هیچ طرفی را محکوم یا تبرئه نمی‌کند.',
 });
 
-export function mootSystemPrompt({ role, caseId, difficulty, stage }) {
-  const c = MOOT_CASES[caseId];
+// دادهٔ پرونده فقط از بانک منتشرشده می‌آید (caseData). هر نقش فقط بخشی از پرونده را می‌بیند:
+// قاضی پرسش‌های پیشنهادی قاضی را، هر وکیل نقاط قوت و ضعف و سناریوهای دفاع طرف خودش را؛ رأی آموزشی به هیچ نقشی داده نمی‌شود.
+export function mootSystemPrompt({ role, caseData, difficulty, stage }) {
+  const c = caseData;
+  const side = role === 'defendant' ? 'defendant' : 'plaintiff';
+  const own = c.strengths_weaknesses?.[side] || { strengths: [], weaknesses: [] };
   const roleText = {
     judge: 'تو قاضی این دادرسی آموزشی هستی. پرسش‌های روشن‌کننده و مرتبط با موضوع دعوا بپرس و دقت استدلال طرفین را بسنج. هرگز رأی قطعی صادر نکن و جانب هیچ طرفی را نگیر.',
     plaintiff: `تو وکیل خواهان (${c.parties.plaintiff}) هستی. از موضع خواهان و فقط بر اساس وقایع پرونده استدلال کن.`,
@@ -57,6 +40,7 @@ export function mootSystemPrompt({ role, caseId, difficulty, stage }) {
   }[role] || '';
   const stageText = HEARING_STAGES[stage] ? `مرحلهٔ فعلی دادرسی: ${HEARING_STAGES[stage]}` : '';
   const level = { beginner: 'سطح مبتدی: پرسش‌ها ساده و یک‌مرحله‌ای باشند.', intermediate: 'سطح متوسط: پرسش‌ها چندبخشی و مبتنی بر ادله باشند.', advanced: 'سطح پیشرفته: ایرادهای دقیق و سخت‌گیرانه با استدلال متقابل.' }[difficulty] || '';
+  const ownScenarios = (c.defense_scenarios || []).map((d) => `- وقتی ${d.trigger}: ${d.response}`);
   return [
     LEGAL_GUARD,
     roleText,
@@ -66,6 +50,9 @@ export function mootSystemPrompt({ role, caseId, difficulty, stage }) {
     `پرونده: ${c.title}`,
     `وقایع:\n${c.facts.map((f, i) => `${i + 1}. ${f}`).join('\n')}`,
     `مسائل حقوقی:\n${c.issues.map((f, i) => `${i + 1}. ${f}`).join('\n')}`,
+    role === 'judge' && Array.isArray(c.judge_questions) ? `پرسش‌های پیشنهادی قاضی (در صورت مناسب بودن):\n${c.judge_questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}` : null,
+    role !== 'judge' ? `نقاط قوت موضع شما:\n${own.strengths.map((x) => `- ${x}`).join('\n')}\nنقاط ضعف موضع شما:\n${own.weaknesses.map((x) => `- ${x}`).join('\n')}` : null,
+    role !== 'judge' && ownScenarios.length ? `سناریوهای دفاع شما:\n${ownScenarios.join('\n')}` : null,
     'قواعد پاسخ: فقط نقش خودت را بازی کن و هرگز به‌جای طرف دیگر یا قاضی حرف نزن. فقط به وقایع همین پرونده استناد کن و از پاسخ‌های عمومی یا خارج از موضوع پرهیز کن. در گفت‌وگو، پرسش یا استدلال تازه بیاور و تکرار نکن. حداکثر ۷۰۰ نویسه، متن ساده و بدون برچسب نقش.',
   ].filter(Boolean).join('\n\n');
 }
@@ -85,14 +72,15 @@ export const MOOT_EVAL_SCHEMA = Object.freeze({
   required: ['strengths', 'weaknesses', 'legalOrProcedural', 'answerQuality', 'citationFit', 'unanswered', 'nextPractice', 'overallScore'],
 });
 
-export function mootEvaluationPrompt(caseId) {
-  const c = MOOT_CASES[caseId];
+export function mootEvaluationPrompt(caseData) {
+  const c = caseData;
   return [
     LEGAL_GUARD,
     'گفت‌وگوی دادرسی آموزشی زیر را ارزیابی کن. فقط بر اساس متن گفت‌وگو و پرونده قضاوت کن. نمرهٔ کلی را از ۰ تا ۱۰۰ بده. از ساختن استناد یا رأی خودداری کن.',
     `پرونده: ${c.title}`,
     `مسائل:\n${c.issues.map((f, i) => `${i + 1}. ${f}`).join('\n')}`,
-  ].join('\n\n');
+    c.verdict?.outcome ? `رأی آموزشی مرجع (فقط برای سنجش، نه برای اعلام به کاربر):\n${c.verdict.outcome}` : null,
+  ].filter(Boolean).join('\n\n');
 }
 
 export const ASSISTANT_DOC_TYPES = Object.freeze({
