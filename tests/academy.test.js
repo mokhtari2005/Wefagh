@@ -141,3 +141,17 @@ test('هر کاربر فقط پیشرفت خودش را می‌بیند', { skip
   assert.equal(p.enrolled, false);
   assert.deepEqual(p.completedLessonIds, []);
 });
+
+test('فهرست دوره‌ها وضعیت ثبت‌نام کاربر واردشده را نشان می‌دهد و مهمان همه را false می‌بیند', { skip }, async () => {
+  const { db, env, cookie } = await setup();
+  const guest = await (await worker.fetch(req('/api/academy/courses'), env)).json();
+  assert.ok(guest.courses.every((c) => c.enrolled === false));
+
+  const first = guest.courses[0].id;
+  await worker.fetch(req('/api/academy/enroll', { method: 'POST', body: { courseId: first }, cookie }), env);
+  const list = await (await worker.fetch(req('/api/academy/courses', { cookie }), env)).json();
+  const mine = list.courses.find((c) => c.id === first);
+  assert.equal(mine.enrolled, true);
+  assert.equal(list.courses.filter((c) => c.enrolled).length, 1);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM enrollments').get().n, 1);
+});

@@ -61,6 +61,7 @@ export async function academyList() {
     grid.append(
       h('a', { class: 'card', href: `#/academy/${c.id}` }, [
         h('span', { class: 'badge', text: `${c.level} · ${c.lessonCount} درس` }),
+        c.enrolled ? h('span', { class: 'badge badge-soft', text: 'ثبت‌نام شده‌اید' }) : h('span'),
         h('h3', { text: c.title }),
         h('p', { text: c.summary }),
       ])

@@ -137,7 +137,9 @@ function unverifiedBox(rule) {
 
 /** ابزار قاعده‌محور: کاربر نوع/مرحله را انتخاب می‌کند و موتور فقط قاعدهٔ تأییدشده را اعمال می‌کند. */
 function ruleTool({ title, amountLabel, group, submitLabel, note }) {
-  const select = h('select', {}, rulesFor(RATE_YEAR, group).map((r) => h('option', { value: r.id, text: r.title })));
+  // قواعدی که فقط متن خوانده‌شده‌اند (text_read) محاسبه نمی‌شوند؛ در فهرست نمی‌آیند.
+  const usable = rulesFor(RATE_YEAR, group).filter((r) => r.status !== 'text_read');
+  const select = h('select', {}, usable.map((r) => h('option', { value: r.id, text: r.title })));
   const amount = h('input', { type: 'number', min: '0', step: '1', required: '', inputmode: 'numeric' });
   const out = h('div');
   const form = h('form', { class: 'form', novalidate: '', 'aria-label': title }, [
