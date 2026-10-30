@@ -22,11 +22,11 @@ test('فهرست دوره‌ها بدون جدول محتوا ۲۰۰ و دوره
   assert.ok(body.courses.length >= 1);
 });
 
-test('فهرست پرونده‌ها بدون جدول محتوا ۲۰۰ و پرونده‌های داخلی را برمی‌گرداند', async () => {
+test('فهرست پرونده‌ها بدون جدول محتوا ۲۰۰ و فهرست خالی برمی‌گرداند (بدون پرونده‌های نمونه)', async () => {
   const res = await get('/api/cases');
   assert.equal(res.status, 200);
   const body = await res.json();
-  assert.ok(body.cases.length >= 1);
+  assert.deepEqual(body.cases, []);
 });
 
 test('جزئیات دوره داخلی بدون جدول محتوا کار می‌کند و شناسهٔ ناشناخته ۴۰۴ می‌دهد', async () => {

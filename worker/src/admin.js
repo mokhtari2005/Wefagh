@@ -1,6 +1,7 @@
 // پنل محتوای آکادمی؛ همهٔ مسیرها نیازمند نقش مدیر و اعتبارسنجی سمت سرور هستند.
 import { json, readJsonBody } from './http.js';
 import { currentUser } from './auth/routes.js';
+import { validateCase } from './moot/caseSchema.js';
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const KINDS = new Set(['course', 'case']);
@@ -8,7 +9,7 @@ const STATUSES = new Set(['draft', 'published']);
 const clean = (v) => typeof v === 'string' ? v.trim() : '';
 const bounded = (v, min, max) => typeof v === 'string' && v.trim().length >= min && v.trim().length <= max;
 
-function validatePayload(kind, payload) {
+function validatePayload(kind, payload, { slug, status } = {}) {
   const errors = {};
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return { ok: false, errors: { payload: 'ساختار محتوا نامعتبر است.' } };
   if (kind === 'course') {
@@ -24,14 +25,22 @@ function validatePayload(kind, payload) {
       });
     }
   } else if (kind === 'case') {
-    if (!bounded(payload.area, 2, 80)) errors.area = 'حوزهٔ پرونده نامعتبر است.';
-    if (!bounded(payload.level, 2, 40)) errors.level = 'سطح پرونده نامعتبر است.';
-    for (const field of ['facts', 'evidence']) {
-      if (!Array.isArray(payload[field]) || payload[field].length < 1 || payload[field].length > 30 || payload[field].some((x) => !bounded(x, 5, 1000))) errors[field] = `${field === 'facts' ? 'وقایع' : 'مدارک'} باید ۱ تا ۳۰ مورد معتبر داشته باشند.`;
-    }
-    if (!Array.isArray(payload.issues) || payload.issues.length < 1 || payload.issues.length > 20 || payload.issues.some((x) => !x || !/^[a-z0-9-]{1,64}$/.test(x.id || '') || !bounded(x.text, 8, 500))) errors.issues = 'مسائل پرونده باید ۱ تا ۲۰ مورد با شناسه و متن معتبر باشند.';
+    // پروندهٔ موت‌کورت با همان اعتبارسنج بانک بررسی می‌شود؛ انتشار فقط وقتی مجاز است که همهٔ استنادها تأیید یا اصلاح شده باشند.
+    if (payload.id !== slug) errors.id = 'شناسهٔ پرونده باید با شناسهٔ محتوا (slug) یکسان باشد.';
+    const v = validateCase(payload, { status });
+    if (!v.ok) errors.case = v.errors;
   }
   return Object.keys(errors).length ? { ok: false, errors } : { ok: true, value: payload };
+}
+
+// ثبت گردش بررسی پرونده در moot_case_reviews (هر تغییر وضعیت منتشر/پیش‌نویس).
+async function recordReview(env, slug, actorId, action, fromState, toState) {
+  try {
+    await env.DB.prepare('INSERT INTO moot_case_reviews (case_slug, action, from_state, to_state, actor_id) VALUES (?1, ?2, ?3, ?4, ?5)')
+      .bind(slug, action, fromState, toState, actorId).run();
+  } catch (error) {
+    console.error('case review log failed', String(error?.message || error).slice(0, 120));
+  }
 }
 
 function dto(row) {
@@ -75,12 +84,13 @@ export async function handleAdmin(request, env, path) {
     if (!KINDS.has(kind) || !SLUG_RE.test(slug) || slug.length > 64 || !bounded(title, 2, 140) || !bounded(summary, 10, 500) || !STATUSES.has(status)) {
       return json({ ok: false, error: 'VALIDATION_FAILED', errors: { content: 'نوع، شناسه، عنوان، خلاصه یا وضعیت محتوا معتبر نیست.' } }, 422);
     }
-    const validated = validatePayload(kind, body.payload);
+    const validated = validatePayload(kind, body.payload, { slug, status });
     if (!validated.ok) return json({ ok: false, error: 'VALIDATION_FAILED', errors: validated.errors }, 422);
     try {
       const row = await env.DB.prepare(`INSERT INTO admin_content (kind, slug, title, summary, status, payload_json, created_by)
         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) RETURNING id`)
         .bind(kind, slug, title, summary, status, JSON.stringify(validated.value), access.user.id).first();
+      if (kind === 'case' && status === 'published') await recordReview(env, slug, access.user.id, 'approve', null, 'published');
       return json({ ok: true, id: row?.id ?? null }, 201);
     } catch (error) {
       if (String(error?.message || '').includes('UNIQUE')) return json({ ok: false, error: 'DUPLICATE_SLUG' }, 409);
@@ -110,12 +120,15 @@ export async function handleAdmin(request, env, path) {
   let payload = body.payload;
   if (payload === undefined) { try { payload = JSON.parse(existing.payload_json); } catch { payload = null; } }
   if (!SLUG_RE.test(slug) || slug.length > 64 || !bounded(title, 2, 140) || !bounded(summary, 10, 500) || !STATUSES.has(status)) return json({ ok: false, error: 'VALIDATION_FAILED', errors: { content: 'شناسه، عنوان، خلاصه یا وضعیت معتبر نیست.' } }, 422);
-  const validated = validatePayload(kind, payload);
+  const validated = validatePayload(kind, payload, { slug, status });
   if (!validated.ok) return json({ ok: false, error: 'VALIDATION_FAILED', errors: validated.errors }, 422);
   try {
     await env.DB.prepare(`UPDATE admin_content SET slug = ?1, title = ?2, summary = ?3, status = ?4, payload_json = ?5,
       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?6`)
       .bind(slug, title, summary, status, JSON.stringify(validated.value), id).run();
+    if (kind === 'case' && existing.status !== status) {
+      await recordReview(env, slug, access.user.id, status === 'published' ? 'approve' : 'return', existing.status, status);
+    }
     return json({ ok: true });
   } catch (error) {
     if (String(error?.message || '').includes('UNIQUE')) return json({ ok: false, error: 'DUPLICATE_SLUG' }, 409);
