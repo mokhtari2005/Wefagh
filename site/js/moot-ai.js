@@ -6,12 +6,7 @@ import { getJson, postJson } from './api.js';
 import { aiStatus, errorText, postForBlob, createPlayer, blobToBase64, pickRecordingMime, baseMime } from './ai-client.js';
 import { oralDefensePanel } from './moot-oral.js';
 
-export const CASE_ID = 'contract-delivery-delay';
-export const CASE_SUBJECT = 'مطالبهٔ خسارت تأخیر در تحویل ۱۰۰ دستگاه و فسخ جزئی قرارداد';
-export const PARTIES = Object.freeze({
-  plaintiff: 'شرکت «ب» (خریدار)',
-  defendant: 'آقای «الف» (فروشنده)',
-});
+export const CASE_SLUG_RE = /^[a-z0-9-]{3,64}$/;
 export const MAX_RECORD_MS = 90 * 1000;
 export const ANSWER_MAX = 1500;
 const HISTORY_ITEMS = 30;
@@ -34,10 +29,10 @@ export const GROUP_LABELS = Object.freeze([
 /**
  * گام‌های گفت‌وگو به ترتیب. group شمارهٔ مرحلهٔ نمایشی است؛ speaker گوینده؛ اگر گوینده طرف کاربر باشد، کاربر پاسخ می‌دهد.
  */
-export function hearingScript() {
+export function hearingScript(subject = '') {
   return [
     { id: 'open', group: 1, speaker: 'clerk', text: 'جلسه تشکیل می‌شود. لطفاً همگی آماده باشند. دادرسی به‌صورت آموزشی و بر اساس پروندهٔ فرضی برگزار می‌شود.' },
-    { id: 'subject', group: 2, speaker: 'clerk', text: `موضوع دعوا: ${CASE_SUBJECT}.` },
+    { id: 'subject', group: 2, speaker: 'clerk', text: `موضوع دعوا: ${subject}.` },
     { id: 'claim', group: 3, speaker: 'plaintiff', stage: 'claim' },
     { id: 'defense', group: 4, speaker: 'defendant', stage: 'defense' },
     { id: 'q_plaintiff', group: 5, speaker: 'judge', stage: 'judge_question_plaintiff' },
@@ -88,8 +83,10 @@ function timeNow() {
   return new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tehran' });
 }
 
-export function hearingSession({ side, difficulty, speechOn, initialRate = 1, initialVolume = 1, caseTitle = 'پروندهٔ آموزشی', userName = '' }) {
-  const script = hearingScript();
+export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn, initialRate = 1, initialVolume = 1, userName = '' }) {
+  const script = hearingScript(caseDetail.subject);
+  const caseTitle = caseDetail.title;
+  const parties = caseDetail.parties;
   const userSide = side;
   let activeSpeaker = null;
   const player = createPlayer({
@@ -287,7 +284,7 @@ export function hearingSession({ side, difficulty, speechOn, initialRate = 1, in
     setBanner(`${SPEAKER_LABEL[step.speaker]} در حال پاسخ… (${GROUP_LABELS[step.group - 1]})`);
     setBusy(true);
     const res = await postJson('/api/ai/moot/turn', {
-      caseId: CASE_ID, role: step.speaker, stage: step.stage, difficulty, history: historyForApi(history),
+      caseId, role: step.speaker, stage: step.stage, difficulty, history: historyForApi(history),
     }, { timeoutMs: 45000 });
     if (!res.ok || !res.data?.reply) {
       setBanner(`${errorText(res.data?.error || (res.networkError ? 'NETWORK' : 'AI_UNAVAILABLE'))} برای ادامه دوباره تلاش کنید.`);
@@ -323,7 +320,7 @@ export function hearingSession({ side, difficulty, speechOn, initialRate = 1, in
       return;
     }
     report.replaceChildren(h('p', { class: 'muted', text: 'گزارش در حال ساختن است…' }));
-    const res = await postJson('/api/ai/moot/evaluate', { caseId: CASE_ID, history: historyForApi(history) }, { timeoutMs: 60000 });
+    const res = await postJson('/api/ai/moot/evaluate', { caseId, history: historyForApi(history) }, { timeoutMs: 60000 });
     if (!res.ok || !res.data?.report) {
       report.replaceChildren(notice(`${errorText(res.data?.error || (res.networkError ? 'NETWORK' : 'AI_UNAVAILABLE'))} گزارش ساخته نشد.`));
       setBusy(false);
@@ -444,9 +441,9 @@ export function hearingSession({ side, difficulty, speechOn, initialRate = 1, in
     h('h2', { id: 'court-case-title', text: 'اطلاعات پرونده' }),
     h('p', { class: 'court-case-name', text: caseTitle }),
     h('dl', { class: 'court-facts' }, [
-      h('dt', { text: 'موضوع دعوا' }), h('dd', { text: CASE_SUBJECT }),
-      h('dt', { text: 'خواهان' }), h('dd', { text: PARTIES.plaintiff }),
-      h('dt', { text: 'خوانده' }), h('dd', { text: PARTIES.defendant }),
+      h('dt', { text: 'موضوع دعوا' }), h('dd', { text: caseDetail.subject }),
+      h('dt', { text: 'خواهان' }), h('dd', { text: parties.plaintiff }),
+      h('dt', { text: 'خوانده' }), h('dd', { text: parties.defendant }),
     ]),
     h('p', { class: 'muted court-note', text: 'اطلاعات این پرونده از پروندهٔ آموزشی ثابت برنامه است، نه از پایگاه داده.' }),
   ]);
@@ -501,7 +498,8 @@ export function hearingSetup(onStart) {
 }
 
 /** صفحهٔ کامل اتاق دادگاه. */
-export function courtRoomPage() {
+// اتاق دادگاه فقط پروندهٔ منتشرشدهٔ انتخاب‌شده را اجرا می‌کند؛ شناسه از نشانی (?case=) خوانده می‌شود.
+export function courtRoomPage(params = {}) {
   const body = h('div', { class: 'court-page' });
   const topbar = h('header', { class: 'court-topbar' }, [
     h('a', { class: 'court-back', href: '#/academy', text: '→ بازگشت به آکادمی' }),
@@ -521,10 +519,23 @@ export function courtRoomPage() {
     } else if (!status.configured) {
       children.push(notice('سرویس هوش مصنوعی هنوز روی سرور فعال نشده است. اتاق دادگاه در دسترس نیست.'));
       children.push(h('p', {}, [h('a', { href: '#/moot-court', text: 'بازگشت به موت‌کورت' })]));
+    } else if (!CASE_SLUG_RE.test(params.case || '')) {
+      children.push(notice('پروندهٔ آموزشی انتخاب نشده است.'));
+      children.push(h('p', {}, [h('a', { class: 'btn', href: '#/moot-court/cases', text: 'انتخاب پرونده' })]));
     } else {
-      const holder = h('div', { class: 'court-holder' });
-      holder.append(hearingSetup((opts) => { holder.classList.add('in-session'); holder.replaceChildren(hearingSession({ ...opts, userName })); }));
-      children.push(holder);
+      const detail = await getJson(`/api/moot/cases/${encodeURIComponent(params.case)}`);
+      if (!detail.ok || !detail.data?.case) {
+        children.push(notice('این پرونده در دسترس نیست یا هنوز منتشر نشده است.'));
+        children.push(h('p', {}, [h('a', { href: '#/moot-court/cases', text: 'انتخاب پرونده دیگر' })]));
+      } else {
+        const caseDetail = detail.data.case;
+        const holder = h('div', { class: 'court-holder' });
+        holder.append(hearingSetup((opts) => {
+          holder.classList.add('in-session');
+          holder.replaceChildren(hearingSession({ ...opts, caseId: caseDetail.id, caseDetail, userName }));
+        }));
+        children.push(holder);
+      }
     }
     body.replaceChildren(topbar, ...children);
   })();
@@ -540,7 +551,7 @@ export function oralDefenseSection() {
     if (me.ok && status.configured) {
       children.push(
         h('p', { class: 'muted', text: 'در اتاق دادگاه، قاضی و وکیل طرف مقابل و منشی با صدا با شما گفت‌وگو می‌کنند.' }),
-        h('p', {}, [h('a', { class: 'btn', href: '#/moot-court/hearing', text: 'ورود به اتاق دادگاه' })]),
+        h('p', {}, [h('a', { class: 'btn', href: '#/moot-court/cases', text: 'انتخاب پرونده و ورود به اتاق دادگاه' })]),
       );
       box.replaceChildren(...children);
       return;

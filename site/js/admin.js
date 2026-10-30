@@ -25,7 +25,7 @@ function errorText(data, status) {
   if (status === 403) return 'این حساب نقش مدیر ندارد. دسترسی مدیریت فقط از طریق نقش مدیر مجاز است.';
   if (data?.error === 'DUPLICATE_SLUG') return 'این شناسه قبلاً برای همین نوع محتوا استفاده شده است.';
   if (data?.error === 'UNPUBLISH_BEFORE_DELETE') return 'ابتدا محتوا را از انتشار خارج کنید و سپس آن را حذف کنید.';
-  if (data?.errors) return Object.values(data.errors).join(' ');
+  if (data?.errors) return Object.values(data.errors).flat().join(' ');
   return 'عملیات ناموفق بود؛ لطفاً دوباره تلاش کنید.';
 }
 
@@ -58,21 +58,27 @@ export async function adminPage() {
   const factsField = field('وقایع پرونده؛ هر خط یک واقعه', 'facts', '', 'textarea');
   const issuesField = field('مسائل؛ هر خط با قالب شناسه|صورت مسئله', 'issues', '', 'textarea');
   const evidenceField = field('مدارک بالقوه؛ هر خط یک مدرک', 'evidence', '', 'textarea');
+  // پروندهٔ بانک به‌صورت کامل (JSON) ویرایش می‌شود تا هیچ بخشی (شاهد، رأی، استنادها) از دست نرود.
+  const caseJsonField = field('پروندهٔ کامل بانک (JSON مطابق ساختار بانک پرونده‌ها؛ شناسه باید با slug یکسان باشد)', 'caseJson', '', 'textarea');
+  caseJsonField.querySelector('textarea').rows = 18;
+  caseJsonField.querySelector('textarea').spellcheck = false;
   const submit = el('button', { class: 'btn', type: 'submit', text: 'ذخیرهٔ محتوا' });
   const cancel = el('button', { class: 'btn secondary', type: 'button', text: 'لغو ویرایش' });
   cancel.hidden = true;
   const formActions = el('div', { class: 'row' }, [submit, cancel]);
-  form.append(kindLabel, slugField, titleField, summaryField, statusLabel, levelField, lessonsField, areaField, factsField, issuesField, evidenceField, formActions);
+  form.append(kindLabel, slugField, titleField, summaryField, statusLabel, levelField, lessonsField, areaField, factsField, issuesField, evidenceField, caseJsonField, formActions);
   wrap.append(notice, form, el('h2', { text: 'محتواهای ثبت‌شده' }), list);
 
   function showKindFields() {
     const isCourse = select.value === 'course';
-    levelField.hidden = false;
     lessonsField.hidden = !isCourse;
     areaField.hidden = isCourse;
     factsField.hidden = isCourse;
     issuesField.hidden = isCourse;
     evidenceField.hidden = isCourse;
+    caseJsonField.hidden = isCourse;
+    levelField.hidden = !isCourse;
+    caseJsonField.querySelector('textarea').required = !isCourse;
     lessonsField.querySelector('textarea').required = isCourse;
     areaField.querySelector('input').required = !isCourse;
     factsField.querySelector('textarea').required = !isCourse;
@@ -83,7 +89,7 @@ export async function adminPage() {
     editingId = null;
     select.disabled = false;
     form.reset(); statusSelect.value = 'draft'; levelField.querySelector('input').value = 'مقدماتی'; areaField.querySelector('input').value = 'قراردادها';
-    lessonsField.querySelector('textarea').value = ''; factsField.querySelector('textarea').value = ''; issuesField.querySelector('textarea').value = ''; evidenceField.querySelector('textarea').value = '';
+    lessonsField.querySelector('textarea').value = ''; factsField.querySelector('textarea').value = ''; issuesField.querySelector('textarea').value = ''; evidenceField.querySelector('textarea').value = ''; caseJsonField.querySelector('textarea').value = '';
     submit.textContent = 'ذخیرهٔ محتوا'; cancel.hidden = true; showKindFields();
   }
   function payloadFromForm() {
@@ -96,7 +102,12 @@ export async function adminPage() {
     const issues = parseLines(issuesField.querySelector('textarea').value).map((line) => {
       const [id, ...text] = line.split('|'); return { id: (id || '').trim(), text: text.join('|').trim() };
     });
-    return { area: areaField.querySelector('input').value.trim(), level: levelField.querySelector('input').value.trim(), facts: parseLines(factsField.querySelector('textarea').value), issues, evidence: parseLines(evidenceField.querySelector('textarea').value) };
+    // پروندهٔ بانک: JSON کامل؛ خطای قالب همین‌جا گزارش می‌شود و به سرور ارسال نمی‌شود.
+    const raw = caseJsonField.querySelector('textarea').value;
+    let parsed;
+    try { parsed = JSON.parse(raw); } catch { throw new Error('JSON پرونده معتبر نیست؛ ساختار را بررسی کنید.'); }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('JSON پرونده باید یک شیء باشد.');
+    return parsed;
   }
   async function refresh() {
     const result = await getJson('/api/admin/content');
@@ -114,7 +125,7 @@ export async function adminPage() {
         editingId = item.id; select.value = item.kind; select.disabled = true; slugField.querySelector('input').value = item.slug; titleField.querySelector('input').value = item.title; summaryField.querySelector('textarea').value = item.summary; statusSelect.value = item.status;
         levelField.querySelector('input').value = item.payload.level || 'مقدماتی';
         if (item.kind === 'course') lessonsField.querySelector('textarea').value = lineList((item.payload.lessons || []).map((x) => `${x.id}|${x.title}|${x.body}`));
-        else { areaField.querySelector('input').value = item.payload.area || ''; factsField.querySelector('textarea').value = lineList(item.payload.facts || []); issuesField.querySelector('textarea').value = lineList((item.payload.issues || []).map((x) => `${x.id}|${x.text}`)); evidenceField.querySelector('textarea').value = lineList(item.payload.evidence || []); }
+        else { caseJsonField.querySelector('textarea').value = JSON.stringify(item.payload?.id ? item.payload : { ...item.payload, id: item.slug }, null, 2); }
         submit.textContent = 'ثبت تغییرات'; cancel.hidden = false; showKindFields(); form.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
       const toggle = el('button', { class: 'btn secondary', type: 'button', text: item.status === 'published' ? 'خروج از انتشار' : 'انتشار' });
@@ -139,7 +150,12 @@ export async function adminPage() {
   cancel.addEventListener('click', resetForm);
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const body = { kind: select.value, slug: slugField.querySelector('input').value.trim(), title: titleField.querySelector('input').value.trim(), summary: summaryField.querySelector('textarea').value.trim(), status: statusSelect.value, payload: payloadFromForm() };
+    let body;
+    try {
+      body = { kind: select.value, slug: slugField.querySelector('input').value.trim(), title: titleField.querySelector('input').value.trim(), summary: summaryField.querySelector('textarea').value.trim(), status: statusSelect.value, payload: payloadFromForm() };
+    } catch (error) {
+      notice.className = 'form-status err'; notice.textContent = error.message; return;
+    }
     const result = editingId ? await sendJson('PATCH', `/api/admin/content/${editingId}`, body) : await postJson('/api/admin/content', body);
     notice.className = `form-status${result.ok ? '' : ' err'}`;
     notice.textContent = result.ok ? (editingId ? 'محتوا به‌روزرسانی شد.' : 'محتوا ثبت شد.') : errorText(result.data, result.status);
