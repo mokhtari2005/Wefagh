@@ -3,6 +3,7 @@
 import { getPublishedCase, SLUG_RE } from '../moot/caseStore.js';
 import { json, readJsonBody } from '../http.js';
 import { currentUser } from '../auth/routes.js';
+import { handleThreads } from './threads.js';
 import { AiError, aiConfigured, generateText, transcribeAudio, synthesizeSpeech } from './gemini.js';
 import {
   LEGAL_DISCLAIMER, ASSISTANT_DOC_TYPES, ASSISTANT_MODES, ASSISTANT_SCHEMA, MOOT_EVAL_SCHEMA,
@@ -206,6 +207,16 @@ async function transcribe(request, env) {
   }
 }
 
+// پاسخ مدل ممکن است شماره ماده یا شمارهٔ رأی ذکر کند که در این سامانه تأیید نشده است؛
+// هشدار جداگانه اضافه می‌شود تا کاربر پیش از استفاده راستی‌آزمایی کند.
+const CITATION_PATTERNS = [/ماده\s*[۰-۹0-9]+/u, /(?:رأی|رای)\s*(?:شماره|ش\.?)\s*[۰-۹0-9]+/u, /شماره\s*(?:دادنامه|رأی|نظریه)\s*[۰-۹0-9]+/u];
+export const CITATION_WARNING = 'این متن به شماره ماده یا رأی اشاره دارد که در این سامانه تأیید نشده است. پیش از استفاده، متن رسمی آن را بررسی کنید.';
+
+export function citationWarnings(text) {
+  if (typeof text !== 'string' || !text) return [];
+  return CITATION_PATTERNS.some((re) => re.test(text)) ? [CITATION_WARNING] : [];
+}
+
 async function assistant(request, env) {
   const auth = await authorized(request, env);
   if (auth.error) return auth.error;
@@ -233,6 +244,8 @@ async function assistant(request, env) {
     });
     const questions = Array.isArray(data.questions) ? data.questions.filter((q) => typeof q === 'string').slice(0, 5) : [];
     const notes = Array.isArray(data.notes) ? data.notes.filter((n) => typeof n === 'string').slice(0, 10) : [];
+    const text = typeof data.text === 'string' ? data.text : '';
+    for (const warning of citationWarnings(text)) if (!notes.includes(warning)) notes.push(warning);
     return json({
       ok: true,
       status: data.status === 'need_info' ? 'need_info' : 'ready',
@@ -255,6 +268,7 @@ export async function handleAi(request, env, path) {
   if (path === '/api/ai/speech') return speech(request, env);
   if (path === '/api/ai/transcribe') return transcribe(request, env);
   if (path === '/api/ai/assistant') return assistant(request, env);
+  if (path === '/api/ai/threads' || path.startsWith('/api/ai/threads/')) return handleThreads(request, env, path);
   if (path === '/api/ai/moot/turn' || path === '/api/ai/moot/evaluate') return moot(request, env, path);
   return null;
 }
