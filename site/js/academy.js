@@ -26,7 +26,9 @@ export const ACADEMY_TOOLS = [
   { icon: '🎙', title: 'تمرین دادرسی و موت‌کورت', href: '#/moot-court' },
   { icon: '⚖️', title: 'دستیار هوشمند وکیل', href: '#/assistant' },
   { icon: '📁', title: 'بانک پرونده‌ها', href: '#/cases' },
-  { icon: '🧮', title: 'ابزارهای حقوقی', href: '#/calculators' },
+  { icon: '🧾', title: 'هزینهٔ دادرسی', href: '#/calculators?tool=court' },
+  { icon: '💼', title: 'حق‌الوکاله قانونی', href: '#/calculators?tool=attorney' },
+  { icon: '🧮', title: 'خسارت تأخیر تأدیه', href: '#/calculators?tool=delay' },
   { icon: '📅', title: 'تقویم مواعد', href: '#/deadlines' },
   { icon: '📰', title: 'مطالب و پادکست', href: '#/media' },
   { icon: '📊', title: 'داشبورد من', href: '#/dashboard' },
@@ -59,6 +61,7 @@ export async function academyList() {
     grid.append(
       h('a', { class: 'card', href: `#/academy/${c.id}` }, [
         h('span', { class: 'badge', text: `${c.level} · ${c.lessonCount} درس` }),
+        c.enrolled ? h('span', { class: 'badge badge-soft', text: 'ثبت‌نام شده‌اید' }) : h('span'),
         h('h3', { text: c.title }),
         h('p', { text: c.summary }),
       ])

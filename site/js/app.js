@@ -90,15 +90,6 @@ function heroArt() {
   ]);
 }
 
-const MODULES = [
-  { title: 'آکادمی مجازی وکالت', desc: 'دوره‌های کوتاه و کارگاه‌های عملی برای دانشجویان حقوق، کارآموزان و وکلا.', href: '#/academy', cta: 'ورود به آکادمی' },
-  { title: 'موت‌کورت و تمرین دادرسی', desc: 'تمرین مرحله‌ای روی پرونده‌های فرضی آموزشی، با چک‌لیست خودارزیابی.', href: '#/moot-court', cta: 'شروع تمرین' },
-  { title: 'میز ابزارهای حقوقی', desc: 'محاسبه‌گرهای منبع‌دار. نتیجهٔ هر ابزار وضعیت احراز خود را نشان می‌دهد.', href: '#/calculators', cta: 'باز کردن ابزارها' },
-  { title: 'رسانه و پادکست', desc: 'یادداشت‌های حقوقی و قسمت‌های «شنبه‌ها با وِفاق».', href: '#/media', cta: 'مطالب و پادکست' },
-  { title: 'تقویم مواعد', desc: 'یادآوری مهلت‌های دادرسی با تاریخ شمسی؛ نتیجه پیش از تأیید قطعی نیست.', href: '#/deadlines', cta: 'تقویم مواعد' },
-  { title: 'عضویت و شبکهٔ اعضا', desc: 'ورود، ثبت‌نام و دسترسی به امکانات ویژهٔ اعضا.', href: '#/account', cta: 'ورود یا عضویت' },
-];
-
 function pageHome() {
   const root = h('div', { class: 'home-dashboard' });
 
@@ -280,7 +271,7 @@ const ROUTES = {
   '/assistant': () => assistantPage(),
   '/moot-court/hearing': (params) => courtRoomPage(params),
   '/moot-court/cases': (params) => casePickerPage(params),
-  '/calculators': () => calculatorsPage(),
+  '/calculators': (params) => calculatorsPage(params),
   '/media': () => lazy(mediaHome),
   '/deadlines': () => lazy(deadlinesPage),
 };

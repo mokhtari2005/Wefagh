@@ -40,13 +40,30 @@ async function requireUser(request, env) {
   return user;
 }
 
+/** شناسهٔ دوره‌های کاربر واردشده؛ مهمان یا نبود جدول، مجموعهٔ خالی برمی‌گرداند. */
+async function enrolledCourseIds(request, env) {
+  const empty = new Set();
+  if (!env.DB) return empty;
+  const user = await currentUser(request, env);
+  if (!user) return empty;
+  try {
+    const rows = await env.DB.prepare('SELECT course_id FROM enrollments WHERE user_id = ?1').bind(user.id).all();
+    return new Set((rows?.results || []).map((r) => r.course_id));
+  } catch {
+    return empty;
+  }
+}
+
 export async function handleAcademy(request, env, path) {
   // فهرست دوره‌ها
   if (path === '/api/academy/courses') {
     if (request.method !== 'GET') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'GET' });
     const managed = await publishedCourses(env);
     const summaries = managed.map((c) => ({ id: c.id, title: c.title, level: c.level, summary: c.summary, lessonCount: c.lessons.length }));
-    return json({ ok: true, courses: [...courseSummaries(), ...summaries] });
+    const all = [...courseSummaries(), ...summaries];
+    // وضعیت ثبت‌نام فقط برای کاربر واردشده؛ برای مهمان همه false است.
+    const enrolledIds = await enrolledCourseIds(request, env);
+    return json({ ok: true, courses: all.map((c) => ({ ...c, enrolled: enrolledIds.has(c.id) })) });
   }
 
   // جزئیات یک دوره با درس‌ها

@@ -137,7 +137,9 @@ function unverifiedBox(rule) {
 
 /** ابزار قاعده‌محور: کاربر نوع/مرحله را انتخاب می‌کند و موتور فقط قاعدهٔ تأییدشده را اعمال می‌کند. */
 function ruleTool({ title, amountLabel, group, submitLabel, note }) {
-  const select = h('select', {}, rulesFor(RATE_YEAR, group).map((r) => h('option', { value: r.id, text: r.title })));
+  // قواعدی که فقط متن خوانده‌شده‌اند (text_read) محاسبه نمی‌شوند؛ در فهرست نمی‌آیند.
+  const usable = rulesFor(RATE_YEAR, group).filter((r) => r.status !== 'text_read');
+  const select = h('select', {}, usable.map((r) => h('option', { value: r.id, text: r.title })));
   const amount = h('input', { type: 'number', min: '0', step: '1', required: '', inputmode: 'numeric' });
   const out = h('div');
   const form = h('form', { class: 'form', novalidate: '', 'aria-label': title }, [
@@ -169,28 +171,32 @@ function ruleTool({ title, amountLabel, group, submitLabel, note }) {
   return h('section', { class: 'tool' }, [h('h2', { text: title }), form]);
 }
 
-export function calculatorsPage() {
-  return h('div', {}, [
+export function calculatorsPage(params = {}) {
+  const page = h('div', {}, [
     h('h1', { text: 'محاسبه‌گرهای حقوقی' }),
     h('div', {
       class: 'notice',
       role: 'note',
       text: 'این ابزارها پیش‌نویس محاسباتی هستند و جای تشخیص وکیل را نمی‌گیرند. نرخ‌ها، کف و سقف‌ها را خودتان از منبع رسمی و معتبر وارد می‌کنید؛ این نسخه هیچ نرخ قانونی را از پیش نمی‌داند. تاریخ‌ها شمسی وارد می‌شوند.',
     }),
-    ruleTool({
+    h('section', { id: 'calc-court' }, [ruleTool({
       title: 'هزینهٔ دادرسی',
       amountLabel: 'مبلغ مبنا (ریال)',
       group: 'court',
       submitLabel: 'محاسبه هزینهٔ دادرسی',
       note: ['مبنای محاسبه (خواسته یا محکوم‌به) و نحوهٔ اعمال هر پله باید مطابق متن رسمی باشد.', 'این ابزار پیش‌نویس است و پیش از ثبت دادخواست باید بازبینی شود.'],
-    }),
-    ruleTool({
+    })]),
+    h('section', { id: 'calc-attorney' }, [ruleTool({
       title: 'حق‌الوکاله قانونی',
       amountLabel: 'مبلغ مبنا (ریال)',
       group: 'attorney',
       submitLabel: 'محاسبه حق‌الوکاله قانونی',
       note: ['این عدد تعرفهٔ قانونی است؛ حق‌الوکالهٔ توافقی جداگانه تعیین می‌شود.', 'مالیات، سهم صندوق و سایر کسورات محاسبه نشده‌اند و نیاز به احراز مبنای قانونی دارند.'],
-    }),
-    delayTool(),
+    })]),
+    h('section', { id: 'calc-delay' }, [delayTool()]),
   ]);
+  // پارامتر tool از کارت‌های آکادمی می‌آید؛ به بخش مربوط می‌رسیم.
+  const target = { court: 'calc-court', attorney: 'calc-attorney', delay: 'calc-delay' }[params.tool];
+  if (target) setTimeout(() => document.getElementById(target)?.scrollIntoView({ block: 'start' }), 0);
+  return page;
 }

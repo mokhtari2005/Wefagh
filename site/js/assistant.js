@@ -1,6 +1,6 @@
 // دستیار هوشمند وکیل: تنظیم پیش‌نویس، تحلیل پرونده و بازبینی متن. فقط برای کاربر واردشده و وقتی سرویس فعال است.
 import { h } from './dom.js';
-import { getJson, postJson } from './api.js';
+import { getJson, postJson, sendJson } from './api.js';
 import { aiStatus, errorText } from './ai-client.js';
 
 export const DOC_TYPES = [
@@ -58,6 +58,59 @@ export function assistantPage() {
 function assistantWorkspace() {
   const history = [];
   let busy = false;
+  let threadId = null;
+
+  // گفت‌وگوهای ذخیره‌شده در D1 (فقط برای کاربر واردشده).
+  const threadSelect = h('select', { 'aria-label': 'گفت‌وگوهای قبلی' });
+  const openThread = h('button', { class: 'btn secondary', type: 'button', text: 'ادامهٔ گفت‌وگو' });
+  const deleteThread = h('button', { class: 'btn secondary', type: 'button', text: 'حذف گفت‌وگو' });
+  const threadStatus = h('p', { class: 'muted', role: 'status', 'aria-live': 'polite' });
+
+  async function refreshThreads(selectId = null) {
+    const res = await getJson('/api/ai/threads');
+    if (!res.ok) { threadSelect.replaceChildren(h('option', { value: '', text: 'فهرست گفت‌وگوها در دسترس نیست' })); return; }
+    const rows = res.data?.threads || [];
+    threadSelect.replaceChildren(
+      h('option', { value: '', text: rows.length ? 'گفت‌وگوی قبلی را انتخاب کنید' : 'گفت‌وگوی ذخیره‌شده‌ای نیست' }),
+      ...rows.map((t) => h('option', { value: String(t.id), text: t.title })),
+    );
+    if (selectId) threadSelect.value = String(selectId);
+  }
+
+  async function loadThread(id) {
+    const res = await getJson(`/api/ai/threads/${encodeURIComponent(id)}/messages`);
+    if (!res.ok) { threadStatus.textContent = 'بازیابی گفت‌وگو انجام نشد.'; return; }
+    history.length = 0;
+    for (const m of res.data?.messages || []) history.push({ role: m.role, text: m.content });
+    threadId = Number(id);
+    renderLog();
+    showOutput('', '');
+    threadStatus.textContent = 'گفت‌وگو بازیابی شد. ادامه دهید.';
+  }
+
+  async function persistTurn(userText, aiText) {
+    if (!threadId) {
+      const created = await postJson('/api/ai/threads', { title: userText.slice(0, 60) });
+      if (!created.ok || !created.data?.thread?.id) return false;
+      threadId = created.data.thread.id;
+      await refreshThreads(threadId);
+    }
+    const a = await postJson(`/api/ai/threads/${threadId}/messages`, { role: 'user', content: userText });
+    const b = await postJson(`/api/ai/threads/${threadId}/messages`, { role: 'ai', content: aiText });
+    return a.ok && b.ok;
+  }
+
+  openThread.addEventListener('click', () => { if (threadSelect.value) loadThread(threadSelect.value); });
+  deleteThread.addEventListener('click', async () => {
+    const id = threadSelect.value;
+    if (!id) return;
+    const res = await sendJson('DELETE', `/api/ai/threads/${encodeURIComponent(id)}`, null);
+    if (!res.ok) { threadStatus.textContent = 'حذف گفت‌وگو انجام نشد.'; return; }
+    if (Number(id) === threadId) { threadId = null; history.length = 0; renderLog(); }
+    threadStatus.textContent = 'گفت‌وگو حذف شد.';
+    await refreshThreads();
+  });
+  refreshThreads();
 
   const modeSelect = h('select', { 'aria-label': 'نوع کار' }, MODES.map(([v, t]) => h('option', { value: v, text: t })));
   const docSelect = h('select', { 'aria-label': 'نوع سند' }, DOC_TYPES.map(([v, t]) => h('option', { value: v, text: t })));
@@ -115,6 +168,8 @@ function assistantWorkspace() {
     history.push({ role: 'ai', text: reply });
     message.value = '';
     renderLog();
+    const saved = await persistTurn(text, reply).catch(() => false);
+    threadStatus.textContent = saved ? 'گفت‌وگو در تاریخچه ذخیره شد.' : 'ذخیرهٔ این پیام در تاریخچه انجام نشد؛ متن را نگه دارید.';
     if (res.data.status === 'ready') {
       showOutput(res.data.text, res.data.disclaimer);
       status.textContent = 'پیش‌نویس آماده است. آن را بررسی و ویرایش کنید.';
@@ -124,6 +179,8 @@ function assistantWorkspace() {
   });
 
   resetBtn.addEventListener('click', () => {
+    threadId = null;
+    threadSelect.value = '';
     history.length = 0;
     renderLog();
     showOutput('', '');
@@ -151,6 +208,8 @@ function assistantWorkspace() {
   });
 
   return h('div', { class: 'assistant-workspace' }, [
+    h('div', { class: 'row' }, [threadSelect, openThread, deleteThread]),
+    threadStatus,
     h('div', { class: 'row' }, [modeLabel, docLabel]),
     message,
     h('div', { class: 'row' }, [sendBtn, resetBtn]),
