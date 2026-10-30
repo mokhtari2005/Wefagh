@@ -24,6 +24,8 @@ const INPUT_MESSAGES = {
   INVALID_PRINCIPAL: 'اصل دین باید عددی بزرگ‌تر از صفر باشد.',
   INVALID_RATE: 'نرخ باید عددی بین ۰ و ۱۰۰ باشد. نرخ را از منبع رسمی همان دوره وارد کنید.',
   INVALID_AMOUNT: 'مبلغ باید عددی نامنفی باشد.',
+  INVALID_UNITS: 'تعداد روز باید عدد صحیح و نامنفی باشد.',
+  INVALID_COUNT: 'تعداد وارد‌شده باید عدد صحیح و در محدودهٔ این قاعده باشد (مثلاً حداقل ۱ یا ۲).',
 };
 
 function resultBox(result, form = null) {
@@ -118,7 +120,7 @@ function delayTool() {
   return h('section', { class: 'tool' }, [h('h2', { text: 'خسارت تأخیر تأدیه (روش ساده)' }), form]);
 }
 
-/** هزینهٔ دادرسی و حق‌الوکاله: فرمول «درصد با کف و سقف»؛ نرخ‌ها را کاربر از آیین‌نامهٔ معتبر وارد می‌کند. */
+/** هزینهٔ دادرسی و حق‌الوکاله: قواعد تأییدشده از فهرست rates.js؛ نرخ‌ها از متن مستند است. */
 const RATE_YEAR = 1405;
 
 function unverifiedBox(rule) {
@@ -135,16 +137,58 @@ function unverifiedBox(rule) {
   return h('div', { class: 'notice', role: 'alert' }, children);
 }
 
+/** فهرست بازه‌های متن که مبلغ قطعی نمی‌دهند؛ فقط برای مرجع. */
+function rangeList(group) {
+  const items = rulesFor(RATE_YEAR, group).filter((r) => r.kind === 'range' || r.kind === 'discretionary');
+  if (!items.length) return null;
+  const ul = h('ul', { class: 'limits' });
+  for (const r of items) {
+    let text;
+    if (r.kind === 'discretionary') {
+      text = 'تشخیص کانون یا مرکز (بدون مبلغ قطعی)';
+    } else {
+      const parts = [];
+      if (typeof r.min === 'number') parts.push(`حداقل ${formatRial(r.min)}`);
+      if (typeof r.max === 'number') parts.push(`حداکثر ${formatRial(r.max)}`);
+      text = parts.join(' و ') || 'بدون مبلغ عددی';
+      if (r.maxPercent) text += ` (سقف ${r.maxPercent}٪ ${r.percentBase || ''})`;
+      if (r.unit) text += ` ${r.unit}`;
+    }
+    ul.append(h('li', { text: `${r.title}: ${text}` }));
+  }
+  return h('details', { class: 'tariff-ranges' }, [
+    h('summary', { text: 'بازه‌ها و موارد تشخیصی متن (محاسبه نمی‌شوند)' }),
+    ul,
+  ]);
+}
+
 /** ابزار قاعده‌محور: کاربر نوع/مرحله را انتخاب می‌کند و موتور فقط قاعدهٔ تأییدشده را اعمال می‌کند. */
-function ruleTool({ title, amountLabel, group, submitLabel, note }) {
-  // قواعدی که فقط متن خوانده‌شده‌اند (text_read) محاسبه نمی‌شوند؛ در فهرست نمی‌آیند.
-  const usable = rulesFor(RATE_YEAR, group).filter((r) => r.status !== 'text_read');
-  const select = h('select', {}, usable.map((r) => h('option', { value: r.id, text: r.title })));
-  const amount = h('input', { type: 'number', min: '0', step: '1', required: '', inputmode: 'numeric' });
+function ruleTool({ title, amountLabel, group, submitLabel, note, withRanges = false }) {
+  // قواعدی که فقط متن خوانده‌شده‌اند یا بازه‌اند، در فهرست محاسبه نمی‌آیند.
+  const usable = rulesFor(RATE_YEAR, group).filter((r) => r.status !== 'text_read' && r.kind !== 'range' && r.kind !== 'discretionary');
+  const select = h('select', { id: `${title}-kind` }, usable.map((r) => h('option', { value: r.id, text: r.title })));
+  const amountCaption = h('label', { for: `${title}-amount`, text: amountLabel });
+  const amount = h('input', { id: `${title}-amount`, type: 'number', min: '0', step: '1', required: '', inputmode: 'numeric' });
+  const countCaption = h('label', { for: `${title}-count`, text: '' });
+  const count = h('input', { id: `${title}-count`, type: 'number', min: '1', step: '1', inputmode: 'numeric' });
+  const countWrap = h('div', { class: 'field', hidden: '' }, [countCaption, count]);
   const out = h('div');
+
+  function syncInputs() {
+    const rule = findRule(RATE_YEAR, select.value);
+    amountCaption.textContent = rule?.inputLabel || amountLabel;
+    const needsCount = Boolean(rule?.extraInput);
+    countWrap.hidden = !needsCount;
+    countCaption.textContent = rule?.extraInput?.label || '';
+    count.required = needsCount;
+  }
+  select.addEventListener('change', syncInputs);
+  syncInputs();
+
   const form = h('form', { class: 'form', novalidate: '', 'aria-label': title }, [
     field(`${title}-kind`, 'نوع و مرحله', select),
-    field(`${title}-amount`, amountLabel, amount),
+    h('div', { class: 'field' }, [amountCaption, amount]),
+    countWrap,
     h('button', { class: 'btn', type: 'submit', text: submitLabel }),
     out,
   ]);
@@ -152,23 +196,31 @@ function ruleTool({ title, amountLabel, group, submitLabel, note }) {
     e.preventDefault();
     const rule = findRule(RATE_YEAR, select.value);
     if (!rule) return out.replaceChildren(resultBox({ ok: false }, form));
-    const r = applyRule(rule, { amount: strictNumber(amount.value) });
+    const r = applyRule(rule, {
+      amount: strictNumber(amount.value),
+      count: rule.extraInput ? strictNumber(count.value) : undefined,
+    });
     if (!r.ok && r.error === 'RULE_UNVERIFIED') return out.replaceChildren(unverifiedBox(rule));
-    if (!r.ok) return out.replaceChildren(resultBox({ ok: false }, form));
+    if (!r.ok) return out.replaceChildren(resultBox({ ok: false, error: r.error }, form));
     const approval = rule.status === 'user_approved'
       ? 'این نتیجه بر اساس تأیید کاربر برای استفاده در ماشین‌حساب است؛ احراز رسمی از روزنامهٔ رسمی انجام نشده است.'
       : null;
     out.replaceChildren(resultBox({
       ok: true,
-      title: title,
+      title,
       status: rule.status,
       ruleVersion: `${rule.id} / سال ${RATE_YEAR}`,
       steps: r.steps,
       fee: r.fee,
-      limitations: [...(Array.isArray(note) ? note : [note]), approval],
+      limitations: [...(Array.isArray(note) ? note : [note]), rule.note, approval],
     }, form));
   });
-  return h('section', { class: 'tool' }, [h('h2', { text: title }), form]);
+  const children = [h('h2', { text: title }), form];
+  if (withRanges) {
+    const list = rangeList(group);
+    if (list) children.push(list);
+  }
+  return h('section', { class: 'tool' }, children);
 }
 
 export function calculatorsPage(params = {}) {
@@ -177,7 +229,7 @@ export function calculatorsPage(params = {}) {
     h('div', {
       class: 'notice',
       role: 'note',
-      text: 'این ابزارها پیش‌نویس محاسباتی هستند و جای تشخیص وکیل را نمی‌گیرند. نرخ‌ها، کف و سقف‌ها را خودتان از منبع رسمی و معتبر وارد می‌کنید؛ این نسخه هیچ نرخ قانونی را از پیش نمی‌داند. تاریخ‌ها شمسی وارد می‌شوند.',
+      text: 'این ابزارها پیش‌نویس محاسباتی هستند و جای تشخیص وکیل را نمی‌گیرند. قواعد هر ابزار و منبع آن در همان بخش نشان داده می‌شود. تاریخ‌ها شمسی وارد می‌شوند.',
     }),
     h('section', { id: 'calc-court' }, [ruleTool({
       title: 'هزینهٔ دادرسی',
@@ -191,7 +243,11 @@ export function calculatorsPage(params = {}) {
       amountLabel: 'مبلغ مبنا (ریال)',
       group: 'attorney',
       submitLabel: 'محاسبه حق‌الوکاله قانونی',
-      note: ['این عدد تعرفهٔ قانونی است؛ حق‌الوکالهٔ توافقی جداگانه تعیین می‌شود.', 'مالیات، سهم صندوق و سایر کسورات محاسبه نشده‌اند و نیاز به احراز مبنای قانونی دارند.'],
+      note: [
+        'منبع: آیین‌نامه تعرفه حق‌الوکاله، حق‌المشاوره و هزینه سفر وکلای دادگستری، مصوب ۱۳۹۸/۱۲/۲۸ (فایل fd69f537). این عدد تعرفهٔ قانونی است؛ حق‌الوکالهٔ توافقی جداگانه تعیین می‌شود.',
+        'مالیات، تمبر و سهم کانون، مرکز و صندوق محاسبه نشده‌اند؛ مبنای تمبر مالیاتی در این فایل نیست.',
+      ],
+      withRanges: true,
     })]),
     h('section', { id: 'calc-delay' }, [delayTool()]),
   ]);

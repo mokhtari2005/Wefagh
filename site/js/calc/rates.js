@@ -2,15 +2,35 @@
 //
 // وضعیت‌ها:
 //   'unverified'    ⇒ هنوز متن قابل‌استناد یا مبنای محاسبه مشخص نیست؛ محاسبه نمی‌شود.
-//   'text_read'     ⇒ متن خوانده شده؛ تفسیر یا تأیید کاربر ندارد؛ محاسبه نمی‌شود.
+//   'text_read'     ⇒ متن خوانده شده؛ تفسیر یا تأیید کاربر ندارد؛ محاسبه نمی‌شود (در فهرست محاسبه نمی‌آید).
 //   'user_approved' ⇒ کاربر برای استفاده در ماشین‌حساب تأیید کرده (userApproval). احراز رسمی مستقل نیست؛ موتور اعمال می‌کند.
 //   'verified'      ⇒ با روزنامهٔ رسمی یا پایگاه ملی قوانین احراز شده؛ هنوز هیچ قاعده‌ای چنین نیست.
 //
-// kind: 'tiered' | 'fixed' | 'range' (بازه، مبلغ انتخاب نمی‌شود) | 'share' (سهم از مرحله) | 'discretionary' (تشخیص مرجع)
+// kind:
+//   'tiered'      پلکانی (whole | incremental)
+//   'fixed'       مبلغ ثابت
+//   'share'       سهم از مبلغ ورودی (مرحله یا کل)
+//   'surcharge'   افزایش درصدی؛ extraInput ⇒ تعداد کل گرفته می‌شود، fixedUnits ⇒ واحد ثابت
+//   'perUnit'     مبلغ به‌ازای هر واحد (unitFee)
+//   'capped'      سقف (max)؛ مبلغ ورودی از سقف بیشتر نمی‌شود
+//   'equalSplit'  تقسیم مساوی میان count وکیل
+//   'range'       بازه؛ مبلغ قطعی تولید نمی‌شود (فقط مرجع)
+//   'discretionary' تشخیص مرجع؛ مبلغ قطعی تولید نمی‌شود
 // «note»، «statusDetail» و «interpretation» فقط ردیابی‌اند.
 
 // فراداده اسناد. userAccepted یعنی کاربر برای ادامهٔ کار پذیرفته؛ این به‌معنای احراز رسمی نیست.
 export const SOURCE_DOCUMENTS = [
+  {
+    id: 'attorney-tariff-fd69f537',
+    title: 'آیین‌نامه تعرفه حق‌الوکاله، حق‌المشاوره و هزینه سفر وکلای دادگستری — مصوب ۱۳۹۸/۱۲/۲۸ رئیس قوه قضاییه (فایل fd69f537، ۱۹ صفحه)',
+    origin: 'فایل PDF ارسالی کاربر؛ چاپ صفحه‌ای از بازنشر پایگاه اختبار (تاریخ چاپ در فایل: ۲۸/۱۰/۲۰۲۶)',
+    observedSourceUrl: 'نشانی کامل در فایل ثبت نشده است',
+    pagesRead: '۱ تا ۱۹ از ۱۹ (کامل)',
+    userAccepted: true,
+    userDesignated: 'کاربر این فایل را مبنای اجرای محاسبه‌گرهای حق‌الوکاله اعلام کرده است.',
+    independentlyVerifiedOfficialSource: false,
+    note: 'روزنامهٔ رسمی دیده نشده است. متن در بازنشر اختبار؛ تفاوت احتمالی با روزنامهٔ رسمی احراز نشده است.',
+  },
   {
     id: 'attorney-regulation-scan-1399',
     title: 'آیین‌نامه تعرفه حق‌الوکاله، حق‌المشاوره و هزینه سفر وکلای دادگستری (اسکن با سربرگ و امضا، شمارهٔ ۹۰۰۰/۱۴۷۲/۱۰۰ تاریخ ۱۳۹۹/۱/۹ ؛ نامهٔ ارجاع شمارهٔ ۹۰۰۰/۱۶۴۸/۱۰۰ تاریخ ۱۳۹۹/۰۱/۰۹)',
@@ -57,6 +77,16 @@ const USER_APPROVAL = {
   officialVerified: false,
 };
 
+// تأیید کاربر برای فایل تعرفهٔ مصوب ۱۳۹۸/۱۲/۲۸ (fd69f537) به‌عنوان مبنای اجرا.
+const TARIFF_APPROVAL = {
+  by: 'user',
+  date: '2026-10-31',
+  scope: 'calculator-use',
+  basis: 'فایل fd69f537 (تعرفه مصوب ۱۳۹۸/۱۲/۲۸)',
+  officialVerified: false,
+};
+const TARIFF_REVIEWED = '2026-10-31';
+
 // وضعیت‌های جدا: متن، تفسیر، اصالت رسمی، و مجوز فعال‌سازی
 const ART9_DETAIL = {
   textObserved: 'متن در بازنشر اختبار و اسکن کاربر (۱۳۹۹/۱/۹) مطابق بررسی شد',
@@ -70,6 +100,14 @@ const COURT_DETAIL = {
   officialAuthentication: 'احراز رسمی نشده (تصویب مجلس و روزنامهٔ رسمی دیده نشده)',
   activationBasis: 'تأیید کاربر برای استفاده در ماشین‌حساب',
 };
+
+// استناد یکنواخت آیین‌نامهٔ ۱۳۹۸ با شمارهٔ ماده و صفحهٔ فایل مبنا
+const ATTORNEY_CITE = (article, extra = '') => ({
+  citation: `آیین‌نامه تعرفه حق‌الوکاله ۱۳۹۸، ماده ${article}${extra ? `، ${extra}` : ''} (فایل fd69f537)`,
+  approvedOn: '1398/12/28',
+  effectiveFrom: '1399/01/11',
+  sourceUrl: null,
+});
 
 export const VERIFICATION_LOG = [
   {
@@ -91,6 +129,11 @@ export const VERIFICATION_LOG = [
     date: '2026-10-28',
     target: 'لایحه بودجه ۱۴۰۵ و بازنشر جدول ۱۶',
     outcome: 'بخش دادگستری جدول ۱۶ (صفحات چاپی ۲۸۸ تا ۲۹۱) با بازنشر تطابق متنی دارد. سرستون لایحه «یکصد ریال» است، پس مبلغ‌های ۱۵٬۰۰۰ و ۳٬۰۰۰ در لایحه با ضرب در ۱۰۰ همان ۱٬۵۰۰٬۰۰۰ و ۳۰۰٬۰۰۰ ریال بازنشر می‌شوند. تصویب مجلس و روزنامهٔ رسمی ثبت نشده است.',
+  },
+  {
+    date: '2026-10-31',
+    target: 'تعرفه حق‌الوکاله مصوب ۱۳۹۸/۱۲/۲۸ — فایل fd69f537 (۱۹ صفحه)',
+    outcome: 'کل متن (مواد ۱ تا ۳۴ و ۱۰ تبصره) خوانده شد. ماده‌های ۵، ۹، ۱۲، ۱۴، ۱۸، ۱۹، ۲۱، ۲۲، ۲۶، ۲۸ و ۳۰ به‌صورت عددی در قواعد ثبت شدند؛ بقیه در جدول پوشش (tariff-data.js) با وضعیت مشخص آمده‌اند. متن هیچ شاخص یا تعدیل سالانه‌ای ندارد. ماده ۸ و ماده‌های ۲۹، ۳۱، ۳۳، ۳۴ به داده‌ای نیاز دارند که در فایل نیست.',
   },
   {
     date: '2026-10-28',
@@ -200,7 +243,23 @@ export const RATES_BY_YEAR = {
       note: 'بازه‌ای است؛ مبلغ دقیق بدون بخشنامهٔ معتبر انتخاب نمی‌شود.',
     },
 
-    // ---------- حق‌الوکاله (آیین‌نامه ۱۳۹۸/۱۲/۲۸) ----------
+    // ---------- حق‌الوکاله (آیین‌نامه ۱۳۹۸/۱۲/۲۸، فایل fd69f537) ----------
+    // ماده ۵: تقسیم مساوی میان وکلای متعدد بدون قرارداد
+    {
+      id: 'attorney-article5-equal-split',
+      title: 'حق‌الوکاله — تقسیم مساوی میان وکلای متعدد بدون قرارداد (ماده ۵)',
+      group: 'attorney',
+      status: 'user_approved',
+      userApproval: TARIFF_APPROVAL,
+      legal: ATTORNEY_CITE(5),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'equalSplit',
+      extraInput: { id: 'count', label: 'تعداد وکلای متعدد (دو یا بیشتر)' },
+      inputLabel: 'حق‌الوکالهٔ کل (ریال)',
+      note: 'فقط وقتی قراردادی در بین نباشد. گرد کردن به ریال انجام می‌شود.',
+    },
+
+    // ماده ۹: دعوای مالی (بهای خواسته)
     {
       id: 'attorney-article9-financial-nonfinal',
       title: 'حق‌الوکاله — دعوای مالی، حکم غیرقطعی (ماده ۹ بند الف تا ث)',
@@ -208,9 +267,10 @@ export const RATES_BY_YEAR = {
       status: 'user_approved',
       userApproval: USER_APPROVAL,
       statusDetail: ART9_DETAIL,
-      legal: { citation: 'آیین‌نامه تعرفه حق‌الوکاله، ماده ۹', approvedOn: '1398/12/28', effectiveFrom: null, sourceUrl: null },
+      legal: ATTORNEY_CITE(9, 'بندهای الف تا ث'),
       lastReviewed: '2026-10-28',
       base: 'بهای خواسته',
+      inputLabel: 'بهای خواسته (ریال)',
       kind: 'tiered',
       mode: 'incremental',
       tiers: [
@@ -229,38 +289,103 @@ export const RATES_BY_YEAR = {
       status: 'user_approved',
       userApproval: USER_APPROVAL,
       statusDetail: ART9_DETAIL,
-      legal: { citation: 'آیین‌نامه تعرفه حق‌الوکاله، ماده ۹ (حکم قطعی از حیث بهای خواسته)', approvedOn: '1398/12/28', effectiveFrom: null, sourceUrl: null },
+      legal: ATTORNEY_CITE(9, 'حکم قطعی از حیث بهای خواسته'),
       lastReviewed: '2026-10-28',
       base: 'بهای خواسته',
+      inputLabel: 'بهای خواسته (ریال)',
       kind: 'tiered',
       mode: 'whole',
       tiers: [{ upTo: null, percent: 10 }],
-      note: 'جدا از بندهای غیرقطعی نگهداری می‌شود. تبصرهٔ ماده ۶۲ (بهای نامشخص) در این قاعده لحاظ نشده است.',
+      note: 'جدا از بندهای غیرقطعی نگهداری می‌شود. تبصرهٔ ماده ۹ (بهای خواسته در زمان دادخواست نامشخص) در این قاعده لحاظ نشده است.',
+    },
+
+    // ماده ۱۲: سهم‌های ختم دعوا (سهم از حق‌الوکالهٔ همان مرحله)
+    {
+      id: 'attorney-article12-dismissal-before-answer',
+      title: 'حق‌الوکاله — ابطال دادخواست پیش از پاسخ به دعوا (ماده ۱۲ بند الف: ۱/۴)',
+      group: 'attorney',
+      status: 'user_approved',
+      userApproval: TARIFF_APPROVAL,
+      legal: ATTORNEY_CITE(12, 'بند الف'),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'share',
+      share: 0.25,
+      stage: 'first',
+      inputLabel: 'حق‌الوکالهٔ مرحلهٔ نخستین (ریال)',
     },
     {
-      id: 'attorney-article12-termination',
-      title: 'حق‌الوکاله — ختم دعوا پیش/پس از پاسخ و سقوط تجدیدنظر (ماده ۱۲)',
+      id: 'attorney-article12-dismissal-after-answer',
+      title: 'حق‌الوکاله — رد دادخواست پس از پاسخ به دعوا (ماده ۱۲ بند ب: ۱/۲)',
+      group: 'attorney',
+      status: 'user_approved',
+      userApproval: TARIFF_APPROVAL,
+      legal: ATTORNEY_CITE(12, 'بند ب'),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'share',
+      share: 0.5,
+      stage: 'first',
+      inputLabel: 'حق‌الوکالهٔ مرحلهٔ نخستین (ریال)',
+    },
+    {
+      id: 'attorney-article12-dismissal-other-grounds',
+      title: 'حق‌الوکاله — عدم استماع یا رد دعوا به علل مانند مرور زمان و امر مختوم (ماده ۱۲ بند پ: تمام)',
+      group: 'attorney',
+      status: 'user_approved',
+      userApproval: TARIFF_APPROVAL,
+      legal: ATTORNEY_CITE(12, 'بند پ'),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'share',
+      share: 1,
+      stage: 'first',
+      inputLabel: 'حق‌الوکالهٔ حکم (ریال)',
+      note: 'تمام حق‌الوکاله‌ای که برای حکم مقرر است.',
+    },
+    {
+      id: 'attorney-article12-appeal-dismissal-before-answer',
+      title: 'حق‌الوکاله — سقوط تجدیدنظر پیش از پاسخ به دعوا (ماده ۱۲ بند ت: ۱/۴)',
+      group: 'attorney',
+      status: 'user_approved',
+      userApproval: TARIFF_APPROVAL,
+      legal: ATTORNEY_CITE(12, 'بند ت'),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'share',
+      share: 0.25,
+      stage: 'appeal',
+      inputLabel: 'حق‌الوکالهٔ مرحلهٔ تجدیدنظر (ریال)',
+    },
+    {
+      id: 'attorney-article12-appeal-dismissal-after-answer',
+      title: 'حق‌الوکاله — سقوط تجدیدنظر پس از پاسخ به دعوا (ماده ۱۲ بند ث: ۱/۲)',
+      group: 'attorney',
+      status: 'user_approved',
+      userApproval: TARIFF_APPROVAL,
+      legal: ATTORNEY_CITE(12, 'بند ث'),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'share',
+      share: 0.5,
+      stage: 'appeal',
+      inputLabel: 'حق‌الوکالهٔ مرحلهٔ تجدیدنظر (ریال)',
+    },
+    {
+      id: 'attorney-article12-interlocutory-objection',
+      title: 'حق‌الوکاله — اعتراض به قرارهای حقوقی قابل اعتراض (ماده ۱۲ بند ج)',
       group: 'attorney',
       status: 'text_read',
-      legal: { citation: 'آیین‌نامه ۱۳۹۸، ماده ۱۲', approvedOn: '1398/12/28', effectiveFrom: null, sourceUrl: null },
-      lastReviewed: '2026-10-28',
-      kind: 'share',
-      items: [
-        { label: 'ابطال دادخواست پیش از پاسخ به دعوا', share: 0.25, stage: 'first' },
-        { label: 'رد دادخواست پس از پاسخ به دعوا', share: 0.5, stage: 'first' },
-        { label: 'عدم استماع یا رد دعوا به علل مانند مرور زمان، اعتبار امر مختوم، رد تقاضای اعاده دادرسی', share: 1, stage: 'first' },
-        { label: 'سقوط تجدیدنظرخواهی پیش از پاسخ', share: 0.25, stage: 'appeal' },
-        { label: 'سقوط تجدیدنظرخواهی پس از پاسخ', share: 0.5, stage: 'appeal' },
-      ],
-      note: 'سهم‌ها نسبت به حق‌الوکالهٔ همان مرحله‌اند؛ مبلغ مرحله ورودی است و موتور محاسبه نمی‌کند.',
+      legal: ATTORNEY_CITE(12, 'بند ج'),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'range',
+      min: 1000000,
+      max: 100000000,
     },
+
+    // ماده ۱۳: امور حسبی، خانوادگی و غیرمالی (بازه)
     {
       id: 'attorney-article13-family',
       title: 'حق‌الوکاله — امور حسبی و دعاوی خانوادگی و مالی ناشی از زوجیت (ماده ۱۳ بند الف)',
       group: 'attorney',
       status: 'text_read',
-      legal: { citation: 'آیین‌نامه ۱۳۹۸، ماده ۱۳ بند الف', approvedOn: '1398/12/28', effectiveFrom: null, sourceUrl: null },
-      lastReviewed: '2026-10-28',
+      legal: ATTORNEY_CITE(13, 'بند الف'),
+      lastReviewed: TARIFF_REVIEWED,
       kind: 'range',
       min: 5000000,
       max: 200000000,
@@ -271,20 +396,22 @@ export const RATES_BY_YEAR = {
       title: 'حق‌الوکاله — دعاوی غیرمالی (ماده ۱۳ بند ب)',
       group: 'attorney',
       status: 'text_read',
-      legal: { citation: 'آیین‌نامه ۱۳۹۸، ماده ۱۳ بند ب', approvedOn: '1398/12/28', effectiveFrom: null, sourceUrl: null },
-      lastReviewed: '2026-10-28',
+      legal: ATTORNEY_CITE(13, 'بند ب'),
+      lastReviewed: TARIFF_REVIEWED,
       kind: 'range',
       min: 4000000,
       max: 300000000,
       note: 'بازهٔ قانونی؛ انتخاب مبلغ دقیق انجام نمی‌شود.',
     },
+
+    // ماده ۱۴: کیفری
     {
       id: 'attorney-article14-criminal-a',
       title: 'حق‌الوکاله — دعاوی کیفری، صلاحیت دادگاه کیفری یک / نظامی یک / انقلاب (ماده ۱۴ بند الف)',
       group: 'attorney',
       status: 'text_read',
-      legal: { citation: 'آیین‌نامه ۱۳۹۸، ماده ۱۴ بند الف', approvedOn: '1398/12/28', effectiveFrom: null, sourceUrl: null },
-      lastReviewed: '2026-10-28',
+      legal: ATTORNEY_CITE(14, 'بند الف'),
+      lastReviewed: TARIFF_REVIEWED,
       kind: 'range',
       min: 10000000,
       max: 2000000000,
@@ -293,15 +420,15 @@ export const RATES_BY_YEAR = {
         { label: 'تعزیری درجه ۲ و ۳', min: 30000000, max: 1000000000 },
         { label: 'سایر جرایم', min: 10000000, max: 500000000 },
       ],
-      note: 'طبقه‌بندی جرم با مرجع تصمیم است. تبصرهٔ ۱ (۵۰/۳۰/۲۰) و تبصرهٔ ۳ (۲۰٪ به‌ازای هر جرم اضافه) محاسبه نشده‌اند.',
+      note: 'طبقه‌بندی جرم با مرجع تصمیم است. تبصرهٔ ۱ (۵۰/۳۰/۲۰) و تبصرهٔ ۳ (۲۰٪ به‌ازای هر جرم اضافه) در قواعد جداگانه آمده‌اند.',
     },
     {
       id: 'attorney-article14-criminal-b',
       title: 'حق‌الوکاله — دعاوی کیفری، صلاحیت کیفری دو / نظامی دو / اطفال و نوجوانان (ماده ۱۴ بند ب)',
       group: 'attorney',
       status: 'text_read',
-      legal: { citation: 'آیین‌نامه ۱۳۹۸، ماده ۱۴ بند ب', approvedOn: '1398/12/28', effectiveFrom: null, sourceUrl: null },
-      lastReviewed: '2026-10-28',
+      legal: ATTORNEY_CITE(14, 'بند ب'),
+      lastReviewed: TARIFF_REVIEWED,
       kind: 'range',
       min: 2000000,
       max: 500000000,
@@ -313,54 +440,323 @@ export const RATES_BY_YEAR = {
       note: 'طبقه‌بندی جرم با مرجع تصمیم است؛ تبصرهٔ ۱ ماده ۱۴ عمومی است.',
     },
     {
-      id: 'attorney-article21-stage-split',
-      title: 'حق‌الوکاله — تقسیم ۶۰٪ نخستین / ۴۰٪ تجدیدنظر (ماده ۲۱)',
+      id: 'attorney-article14-criminal-objection',
+      title: 'حق‌الوکاله — اعتراض به قرارهای قابل اعتراض دادسرا (ماده ۱۴ بند پ)',
       group: 'attorney',
       status: 'text_read',
-      legal: { citation: 'آیین‌نامه ۱۳۹۸، ماده ۲۱ (موضوع مواد ۹، ۱۳ و ۲۰)', approvedOn: '1398/12/28', effectiveFrom: null, sourceUrl: null },
-      lastReviewed: '2026-10-28',
-      kind: 'share',
-      shares: [
-        { stage: 'first', share: 0.6 },
-        { stage: 'appeal', share: 0.4 },
-      ],
-      note: 'مبلغ کل از قاعدهٔ دیگری می‌آید؛ این قاعده محاسبه نمی‌شود.',
+      legal: ATTORNEY_CITE(14, 'بند پ'),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'range',
+      min: 1000000,
+      max: 150000000,
     },
+    {
+      id: 'attorney-article14-criminal-cassation',
+      title: 'حق‌الوکاله — فرجام‌خواهی کیفری، اعاده دادرسی و ماده ۴۷۷ (ماده ۱۴ بند ت)',
+      group: 'attorney',
+      status: 'text_read',
+      legal: ATTORNEY_CITE(14, 'بند ت'),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'range',
+      min: 2000000,
+      max: 200000000,
+    },
+    {
+      id: 'attorney-article14-criminal-special',
+      title: 'حق‌الوکاله — دعاوی ویژهٔ وکلای تبصرهٔ ماده ۴۸ آیین دادرسی کیفری (ماده ۱۴ بند ث)',
+      group: 'attorney',
+      status: 'text_read',
+      legal: ATTORNEY_CITE(14, 'بند ث'),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'range',
+      min: 50000000,
+      max: 500000000,
+    },
+    // ماده ۱۴ تبصرهٔ ۱: تفکیک ۵۰٪ / ۳۰٪ / ۲۰٪ از حق‌الوکالهٔ کیفری
+    {
+      id: 'attorney-article14-stage-investigation',
+      title: 'حق‌الوکاله کیفری — مرحلهٔ تحقیق در دادسرا (ماده ۱۴ تبصرهٔ ۱: ۵۰٪)',
+      group: 'attorney',
+      status: 'user_approved',
+      userApproval: TARIFF_APPROVAL,
+      legal: ATTORNEY_CITE(14, 'تبصرهٔ ۱ — فرایند تحقیق در دادسرا'),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'share',
+      share: 0.5,
+      stage: 'prosecution',
+      inputLabel: 'حق‌الوکالهٔ کیفری کل (ریال)',
+    },
+    {
+      id: 'attorney-article14-stage-trial',
+      title: 'حق‌الوکاله کیفری — مرحلهٔ دادگاه بدوی (ماده ۱۴ تبصرهٔ ۱: ۳۰٪)',
+      group: 'attorney',
+      status: 'user_approved',
+      userApproval: TARIFF_APPROVAL,
+      legal: ATTORNEY_CITE(14, 'تبصرهٔ ۱ — دادگاه بدوی'),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'share',
+      share: 0.3,
+      stage: 'first',
+      inputLabel: 'حق‌الوکالهٔ کیفری کل (ریال)',
+    },
+    {
+      id: 'attorney-article14-stage-appeal',
+      title: 'حق‌الوکاله کیفری — مرحلهٔ تجدیدنظرخواهی (ماده ۱۴ تبصرهٔ ۱: ۲۰٪)',
+      group: 'attorney',
+      status: 'user_approved',
+      userApproval: TARIFF_APPROVAL,
+      legal: ATTORNEY_CITE(14, 'تبصرهٔ ۱ — تجدیدنظرخواهی'),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'share',
+      share: 0.2,
+      stage: 'appeal',
+      inputLabel: 'حق‌الوکالهٔ کیفری کل (ریال)',
+    },
+    {
+      id: 'attorney-article14-stage-trial-without-prosecution',
+      title: 'حق‌الوکاله کیفری — دادگاه بدوی در رسیدگی فاقد دادسرا (ماده ۱۴ تبصرهٔ ۱: ۵۰٪ + ۳۰٪)',
+      group: 'attorney',
+      status: 'user_approved',
+      userApproval: TARIFF_APPROVAL,
+      legal: ATTORNEY_CITE(14, 'تبصرهٔ ۱ — رسیدگی فاقد دادسرا'),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'share',
+      share: 0.8,
+      stage: 'first',
+      inputLabel: 'حق‌الوکالهٔ کیفری کل (ریال)',
+      note: 'متن: در مواردی که رسیدگی فاقد مرحلهٔ دادسرا است، حق‌الوکالهٔ دادسرا به حق‌الوکالهٔ بدوی افزوده می‌شود.',
+    },
+    // ماده ۱۴ تبصرهٔ ۳: ۲۰٪ به‌ازای هر جرم اضافه‌تر
+    {
+      id: 'attorney-article14-multiple-charges',
+      title: 'حق‌الوکاله کیفری — چند جرم در پرونده (ماده ۱۴ تبصرهٔ ۳: ۲۰٪ به‌ازای هر جرم اضافه)',
+      group: 'attorney',
+      status: 'user_approved',
+      userApproval: TARIFF_APPROVAL,
+      legal: ATTORNEY_CITE(14, 'تبصرهٔ ۳'),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'surcharge',
+      percent: 20,
+      extraInput: { id: 'count', label: 'تعداد کل جرایم پرونده (شامل جرم اشد)' },
+      inputLabel: 'حق‌الوکالهٔ تعرفهٔ جرم اشد (ریال)',
+      note: 'ملاک تعرفهٔ جرم اشد است؛ به ازای هر جرم اضافه‌تر ۲۰٪ همان حق‌الوکاله به آن افزوده می‌شود.',
+    },
+
+    // ماده ۱۸: وکیل پس از نقض رأی
+    {
+      id: 'attorney-article18-after-reversal',
+      title: 'حق‌الوکاله — وکیلی که پس از نقض رأی وکالت می‌پذیرد (ماده ۱۸: ۱/۲)',
+      group: 'attorney',
+      status: 'user_approved',
+      userApproval: TARIFF_APPROVAL,
+      legal: ATTORNEY_CITE(18),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'share',
+      share: 0.5,
+      stage: 'reversal',
+      inputLabel: 'حق‌الوکالهٔ پیش از نقض (ریال)',
+    },
+
+    // ماده ۱۹: دادسرا و دادگاه‌های انتظامی — فقط سقف
+    {
+      id: 'attorney-article19-prosecution-cap',
+      title: 'حق‌الوکاله — دادسرا و دادگاه عالی انتظامی قضات (ماده ۱۹: سقف ۲۰ میلیون)',
+      group: 'attorney',
+      status: 'user_approved',
+      userApproval: TARIFF_APPROVAL,
+      legal: ATTORNEY_CITE(19),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'capped',
+      max: 20000000,
+      inputLabel: 'مبلغ تعیین‌شده (ریال)',
+      note: 'متن فقط سقف (حداکثر ۲۰ میلیون ریال) را تعیین کرده و حداقلی ذکر نشده است.',
+    },
+
+    // ماده ۲۰: بازه‌ها
+    {
+      id: 'attorney-article20-administrative',
+      title: 'حق‌الوکاله — دیوان عدالت اداری و سازمان تعزیرات حکومتی (ماده ۲۰)',
+      group: 'attorney',
+      status: 'text_read',
+      legal: ATTORNEY_CITE(20, 'دیوان عدالت اداری و تعزیرات'),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'range',
+      min: 4000000,
+      max: 500000000,
+    },
+    {
+      id: 'attorney-article20-non-judicial',
+      title: 'حق‌الوکاله — مراجع غیرقضایی مانند هیئت‌های قانون کار ۱۳۶۹ (ماده ۲۰)',
+      group: 'attorney',
+      status: 'text_read',
+      legal: ATTORNEY_CITE(20, 'مراجع غیرقضایی'),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'range',
+      min: 4000000,
+      max: 200000000,
+    },
+
+    // ماده ۲۱: ۶۰٪ نخستین و ۴۰٪ تجدیدنظر (از حق‌الوکالهٔ مواد ۹، ۱۳ و ۲۰)
+    {
+      id: 'attorney-article21-first-stage',
+      title: 'حق‌الوکاله — سهم مرحلهٔ نخستین از مواد ۹، ۱۳ و ۲۰ (ماده ۲۱: ۶۰٪)',
+      group: 'attorney',
+      status: 'user_approved',
+      userApproval: TARIFF_APPROVAL,
+      legal: ATTORNEY_CITE(21, 'مرحلهٔ نخستین'),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'share',
+      share: 0.6,
+      stage: 'first',
+      inputLabel: 'حق‌الوکالهٔ کل موضوع مواد ۹، ۱۳ یا ۲۰ (ریال)',
+    },
+    {
+      id: 'attorney-article21-appeal-stage',
+      title: 'حق‌الوکاله — سهم مرحلهٔ تجدیدنظر از مواد ۹، ۱۳ و ۲۰ (ماده ۲۱: ۴۰٪)',
+      group: 'attorney',
+      status: 'user_approved',
+      userApproval: TARIFF_APPROVAL,
+      legal: ATTORNEY_CITE(21, 'مرحلهٔ تجدیدنظر'),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'share',
+      share: 0.4,
+      stage: 'appeal',
+      inputLabel: 'حق‌الوکالهٔ کل موضوع مواد ۹، ۱۳ یا ۲۰ (ریال)',
+    },
+
+    // ماده ۲۲ تبصره: ۱۰٪ افزایش برای تخصص
+    {
+      id: 'attorney-article22-specialty',
+      title: 'حق‌الوکاله — افزایش ۱۰٪ برای وکیل دارای گواهی تخصصی (ماده ۲۲ تبصره)',
+      group: 'attorney',
+      status: 'user_approved',
+      userApproval: TARIFF_APPROVAL,
+      legal: ATTORNEY_CITE(22, 'تبصره'),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'surcharge',
+      percent: 10,
+      fixedUnits: 1,
+      inputLabel: 'حق‌الوکالهٔ پایه (ریال)',
+      note: 'اگر کانون یا مرکز گواهی وکالت تخصصی صادر کرده باشد، در حدود صلاحیت تخصصی ۱۰٪ افزوده می‌شود.',
+    },
+
+    // ماده ۲۴: تشخیصی
     {
       id: 'attorney-article24-withdrawal',
       title: 'حق‌الوکاله — عزل، فوت، حجر یا استعفای وکیل (ماده ۲۴)',
       group: 'attorney',
       status: 'text_read',
-      legal: { citation: 'آیین‌نامه ۱۳۹۸، ماده ۲۴', approvedOn: '1398/12/28', effectiveFrom: null, sourceUrl: null },
-      lastReviewed: '2026-10-28',
+      legal: ATTORNEY_CITE(24),
+      lastReviewed: TARIFF_REVIEWED,
       kind: 'discretionary',
       note: 'پرونده آمادهٔ رأی: تمام حق‌الوکالهٔ آن مرحله. در غیر این صورت به تناسب کار انجام‌شده و به تشخیص کانون یا مرکز.',
     },
+
+    // ماده ۲۵: امور اجرایی — بازه‌ها (سقف ۲٪ برای احکام؛ تعارض کف و سقف در متن رفع نشده است)
     {
       id: 'attorney-article25-enforcement-judgment',
       title: 'حق‌الوکاله — امور اجرایی حقوقی: اجرای احکام دادگستری و اجرای اسناد رسمی (ماده ۲۵، سقف ۲٪)',
       group: 'attorney',
       status: 'text_read',
-      legal: { citation: 'آیین‌نامه ۱۳۹۸، ماده ۲۵', approvedOn: '1398/12/28', effectiveFrom: null, sourceUrl: null },
-      lastReviewed: '2026-10-28',
+      legal: ATTORNEY_CITE(25, 'اجرای احکام و اسناد رسمی'),
+      lastReviewed: TARIFF_REVIEWED,
       kind: 'range',
       min: 4000000,
       max: null,
       maxPercent: 2,
       percentBase: 'مبلغ محکوم‌به یا مورد اجرا',
-      note: 'متن: حداقل ۴ م و حداکثر ۲٪ محکوم‌به. این قاعده هنوز بازه است و محاسبه نمی‌شود.',
+      note: 'متن: حداقل ۴ م و حداکثر ۲٪ محکوم‌به. کف ۴ م و سقف ۲٪ وقتی محکوم‌به کمتر از ۲۰۰ م باشد با هم متعارض‌اند و در متن رفع نشده است؛ این قاعده محاسبه نمی‌شود.',
     },
     {
       id: 'attorney-article25-enforcement',
       title: 'حق‌الوکاله — سایر امور اجرایی (ماده ۲۵)',
       group: 'attorney',
       status: 'text_read',
-      legal: { citation: 'آیین‌نامه ۱۳۹۸، ماده ۲۵', approvedOn: '1398/12/28', effectiveFrom: null, sourceUrl: null },
-      lastReviewed: '2026-10-28',
+      legal: ATTORNEY_CITE(25, 'سایر موارد'),
+      lastReviewed: TARIFF_REVIEWED,
       kind: 'range',
       min: 4000000,
       max: 150000000,
       note: 'متن: نسبت به دیگر موارد حداقل ۴ م و حداکثر ۱۵۰ م.',
+    },
+
+    // ماده ۲۶: حق‌الزحمهٔ مشاوره و خدمات بدون وکالت‌نامه و توافق
+    {
+      id: 'attorney-article26-drafting-cap',
+      title: 'حق‌الزحمه — تنظیم دادخواست، شکواییه، لایحه دفاعیه و اظهارنامه (ماده ۲۶ بند الف: سقف ۵۰ میلیون)',
+      group: 'attorney',
+      status: 'user_approved',
+      userApproval: TARIFF_APPROVAL,
+      legal: ATTORNEY_CITE(26, 'بند الف'),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'capped',
+      max: 50000000,
+      inputLabel: 'مبلغ پیشنهادی یا تشخیصی (ریال)',
+      note: 'فقط وقتی وکالتنامه تنظیم نشده و توافقی نیست. متن فقط سقف (حداکثر ۵۰ میلیون ریال) را تعیین کرده است.',
+    },
+    {
+      id: 'attorney-article26-consultation-hourly',
+      title: 'حق‌الزحمه — مشاوره به ازای هر ساعت (ماده ۲۶ بند ب)',
+      group: 'attorney',
+      status: 'text_read',
+      legal: ATTORNEY_CITE(26, 'بند ب'),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'range',
+      min: 500000,
+      max: 5000000,
+      unit: 'هر ساعت',
+    },
+    {
+      id: 'attorney-article26-file-study',
+      title: 'حق‌الزحمه — صرف مطالعهٔ پرونده (ماده ۲۶ بند ت)',
+      group: 'attorney',
+      status: 'text_read',
+      legal: ATTORNEY_CITE(26, 'بند ت'),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'range',
+      min: 2000000,
+      max: 50000000,
+    },
+
+    // ماده ۲۸: موارد تعیین‌تکلیف‌نشده
+    {
+      id: 'attorney-article28-other',
+      title: 'حق‌الوکاله — سایر مواردی که در آیین‌نامه تعیین تکلیف نشده (ماده ۲۸)',
+      group: 'attorney',
+      status: 'text_read',
+      legal: ATTORNEY_CITE(28),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'range',
+      min: 10000000,
+      max: 250000000,
+    },
+
+    // ماده ۳۰: فوق‌العادهٔ مأموریت به‌ازای هر روز
+    {
+      id: 'attorney-article30-travel-in-province',
+      title: 'فوق‌العاده مأموریت — سفر داخل استان و خارج از حوزهٔ قضایی محل اشتغال (ماده ۳۰: ۱٬۵۰۰٬۰۰۰ ریال در روز)',
+      group: 'attorney',
+      status: 'user_approved',
+      userApproval: TARIFF_APPROVAL,
+      legal: ATTORNEY_CITE(30, 'داخل استان'),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'perUnit',
+      unitFee: 1500000,
+      inputLabel: 'تعداد روز مأموریت',
+      note: 'هزینهٔ سفر و اقامت جداگانه و به عهدهٔ موکل است؛ این ابزار فقط فوق‌العادهٔ روزانه را محاسبه می‌کند.',
+    },
+    {
+      id: 'attorney-article30-travel-out-of-province',
+      title: 'فوق‌العاده مأموریت — سفر خارج از استان محل اشتغال (ماده ۳۰: ۳٬۰۰۰٬۰۰۰ ریال در روز)',
+      group: 'attorney',
+      status: 'user_approved',
+      userApproval: TARIFF_APPROVAL,
+      legal: ATTORNEY_CITE(30, 'خارج از استان'),
+      lastReviewed: TARIFF_REVIEWED,
+      kind: 'perUnit',
+      unitFee: 3000000,
+      inputLabel: 'تعداد روز مأموریت',
+      note: 'هزینهٔ سفر و اقامت جداگانه و به عهدهٔ موکل است؛ این ابزار فقط فوق‌العادهٔ روزانه را محاسبه می‌کند.',
     },
   ],
 };
