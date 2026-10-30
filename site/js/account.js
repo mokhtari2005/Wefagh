@@ -1,6 +1,7 @@
 // صفحات حساب کاربری: ورود، ثبت‌نام، تأیید ایمیل، و نمایش حساب. DOM امن (بدون innerHTML با داده).
 import { postJson, getJson } from './api.js';
 import { messageFor } from './auth-messages.js';
+import { changePasswordForm, profileEditForm } from './account-manage.js';
 import { PROFESSIONAL_STATUS, EXPERIENCE_BANDS, PRACTICE_AREAS, LEARNING_GOALS, SKILL_AREAS, LEARNING_FORMATS, toLatinDigits } from './registration-options.js';
 
 function h(tag, attrs = {}, children = []) {
@@ -154,6 +155,14 @@ export async function accountPanel({ onLogout }) {
     h('p', { text: `نام: ${user.displayName}` }),
     h('p', { dir: 'ltr', text: user.email }),
     user.profile ? profileSummary(user.profile) : h('p', { class: 'muted', text: 'پروفایل آموزشی برای این حساب ثبت نشده است.' }),
+    h('details', { class: 'account-edit' }, [
+      h('summary', { text: 'ویرایش پروفایل آموزشی' }),
+      profileEditForm(user.profile, () => {}),
+    ]),
+    h('details', { class: 'account-edit' }, [
+      h('summary', { text: 'تغییر رمز عبور' }),
+      changePasswordForm(),
+    ]),
     user.roles?.length ? h('p', { class: 'muted', text: `نقش‌ها: ${user.roles.join('، ')}` }) : h('span'),
     user.roles?.some((role) => ['admin', 'super_admin', 'academy_manager', 'media_editor'].includes(role)) ? h('p', {}, [h('a', { class: 'btn secondary', href: '#/admin', text: 'ورود به مدیریت محتوا' })]) : h('span'),
     logout,

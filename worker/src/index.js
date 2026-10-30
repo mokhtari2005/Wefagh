@@ -3,6 +3,7 @@ import { validateContact } from './validate.js';
 import { saveContactMessage } from './contact.js';
 import { json, readJsonBody } from './http.js';
 import { register, verifyEmail, resendVerification, login, logout, me } from './auth/routes.js';
+import { changePassword, updateProfile } from './auth/account.js';
 import { handleAcademy } from './academy/routes.js';
 import { handleMedia } from './media/routes.js';
 import { handleDeadlines } from './deadlines/routes.js';
@@ -45,6 +46,8 @@ const AUTH_ROUTES = {
   '/api/auth/login': ['POST', login],
   '/api/auth/logout': ['POST', logout],
   '/api/me': ['GET', me],
+  '/api/me/profile': ['PUT', updateProfile],
+  '/api/auth/change-password': ['POST', changePassword],
 };
 
 export default {

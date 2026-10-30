@@ -465,6 +465,11 @@ export function mootCourtPage() {
     out.replaceChildren();
     show(0);
     const created = await postJson('/api/moot/sessions', { ...payload(), title: `تمرین جدید — ${CASE.title.replace('پروندهٔ فرضی: ', '')}` });
+    if (created.status === 422) {
+      // این تمرین در بانک منتشرشده نیست؛ سرور آن را نمی‌پذیرد و پاسخ‌ها فقط در همین مرورگر می‌مانند.
+      saveStatus.textContent = 'این تمرین در بانک منتشرشدهٔ پرونده‌ها نیست؛ پاسخ‌ها فقط در همین مرورگر نگه‌داری می‌شوند. برای ذخیرهٔ پایدار، یک پروندهٔ منتشرشده را از «انتخاب پرونده» انتخاب کنید.';
+      return;
+    }
     if (!created.ok || !created.data?.id) { saveStatus.textContent = 'ساخت تمرین ناموفق بود. لطفاً دوباره تلاش کنید.'; return; }
     activeSessionId = created.data.id;
     saveStatus.textContent = 'تمرین جدید ساخته شد.';
