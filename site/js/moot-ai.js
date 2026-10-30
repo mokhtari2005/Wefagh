@@ -1,6 +1,6 @@
-// جلسهٔ شبیه‌سازی دادگاه با هوش مصنوعی: منشی، قاضی، وکیل خواهان و وکیل خوانده؛ کاربر یکی از دو طرف را بازی می‌کند.
+// اتاق دادگاه با هوش مصنوعی: منشی، قاضی، وکیل خواهان و وکیل خوانده؛ کاربر یکی از دو طرف را بازی می‌کند.
 // منشی متن ثابت دارد؛ قاضی و طرف مقابل از سرور (Gemini) پاسخ می‌گیرند. صدا با TTS و ورودی با تبدیل گفتار به متن.
-// این بخش فقط برای کاربر واردشده و وقتی سرویس روی سرور فعال است کار می‌کند؛ وگرنه حالت قاعده‌محور نشان داده می‌شود.
+// فقط برای کاربر واردشده و وقتی سرویس روی سرور فعال است کار می‌کند؛ در غیر این صورت حالت قاعده‌محور نشان داده می‌شود.
 import { h } from './dom.js';
 import { getJson, postJson } from './api.js';
 import { aiStatus, errorText, postForBlob, createPlayer, blobToBase64, pickRecordingMime, baseMime } from './ai-client.js';
@@ -8,6 +8,10 @@ import { oralDefensePanel } from './moot-oral.js';
 
 export const CASE_ID = 'contract-delivery-delay';
 export const CASE_SUBJECT = 'مطالبهٔ خسارت تأخیر در تحویل ۱۰۰ دستگاه و فسخ جزئی قرارداد';
+export const PARTIES = Object.freeze({
+  plaintiff: 'شرکت «ب» (خریدار)',
+  defendant: 'آقای «الف» (فروشنده)',
+});
 export const MAX_RECORD_MS = 90 * 1000;
 export const ANSWER_MAX = 1500;
 const HISTORY_ITEMS = 30;
@@ -20,24 +24,33 @@ export const SPEED_OPTIONS = [[0.75, '۰٫۷۵×'], [1, '۱×'], [1.25, '۱٫۲�
 export const SPEAKER_LABEL = Object.freeze({ clerk: 'منشی دادگاه', judge: 'قاضی', plaintiff: 'وکیل خواهان', defendant: 'وکیل خوانده' });
 export const VOICE_FOR = Object.freeze({ clerk: 'Leda', judge: 'Charon', plaintiff: 'Puck', defendant: 'Kore' });
 
+/** دوازده مرحلهٔ رسیدگی که به کاربر نشان داده می‌شوند. */
+export const GROUP_LABELS = Object.freeze([
+  'افتتاح جلسه', 'اعلام موضوع دعوا', 'طرح ادعای خواهان', 'دفاعیات خوانده',
+  'پرسش‌های قاضی از خواهان', 'پرسش‌های قاضی از خوانده', 'ارائه و بررسی مستندات', 'پاسخ متقابل طرفین',
+  'دفاع نهایی', 'ختم رسیدگی', 'صدور رأی آموزشی', 'ارزیابی عملکرد',
+]);
+
 /**
- * مراحل رسیدگی به ترتیب. speaker مشخص می‌کند نوبت با کیست؛ اگر همان طرف کاربر باشد، کاربر پاسخ می‌دهد.
- * stage کلیدی از HEARING_STAGES سرور است؛ text فقط برای منشی.
+ * گام‌های گفت‌وگو به ترتیب. group شمارهٔ مرحلهٔ نمایشی است؛ speaker گوینده؛ اگر گوینده طرف کاربر باشد، کاربر پاسخ می‌دهد.
  */
 export function hearingScript() {
   return [
-    { id: 'open', speaker: 'clerk', text: 'جلسه تشکیل می‌شود. لطفاً همگی آماده باشند. دادرسی به‌صورت آموزشی و بر اساس پروندهٔ فرضی برگزار می‌شود.' },
-    { id: 'subject', speaker: 'clerk', text: `موضوع دعوا: ${CASE_SUBJECT}.` },
-    { id: 'claim', speaker: 'plaintiff', stage: 'claim', label: 'طرح ادعا' },
-    { id: 'defense', speaker: 'defendant', stage: 'defense', label: 'دفاع' },
-    { id: 'q_plaintiff', speaker: 'judge', stage: 'judge_question_plaintiff', label: 'پرسش قاضی از خواهان' },
-    { id: 'a_plaintiff', speaker: 'plaintiff', stage: 'judge_question_plaintiff', label: 'پاسخ خواهان به قاضی' },
-    { id: 'q_defendant', speaker: 'judge', stage: 'judge_question_defendant', label: 'پرسش قاضی از خوانده' },
-    { id: 'a_defendant', speaker: 'defendant', stage: 'judge_question_defendant', label: 'پاسخ خوانده به قاضی' },
-    { id: 'docs', speaker: 'plaintiff', stage: 'documents', label: 'ارائهٔ مستندات' },
-    { id: 'rebut_p', speaker: 'plaintiff', stage: 'rebuttal_plaintiff', label: 'پاسخ متقابل خواهان' },
-    { id: 'rebut_d', speaker: 'defendant', stage: 'rebuttal_defendant', label: 'پاسخ متقابل خوانده' },
-    { id: 'close', speaker: 'clerk', text: 'ختم رسیدگی اعلام می‌شود. گزارش ارزیابی آموزشی آماده می‌شود.' },
+    { id: 'open', group: 1, speaker: 'clerk', text: 'جلسه تشکیل می‌شود. لطفاً همگی آماده باشند. دادرسی به‌صورت آموزشی و بر اساس پروندهٔ فرضی برگزار می‌شود.' },
+    { id: 'subject', group: 2, speaker: 'clerk', text: `موضوع دعوا: ${CASE_SUBJECT}.` },
+    { id: 'claim', group: 3, speaker: 'plaintiff', stage: 'claim' },
+    { id: 'defense', group: 4, speaker: 'defendant', stage: 'defense' },
+    { id: 'q_plaintiff', group: 5, speaker: 'judge', stage: 'judge_question_plaintiff' },
+    { id: 'a_plaintiff', group: 5, speaker: 'plaintiff', stage: 'judge_question_plaintiff' },
+    { id: 'q_defendant', group: 6, speaker: 'judge', stage: 'judge_question_defendant' },
+    { id: 'a_defendant', group: 6, speaker: 'defendant', stage: 'judge_question_defendant' },
+    { id: 'docs', group: 7, speaker: 'plaintiff', stage: 'documents' },
+    { id: 'rebut_p', group: 8, speaker: 'plaintiff', stage: 'rebuttal_plaintiff' },
+    { id: 'rebut_d', group: 8, speaker: 'defendant', stage: 'rebuttal_defendant' },
+    { id: 'final_p', group: 9, speaker: 'plaintiff', stage: 'final_plaintiff' },
+    { id: 'final_d', group: 9, speaker: 'defendant', stage: 'final_defendant' },
+    { id: 'close', group: 10, speaker: 'clerk', text: 'ختم رسیدگی اعلام می‌شود. جمع‌بندی آموزشی قاضی آماده می‌شود.' },
+    { id: 'verdict', group: 11, speaker: 'judge', stage: 'verdict' },
   ];
 }
 
@@ -71,68 +84,122 @@ function notice(text, cls = 'notice') {
   return h('div', { class: cls, role: 'note', text });
 }
 
-export function hearingSession({ side, difficulty, speechOn, initialRate = 1 }) {
+function timeNow() {
+  return new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tehran' });
+}
+
+export function hearingSession({ side, difficulty, speechOn, initialRate = 1, initialVolume = 1, caseTitle = 'پروندهٔ آموزشی', userName = '' }) {
   const script = hearingScript();
   const userSide = side;
-  const player = createPlayer();
+  let activeSpeaker = null;
+  const player = createPlayer({
+    onEnded: () => { activeSpeaker = null; renderSeats(); },
+  });
   const history = [];
   let index = 0;
   let busy = false;
-  let lastBlob = null;
-  let lastText = '';
-  let lastSpeaker = null;
   let finished = false;
   let recorder = null;
   let recordTimer = null;
   let chunks = [];
+  let lastBlob = null;
+  let lastText = '';
+  let lastSpeaker = null;
 
-  const banner = h('p', { class: 'hearing-banner', role: 'status', 'aria-live': 'polite' });
-  const stepList = h('ol', { class: 'hearing-steps', 'aria-label': 'مراحل رسیدگی' });
-  const log = h('ol', { class: 'hearing-log', 'aria-label': 'متن مذاکرات', 'aria-live': 'polite' });
-  const inputArea = h('div', { class: 'hearing-input' });
-  const answer = h('textarea', { rows: '4', maxlength: String(ANSWER_MAX), 'aria-label': 'پاسخ شما در دادگاه', placeholder: 'پاسخ خود را بنویسید یا با میکروفون بگویید…' });
-  const micBtn = h('button', { class: 'btn secondary', type: 'button', text: 'ضبط با میکروفون' });
-  const submitBtn = h('button', { class: 'btn', type: 'button', text: 'ثبت پاسخ و ادامه' });
-  const nextBtn = h('button', { class: 'btn', type: 'button', text: 'ادامه', disabled: '' });
-  const controls = h('div', { class: 'hearing-audio', 'aria-label': 'کنترل صدا' });
-  const stopBtn = h('button', { class: 'btn secondary', type: 'button', text: 'توقف' });
-  const replayBtn = h('button', { class: 'btn secondary', type: 'button', text: 'تکرار', disabled: '' });
-  const speedSelect = h('select', { 'aria-label': 'سرعت صدا' }, SPEED_OPTIONS.map(([v, t]) => h('option', { value: String(v), text: t })));
+  player.setRate(initialRate);
+  player.setVolume(initialVolume);
+
+  // ---- عناصر ----
+  const banner = h('p', { class: 'court-banner', role: 'status', 'aria-live': 'polite' });
+  const stageList = h('ol', { class: 'court-stages', 'aria-label': 'مراحل رسیدگی' });
+  const seats = h('div', { class: 'court-seats', 'aria-label': 'شرکت‌کنندگان جلسه' });
+  const log = h('ol', { class: 'court-log', 'aria-label': 'متن مذاکرات', 'aria-live': 'polite' });
+  const report = h('div', { class: 'court-report', role: 'region', 'aria-live': 'polite' });
+  const inputArea = h('div', { class: 'court-input' });
+  const answer = h('textarea', { rows: '3', maxlength: String(ANSWER_MAX), id: 'court-answer', 'aria-label': 'پاسخ شما در دادگاه', placeholder: 'پاسخ خود را بنویسید یا با میکروفون بگویید…' });
+  const micBtn = h('button', { class: 'court-mic', type: 'button', 'aria-label': 'ضبط صدا', text: '🎙 ضبط صدا' });
+  const submitBtn = h('button', { class: 'btn', type: 'button', text: 'ارسال پاسخ' });
+  const audioStatus = h('p', { class: 'court-audio-status', role: 'status', 'aria-live': 'polite', text: 'آماده' });
+  const nextBtn = h('button', { class: 'btn court-next', type: 'button', text: 'ادامه', disabled: '' });
+  const stopBtn = h('button', { class: 'btn secondary', type: 'button', text: '■ توقف', 'aria-label': 'توقف صدا' });
+  const replayBtn = h('button', { class: 'btn secondary', type: 'button', text: '↻ تکرار', 'aria-label': 'تکرار آخرین صدا', disabled: '' });
+  const speedSelect = h('select', { class: 'court-speed', 'aria-label': 'سرعت صدا' }, SPEED_OPTIONS.map(([v, t]) => h('option', { value: String(v), text: t })));
+  speedSelect.value = String(initialRate);
+  const volume = h('input', { type: 'range', min: '0', max: '1', step: '0.05', value: String(initialVolume), class: 'court-volume', 'aria-label': 'حجم صدا' });
   const speakToggle = h('input', { type: 'checkbox' });
   if (speechOn) speakToggle.checked = true;
-  speedSelect.value = String(initialRate);
-  player.setRate(initialRate);
-  const restartBtn = h('button', { class: 'btn secondary', type: 'button', text: 'جلسهٔ تازه' });
-  restartBtn.addEventListener('click', () => location.reload());
-  const report = h('div', { role: 'region', 'aria-live': 'polite' });
-  const audioStatus = h('p', { class: 'muted', role: 'status', 'aria-live': 'polite' });
   const micSupported = Boolean(navigator.mediaDevices?.getUserMedia) && typeof MediaRecorder !== 'undefined';
-  if (!micSupported) micBtn.disabled = true;
+  if (!micSupported) { micBtn.disabled = true; micBtn.textContent = '🎙 میکروفون در دسترس نیست'; }
+  const micIndicator = h('span', { class: 'court-mic-state', text: micSupported ? 'میکروفون آماده' : 'میکروفون ندارد' });
 
-  controls.append(stopBtn, replayBtn, speedSelect, h('label', {}, [speakToggle, document.createTextNode(' پخش صدای بازیگران')]));
-
-  function currentStep() { return script[index]; }
-  function userTurn() {
-    const s = currentStep();
-    return Boolean(s && s.speaker === userSide);
+  // تب‌ها
+  const tabTranscript = h('button', { class: 'court-tab', type: 'button', role: 'tab', 'aria-selected': 'true', text: 'مکالمه' });
+  const tabReport = h('button', { class: 'court-tab', type: 'button', role: 'tab', 'aria-selected': 'false', text: 'ارزیابی عملکرد' });
+  const tabList = h('div', { class: 'court-tabs', role: 'tablist', 'aria-label': 'بخش‌های جلسه' }, [tabTranscript, tabReport]);
+  const transcriptPanel = h('section', { class: 'court-panel', role: 'tabpanel' }, [log]);
+  const reportPanel = h('section', { class: 'court-panel', role: 'tabpanel', hidden: '' }, [report]);
+  function showTab(which) {
+    const isReport = which === 'report';
+    tabTranscript.setAttribute('aria-selected', String(!isReport));
+    tabReport.setAttribute('aria-selected', String(isReport));
+    transcriptPanel.hidden = isReport;
+    reportPanel.hidden = !isReport;
   }
+  tabTranscript.addEventListener('click', () => showTab('transcript'));
+  tabReport.addEventListener('click', () => showTab('report'));
 
-  function renderSteps() {
-    const states = stepStates(script.length, index);
-    stepList.replaceChildren(...script.map((s, i) => h('li', {
-      class: `hearing-step ${states[i]}`,
+  // ---- نمایش ----
+  function currentStep() { return script[index]; }
+  function userTurn() { const s = currentStep(); return Boolean(s && s.speaker === userSide); }
+  function currentGroup() { const s = currentStep(); return s ? s.group : 12; }
+
+  function renderStages() {
+    const cur = currentGroup();
+    const states = stepStates(GROUP_LABELS.length, cur - 1);
+    stageList.replaceChildren(...GROUP_LABELS.map((label, i) => h('li', {
+      class: `court-stage ${states[i]}`,
       ...(states[i] === 'current' ? { 'aria-current': 'step' } : {}),
     }, [
-      h('span', { class: 'num', 'aria-hidden': 'true', text: String(i + 1) }),
-      h('span', { text: s.label || SPEAKER_LABEL[s.speaker] || '' }),
+      h('span', { class: 'court-stage-num', 'aria-hidden': 'true', text: String(i + 1) }),
+      h('span', { text: label }),
     ])));
+  }
+
+  function seatCard(key, name, roleText) {
+    const speaking = activeSpeaker === key;
+    const isUser = key === userSide;
+    const status = isUser ? 'شما' : (speaking ? 'در حال صحبت' : 'منتظر');
+    return h('div', { class: `court-seat ${speaking ? 'speaking' : ''} ${isUser ? 'you' : ''}`, 'data-seat': key }, [
+      h('span', { class: 'court-avatar', 'aria-hidden': 'true', text: name.slice(0, 1) }),
+      h('strong', { text: roleText }),
+      h('small', { text: name }),
+      h('span', { class: 'court-pill', text: status }),
+    ]);
+  }
+
+  function renderSeats() {
+    seats.replaceChildren(
+      seatCard('judge', 'قاضی هوشمند', 'قاضی'),
+      h('div', { class: 'court-seat-row' }, [
+        seatCard('plaintiff', 'وکیل خواهان', 'وکیل خواهان'),
+        seatCard('defendant', 'وکیل خوانده', 'وکیل خوانده'),
+      ]),
+      seatCard('clerk', 'منشی دادگاه', 'منشی'),
+    );
   }
 
   function renderLog() {
-    log.replaceChildren(...history.map((m) => h('li', { class: `hearing-line ${m.speaker}` }, [
-      h('strong', { text: `${SPEAKER_LABEL[m.speaker] || 'شما'}: ` }),
-      h('span', { class: 'pre-wrap', text: m.text }),
-    ])));
+    log.replaceChildren(...history.map((m, i) => {
+      const playable = Boolean(m.blob);
+      return h('li', { class: `court-line ${m.speaker}` }, [
+        h('div', { class: 'court-line-head' }, [
+          h('strong', { text: `${SPEAKER_LABEL[m.speaker] || 'شما'}` }),
+          h('time', { text: m.at || '' }),
+          playable ? h('button', { class: 'court-line-play', type: 'button', 'aria-label': `پخش گفتهٔ ${SPEAKER_LABEL[m.speaker] || ''}`, text: '▶', 'data-index': String(i) }) : null,
+        ].filter(Boolean)),
+        h('p', { class: 'pre-wrap', text: m.text }),
+      ]);
+    }));
     log.lastElementChild?.scrollIntoView?.({ block: 'nearest' });
   }
 
@@ -140,11 +207,10 @@ export function hearingSession({ side, difficulty, speechOn, initialRate = 1 }) 
     inputArea.replaceChildren();
     if (!show) return;
     inputArea.append(
-      h('label', { class: 'visually-hidden', for: 'hearing-answer-input', text: 'پاسخ شما' }),
+      h('label', { class: 'visually-hidden', for: 'court-answer', text: 'پاسخ شما' }),
       answer,
-      h('div', { class: 'row' }, [micBtn, submitBtn]),
+      h('div', { class: 'court-input-row' }, [micBtn, micIndicator, submitBtn]),
     );
-    answer.id = 'hearing-answer-input';
     answer.disabled = busy;
     submitBtn.disabled = busy;
     micBtn.disabled = busy || !micSupported;
@@ -154,70 +220,87 @@ export function hearingSession({ side, difficulty, speechOn, initialRate = 1 }) 
 
   function setBusy(on) {
     busy = on;
-    nextBtn.disabled = on || !lastBlob && !lastText || userTurn() || finished;
-    submitBtn.disabled = on;
     replayBtn.disabled = on || !lastText;
+    nextBtn.disabled = on || userTurn() || finished;
+    submitBtn.disabled = on;
   }
 
-  async function speak(text, speaker) {
-    if (!speakToggle.checked) return;
+  // ---- صدا ----
+  async function speak(text, speaker, item) {
+    if (!speakToggle.checked) { audioStatus.textContent = 'پخش صدا خاموش است.'; return; }
     audioStatus.textContent = 'در حال تولید صدا…';
     const res = await postForBlob('/api/ai/speech', { text, voice: VOICE_FOR[speaker] || 'Kore' }, { timeoutMs: 40000 });
     if (!res.ok) {
       audioStatus.textContent = `${errorText(res.error)} متن را بخوانید و ادامه دهید.`;
       return;
     }
+    if (item) item.blob = res.blob;
     lastBlob = res.blob;
-    replayBtn.disabled = false;
+    activeSpeaker = speaker;
+    renderSeats();
     const played = await player.play(res.blob);
-    audioStatus.textContent = played.ok ? 'در حال پخش. می‌توانید با «توقف» قطع کنید.' : 'پخش خودکار در این مرورگر مجاز نیست. روی «تکرار» بزنید.';
+    if (played.ok) {
+      audioStatus.textContent = 'در حال پخش. با «توقف» قطع کنید.';
+    } else {
+      activeSpeaker = null;
+      renderSeats();
+      audioStatus.textContent = 'پخش خودکار در این مرورگر مجاز نیست. روی «تکرار» بزنید.';
+    }
+    renderLog();
   }
 
-  /** نوبت فعلی را اجرا می‌کند: منشی یا هوش مصنوعی خودکار، کاربر با ورودی خودش. */
+  // ---- گام‌ها ----
+  function addLine(speaker, text, fromUser = false) {
+    const item = { role: fromUser ? 'user' : 'ai', speaker, text, at: timeNow() };
+    history.push(item);
+    lastText = text;
+    lastSpeaker = speaker;
+    renderLog();
+    return item;
+  }
+
+  function refresh() {
+    renderStages();
+    renderSeats();
+  }
+
   async function runCurrent() {
-    renderSteps();
+    refresh();
     renderInput(false);
     const step = currentStep();
     if (!step) return finish();
     if (step.speaker === 'clerk') {
-      setBanner(`نوبت: ${SPEAKER_LABEL.clerk}`);
-      addLine('clerk', step.text);
-      await speak(step.text, 'clerk');
+      setBanner(`${SPEAKER_LABEL.clerk}: ${GROUP_LABELS[step.group - 1]}`);
+      const item = addLine('clerk', step.text);
+      await speak(step.text, 'clerk', item);
       setBusy(false);
       nextBtn.disabled = false;
       return;
     }
     if (userTurn()) {
-      setBanner(`نوبت شماست: ${SPEAKER_LABEL[step.speaker]} — ${step.label}`);
+      setBanner(`نوبت شماست — ${SPEAKER_LABEL[step.speaker]}: ${GROUP_LABELS[step.group - 1]}`);
       renderInput(true);
       setBusy(false);
       answer.focus?.();
       return;
     }
-    setBanner(`نوبت: ${SPEAKER_LABEL[step.speaker]} (در حال پاسخ…)`);
+    setBanner(`${SPEAKER_LABEL[step.speaker]} در حال پاسخ… (${GROUP_LABELS[step.group - 1]})`);
     setBusy(true);
     const res = await postJson('/api/ai/moot/turn', {
       caseId: CASE_ID, role: step.speaker, stage: step.stage, difficulty, history: historyForApi(history),
     }, { timeoutMs: 45000 });
     if (!res.ok || !res.data?.reply) {
-      setBanner(errorText(res.data?.error || (res.networkError ? 'NETWORK' : 'AI_UNAVAILABLE')) + ' برای ادامه دوباره تلاش کنید.');
+      setBanner(`${errorText(res.data?.error || (res.networkError ? 'NETWORK' : 'AI_UNAVAILABLE'))} برای ادامه دوباره تلاش کنید.`);
       setBusy(false);
       nextBtn.disabled = false;
       nextBtn.textContent = 'تلاش دوباره';
       return;
     }
     nextBtn.textContent = 'ادامه';
-    addLine(step.speaker, res.data.reply);
-    await speak(res.data.reply, step.speaker);
+    const item = addLine(step.speaker, res.data.reply);
+    await speak(res.data.reply, step.speaker, item);
     setBusy(false);
     nextBtn.disabled = false;
-  }
-
-  function addLine(speaker, text, fromUser = false) {
-    history.push({ role: fromUser ? 'user' : 'ai', speaker, text });
-    lastText = text;
-    lastSpeaker = speaker;
-    renderLog();
   }
 
   function advance() {
@@ -226,13 +309,54 @@ export function hearingSession({ side, difficulty, speechOn, initialRate = 1 }) 
     runCurrent();
   }
 
+  async function finish() {
+    finished = true;
+    setBanner('ختم رسیدگی و جمع‌بندی آموزشی انجام شد. گزارش ارزیابی آماده می‌شود.');
+    refresh();
+    renderInput(false);
+    setBusy(true);
+    showTab('report');
+    const userLines = history.filter((m) => m.speaker === userSide).length;
+    if (userLines < 1) {
+      report.replaceChildren(notice('هنوز پاسخی از طرف شما ثبت نشده است؛ گزارش ساخته نشد.'));
+      setBusy(false);
+      return;
+    }
+    report.replaceChildren(h('p', { class: 'muted', text: 'گزارش در حال ساختن است…' }));
+    const res = await postJson('/api/ai/moot/evaluate', { caseId: CASE_ID, history: historyForApi(history) }, { timeoutMs: 60000 });
+    if (!res.ok || !res.data?.report) {
+      report.replaceChildren(notice(`${errorText(res.data?.error || (res.networkError ? 'NETWORK' : 'AI_UNAVAILABLE'))} گزارش ساخته نشد.`));
+      setBusy(false);
+      return;
+    }
+    const r = res.data.report;
+    const list = (title, items) => (Array.isArray(items) && items.length
+      ? [h('h4', { text: title }), h('ul', {}, items.map((x) => h('li', { text: String(x) })))]
+      : []);
+    report.replaceChildren(
+      h('h3', { text: `گزارش ارزیابی آموزشی — نمرهٔ کلی ${Number.isFinite(r.overallScore) ? r.overallScore : '—'} از ۱۰۰` }),
+      ...list('نقاط قوت دفاع', r.strengths),
+      ...list('ضعف‌های استدلالی', r.weaknesses),
+      ...list('ایرادهای حقوقی یا شکلی احتمالی', r.legalOrProcedural),
+      ...list('پرسش‌های بی‌پاسخ', r.unanswered),
+      h('p', { text: `کیفیت پاسخ‌ها: ${r.answerQuality || '—'}` }),
+      h('p', { text: `تناسب استنادها: ${r.citationFit || '—'}` }),
+      h('p', {}, [h('strong', { text: 'تمرین بعدی: ' }), document.createTextNode(r.nextPractice || '—')]),
+      h('p', { class: 'muted', text: res.data.disclaimer || '' }),
+    );
+    setBanner('گزارش ارزیابی آماده است.');
+    setBusy(false);
+  }
+
+  // ---- رویدادها ----
   nextBtn.addEventListener('click', () => {
     if (nextBtn.textContent === 'تلاش دوباره') { nextBtn.textContent = 'ادامه'; runCurrent(); return; }
     player.stop();
+    activeSpeaker = null;
     advance();
   });
 
-  submitBtn.addEventListener('click', async () => {
+  submitBtn.addEventListener('click', () => {
     const v = validAnswer(answer.value);
     if (!v.ok) { audioStatus.textContent = v.error; return; }
     player.unlock();
@@ -241,6 +365,16 @@ export function hearingSession({ side, difficulty, speechOn, initialRate = 1 }) 
     answer.value = '';
     renderInput(false);
     advance();
+  });
+
+  log.addEventListener('click', async (event) => {
+    const btn = event.target.closest?.('.court-line-play');
+    if (!btn) return;
+    const item = history[Number(btn.dataset.index)];
+    if (!item?.blob) return;
+    player.unlock();
+    const played = await player.play(item.blob);
+    audioStatus.textContent = played.ok ? 'در حال پخش…' : 'پخش شروع نشد؛ دوباره بزنید.';
   });
 
   replayBtn.addEventListener('click', async () => {
@@ -253,8 +387,9 @@ export function hearingSession({ side, difficulty, speechOn, initialRate = 1 }) 
     if (lastText && lastSpeaker) await speak(lastText, lastSpeaker);
   });
 
-  stopBtn.addEventListener('click', () => { player.stop(); audioStatus.textContent = 'صدا متوقف شد.'; });
+  stopBtn.addEventListener('click', () => { player.stop(); activeSpeaker = null; renderSeats(); audioStatus.textContent = 'صدا متوقف شد.'; });
   speedSelect.addEventListener('change', () => { player.setRate(Number(speedSelect.value)); });
+  volume.addEventListener('input', () => { player.setVolume(Number(volume.value)); });
 
   // ضبط: سقف زمانی دارد؛ متن تشخیص‌داده‌شده در کادر می‌آید تا پیش از ارسال اصلاح شود.
   micBtn.addEventListener('click', async () => {
@@ -277,7 +412,9 @@ export function hearingSession({ side, difficulty, speechOn, initialRate = 1 }) 
       stream.getTracks().forEach((t) => t.stop());
       const type = baseMime(recorder?.mimeType || mime || 'audio/webm');
       recorder = null;
-      micBtn.textContent = 'ضبط با میکروفون';
+      micBtn.textContent = '🎙 ضبط صدا';
+      micBtn.classList.remove('recording');
+      micIndicator.textContent = 'میکروفون آماده';
       const blob = new Blob(chunks, { type });
       if (blob.size === 0) { audioStatus.textContent = 'صدایی ضبط نشد.'; return; }
       if (blob.size > 2 * 1024 * 1024) { audioStatus.textContent = 'ضبط بیش از حد بزرگ است؛ کوتاه‌تر ضبط کنید.'; return; }
@@ -286,70 +423,60 @@ export function hearingSession({ side, difficulty, speechOn, initialRate = 1 }) 
       const res = await postJson('/api/ai/transcribe', { mimeType: type, data }, { timeoutMs: 60000 });
       if (res.ok && res.data?.text) {
         answer.value = [answer.value.trim(), res.data.text.trim()].filter(Boolean).join(' ').slice(0, ANSWER_MAX);
-        audioStatus.textContent = 'متن ضبط‌شده در کادر آمد. بررسی کنید و سپس ثبت کنید.';
+        audioStatus.textContent = 'متن ضبط‌شده در کادر آمد. بررسی کنید و سپس ارسال کنید.';
       } else {
         audioStatus.textContent = `${errorText(res.data?.error || 'AI_UNAVAILABLE')} می‌توانید پاسخ را بنویسید.`;
       }
     };
     recorder.start();
-    micBtn.textContent = 'توقف ضبط';
-    audioStatus.textContent = 'در حال ضبط… (حداکثر ۹۰ ثانیه)';
+    micBtn.textContent = '■ توقف ضبط';
+    micBtn.classList.add('recording');
+    micIndicator.textContent = 'در حال ضبط… (حداکثر ۹۰ ثانیه)';
     recordTimer = setTimeout(() => recorder && recorder.stop(), MAX_RECORD_MS);
   });
 
-  async function finish() {
-    finished = true;
-    setBanner('ختم رسیدگی. گزارش ارزیابی آماده می‌شود.');
-    renderSteps();
-    renderInput(false);
-    setBusy(true);
-    const userLines = history.filter((m) => m.speaker === userSide).length;
-    if (userLines < 1) {
-      report.replaceChildren(notice('هنوز پاسخی از طرف شما ثبت نشده است؛ گزارش ساخته نشد.'));
-      setBusy(false);
-      return;
-    }
-    const res = await postJson('/api/ai/moot/evaluate', { caseId: CASE_ID, history: historyForApi(history) }, { timeoutMs: 60000 });
-    if (!res.ok || !res.data?.report) {
-      report.replaceChildren(notice(`${errorText(res.data?.error || (res.networkError ? 'NETWORK' : 'AI_UNAVAILABLE'))} گزارش ساخته نشد.`));
-      setBusy(false);
-      return;
-    }
-    const r = res.data.report;
-    const list = (title, items) => (Array.isArray(items) && items.length
-      ? [h('h4', { text: title }), h('ul', {}, items.map((x) => h('li', { text: String(x) })))]
-      : []);
-    report.replaceChildren(
-      h('h3', { text: `گزارش ارزیابی آموزشی — نمرهٔ کلی ${Number.isFinite(r.overallScore) ? r.overallScore : '—'} از ۱۰۰` }),
-      ...list('نقاط قوت دفاع', r.strengths),
-      ...list('ضعف‌های استدلالی', r.weaknesses),
-      ...list('ایرادهای حقوقی یا شکلی احتمالی', r.legalOrProcedural),
-      ...list('پرسش‌های بی‌پاسخ', r.unanswered),
-      h('p', { text: `کیفیت پاسخ‌ها: ${r.answerQuality || '—'}` }),
-      h('p', { text: `تناسب استنادها: ${r.citationFit || '—'}` }),
-      h('p', {}, [h('strong', { text: 'تمرین بعدی: ' }), document.createTextNode(r.nextPractice || '—')]),
-      h('p', { class: 'muted', text: res.data.disclaimer || '' }),
-    );
-    setBanner('گزارش آماده است.');
-    setBusy(false);
-  }
-
-  renderSteps();
-  // شروع خودکار: اولین نوبت منشی.
+  // ---- شروع ----
+  renderStages();
+  renderSeats();
   runCurrent();
 
-  return h('div', { class: 'hearing' }, [
-    h('p', { class: 'hearing-role muted', text: `شما: ${SIDE_OPTIONS.find(([v]) => v === userSide)?.[1] || ''} — سطح: ${DIFFICULTY_OPTIONS.find(([v]) => v === difficulty)?.[1] || ''}` }),
-    banner,
-    stepList,
-    log,
-    audioStatus,
-    controls,
-    inputArea,
-    h('div', { class: 'row' }, [nextBtn]),
-    report,
-    h('div', { class: 'row' }, [restartBtn]),
-    h('p', { class: 'muted', text: 'این جلسهٔ آموزشی است و جایگزین مشاورهٔ حقوقی نیست.' }),
+  const caseCard = h('section', { class: 'court-side-card', 'aria-labelledby': 'court-case-title' }, [
+    h('h2', { id: 'court-case-title', text: 'اطلاعات پرونده' }),
+    h('p', { class: 'court-case-name', text: caseTitle }),
+    h('dl', { class: 'court-facts' }, [
+      h('dt', { text: 'موضوع دعوا' }), h('dd', { text: CASE_SUBJECT }),
+      h('dt', { text: 'خواهان' }), h('dd', { text: PARTIES.plaintiff }),
+      h('dt', { text: 'خوانده' }), h('dd', { text: PARTIES.defendant }),
+    ]),
+    h('p', { class: 'muted court-note', text: 'اطلاعات این پرونده از پروندهٔ آموزشی ثابت برنامه است، نه از پایگاه داده.' }),
+  ]);
+  const stageCard = h('section', { class: 'court-side-card', 'aria-label': 'مراحل رسیدگی' }, [h('h2', { text: 'مراحل رسیدگی' }), stageList]);
+  const userCard = h('section', { class: 'court-side-card', 'aria-label': 'نقش شما' }, [
+    h('h2', { text: 'نقش شما' }),
+    h('p', { text: `${userName ? `${userName} — ` : ''}${SIDE_OPTIONS.find(([v]) => v === userSide)?.[1] || ''}` }),
+    h('p', { class: 'muted', text: `سطح: ${DIFFICULTY_OPTIONS.find(([v]) => v === difficulty)?.[1] || ''}` }),
+  ]);
+  showTab('transcript');
+
+  return h('div', { class: 'court' }, [
+    h('aside', { class: 'court-side' }, [caseCard, stageCard, userCard]),
+    h('div', { class: 'court-main' }, [
+      banner,
+      seats,
+      tabList,
+      transcriptPanel,
+      reportPanel,
+      inputArea,
+    ]),
+    h('footer', { class: 'court-audio', 'aria-label': 'کنترل صدا' }, [
+      h('div', { class: 'court-audio-info' }, [h('span', { class: 'court-audio-label', text: 'وضعیت صدا' }), audioStatus, micIndicator]),
+      h('div', { class: 'court-audio-controls' }, [
+        replayBtn, stopBtn, speedSelect,
+        h('label', { class: 'court-volume-wrap' }, [h('span', { text: 'حجم' }), volume]),
+        h('label', { class: 'court-toggle' }, [speakToggle, document.createTextNode(' پخش خودکار')]),
+        nextBtn,
+      ]),
+    ]),
   ]);
 }
 
@@ -361,10 +488,10 @@ export function hearingSetup(onStart) {
   const speech = h('input', { type: 'checkbox', checked: '' });
   const speed = h('select', { 'aria-label': 'سرعت پیش‌فرض صدا' }, SPEED_OPTIONS.map(([v, t]) => h('option', { value: String(v), text: t })));
   speed.value = '1';
-  const start = h('button', { class: 'btn', type: 'button', text: 'ورود به جلسه' });
+  const start = h('button', { class: 'btn', type: 'button', text: 'ورود به اتاق دادگاه' });
   start.addEventListener('click', () => onStart({ side: side.value, difficulty: diff.value, speechOn: speech.checked, initialRate: Number(speed.value) }));
   return h('div', { class: 'hearing-setup' }, [
-    h('p', { text: 'شما یکی از دو طرف دعوا را بازی می‌کنید. منشی و قاضی و طرف مقابل توسط هوش مصنوعی اجرا می‌شوند.' }),
+    h('p', { text: 'شما یکی از دو طرف دعوا را بازی می‌کنید. منشی، قاضی و طرف مقابل توسط هوش مصنوعی اجرا می‌شوند.' }),
     h('label', {}, [document.createTextNode('طرف شما: '), side]),
     h('label', {}, [document.createTextNode('سطح: '), diff]),
     h('label', {}, [speech, document.createTextNode(' پخش صدای بازیگران')]),
@@ -373,28 +500,55 @@ export function hearingSetup(onStart) {
   ]);
 }
 
-/** بخش دفاع شفاهی صفحهٔ موت‌کورت. */
+/** صفحهٔ کامل اتاق دادگاه. */
+export function courtRoomPage() {
+  const body = h('div', { class: 'court-page' });
+  const topbar = h('header', { class: 'court-topbar' }, [
+    h('a', { class: 'court-back', href: '#/academy', text: '→ بازگشت به آکادمی' }),
+    h('div', { class: 'court-title' }, [h('strong', { text: 'موت‌کورت هوشمند' }), h('small', { text: 'اتاق دادگاه · پروندهٔ آموزشی' })]),
+    h('span', { class: 'court-ai-state', id: 'court-ai-state', text: 'بررسی سرویس…' }),
+  ]);
+  body.append(topbar, h('p', { class: 'muted', role: 'status', text: 'در حال بررسی امکان ورود به جلسه…' }));
+  (async () => {
+    const [me, status] = await Promise.all([getJson('/api/me'), aiStatus()]);
+    const userName = me.ok ? (me.data?.user?.displayName || me.data?.user?.email || '') : '';
+    const aiState = body.querySelector('#court-ai-state');
+    if (aiState) aiState.textContent = status.configured ? 'هوش مصنوعی: متصل' : 'هوش مصنوعی: غیرفعال';
+    const children = [];
+    if (!me.ok) {
+      children.push(notice('برای ورود به اتاق دادگاه ابتدا وارد حساب خود شوید.'));
+      children.push(h('p', {}, [h('a', { href: '#/account', text: 'ورود یا ثبت‌نام' })]));
+    } else if (!status.configured) {
+      children.push(notice('سرویس هوش مصنوعی هنوز روی سرور فعال نشده است. اتاق دادگاه در دسترس نیست.'));
+      children.push(h('p', {}, [h('a', { href: '#/moot-court', text: 'بازگشت به موت‌کورت' })]));
+    } else {
+      const holder = h('div', { class: 'court-holder' });
+      holder.append(hearingSetup((opts) => { holder.classList.add('in-session'); holder.replaceChildren(hearingSession({ ...opts, userName })); }));
+      children.push(holder);
+    }
+    body.replaceChildren(topbar, ...children);
+  })();
+  return body;
+}
+
+/** بخش دفاع شفاهی صفحهٔ موت‌کورت: ورود به اتاق دادگاه یا حالت آموزشی قاعده‌محور. */
 export function oralDefenseSection() {
   const box = h('div', { class: 'oral-defense-wrap' }, [h('p', { class: 'muted', text: 'در حال بررسی امکان جلسهٔ دادگاه…' })]);
   (async () => {
     const [status, me] = await Promise.all([aiStatus(), getJson('/api/me')]);
     const children = [h('h2', { text: 'جلسهٔ شبیه‌سازی دادگاه' })];
-    if (!me.ok) {
-      children.push(notice('برای جلسهٔ دادگاه با هوش مصنوعی ابتدا وارد حساب خود شوید. تا آن زمان حالت آموزشی قاعده‌محور در دسترس است.'));
-      box.replaceChildren(...children, oralDefensePanel());
+    if (me.ok && status.configured) {
+      children.push(
+        h('p', { class: 'muted', text: 'در اتاق دادگاه، قاضی و وکیل طرف مقابل و منشی با صدا با شما گفت‌وگو می‌کنند.' }),
+        h('p', {}, [h('a', { class: 'btn', href: '#/moot-court/hearing', text: 'ورود به اتاق دادگاه' })]),
+      );
+      box.replaceChildren(...children);
       return;
     }
-    if (!status.configured) {
-      children.push(notice('سرویس هوش مصنوعی هنوز روی سرور فعال نشده است؛ حالت آموزشی قاعده‌محور در دسترس است.'));
-      box.replaceChildren(...children, oralDefensePanel());
-      return;
-    }
-    children.push(h('p', { class: 'muted', text: 'پرسش‌ها و پاسخ‌ها بر اساس گفت‌وگوی شما ساخته می‌شوند. فایل صوتی شما فقط برای تبدیل به متن فرستاده می‌شود و صدای بازیگران در مرورگر پخش می‌شود.' }));
-    const body = h('div', {});
-    const showSetup = () => body.replaceChildren(hearingSetup((opts) => body.replaceChildren(hearingSession(opts))));
-    showSetup();
-    children.push(body);
-    box.replaceChildren(...children);
+    children.push(notice(me.ok
+      ? 'سرویس هوش مصنوعی هنوز روی سرور فعال نشده است؛ حالت آموزشی قاعده‌محور در دسترس است.'
+      : 'برای جلسهٔ دادگاه با هوش مصنوعی ابتدا وارد حساب خود شوید. تا آن زمان حالت آموزشی قاعده‌محور در دسترس است.'));
+    box.replaceChildren(...children, oralDefensePanel());
   })();
   return box;
 }
