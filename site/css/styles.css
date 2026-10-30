@@ -1035,3 +1035,12 @@ h1, h2, h3 { color: var(--teal-dark); }
 .calendar-note { font-size: .82rem; margin: 0; }
 .calendar-card .cal-today-btn { justify-self: center; width: auto; min-width: 120px; }
 .calendar-table th { letter-spacing: 0; }
+
+/* موت‌کورت با هوش مصنوعی و دستیار وکیل */
+.oral-log, .assistant-log { list-style: none; padding: 0; margin: 0 0 .75rem; display: grid; gap: .5rem; max-height: 360px; overflow-y: auto; }
+.oral-log li, .assistant-log li { padding: .6rem .75rem; border-radius: 12px; background: #f1ede2; border: 1px solid var(--sand-line); }
+.oral-log .oral-user, .assistant-log .assistant-user { background: var(--paper); }
+.pre-wrap { white-space: pre-wrap; }
+.assistant-output { display: grid; gap: .6rem; margin-top: 1rem; }
+.assistant-output textarea, .oral-ai textarea, .assistant-workspace textarea { width: 100%; }
+.oral-ai .row, .assistant-workspace .row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }

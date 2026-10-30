@@ -10,6 +10,7 @@ import { handleCases } from './cases/routes.js';
 import { handleDashboard } from './dashboard.js';
 import { handleAdmin } from './admin.js';
 import { handleAdminMedia } from './admin-media.js';
+import { handleAi } from './ai/routes.js';
 
 // برای سازگاری با تست‌های قبلی، json را از اینجا هم صادر می‌کنیم.
 export { json };
@@ -104,6 +105,11 @@ export default {
 
     if (path.startsWith('/api/media/')) {
       const res = await handleMedia(request, env, path);
+      if (res) return res;
+    }
+
+    if (path === '/api/ai/status' || path.startsWith('/api/ai/')) {
+      const res = await handleAi(request, env, path);
       if (res) return res;
     }
 

@@ -18,3 +18,9 @@ migrations_dir = "migrations"
 # ثبت لاگ‌های خطای ارسال ایمیل (وضعیت HTTP و کد دلیل Google؛ بدون توکن یا Secret) در Workers Logs.
 [observability]
 enabled = true
+
+# شناسه‌های مدل Gemini (غیرمحرمانه). کلید API هرگز در این فایل نیست؛
+# کلید را با `wrangler secret put GEMINI_API_KEY` یا از داشبورد Workers (Secrets) تنظیم کنید.
+[vars]
+GEMINI_TEXT_MODEL = "gemini-2.5-flash"
+GEMINI_TTS_MODEL = "gemini-3.8-flash-tts"
