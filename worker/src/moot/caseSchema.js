@@ -27,6 +27,26 @@ export const AREAS = Object.freeze([
 export const DIFFICULTIES = Object.freeze(['basic', 'medium', 'advanced']);
 export const STATUSES = Object.freeze(['draft', 'review', 'published', 'retired']);
 
+
+// وضعیت‌های استناد: تأییدشده، نیازمند بررسی، اصلاح‌شده.
+export const REF_STATUSES = Object.freeze(['verified', 'needs_review', 'corrected']);
+const PUBLISHABLE_REF = Object.freeze(['verified', 'corrected']);
+
+/**
+ * استناد تأییدشده باید شماره ماده و منبع بررسی داشته باشد؛ اصلاح‌شده باید یادداشت اصلاح داشته باشد.
+ * نیازمند بررسی فقط نام قانون و موضوع لازم دارد (شماره ماده تا تأیید متن نباید ثبت شود).
+ */
+export function validRef(r) {
+  if (!r || typeof r !== 'object') return false;
+  if (!text(r.law, 3, 160) || !text(r.topic, 3, 300)) return false;
+  if (!REF_STATUSES.includes(r.status)) return false;
+  const hasArticle = r.article === null || r.article === undefined || text(r.article, 1, 40);
+  if (!hasArticle) return false;
+  if (r.status === 'verified') return text(r.article, 1, 40) && text(r.source, 3, 300);
+  if (r.status === 'corrected') return text(r.article, 1, 40) && text(r.source, 3, 300) && text(r.note, 5, 600);
+  return r.article === null || r.article === undefined || text(r.article, 1, 40);
+}
+
 const text = (v, min, max) => typeof v === 'string' && v.trim().length >= min && v.trim().length <= max;
 const list = (v, min, itemCheck) => Array.isArray(v) && v.length >= min && v.every(itemCheck);
 
@@ -50,7 +70,7 @@ export function validateCase(c, { status = c?.status || 'draft' } = {}) {
   need(list(c.documents, 1, (d) => d && text(d.title, 3, 160) && text(d.summary, 10, 600)), 'مستندات: حداقل یک سند با عنوان و خلاصه.');
   need(list(c.issues, 2, (i) => text(i, 5, 300)), 'مسائل حقوقی: حداقل ۲ مورد.');
   need(c.claims && text(c.claims.plaintiff, 10, 1000) && text(c.claims.defendant, 10, 1000), 'ادعا و دفاع اولیهٔ هر طرف لازم است.');
-  need(list(c.legal_refs, 1, (r) => r && text(r.text, 3, 300) && text(r.source, 3, 300) && typeof r.verified === 'boolean'), 'مواد قانونی: حداقل یک ماده با منبع و وضعیت تأیید.');
+  need(list(c.legal_refs, 1, (r) => validRef(r)), 'مستندات حقوقی: حداقل یک استناد با قانون، موضوع و وضعیت معتبر.');
   need(list(c.judge_questions, 3, (q) => text(q, 5, 300)), 'پرسش‌های قاضی: حداقل ۳ مورد.');
   need(c.strengths_weaknesses && ['plaintiff', 'defendant'].every((k) => {
     const s = c.strengths_weaknesses[k];
@@ -58,10 +78,11 @@ export function validateCase(c, { status = c?.status || 'draft' } = {}) {
   }), 'نقاط قوت و ضعف هر طرف لازم است.');
   need(list(c.defense_scenarios, 2, (d) => d && text(d.trigger, 5, 300) && text(d.response, 10, 600)), 'سناریوهای دفاع و پاسخ متقابل: حداقل ۲ مورد.');
   need(c.verdict && text(c.verdict.outcome, 10, 600) && text(c.verdict.reasoning, 30, 2000), 'رأی آموزشی پیشنهادی با استدلال لازم است.');
+  need(list(c.evaluation_focus, 3, (x) => text(x, 5, 200)), 'چارچوب ارزیابی: حداقل ۳ محور ارزیابی مرتبط با پرونده.');
 
   if (status === 'published') {
-    const unverified = (c.legal_refs || []).filter((r) => r && r.verified !== true);
-    need(unverified.length === 0, `پرونده منتشرشده نمی‌تواند استناد تأییدنشده داشته باشد (${unverified.length} مورد).`);
+    const open = (c.legal_refs || []).filter((r) => r && !PUBLISHABLE_REF.includes(r.status));
+    need(open.length === 0, `پرونده منتشرشده نمی‌تواند استناد بررسی‌نشده داشته باشد (${open.length} مورد).`);
   }
   return errors.length ? { ok: false, errors } : { ok: true };
 }

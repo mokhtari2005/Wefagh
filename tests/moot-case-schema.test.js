@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateCase, AREAS, DIFFICULTIES } from '../worker/src/moot/caseSchema.js';
+import { validateCase, validRef, AREAS, DIFFICULTIES } from '../worker/src/moot/caseSchema.js';
 
 function sample(overrides = {}) {
   return {
@@ -15,7 +15,7 @@ function sample(overrides = {}) {
     documents: [{ title: 'قرارداد خرید', summary: 'متن قرارداد با تاریخ تحویل.' }],
     issues: ['آیا تأخیر محرز است؟', 'آیا فسخ جزئی ممکن است؟'],
     claims: { plaintiff: 'تأخیر محرز و خسارت قابل مطالبه است.', defendant: 'تأخیر به دلیل تأخیر در تأمین مواد بوده است.' },
-    legal_refs: [{ text: 'ماده ۲۱۹ قانون مدنی', source: 'قانون مدنی، ماده ۲۱۹', verified: true }],
+    legal_refs: [{ law: 'قانون مدنی', topic: 'لزوم انجام تعهد و زمان تحویل', article: '۲۱۹', source: 'متن رسمی قانون مدنی', status: 'verified' }],
     judge_questions: ['تاریخ دقیق تحویل چه بود؟', 'آیا خریدار اخطار داده است؟', 'مدرک تأمین مواد کجاست؟'],
     strengths_weaknesses: {
       plaintiff: { strengths: ['قرارداد مکتوب'], weaknesses: ['اخطار رسمی ارائه نشده'] },
@@ -25,6 +25,7 @@ function sample(overrides = {}) {
       { trigger: 'ادعای تأخیر ناشی از تأمین مواد', response: 'مدرک تأمین مواد باید ارائه شود.' },
       { trigger: 'ادعای قوه قاهره', response: 'قوه قاهره باید اثبات شود و اخطار داده شود.' },
     ],
+    evaluation_focus: ['استناد به قرارداد', 'پاسخ به پرسش‌های قاضی', 'مدیریت بار اثبات'],
     verdict: { outcome: 'تأخیر محرز؛ خسارت تأخیر قابل مطالبه.', reasoning: 'قرارداد تاریخ تحویل را معین کرده و فروشنده مدرک معذوریت ارائه نکرده است.' },
     ...overrides,
   };
@@ -40,7 +41,7 @@ test('areas and difficulties match the spec', () => {
 });
 
 test('missing required sections are reported', () => {
-  for (const key of ['facts', 'issues', 'judge_questions', 'defense_scenarios', 'verdict', 'legal_refs', 'documents']) {
+  for (const key of ['facts', 'issues', 'judge_questions', 'defense_scenarios', 'verdict', 'legal_refs', 'documents', 'evaluation_focus']) {
     const c = sample();
     delete c[key];
     const r = validateCase(c);
@@ -58,12 +59,24 @@ test('ids must be lowercase latin slugs', () => {
   assert.equal(validateCase(sample({ id: 'Sale_01' })).ok, false);
 });
 
-test('published case must have only verified citations', () => {
-  const c = sample({ legal_refs: [{ text: 'ماده ۱', source: 'منبع', verified: false }] });
-  assert.equal(validateCase(c).ok, true, 'draft may carry unverified citations');
+test('draft may carry unreviewed citations, published may not', () => {
+  const c = sample({ legal_refs: [{ law: 'قانون مدنی', topic: 'خیار تأخیر', article: null, status: 'needs_review' }] });
+  assert.equal(validateCase(c).ok, true, 'draft with needs_review is allowed');
   const pub = validateCase(c, { status: 'published' });
   assert.equal(pub.ok, false);
-  assert.match(pub.errors.join(' '), /استناد تأییدنشده/);
+  assert.match(pub.errors.join(' '), /استناد بررسی‌نشده/);
+});
+
+test('verified citation needs article and source; corrected needs note', () => {
+  assert.equal(validRef({ law: 'قانون مدنی', topic: 'موضوع', article: null, status: 'verified' }), false);
+  assert.equal(validRef({ law: 'قانون مدنی', topic: 'موضوع', article: '۱', status: 'verified' }), false);
+  assert.equal(validRef({ law: 'قانون مدنی', topic: 'موضوع', article: '۱', source: 'متن رسمی', status: 'verified' }), true);
+  assert.equal(validRef({ law: 'قانون مدنی', topic: 'موضوع', article: '۱', source: 'متن رسمی', status: 'corrected' }), false);
+  assert.equal(validRef({ law: 'قانون مدنی', topic: 'موضوع', article: '۱', source: 'متن رسمی', note: 'اصلاح شماره ماده', status: 'corrected' }), true);
+});
+
+test('unknown citation status is rejected', () => {
+  assert.equal(validRef({ law: 'قانون مدنی', topic: 'موضوع', article: null, status: 'maybe' }), false);
 });
 
 test('verdict must be substantive', () => {
