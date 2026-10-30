@@ -1,36 +1,12 @@
 // بانک پرونده‌های آموزشی و ذخیرهٔ خصوصی تمرین موت‌کورت.
 import { json, readJsonBody } from '../http.js';
 import { currentUser } from '../auth/routes.js';
-import { caseSummaries, findCase } from './catalog.js';
+import { listPublishedCases, getPublishedCase, publicCase, SLUG_RE } from '../moot/caseStore.js';
 
 const ID_RE = /^[a-z0-9-]{1,64}$/;
 const STAGES = new Set(['facts', 'answers', 'check', 'result']);
 const RUBRIC_MAX = 20;
 const ANSWERS_MAX = 12000;
-
-async function publishedCase(env, slug) {
-  if (!env.DB) return null;
-  try {
-    const row = await env.DB.prepare("SELECT slug, title, summary, payload_json FROM admin_content WHERE kind = 'case' AND status = 'published' AND slug = ?1").bind(slug).first();
-    if (!row) return null;
-    return { ...JSON.parse(row.payload_json), id: row.slug, title: row.title, summary: row.summary };
-  } catch { return null; }
-}
-
-async function publishedCaseSummaries(env) {
-  if (!env.DB) return [];
-  let result;
-  try {
-    result = await env.DB.prepare("SELECT slug, title, summary, payload_json FROM admin_content WHERE kind = 'case' AND status = 'published' ORDER BY title LIMIT 200").all();
-  } catch (error) {
-    // جدول محتوای مدیریت در این دیتابیس هنوز نیست: پرونده‌های داخلی همچنان نمایش داده می‌شوند.
-    console.error('managed case content unavailable', String(error?.message || error).slice(0, 120));
-    return [];
-  }
-  return (result?.results || []).flatMap((row) => {
-    try { const p = JSON.parse(row.payload_json); return [{ id: row.slug, title: row.title, summary: row.summary, area: p.area, level: p.level, issueCount: p.issues.length }]; } catch { return []; }
-  });
-}
 
 function parseStored(value, fallback) {
   try { return JSON.parse(value); } catch { return fallback; }
@@ -46,7 +22,7 @@ async function validateSession(body, env, { partial = false } = {}) {
   const errors = {};
   const value = {};
   if (!partial || body.caseId !== undefined) {
-    if (typeof body.caseId !== 'string' || !ID_RE.test(body.caseId) || !(findCase(body.caseId) || await publishedCase(env, body.caseId))) errors.caseId = 'پروندهٔ آموزشی معتبر نیست یا منتشر نشده است.';
+    if (typeof body.caseId !== 'string' || !ID_RE.test(body.caseId) || !(await getPublishedCase(env, body.caseId))) errors.caseId = 'پروندهٔ آموزشی معتبر نیست یا منتشر نشده است.';
     else value.caseId = body.caseId;
   }
   if (!partial || body.title !== undefined) {
@@ -78,15 +54,15 @@ export async function handleCases(request, env, path) {
     if (request.method !== 'GET') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'GET' });
     const url = new URL(request.url);
     const area = url.searchParams.get('area');
-    const managed = await publishedCaseSummaries(env);
-    const cases = [...caseSummaries(), ...managed].filter((item) => !area || item.area === area);
+    const cases = await listPublishedCases(env, { area });
     return json({ ok: true, cases, total: cases.length });
   }
   const detail = path.match(/^\/api\/cases\/([a-z0-9-]{1,64})$/);
   if (detail) {
     if (request.method !== 'GET') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'GET' });
-    const item = findCase(detail[1]) || await publishedCase(env, detail[1]);
-    return item ? json({ ok: true, case: item }) : json({ ok: false, error: 'NOT_FOUND' }, 404);
+    if (!SLUG_RE.test(detail[1])) return json({ ok: false, error: 'NOT_FOUND' }, 404);
+    const item = await getPublishedCase(env, detail[1]);
+    return item ? json({ ok: true, case: publicCase(item) }) : json({ ok: false, error: 'NOT_FOUND' }, 404);
   }
   if (!path.startsWith('/api/moot/sessions')) return null;
   if (!env.DB) return json({ ok: false, error: 'DB_NOT_CONFIGURED' }, 503);

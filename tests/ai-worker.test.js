@@ -2,8 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../worker/src/index.js';
 import { AiError, extractText, generateText, synthesizeSpeech, aiConfigured, modelIds } from '../worker/src/ai/gemini.js';
-import { cleanHistory, rateLimited, LIMITS } from '../worker/src/ai/routes.js';
-import { MOOT_CASES, mootSystemPrompt, assistantSystemPrompt, LEGAL_DISCLAIMER } from '../worker/src/ai/prompts.js';
+import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES } from '../worker/src/ai/routes.js';
+import { mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt, LEGAL_DISCLAIMER } from '../worker/src/ai/prompts.js';
+import batch01 from '../worker/src/moot/bank/batch-01.js';
+
+// پروندهٔ نمونه از بانک (پیش‌نویس)؛ فقط برای آزمون ساخت دستور سیستمی از داده‌های پرونده.
+const SAMPLE_CASE = batch01[0];
+const SAMPLE_ROW = { slug: SAMPLE_CASE.id, title: SAMPLE_CASE.title, summary: SAMPLE_CASE.subject.padEnd(12, '.').slice(0, 300), payload_json: JSON.stringify(SAMPLE_CASE) };
 
 const KEY = 'AIzaSyTESTKEY-0123456789';
 const BASE = 'https://wefagh.ir';
@@ -23,13 +28,13 @@ function jsonRes(status, body) {
 }
 
 // D1 ساختگی: نشست معتبر یا بدون نشست.
-function fakeDb({ loggedIn = false } = {}) {
+function fakeDb({ loggedIn = false, caseRow = null } = {}) {
   return {
     prepare(sql) {
       return {
         bind() {
           return {
-            first: async () => (sql.includes('FROM sessions') && loggedIn ? { id: 7, email: 'u@example.com', display_name: 'کاربر' } : null),
+            first: async () => (sql.includes('FROM admin_content') ? caseRow : sql.includes('FROM sessions') && loggedIn ? { id: 7, email: 'u@example.com', display_name: 'کاربر' } : null),
             all: async () => ({ results: loggedIn ? [{ role: 'user' }] : [] }),
             run: async () => ({ success: true }),
           };
@@ -126,7 +131,7 @@ test('محدودکنندهٔ نرخ هر کاربر بعد از سقف درخو�
 
 test('مسیرهای هوش مصنوعی بدون ورود رد می‌شوند', async () => {
   for (const path of ['/api/ai/moot/turn', '/api/ai/assistant', '/api/ai/speech', '/api/ai/transcribe']) {
-    const res = await worker.fetch(req(path, { body: { caseId: 'contract-delivery-delay' } }), { DB: fakeDb(), GEMINI_API_KEY: KEY });
+    const res = await worker.fetch(req(path, { body: { caseId: SAMPLE_CASE.id } }), { DB: fakeDb(), GEMINI_API_KEY: KEY });
     assert.equal(res.status, 401, path);
   }
 });
@@ -135,7 +140,7 @@ test('ورودی نامعتبر پس از ورود با ۴۲۲ رد می‌شو�
   await withFetch(async () => { throw new Error('نباید فراخوانی شود'); }, async (calls) => {
     const env = { DB: fakeDb({ loggedIn: true }), GEMINI_API_KEY: KEY };
     const cookie = 'tok';
-    const bad = await worker.fetch(req('/api/ai/moot/turn', { body: { caseId: 'unknown', role: 'judge', history: [] }, cookie }), env);
+    const bad = await worker.fetch(req('/api/ai/moot/turn', { body: { caseId: 'Bad ID!', role: 'judge', history: [] }, cookie }), env);
     assert.equal(bad.status, 422);
     const noDoc = await worker.fetch(req('/api/ai/assistant', { body: { mode: 'draft', message: 'سلام', history: [] }, cookie }), env);
     assert.equal(noDoc.status, 422);
@@ -148,9 +153,18 @@ test('ورودی نامعتبر پس از ورود با ۴۲۲ رد می‌شو�
 });
 
 test('پرونده و دستور سیستمی روی سرور است و پیام کاربر نمی‌تواند نقش را عوض کند', () => {
-  const prompt = mootSystemPrompt({ role: 'opposing', caseId: 'contract-delivery-delay', difficulty: 'advanced' });
-  assert.ok(prompt.includes('وکیل طرف مقابل'));
-  assert.ok(prompt.includes(MOOT_CASES['contract-delivery-delay'].facts[0]));
+  const prompt = mootSystemPrompt({ role: 'defendant', caseData: SAMPLE_CASE, difficulty: 'advanced', stage: 'defense' });
+  assert.ok(prompt.includes('وکیل خوانده'));
+  assert.ok(prompt.includes('دفاع: خوانده'));
+  assert.ok(prompt.includes(SAMPLE_CASE.subject));
+  assert.ok(prompt.includes(SAMPLE_CASE.facts[0]));
+  // وکیل خوانده پرسش‌های قاضی و رأی آموزشی را نمی‌بیند.
+  assert.ok(!prompt.includes(SAMPLE_CASE.judge_questions[0]));
+  assert.ok(!prompt.includes(SAMPLE_CASE.verdict.outcome));
+  const judge = mootSystemPrompt({ role: 'judge', caseData: SAMPLE_CASE, difficulty: 'medium', stage: 'claim' });
+  assert.ok(judge.includes(SAMPLE_CASE.judge_questions[0]));
+  assert.ok(!judge.includes(SAMPLE_CASE.verdict.outcome));
+  assert.ok(!mootEvaluationPrompt(SAMPLE_CASE).includes('undefined'));
   assert.ok(prompt.includes('نادیده بگیر'));
   const asst = assistantSystemPrompt({ mode: 'draft', docType: 'petition' });
   assert.ok(asst.includes('دادخواست'));
@@ -177,4 +191,34 @@ test('مسیر دستیار از ورود تا پاسخ ساخت‌یافته (�
     assert.equal(data.disclaimer, LEGAL_DISCLAIMER);
     assert.ok(!JSON.stringify(data).includes(KEY));
   });
+});
+
+test('نقش‌های دادگاه فقط سه نقش معتبر دارند و مرحلهٔ ناشناخته رد می‌شود', async () => {
+  await withFetch(async () => { throw new Error('نباید فراخوانی شود'); }, async () => {
+    const env = { DB: fakeDb({ loggedIn: true, caseRow: SAMPLE_ROW }), GEMINI_API_KEY: KEY };
+    const opposing = await worker.fetch(req('/api/ai/moot/turn', { body: { caseId: SAMPLE_CASE.id, role: 'opposing', history: [] }, cookie: 'tok' }), env);
+    assert.equal(opposing.status, 422);
+    const badStage = await worker.fetch(req('/api/ai/moot/turn', { body: { caseId: SAMPLE_CASE.id, role: 'judge', stage: 'hack', history: [] }, cookie: 'tok' }), env);
+    assert.equal(badStage.status, 422);
+  });
+});
+
+test('متن گفت‌وگو هر گوینده را با برچسب فارسی و بدون دستور نشان می‌دهد', () => {
+  const text = transcriptText([
+    { role: 'ai', speaker: 'judge', text: 'سؤال' },
+    { role: 'user', speaker: 'plaintiff', text: 'پاسخ' },
+  ]);
+  assert.equal(text, '[قاضی]: سؤال\n[وکیل خواهان]: پاسخ');
+  assert.equal(transcriptText([]), '(هنوز گفت‌وگویی انجام نشده است.)');
+  assert.equal(SPEAKERS.defendant, 'وکیل خوانده');
+});
+
+test('صدای بازیگران فقط از فهرست مجاز انتخاب می‌شود', () => {
+  assert.ok(VOICES.includes('Kore'));
+  assert.ok(!VOICES.includes('<script>'));
+});
+
+test('سابقهٔ گفت‌وگوی جلسهٔ کامل (تا ۴۰ مورد) پذیرفته می‌شود', () => {
+  const full = Array.from({ length: 30 }, (_, i) => ({ role: i % 2 ? 'user' : 'ai', speaker: 'judge', text: `جمله ${i}` }));
+  assert.equal(cleanHistory(full).length, 30);
 });

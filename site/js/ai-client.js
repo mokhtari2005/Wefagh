@@ -75,8 +75,9 @@ export function silentWavBlob() {
  * پخش‌کنندهٔ واحد: فقط یک صدا همزمان؛ قبل از پخش جدید، صدای قبلی متوقف می‌شود.
  * unlock() باید مستقیماً در یک رویداد کلیک صدا زده شود تا پخش بعدی در موبایل مجاز باشد.
  */
-export function createPlayer() {
+export function createPlayer({ onEnded } = {}) {
   const audio = new Audio();
+  audio.addEventListener('ended', () => onEnded?.());
   let currentUrl = null;
   let silentUrl = null;
   return {
@@ -101,6 +102,19 @@ export function createPlayer() {
       }
     },
     stop() { audio.pause(); },
+    /** حجم صدا بین ۰ و ۱. */
+    setVolume(v) {
+      const n = Math.min(1, Math.max(0, Number(v)));
+      audio.volume = Number.isFinite(n) ? n : 1;
+      return audio.volume;
+    },
+    /** سرعت پخش؛ بین ۰٫۵ تا ۲ مجاز است و زیر و بم صدا حفظ می‌شود. */
+    setRate(rate) {
+      const r = Math.min(2, Math.max(0.5, Number(rate) || 1));
+      audio.playbackRate = r;
+      audio.preservesPitch = true;
+      return r;
+    },
     dispose() {
       audio.pause();
       if (currentUrl) URL.revokeObjectURL(currentUrl);

@@ -99,12 +99,12 @@ export async function transcribeAudio(env, { mimeType, base64 }) {
  * تولید صدای فارسی. مدل و شکل درخواست طبق مستندات Interactions API تنظیم شده‌اند؛
  * پیش از فعال‌سازی، با یک کلید واقعی باید تأیید شوند (در گزارش PR آمده است).
  */
-export async function synthesizeSpeech(env, text) {
+export async function synthesizeSpeech(env, text, voice = 'Kore') {
   const data = await post(env, `${GEMINI_API}/interactions`, {
     model: modelIds(env).tts,
     input: [{ type: 'user_input', content: [{ type: 'text', text }] }],
     response_format: { type: 'audio', mime_type: 'audio/wav' },
-    generation_config: { speech_config: [{ voice: 'Kore' }] },
+    generation_config: { speech_config: [{ voice }] },
   });
   const steps = Array.isArray(data?.steps) ? data.steps : [];
   const audio = steps

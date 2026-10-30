@@ -1,15 +1,48 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { historyForApi, validAnswer, ANSWER_MAX } from '../site/js/moot-ai.js';
+import { historyForApi, validAnswer, ANSWER_MAX, hearingScript, stepStates, SPEAKER_LABEL, VOICE_FOR, GROUP_LABELS } from '../site/js/moot-ai.js';
 import { trimHistory, summarizeReply, ASSISTANT_NOTICE } from '../site/js/assistant.js';
 import { silentWavBlob, AI_ERROR_TEXT, errorText, baseMime } from '../site/js/ai-client.js';
 
-test('تاریخچهٔ ارسالی به سرور از انتها و با سقف ۱۲ مورد انتخاب می‌شود', () => {
-  const history = Array.from({ length: 20 }, (_, i) => ({ role: i % 2 ? 'user' : 'ai', text: `پیام ${i}` }));
+test('تاریخچهٔ ارسالی به سرور از انتها و با سقف ۳۰ مورد انتخاب می‌شود', () => {
+  const history = Array.from({ length: 40 }, (_, i) => ({ role: i % 2 ? 'user' : 'ai', speaker: 'judge', text: `پیام ${i}` }));
   const picked = historyForApi(history);
-  assert.equal(picked.length, 12);
-  assert.equal(picked.at(-1).text, 'پیام 19');
-  assert.equal(picked[0].text, 'پیام 8');
+  assert.equal(picked.length, 30);
+  assert.equal(picked.at(-1).text, 'پیام 39');
+  assert.equal(picked[0].text, 'پیام 10');
+  assert.equal(picked[0].speaker, 'judge');
+});
+
+test('فهرست مراحل رسیدگی به ترتیب منشی، طرح ادعا، دفاع، پرسش قاضی، مستندات و ختم است', () => {
+  const steps = hearingScript();
+  assert.equal(steps[0].speaker, 'clerk');
+  assert.equal(steps[2].stage, 'claim');
+  assert.equal(steps[3].stage, 'defense');
+  assert.ok(steps.some((s) => s.speaker === 'judge' && s.stage === 'judge_question_plaintiff'));
+  assert.ok(steps.some((s) => s.stage === 'documents'));
+  assert.equal(steps.at(-1).speaker, 'judge');
+  assert.equal(steps.at(-1).stage, 'verdict');
+  assert.ok(steps.every((s) => s.speaker === 'clerk' || s.stage));
+});
+
+test('هر گام به یکی از ۱۲ مرحلهٔ نمایشی تعلق دارد و مراحل به ترتیب هستند', () => {
+  const steps = hearingScript();
+  const groups = steps.map((s) => s.group);
+  assert.ok(groups.every((g) => Number.isInteger(g) && g >= 1 && g <= GROUP_LABELS.length));
+  assert.deepEqual([...new Set(groups)], [...new Set(groups)].sort((a, b) => a - b));
+  assert.equal(GROUP_LABELS.length, 12);
+  assert.ok(steps.some((s) => s.group === 9 && s.stage === 'final_plaintiff'));
+});
+
+test('وضعیت مراحل: گذشته، جاری، آینده', () => {
+  assert.deepEqual(stepStates(4, 1), ['done', 'current', 'pending', 'pending']);
+});
+
+test('هر گوینده برچسب و صدای مشخص دارد', () => {
+  for (const k of ['clerk', 'judge', 'plaintiff', 'defendant']) {
+    assert.ok(SPEAKER_LABEL[k]);
+    assert.ok(VOICE_FOR[k]);
+  }
 });
 
 test('پاسخ خالی و بیش از حد طولانی رد می‌شود', () => {
