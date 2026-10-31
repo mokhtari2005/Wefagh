@@ -90,7 +90,7 @@ test('پیام خام به base64url تبدیل و قابل خواندن است'
   const raw = buildRawMessage({ from: 'Vefagh.lawyers@gmail.com', to: 'u@example.com', subject: 'تست', text: 'سلام' });
   assert.match(raw, /^[A-Za-z0-9_-]+$/);
   const decoded = Buffer.from(raw, 'base64url').toString('utf8');
-  assert.match(decoded, /^From: Vefagh\.lawyers@gmail\.com/m);
+  assert.match(decoded, /^From: "Vefagh Law Society" <Vefagh\.lawyers@gmail\.com>/m);
   assert.match(decoded, /^To: u@example\.com/m);
 });
 

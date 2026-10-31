@@ -26,12 +26,18 @@ function assertSafeHeader(value, name) {
   }
 }
 
-export function buildRawMessage({ from, to, subject, text }) {
+/** نام نمایشی فرستنده؛ در هدر From به‌صورت «نام» <آدرس> می‌آید. */
+export const SENDER_NAME = 'Vefagh Law Society';
+
+export function buildRawMessage({ from, to, subject, text, fromName = SENDER_NAME }) {
   assertSafeHeader(from, 'from');
+  assertSafeHeader(fromName, 'fromName');
   assertSafeHeader(to, 'to');
   assertSafeHeader(subject, 'subject');
+  // نام فقط ASCII و بدون نقل‌قول است تا رشتهٔ quoted-string معتبر بماند.
+  if (!/^[\x20-\x7e]+$/.test(fromName) || /["\\]/.test(fromName)) throw new Error('INVALID_HEADER_FROMNAME');
   const lines = [
-    `From: ${from}`,
+    `From: "${fromName}" <${from}>`,
     `To: ${to}`,
     `Subject: ${encodeHeaderUtf8(subject)}`,
     'MIME-Version: 1.0',
