@@ -54,7 +54,7 @@ export async function upcomingCard() {
 }
 
 /** صفحهٔ کامل تقویم */
-export async function deadlinesPage() {
+export async function deadlinesPage(params = {}) {
   const wrap = h('div', { class: 'deadlines-page' }, [
     h('h1', { text: 'تقویم مواعد دادرسی' }),
     h('p', { class: 'lead', text: 'روز مورد نظر را در تقویم انتخاب کنید تا برای ثبت موعد پر شود. مواعد پرونده‌های خود را ثبت و یادآوری ببینید.' }),
@@ -100,6 +100,8 @@ export async function deadlinesPage() {
     editing.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
   showAddForm();
+  // روز انتخاب‌شده در صفحهٔ اصلی: ?date=YYYY-MM-DD
+  if (params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) && form) form.setDueIso(params.date);
   wrap.append(formArea);
 
   const listArea = h('div', { role: 'region', 'aria-live': 'polite' });

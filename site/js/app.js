@@ -162,7 +162,7 @@ function pageHome() {
       h('div', { class: 'section-heading' }, [h('h2', { class: 'block-title', text: 'موعدهای پیش‌رو' }), h('a', { href: '#/deadlines', text: 'مشاهدهٔ تقویم کامل ‹' })]),
       lazy(upcomingCard),
     ]),
-    shamsiCalendar(),
+    shamsiCalendar({ onSelect: (iso) => { window.location.hash = `#/deadlines?date=${encodeURIComponent(iso)}`; } }),
   ]);
   root.append(hero, calendarSection, quick, stats, lower, cta);
   return root;
@@ -279,7 +279,7 @@ const ROUTES = {
   '/calculators/attorney': () => calculatorsPage({ tool: 'attorney' }),
   '/calculators/delay': () => calculatorsPage({ tool: 'delay' }),
   '/media': () => lazy(mediaHome),
-  '/deadlines': () => lazy(deadlinesPage),
+  '/deadlines': (params) => lazy(() => deadlinesPage(params)),
 };
 
 function render() {
