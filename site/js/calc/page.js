@@ -8,6 +8,7 @@ import { cpiCoverage, CPI_SOURCE } from './cpi-data.js';
 import { shamsiField } from '../shamsi-field.js';
 import { normalizeLimitations, formatNumbersInLine, formatRial, statusLabel } from './result-format.js';
 import { indexedDelayDamage, planDelayPeriod, periodLabel, periodKeyOfIso } from './indexation.js';
+import { computeAttorneyForm } from './attorney-form.js';
 
 function h(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
@@ -408,6 +409,145 @@ function ruleTool({ title, amountLabel, group, submitLabel, note, withRanges = f
   return h('section', { class: 'tool' }, children);
 }
 
+/** حق‌الوکاله و تمبر مالیاتی وکیل: فرم مطابق نمونهٔ مرجع. محاسبه در attorney-form.js است؛ این تابع فقط فرم و نمایش را می‌سازد. */
+const ATTORNEY_SUBJECTS = [
+  { value: 'attorney', text: 'حق الوکاله' },
+  { value: 'tax-kanon', text: 'تمبر مالیاتی کانون وکلای دادگستری' },
+  { value: 'tax-markaz', text: 'تمبر مالیاتی مرکز وکلا، کارشناسان رسمی و مشاوران خانواده قوه قضاییه' },
+];
+const ATTORNEY_CASE_TYPES = [
+  { value: 'financial', text: 'مالی' },
+  { value: 'family', text: 'امور حسبی، دعاوی خانوادگی و غیرمالی' },
+  { value: 'criminal', text: 'کیفری' },
+  { value: 'other', text: 'سایر' },
+];
+// مقدارهای «unsupported» و «dismissOther*» در همین فرم نگاشت می‌شوند؛ «unsupported» قابل انتخاب نیست.
+const ATTORNEY_RESULTS = [
+  { value: 'none', text: '-' },
+  { value: 'dismissBefore', text: 'قرار ابطال دادخواست پیش از پاسخ به دعوا و دفاع از آن' },
+  { value: 'unsupported', text: 'قرار ابطال دادخواست پس از پاسخ به دعوا و دفاع از آن (این عنوان در متن تعرفه نیامده؛ محاسبه انجام نمی‌شود)', disabled: true },
+  { value: 'appealBefore', text: 'قرار سقوط دعوای تجدیدنظر قبل از پاسخ و دفاع از دعوا' },
+  { value: 'appealAfter', text: 'قرار سقوط دعوای تجدیدنظر پس از پاسخ و دفاع از دعوا' },
+  { value: 'dismissOtherA', text: 'قرار رد دعوا به علت قبول ایراد مرور زمان' },
+  { value: 'dismissOtherB', text: 'قرار رد تقاضای اعاده دادرسی' },
+  { value: 'dismissOtherC', text: 'قرار رد دعوا به علت اعتبار امر مختومه' },
+  { value: 'dismissAfter', text: 'قرار رد دادخواست پس از پاسخ به دعوا و دفاع از آن (ماده ۱۲ بند ب)' },
+  { value: 'interlocutory', text: 'اعتراض به قرارهای حقوقی قابل اعتراض (بازه‌ای)' },
+];
+const RESULT_KEY = { dismissOtherA: 'dismissOther', dismissOtherB: 'dismissOther', dismissOtherC: 'dismissOther' };
+
+function attorneyTool(id) {
+  const subject = h('select', { id: 'att-subject' }, ATTORNEY_SUBJECTS.map((o) => h('option', { value: o.value, text: o.text })));
+  const caseType = h('select', { id: 'att-case' }, ATTORNEY_CASE_TYPES.map((o) => h('option', { value: o.value, text: o.text })));
+  const judgment = h('select', { id: 'att-judgment' }, [
+    h('option', { value: '', text: 'انتخاب کنید' }),
+    h('option', { value: 'nonfinal', text: 'حکم غیرقطعی (ماده ۹ بندهای الف تا ث)' }),
+    h('option', { value: 'final', text: 'حکم قطعی از حیث بهای خواسته (ماده ۹، ۱۰٪)' }),
+  ]);
+  const judgmentWrap = field('att-judgment', 'نوع حکم (برای دعوای مالی)', judgment);
+  const result = h('select', { id: 'att-result' }, ATTORNEY_RESULTS.map((o) => {
+    const opt = h('option', { value: o.value, text: o.text });
+    if (o.disabled) opt.disabled = true;
+    return opt;
+  }));
+  const appealBase = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'به ریال' });
+  appealBase.addEventListener('input', () => { appealBase.value = groupAmount(appealBase.value); });
+  const appealWrap = field('att-appeal-base', 'حق‌الوکالهٔ مرحلهٔ تجدیدنظر (ریال)', appealBase);
+  const specialty = h('select', { id: 'att-specialty' }, [
+    h('option', { value: 'no', text: 'وکیل گواهی وکالت تخصصی ندارد.' }),
+    h('option', { value: 'yes', text: 'وکیل گواهی وکالت تخصصی از کانون یا مرکز وکلا دارد.' }),
+  ]);
+  const inDays = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'مثال: 5' });
+  const outDays = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'مثال: 3' });
+  const afterReversal = h('input', { type: 'checkbox', id: 'att-reversal' });
+  const temporary = h('input', { type: 'checkbox', id: 'att-temporary' });
+  const amount = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: '۱٬۰۰۰٬۰۰۰ معادل ۱۰۰ هزار تومان' });
+  amount.addEventListener('input', () => { amount.value = groupAmount(amount.value); });
+  const out = h('div');
+
+  function sync() {
+    judgmentWrap.hidden = caseType.value !== 'financial';
+    appealWrap.hidden = !(result.value === 'appealBefore' || result.value === 'appealAfter');
+  }
+  caseType.addEventListener('change', sync);
+  result.addEventListener('change', sync);
+  sync();
+
+  const form = h('form', { class: 'form dix-form', novalidate: '', 'aria-label': 'حق‌الوکاله و تمبر مالیاتی وکیل' }, [
+    field('att-subject', 'موضوع', subject),
+    field('att-case', 'نوع دعوا', caseType),
+    judgmentWrap,
+    field('att-result', 'نتیجهٔ ختم دعوا', result),
+    appealWrap,
+    field('att-specialty', 'گواهی وکالت تخصصی وکیل', specialty),
+    field('att-in-days', 'تعداد روزهای ماموریت داخل استان', inDays),
+    field('att-out-days', 'تعداد روزهای ماموریت خارج استان', outDays),
+    h('label', { class: 'check-row' }, [afterReversal, h('span', { text: 'قبول وکالت پس از نقض رای' })]),
+    h('label', { class: 'check-row' }, [temporary, h('span', { text: 'وکیل تسخیری یا معاضدتی' })]),
+    field('att-amount', 'بهای خواسته یا محکوم به (ریال)', amount),
+    h('button', { class: 'btn dix-submit', type: 'submit', text: 'محاسبه' }),
+    out,
+  ]);
+
+  function showNotice(text) {
+    out.replaceChildren(h('div', { class: 'notice', role: 'alert', text }));
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const days = (text) => {
+      const t = normalizeDigits(text).trim();
+      if (t === '') return 0;
+      return /^\d+$/.test(t) ? Number(t) : NaN;
+    };
+    const inP = days(inDays.value);
+    const outP = days(outDays.value);
+    if (Number.isNaN(inP) || Number.isNaN(outP)) return showNotice(INPUT_MESSAGES.INVALID_UNITS);
+    const resultKey = RESULT_KEY[result.value] || result.value;
+    const r = computeAttorneyForm({
+      subject: subject.value,
+      caseType: caseType.value,
+      judgment: judgment.value,
+      amount: parseAmount(amount.value),
+      result: resultKey,
+      appealBase: parseAmount(appealBase.value),
+      afterReversal: afterReversal.checked,
+      specialty: specialty.value === 'yes',
+      inProvinceDays: inP,
+      outProvinceDays: outP,
+      temporary: temporary.checked,
+    });
+    if (!r.ok) {
+      if (r.error === 'RANGE_ONLY') {
+        const items = (r.ranges || []).map((g) => h('li', { text: `${g.title}: از ${formatRial(g.min)} تا ${formatRial(g.max)}` }));
+        out.replaceChildren(h('div', {}, [
+          h('div', { class: 'notice', role: 'alert', text: r.message }),
+          h('ul', { class: 'muted' }, items),
+        ]));
+        return;
+      }
+      return showNotice(r.message || 'ورودی‌ها را بررسی کنید.');
+    }
+    const facts = r.lines.map((l) => [l.label, formatRial(l.amount)]);
+    if (r.travelTotal > 0) facts.push(['جمع فوق‌العاده مأموریت (جدا از حق‌الوکاله)', formatRial(r.travelTotal)]);
+    out.replaceChildren(resultBox({
+      ok: true,
+      title: 'حق‌الوکاله قانونی',
+      fee: r.total,
+      facts,
+      steps: [`حق‌الوکاله: ${formatRial(r.feeTotal)}`, `فوق‌العاده مأموریت: ${formatRial(r.travelTotal)}`],
+      ruleVersion: 'آیین‌نامه تعرفه حق‌الوکاله ۱۳۹۸ (فایل fd69f537)',
+      limitations: [...r.notes, 'مبلغ نهایی جمع حق‌الوکاله و فوق‌العاده مأموریت است و شامل تمبر و سهم کانون نیست.'],
+    }, form));
+  });
+
+  return h('section', { class: 'tool', id }, [
+    h('h2', { text: 'حق‌الوکاله و تمبر مالیاتی وکیل طبق تعرفه' }),
+    h('p', { class: 'muted', text: 'منبع: آیین‌نامه تعرفه حق‌الوکاله، حق‌المشاوره و هزینه سفر وکلای دادگستری، مصوب ۱۳۹۸/۱۲/۲۸ (فایل fd69f537). این عدد تعرفهٔ قانونی است؛ حق‌الوکالهٔ توافقی جداگانه تعیین می‌شود.' }),
+    form,
+  ]);
+}
+
 export function calculatorsPage(params = {}) {
   const page = h('div', {}, [
     h('h1', { text: 'محاسبه‌گرهای حقوقی' }),
@@ -423,17 +563,7 @@ export function calculatorsPage(params = {}) {
       submitLabel: 'محاسبه هزینهٔ دادرسی',
       note: ['مبنای محاسبه (خواسته یا محکوم‌به) و نحوهٔ اعمال هر پله باید مطابق متن رسمی باشد.', 'این ابزار پیش‌نویس است و پیش از ثبت دادخواست باید بازبینی شود.'],
     })]),
-    h('section', { id: 'calc-attorney' }, [ruleTool({
-      title: 'حق‌الوکاله قانونی',
-      amountLabel: 'مبلغ مبنا (ریال)',
-      group: 'attorney',
-      submitLabel: 'محاسبه حق‌الوکاله قانونی',
-      note: [
-        'منبع: آیین‌نامه تعرفه حق‌الوکاله، حق‌المشاوره و هزینه سفر وکلای دادگستری، مصوب ۱۳۹۸/۱۲/۲۸ (فایل fd69f537). این عدد تعرفهٔ قانونی است؛ حق‌الوکالهٔ توافقی جداگانه تعیین می‌شود.',
-        'مالیات، تمبر و سهم کانون، مرکز و صندوق محاسبه نشده‌اند؛ مبنای تمبر مالیاتی در این فایل نیست.',
-      ],
-      withRanges: true,
-    })]),
+    attorneyTool('calc-attorney'),
     h('section', { id: 'calc-delay' }, [
       h('h2', { text: 'خسارت تأخیر تأدیه بر اساس شاخص بانک مرکزی' }),
       h('p', { class: 'muted', text: 'روش اصلی: خسارت از جدول شاخص ماهانهٔ بانک مرکزی محاسبه می‌شود. برای این روش نرخ سالانه وارد نمی‌کنید.' }),

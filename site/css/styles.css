@@ -330,6 +330,11 @@ p { margin: 0 0 var(--space-2); }
 form.form { display: grid; gap: 14px; max-width: 640px; }
 form.dix-form .dix-submit { width: 100%; min-height: 48px; font-size: 1.05rem; }
 form.dix-form .notice { margin: 0; }
+form.dix-form { grid-template-columns: minmax(0, 1fr); }
+form.dix-form .field, form.dix-form select, form.dix-form input { min-width: 0; max-width: 100%; }
+form.dix-form select { width: 100%; text-overflow: ellipsis; }
+form.dix-form .check-row { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+form.dix-form .check-row input { width: 20px; height: 20px; margin: 0; }
 .field { display: grid; gap: 6px; }
 .field label { font-weight: 700; }
 .field input, .field select, .field textarea {
@@ -478,9 +483,9 @@ form.dix-form .notice { margin: 0; }
 }
 .amount-label { font-size: 0.9rem; color: var(--gold); }
 .amount-value { font-size: clamp(1.5rem, 4vw, 2rem); font-weight: 800; letter-spacing: 0; }
-.facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1rem; margin: var(--space-2) 0; }
-.facts dt { color: var(--ink-soft); }
-.facts dd { margin: 0; font-weight: 700; }
+.facts { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 0.35rem 1rem; margin: var(--space-2) 0; }
+.facts dt { color: var(--ink-soft); overflow-wrap: anywhere; min-width: 0; }
+.facts dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; min-width: 0; }
 .result h4 { margin: var(--space-2) 0 0.4rem; font-size: 1rem; color: var(--ink-soft); }
 .steps { padding-inline-start: 1.4rem; margin: 0; }
 .steps li { margin-bottom: 0.35rem; }
