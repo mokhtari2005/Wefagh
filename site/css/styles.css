@@ -1252,3 +1252,15 @@ body.immersive main.container { width: 100%; max-width: none; padding: 0; margin
 }
 
 .brand-en { display: block; font-size: .7rem; font-weight: 500; color: var(--ink-soft); direction: ltr; text-align: left; letter-spacing: .02em; }
+
+/* ---------- ثبت‌نام: فشرده در موبایل ---------- */
+@media (max-width: 899px) {
+  .reg-form { padding-inline: .25rem; }
+  .reg-form .choice-cards { grid-template-columns: 1fr 1fr; gap: 6px; }
+  .reg-form .card-choice { padding: 9px 10px; min-height: 48px; font-size: .9rem; line-height: 1.5; align-items: center; }
+  .reg-form .chip-grid { gap: 6px; }
+  .reg-form .chip { padding: 6px 11px; font-size: .88rem; min-height: 38px; }
+  .reg-form .segmented { grid-template-columns: repeat(3, 1fr); }
+  .reg-form .seg { padding: 9px 4px; font-size: .88rem; }
+  .reg-form .field-label, .reg-form .reg-step-body > .field-label { font-size: .95rem; }
+}
