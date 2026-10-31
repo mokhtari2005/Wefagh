@@ -2,25 +2,20 @@ name = "wefagh"
 main = "src/index.js"
 compatibility_date = "2026-01-01"
 
-# مسیر API روی همان دامنهٔ سایت (wefagh.ir/api/*) تا کوکی‌ها هم‌مبدأ باشند.
-# پیش از دیپلوی، زون wefagh.ir باید در Cloudflare فعال باشد.
 routes = [
-  { pattern = "wefagh.ir/api/*", zone_name = "wefagh.ir" }
+  { pattern = "mokhtari.ir/api/*", zone_name = "mokhtari.ir" }
 ]
 
-# پس از ساخت دیتابیس با `wrangler d1 create wefagh-db` این مقدار را جایگزین کنید.
 [[d1_databases]]
 binding = "DB"
 database_name = "wefagh-db"
 database_id = "a02aeb28-b6e7-4423-9671-1ce3f9e3038b"
 migrations_dir = "migrations"
 
-# ثبت لاگ‌های خطای ارسال ایمیل (وضعیت HTTP و کد دلیل Google؛ بدون توکن یا Secret) در Workers Logs.
 [observability]
 enabled = true
 
-# شناسه‌های مدل Gemini (غیرمحرمانه). کلید API هرگز در این فایل نیست؛
-# کلید را با `wrangler secret put GEMINI_API_KEY` یا از داشبورد Workers (Secrets) تنظیم کنید.
 [vars]
 GEMINI_TEXT_MODEL = "gemini-2.5-flash"
 GEMINI_TTS_MODEL = "gemini-3.8-flash-tts"
+BASE_URL = "https://mokhtari.ir"
