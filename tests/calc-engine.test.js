@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { tieredFee, applyRule, trialFee, TRIAL_WARNING } from '../site/js/calc/engine.js';
+import { tieredFee, applyRule, trialFee, TRIAL_WARNING, COMPUTED_KINDS } from '../site/js/calc/engine.js';
 import { RATES_BY_YEAR, findRule, SOURCE_DOCUMENTS } from '../site/js/calc/rates.js';
 
 // نمونه‌ای فقط برای آزمون موتور؛ عدد واقعی قانونی نیست.
@@ -68,11 +68,11 @@ test('فهرست قواعد: هر قاعده استناد، تاریخ بررس�
   }
 });
 
-test('هیچ قاعده‌ای official verified نیست؛ user_approved فقط tiered/fixed را محاسبه می‌کند', () => {
+test('هیچ قاعده‌ای official verified نیست؛ user_approved فقط نوع‌های محاسبه‌پذیر را محاسبه می‌کند', () => {
   for (const r of RATES_BY_YEAR[1405]) {
     assert.notEqual(r.status, 'verified', r.id);
-    const result = applyRule(r, { amount: 300000000 });
-    if (r.status === 'user_approved' && (r.kind === 'tiered' || r.kind === 'fixed')) {
+    const result = applyRule(r, { amount: 300000000, count: 2 });
+    if (r.status === 'user_approved' && COMPUTED_KINDS.has(r.kind)) {
       assert.equal(result.ok, true, r.id);
     } else {
       assert.equal(result.error, 'RULE_UNVERIFIED', r.id);
@@ -144,14 +144,21 @@ test('ماده ۲۵ (حقوقی): کف ۴ م و سقف ۲٪ محکوم‌به؛ 
 });
 
 test('ماده ۲۱: ۶۰٪ و ۴۰٪ جمعشان ۱۰۰٪ است', () => {
-  const rule = findRule(1405, 'attorney-article21-stage-split');
-  assert.ok(Math.abs(rule.shares.reduce((a, s) => a + s.share, 0) - 1) < 1e-9);
+  const sum = ['attorney-article21-first-stage', 'attorney-article21-appeal-stage']
+    .reduce((a, id) => a + findRule(1405, id).share, 0);
+  assert.ok(Math.abs(sum - 1) < 1e-9);
 });
 
-test('ماده ۱۲: سهم‌ها و عدم محاسبه', () => {
-  const rule = findRule(1405, 'attorney-article12-termination');
-  assert.deepEqual(rule.items.map((i) => i.share), [0.25, 0.5, 1, 0.25, 0.5]);
-  assert.equal(applyRule(rule, { amount: 1000000 }).error, 'RULE_UNVERIFIED');
+test('ماده ۱۲: سهم‌های بندهای الف تا ث با متن برابرند؛ بند ج (بازه) محاسبه نمی‌شود', () => {
+  const ids = [
+    'attorney-article12-dismissal-before-answer',
+    'attorney-article12-dismissal-after-answer',
+    'attorney-article12-dismissal-other-grounds',
+    'attorney-article12-appeal-dismissal-before-answer',
+    'attorney-article12-appeal-dismissal-after-answer',
+  ];
+  assert.deepEqual(ids.map((id) => findRule(1405, id).share), [0.25, 0.5, 1, 0.25, 0.5]);
+  assert.equal(applyRule(findRule(1405, 'attorney-article12-interlocutory-objection'), { amount: 1000000 }).error, 'RULE_UNVERIFIED');
 });
 
 test('ماده ۱۴: بازهٔ کلی از کمترین کف تا بیشترین سقف طبقات', () => {
@@ -193,8 +200,8 @@ test('محاسبهٔ آزمایشی هرگز برای قاعدهٔ تأییدش�
   assert.equal(trialFee(findRule(1405, 'court-fee-non-financial'), { amount: 1 }).error, 'NOT_TIERED');
 });
 
-test('بازه‌ها (range) و سهم‌ها هرگز مبلغ برنمی‌گردانند، حتی با وضعیت تأییدشده', () => {
-  for (const r of RATES_BY_YEAR[1405].filter((x) => x.kind !== 'tiered' && x.kind !== 'fixed')) {
+test('بازه‌ها (range) و تشخیصی هرگز مبلغ قطعی برنمی‌گردانند، حتی با وضعیت تأییدشده', () => {
+  for (const r of RATES_BY_YEAR[1405].filter((x) => x.kind === 'range' || x.kind === 'discretionary')) {
     assert.equal(applyRule({ ...r, status: 'user_approved', userApproval: { by: 'user', officialVerified: false } }, { amount: 1000 }).error, 'RULE_UNVERIFIED', r.id);
   }
 });
