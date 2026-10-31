@@ -101,7 +101,7 @@ function delayTool() {
   const rate = h('input', { type: 'number', min: '0', max: '100', step: '0.01', required: '', inputmode: 'decimal' });
   const start = shamsiField('di-start', 'تاریخ سررسید (شمسی)', { required: true });
   const end = shamsiField('di-end', 'تاریخ محاسبه (شمسی)', { required: true });
-  const out = h('div');
+  const out = h('div', { class: 'tool-out' });
   const form = h('form', { class: 'form', novalidate: '', 'aria-label': 'محاسبه خسارت تأخیر تأدیه' }, [
     field('di-principal', 'مبلغ اصل دین (ریال)', principal),
     field('di-rate', 'نرخ سالانه (٪) — از منبع رسمی وارد کنید', rate),
@@ -219,7 +219,7 @@ function indexedDelayTool() {
   };
   paymentStatus.addEventListener('change', () => endFields.setLabels(endLabels[paymentStatus.value] ?? endLabels.unpaid));
 
-  const out = h('div');
+  const out = h('div', { class: 'tool-out' });
   const form = h('form', { class: 'form dix-form', novalidate: '', 'aria-label': 'خسارت تأخیر تأدیه بر اساس شاخص بانک مرکزی' }, [
     coverage,
     field('dix-period', 'نوع محاسبه', period),
@@ -358,7 +358,7 @@ function ruleTool({ title, amountLabel, group, submitLabel, note, withRanges = f
   const countCaption = h('label', { for: `${title}-count`, text: '' });
   const count = h('input', { id: `${title}-count`, type: 'number', min: '1', step: '1', inputmode: 'numeric' });
   const countWrap = h('div', { class: 'field', hidden: '' }, [countCaption, count]);
-  const out = h('div');
+  const out = h('div', { class: 'tool-out' });
 
   function syncInputs() {
     const rule = findRule(RATE_YEAR, select.value);
@@ -463,7 +463,7 @@ function attorneyTool(id) {
   const temporary = h('input', { type: 'checkbox', id: 'att-temporary' });
   const amount = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: '۱٬۰۰۰٬۰۰۰ معادل ۱۰۰ هزار تومان' });
   amount.addEventListener('input', () => { amount.value = groupAmount(amount.value); });
-  const out = h('div');
+  const out = h('div', { class: 'tool-out' });
 
   function sync() {
     judgmentWrap.hidden = caseType.value !== 'financial';
@@ -548,23 +548,27 @@ function attorneyTool(id) {
   ]);
 }
 
-export function calculatorsPage(params = {}) {
-  const page = h('div', {}, [
-    h('h1', { text: 'محاسبه‌گرهای حقوقی' }),
-    h('div', {
-      class: 'notice',
-      role: 'note',
-      text: 'این ابزارها پیش‌نویس محاسباتی هستند و جای تشخیص وکیل را نمی‌گیرند. قواعد هر ابزار و منبع آن در همان بخش نشان داده می‌شود. تاریخ‌ها شمسی وارد می‌شوند.',
-    }),
-    h('section', { id: 'calc-court' }, [ruleTool({
+const TOOL_PAGES = {
+  court: {
+    title: 'هزینهٔ دادرسی',
+    intro: 'محاسبهٔ هزینهٔ دادرسی بر اساس مبنای خواسته یا محکوم‌به و پله‌های قانونی.',
+    build: () => ruleTool({
       title: 'هزینهٔ دادرسی',
       amountLabel: 'مبلغ مبنا (ریال)',
       group: 'court',
       submitLabel: 'محاسبه هزینهٔ دادرسی',
       note: ['مبنای محاسبه (خواسته یا محکوم‌به) و نحوهٔ اعمال هر پله باید مطابق متن رسمی باشد.', 'این ابزار پیش‌نویس است و پیش از ثبت دادخواست باید بازبینی شود.'],
-    })]),
-    attorneyTool('calc-attorney'),
-    h('section', { id: 'calc-delay' }, [
+    }),
+  },
+  attorney: {
+    title: 'حق‌الوکاله و تمبر طبق تعرفه',
+    intro: 'محاسبهٔ حق‌الوکالهٔ قانونی وکیل بر اساس آیین‌نامه تعرفه ۱۳۹۸ (فایل تعرفه).',
+    build: () => attorneyTool('calc-attorney'),
+  },
+  delay: {
+    title: 'خسارت تأخیر تأدیه',
+    intro: 'محاسبهٔ خسارت تأخیر تأدیه بر اساس جدول شاخص ماهانهٔ بانک مرکزی (ماده ۵۲۲ قانون آیین دادرسی مدنی).',
+    build: () => h('section', { class: 'tool', id: 'calc-delay' }, [
       h('h2', { text: 'خسارت تأخیر تأدیه بر اساس شاخص بانک مرکزی' }),
       h('p', { class: 'muted', text: 'روش اصلی: خسارت از جدول شاخص ماهانهٔ بانک مرکزی محاسبه می‌شود. برای این روش نرخ سالانه وارد نمی‌کنید.' }),
       indexedDelayTool(),
@@ -574,9 +578,47 @@ export function calculatorsPage(params = {}) {
         delayTool(),
       ]),
     ]),
+  },
+};
+
+const CALC_NOTICE = 'این ابزارها پیش‌نویس محاسباتی هستند و جای تشخیص وکیل را نمی‌گیرند. قواعد هر ابزار و منبع آن در همان بخش نشان داده می‌شود. تاریخ‌ها شمسی وارد می‌شوند.';
+
+/** نوار ابزار هر ابزار: چاپ یا ذخیرهٔ گزارش، و پاک‌کردن ورودی‌ها و نتیجه. */
+function toolToolbar(section) {
+  const print = h('button', { type: 'button', class: 'btn secondary', text: 'چاپ یا ذخیرهٔ گزارش' });
+  print.addEventListener('click', () => window.print());
+  const clear = h('button', { type: 'button', class: 'btn secondary', text: 'پاک‌کردن ورودی‌ها و نتیجه' });
+  clear.addEventListener('click', () => {
+    section.querySelectorAll('form').forEach((f) => f.reset());
+    section.querySelectorAll('input:not([type=checkbox]):not([type=radio]), textarea').forEach((el) => { el.value = ''; });
+    section.querySelectorAll('select').forEach((el) => { el.selectedIndex = 0; });
+    section.querySelectorAll('.tool-out').forEach((o) => o.replaceChildren());
+  });
+  return h('div', { class: 'row tool-toolbar' }, [print, clear]);
+}
+
+/** صفحهٔ مستقل هر محاسبه‌گر با مسیر خودش. */
+function toolPage(kind) {
+  const tool = TOOL_PAGES[kind];
+  const section = tool.build();
+  return h('div', {}, [
+    h('a', { class: 'btn secondary', href: '#/calculators', text: 'همهٔ محاسبه‌گرها' }),
+    h('h1', { text: tool.title }),
+    h('p', { class: 'lead', text: tool.intro }),
+    h('div', { class: 'notice', role: 'note', text: CALC_NOTICE }),
+    toolToolbar(section),
+    section,
   ]);
-  // پارامتر tool از کارت‌های آکادمی می‌آید؛ به بخش مربوط می‌رسیم.
-  const target = { court: 'calc-court', attorney: 'calc-attorney', delay: 'calc-delay' }[params.tool];
-  if (target) setTimeout(() => document.getElementById(target)?.scrollIntoView({ block: 'start' }), 0);
-  return page;
+}
+
+export function calculatorsPage(params = {}) {
+  if (params.tool && TOOL_PAGES[params.tool]) return toolPage(params.tool);
+  return h('div', {}, [
+    h('h1', { text: 'محاسبه‌گرهای حقوقی' }),
+    h('div', { class: 'notice', role: 'note', text: CALC_NOTICE }),
+    h('div', { class: 'cards' }, Object.entries(TOOL_PAGES).map(([key, t]) => h('a', { class: 'card', href: `#/calculators/${key}` }, [
+      h('h2', { text: t.title }),
+      h('p', { class: 'muted', text: t.intro }),
+    ]))),
+  ]);
 }
