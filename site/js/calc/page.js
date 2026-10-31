@@ -118,7 +118,7 @@ function delayTool() {
     });
     out.replaceChildren(resultBox(result, form));
   });
-  return h('section', { class: 'tool' }, [h('h2', { text: 'خسارت تأخیر تأدیه (روش ساده)' }), form]);
+  return h('div', { class: 'manual-rate-body' }, [form]);
 }
 
 
@@ -224,10 +224,7 @@ function indexedDelayTool() {
       ],
     }));
   });
-  return h('div', {}, [
-    h('h3', { text: 'ب) محاسبه بر اساس شاخص بانک مرکزی (مشروط)' }),
-    form,
-  ]);
+  return h('div', { class: 'indexed-body' }, [form]);
 }
 
 /** هزینهٔ دادرسی و حق‌الوکاله: قواعد تأییدشده از فهرست rates.js؛ نرخ‌ها از متن مستند است. */
@@ -360,10 +357,14 @@ export function calculatorsPage(params = {}) {
       withRanges: true,
     })]),
     h('section', { id: 'calc-delay' }, [
-      h('h2', { text: 'خسارت تأخیر تأدیه' }),
-      h('h3', { text: 'الف) نرخ دستی (بدون شاخص بانک مرکزی)' }),
-      delayTool(),
+      h('h2', { text: 'خسارت تأخیر تأدیه بر اساس شاخص بانک مرکزی' }),
+      h('p', { class: 'muted', text: 'روش اصلی: خسارت از جدول شاخص ماهانهٔ بانک مرکزی محاسبه می‌شود. برای این روش نرخ سالانه وارد نمی‌کنید.' }),
       indexedDelayTool(),
+      h('details', { class: 'manual-rate' }, [
+        h('summary', { text: 'روش فرعی: نرخ سالانهٔ دستی (فقط وقتی نرخ مشخص و مستند دارید)' }),
+        h('p', { class: 'muted', text: 'این روش جداگانه است و با جدول شاخص بانک مرکزی ترکیب نمی‌شود. نرخ را فقط از منبع رسمی و مستند وارد کنید.' }),
+        delayTool(),
+      ]),
     ]),
   ]);
   // پارامتر tool از کارت‌های آکادمی می‌آید؛ به بخش مربوط می‌رسیم.
