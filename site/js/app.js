@@ -275,6 +275,9 @@ const ROUTES = {
   '/moot-court/hearing': (params) => courtRoomPage(params),
   '/moot-court/cases': (params) => casePickerPage(params),
   '/calculators': (params) => calculatorsPage(params),
+  '/calculators/court': () => calculatorsPage({ tool: 'court' }),
+  '/calculators/attorney': () => calculatorsPage({ tool: 'attorney' }),
+  '/calculators/delay': () => calculatorsPage({ tool: 'delay' }),
   '/media': () => lazy(mediaHome),
   '/deadlines': () => lazy(deadlinesPage),
 };
