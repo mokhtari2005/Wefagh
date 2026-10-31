@@ -31,6 +31,12 @@ export function validateDeadline(body) {
   const kind = typeof body.kind === 'string' && body.kind ? body.kind : 'other';
   if (!KINDS.includes(kind)) errors.kind = 'نوع مهلت معتبر نیست.';
 
+  let dueTime = null;
+  if (body.dueTime !== undefined && body.dueTime !== null && body.dueTime !== '') {
+    if (typeof body.dueTime === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(body.dueTime)) dueTime = body.dueTime;
+    else errors.dueTime = 'ساعت باید به شکل HH:MM باشد.';
+  }
+
   const note = typeof body.note === 'string' ? body.note.replace(/\r\n?/g, '\n').trim() : '';
   if (note.length > 1000) errors.note = 'یادداشت بیش از ۱۰۰۰ نویسه است.';
 
@@ -42,6 +48,7 @@ export function validateDeadline(body) {
       caseNo: caseNo || null,
       dueDate: body.dueDate,
       kind,
+      dueTime,
       note: note || null,
     },
   };

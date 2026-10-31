@@ -41,7 +41,7 @@ function d1Like(db) {
 async function setup() {
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON;');
-  for (const f of ['0001_init.sql', '0002_auth.sql', '0003_academy.sql', '0004_deadlines.sql']) db.exec(migration(f));
+  for (const f of ['0001_init.sql', '0002_auth.sql', '0003_academy.sql', '0004_deadlines.sql', '0011_deadline_time.sql']) db.exec(migration(f));
   const env = { DB: d1Like(db) };
   const make = async (email, token) => {
     const u = db
@@ -164,4 +164,33 @@ test('ورودی بد و شناسهٔ غیرعددی خطای مناسب می‌
 
   assert.equal((await call(env, '/api/deadlines/abc', { method: 'DELETE', cookie: a.cookie })).status, 404);
   assert.equal((await call(env, '/api/deadlines', { method: 'PUT', cookie: a.cookie })).status, 405);
+});
+
+test('ساعت اختیاری است و قالب نامعتبر رد می‌شود', () => {
+  assert.equal(validateDeadline({ ...valid, dueTime: '09:30' }).value.dueTime, '09:30');
+  assert.equal(validateDeadline(valid).value.dueTime, null);
+  assert.equal(validateDeadline({ ...valid, dueTime: '25:00' }).errors.dueTime !== undefined, true);
+  assert.equal(validateDeadline({ ...valid, dueTime: '9:30' }).errors.dueTime !== undefined, true);
+});
+
+test('ثبت با ساعت، ویرایش کامل با PUT و رعایت مالکیت', { skip }, async () => {
+  const { env, a, b } = await setup();
+  const created = await call(env, '/api/deadlines', { method: 'POST', body: { ...valid, dueTime: '10:00' }, cookie: a.cookie });
+  const { id } = await created.json();
+  const first = (await (await call(env, '/api/deadlines', { cookie: a.cookie })).json()).deadlines[0];
+  assert.equal(first.dueTime, '10:00');
+
+  const edited = await call(env, `/api/deadlines/${id}`, { method: 'PUT', body: { ...valid, title: 'جلسه تجدیدنظر', dueDate: '2026-11-20', dueTime: '', note: 'یادداشت جدید' }, cookie: a.cookie });
+  assert.equal(edited.status, 200);
+  const updated = (await (await call(env, '/api/deadlines', { cookie: a.cookie })).json()).deadlines[0];
+  assert.equal(updated.title, 'جلسه تجدیدنظر');
+  assert.equal(updated.dueDate, '2026-11-20');
+  assert.equal(updated.dueTime, null);
+  assert.equal(updated.note, 'یادداشت جدید');
+
+  const bad = await call(env, `/api/deadlines/${id}`, { method: 'PUT', body: { ...valid, title: 'x' }, cookie: a.cookie });
+  assert.equal(bad.status, 422);
+
+  const other = await call(env, `/api/deadlines/${id}`, { method: 'PUT', body: { ...valid, title: 'هک' }, cookie: b.cookie });
+  assert.equal(other.status, 404);
 });

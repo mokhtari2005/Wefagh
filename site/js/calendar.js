@@ -53,10 +53,15 @@ export function shamsiMonth(baseIso) {
   };
 }
 
-/** تقویم قابل‌دسترس با کلیدهای ناوبری ماه قبل و بعد. */
-export function shamsiCalendar({ todayOverride } = {}) {
+/**
+ * تقویم شمسی. با onSelect کلیک روی روز فعال می‌شود؛ با onMonthChange(اولین، آخرین) بعد از هر تغییر ماه خبر داده می‌شود.
+ * setMarks(Map<iso, n>) تعداد مواعد هر روز را نشان می‌دهد؛ setSelected(iso) روز انتخابی را علامت می‌زند.
+ */
+export function shamsiCalendar({ todayOverride, onSelect, onMonthChange } = {}) {
   const today = todayOverride || todayIso();
   let base = today;
+  let marks = new Map();
+  let selected = null;
   const title = h('h2', { class: 'calendar-title', id: 'shamsi-cal-title' });
   const grid = h('div', { class: 'calendar-grid-wrap' });
   const status = h('p', { class: 'visually-hidden', role: 'status', 'aria-live': 'polite' });
@@ -73,9 +78,27 @@ export function shamsiCalendar({ todayOverride } = {}) {
           tr.append(h('td', { class: 'cal-empty' }));
           continue;
         }
-        const attrs = { class: cell.iso === today ? 'cal-day cal-today' : 'cal-day' };
-        if (cell.iso === today) attrs['aria-current'] = 'date';
-        tr.append(h('td', attrs, [h('span', { text: cell.label })]));
+        const classes = ['cal-day'];
+        if (cell.iso === today) classes.push('cal-today');
+        if (cell.iso === selected) classes.push('cal-selected');
+        const count = marks.get(cell.iso) || 0;
+        const content = [h('span', { class: 'cal-num', text: cell.label })];
+        if (count) content.push(h('span', { class: 'cal-mark', 'aria-label': `${count} موعد`, text: String(count) }));
+        if (onSelect) {
+          const btn = h('button', { class: classes.join(' '), type: 'button', 'data-iso': cell.iso, 'aria-label': `${cell.label} ${month.title}${count ? `، ${count} موعد` : ''}` }, content);
+          if (cell.iso === today) btn.setAttribute('aria-current', 'date');
+          if (cell.iso === selected) btn.setAttribute('aria-pressed', 'true');
+          btn.addEventListener('click', () => {
+            selected = cell.iso;
+            render();
+            onSelect(cell.iso);
+          });
+          tr.append(h('td', {}, [btn]));
+        } else {
+          const attrs = { class: classes.join(' ') };
+          if (cell.iso === today) attrs['aria-current'] = 'date';
+          tr.append(h('td', attrs, content));
+        }
       }
       rows.push(tr);
     }
@@ -90,20 +113,31 @@ export function shamsiCalendar({ todayOverride } = {}) {
     next.dataset.target = month.nextIso;
   }
 
+  /** فقط هنگام تغییر ماه صدا زده می‌شود تا رندر مجدد حلقه‌ای ایجاد نکند. */
+  function notifyMonth() {
+    if (!onMonthChange) return;
+    const month = shamsiMonth(base);
+    const isos = month.cells.filter((c) => c.iso).map((c) => c.iso);
+    onMonthChange(isos[0], isos[isos.length - 1]);
+  }
+
   const prev = h('button', { class: 'btn-pill cal-nav', type: 'button', 'aria-label': 'ماه قبل', text: '‹ ماه قبل' });
   const next = h('button', { class: 'btn-pill cal-nav', type: 'button', 'aria-label': 'ماه بعد', text: 'ماه بعد ›' });
   const todayBtn = h('button', { class: 'btn-pill cal-nav cal-today-btn', type: 'button', text: 'امروز' });
-  prev.addEventListener('click', () => { base = prev.dataset.target; render(); });
-  next.addEventListener('click', () => { base = next.dataset.target; render(); });
-  todayBtn.addEventListener('click', () => { base = today; render(); });
+  prev.addEventListener('click', () => { base = prev.dataset.target; render(); notifyMonth(); });
+  next.addEventListener('click', () => { base = next.dataset.target; render(); notifyMonth(); });
+  todayBtn.addEventListener('click', () => { base = today; render(); notifyMonth(); });
 
   const box = h('section', { class: 'calendar-card', 'aria-labelledby': 'shamsi-cal-title' }, [
     h('div', { class: 'calendar-head' }, [prev, title, next]),
     todayBtn,
     grid,
-    h('p', { class: 'muted calendar-note', text: 'تقویم عمومی و بدون ورود است. مواعد شخصی پرونده‌ها فقط پس از ورود به حساب دیده می‌شود.' }),
+    h('p', { class: 'muted calendar-note', text: onSelect ? 'برای ثبت موعد، روز مورد نظر را انتخاب کنید.' : 'تقویم عمومی و بدون ورود است. مواعد شخصی پرونده‌ها فقط پس از ورود به حساب دیده می‌شود.' }),
     status,
   ]);
+  box.setMarks = (map) => { marks = map instanceof Map ? map : new Map(); render(); };
+  box.setSelected = (iso) => { selected = iso || null; render(); };
   render();
+  notifyMonth();
   return box;
 }
