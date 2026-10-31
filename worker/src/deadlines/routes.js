@@ -11,6 +11,7 @@ function rowToDto(r) {
     title: r.title,
     caseNo: r.case_no,
     dueDate: r.due_date,
+    dueTime: r.due_time ?? null,
     kind: r.kind,
     note: r.note,
     done: r.done === 1,
@@ -45,8 +46,8 @@ export async function handleDeadlines(request, env, path) {
       const v = validateDeadline(parsed.body);
       if (!v.ok) return json({ ok: false, error: 'VALIDATION_FAILED', errors: v.errors }, 422);
       const row = await env.DB
-        .prepare('INSERT INTO deadlines (user_id, title, case_no, due_date, kind, note) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING id')
-        .bind(user.id, v.value.title, v.value.caseNo, v.value.dueDate, v.value.kind, v.value.note)
+        .prepare('INSERT INTO deadlines (user_id, title, case_no, due_date, due_time, kind, note) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) RETURNING id')
+        .bind(user.id, v.value.title, v.value.caseNo, v.value.dueDate, v.value.dueTime, v.value.kind, v.value.note)
         .first();
       return json({ ok: true, id: row?.id ?? null }, 201);
     }
@@ -60,6 +61,17 @@ export async function handleDeadlines(request, env, path) {
     const owned = await env.DB.prepare('SELECT id FROM deadlines WHERE id = ?1 AND user_id = ?2').bind(id, user.id).first();
     if (!owned) return json({ ok: false, error: 'NOT_FOUND' }, 404);
 
+    if (request.method === 'PUT') {
+      const parsed = await readJsonBody(request);
+      if (parsed.error) return parsed.error;
+      const v = validateDeadline(parsed.body);
+      if (!v.ok) return json({ ok: false, error: 'VALIDATION_FAILED', errors: v.errors }, 422);
+      await env.DB
+        .prepare('UPDATE deadlines SET title = ?1, case_no = ?2, due_date = ?3, due_time = ?4, kind = ?5, note = ?6 WHERE id = ?7 AND user_id = ?8')
+        .bind(v.value.title, v.value.caseNo, v.value.dueDate, v.value.dueTime, v.value.kind, v.value.note, id, user.id)
+        .run();
+      return json({ ok: true });
+    }
     if (request.method === 'PATCH') {
       const parsed = await readJsonBody(request);
       if (parsed.error) return parsed.error;
@@ -73,7 +85,7 @@ export async function handleDeadlines(request, env, path) {
       await env.DB.prepare('DELETE FROM deadlines WHERE id = ?1 AND user_id = ?2').bind(id, user.id).run();
       return json({ ok: true });
     }
-    return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'PATCH, DELETE' });
+    return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'PUT, PATCH, DELETE' });
   }
 
   return null;
