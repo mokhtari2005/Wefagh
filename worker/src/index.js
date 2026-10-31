@@ -10,6 +10,7 @@ import { handleDeadlines } from './deadlines/routes.js';
 import { handleCases } from './cases/routes.js';
 import { handleMootBank } from './moot/routes.js';
 import { handleDashboard } from './dashboard.js';
+import { handleAdminCases } from './admin-cases.js';
 import { handleAdmin } from './admin.js';
 import { handleAdminMedia } from './admin-media.js';
 import { handleAi } from './ai/routes.js';
@@ -80,6 +81,11 @@ export default {
         console.error(JSON.stringify({ where: `route:${path}`, error: err?.name || 'Error' }));
         return json({ ok: false, error: 'INTERNAL_ERROR' }, 500);
       }
+    }
+
+    if (path === '/api/admin/cases/import' || path === '/api/admin/cases/status' || path === '/api/admin/courses/import-builtin') {
+      const res = await handleAdminCases(request, env, path);
+      if (res) return res;
     }
 
     if (path === '/api/admin/content' || path.startsWith('/api/admin/content/')) {

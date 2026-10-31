@@ -61,6 +61,7 @@ export async function academyList() {
     grid.append(
       h('a', { class: 'card', href: `#/academy/${c.id}` }, [
         h('span', { class: 'badge', text: `${c.level} · ${c.lessonCount} درس` }),
+        c.status === 'draft' ? h('span', { class: 'badge badge-draft', text: 'پیش‌نویس ـ در دست تهیه' }) : h('span'),
         c.enrolled ? h('span', { class: 'badge badge-soft', text: 'ثبت‌نام شده‌اید' }) : h('span'),
         h('h3', { text: c.title }),
         h('p', { text: c.summary }),
@@ -74,11 +75,19 @@ export async function academyCourse(courseId) {
   const wrap = h('div');
   const res = await getJson(`/api/academy/courses/${encodeURIComponent(courseId)}`);
   if (!res.ok) {
-    wrap.append(h('h1', { text: 'دوره پیدا نشد' }), h('p', {}, [h('a', { href: '#/academy', text: 'بازگشت به آکادمی' })]));
+    const notPublished = res.data?.error === 'COURSE_NOT_PUBLISHED';
+    wrap.append(
+      h('h1', { text: notPublished ? 'این دوره هنوز منتشر نشده است' : 'دوره پیدا نشد' }),
+      h('p', { class: 'lead', text: notPublished ? 'محتوای این دوره در حال تهیه و بررسی است؛ پس از تأیید گروه، در این بخش فعال می‌شود.' : '' }),
+      h('p', {}, [h('a', { href: '#/academy', text: 'بازگشت به آکادمی' })]),
+    );
     return wrap;
   }
   const course = res.data.course;
   wrap.append(h('h1', { text: course.title }), h('p', { class: 'muted', text: course.level }), h('p', { class: 'lead', text: course.summary }));
+  if (course.status === 'draft') {
+    wrap.append(h('div', { class: 'notice', role: 'note' }, [h('p', { text: 'این دوره پیش‌نویس است. ثبت‌نام و دسترسی کاربران عادی به محتوا غیرفعال است و محتوا پیش از تأیید گروه منتشر نمی‌شود.' })]));
+  }
 
   const area = h('div', { role: 'region', 'aria-live': 'polite' });
   wrap.append(area);
@@ -96,6 +105,12 @@ async function renderProgress(area, course) {
   const prog = await getJson(`/api/academy/progress?courseId=${encodeURIComponent(course.id)}`);
   const state = prog.ok ? prog.data : { enrolled: false, completedLessonIds: [] };
   area.replaceChildren();
+
+  if (course.status === 'draft' && !state.enrolled) {
+    // دوره‌های پیش‌نویس فقط برای مدیر آکادمی باز می‌شوند؛ دکمهٔ ثبت‌نام نمایش داده نمی‌شود.
+    area.append(h('p', { class: 'muted', text: 'ثبت‌نام در این دوره هنوز فعال نشده است.' }), lessonsList(course, null));
+    return;
+  }
 
   if (!state.enrolled) {
     const status = h('p', { class: 'form-status', role: 'status' });

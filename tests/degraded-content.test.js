@@ -29,9 +29,10 @@ test('فهرست پرونده‌ها بدون جدول محتوا ۲۰۰ و فه
   assert.deepEqual(body.cases, []);
 });
 
-test('جزئیات دوره داخلی بدون جدول محتوا کار می‌کند و شناسهٔ ناشناخته ۴۰۴ می‌دهد', async () => {
+test('دوره پیش‌نویس داخلی برای کاربر عادی محتوا نمی‌دهد و شناسهٔ ناشناخته ۴۰۴ می‌دهد', async () => {
   const ok = await get('/api/academy/courses/civil-basics');
-  assert.equal(ok.status, 200);
+  assert.equal(ok.status, 403);
+  assert.equal((await ok.json()).error, 'COURSE_NOT_PUBLISHED');
   const missing = await get('/api/academy/courses/no-such-course');
   assert.equal(missing.status, 404);
 });

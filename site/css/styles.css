@@ -316,6 +316,8 @@ p { margin: 0 0 var(--space-2); }
   padding: 2px 11px;
   margin-bottom: 8px;
 }
+.badge-soft { background: var(--bone); color: var(--ink); }
+.badge-draft { background: #fbf1dc; color: #7a5410; border: 1px solid #e8cf96; }
 
 .notice {
   background: var(--bone);
@@ -1052,6 +1054,61 @@ h1, h2, h3 { color: var(--teal-dark); }
 .assistant-output textarea, .oral-ai textarea, .assistant-workspace textarea { width: 100%; }
 .oral-ai .row, .assistant-workspace .row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
 
+/* ---------- دستیار وکیل: چیدمان گفت‌وگو (موبایل تک‌ستونه، دسکتاپ با فهرست گفت‌وگو) ---------- */
+.ai-shell { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); margin-top: 8px; }
+.ai-main { display: flex; flex-direction: column; min-width: 0; min-height: 440px; background: var(--paper); border: 1px solid var(--sand-line); border-radius: var(--radius-sm, 12px); overflow: hidden; }
+.ai-side { min-width: 0; }
+.ai-threads { background: var(--paper); border: 1px solid var(--sand-line); border-radius: var(--radius-sm, 12px); padding: 10px 12px; }
+.ai-threads summary { cursor: pointer; font-weight: 600; min-height: 40px; display: flex; align-items: center; }
+.ai-thread-list { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 6px; max-height: 280px; overflow-y: auto; }
+.ai-thread-item { display: flex; gap: 6px; align-items: center; }
+.ai-thread-open { flex: 1 1 auto; min-width: 0; text-align: start; background: var(--bone); border: 1px solid transparent; border-radius: 10px; padding: 8px 10px; font: inherit; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 40px; color: var(--ink); }
+.ai-thread-open[aria-current="true"] { border-color: var(--gold); }
+.ai-thread-del { background: none; border: 0; color: var(--cinnamon); cursor: pointer; font: inherit; min-height: 40px; padding: 0 6px; }
+.ai-thread-status { font-size: .85rem; margin: 0; }
+.ai-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--sand-line); }
+.ai-seg { display: inline-flex; flex-wrap: wrap; gap: 2px; background: var(--bone); border-radius: 999px; padding: 3px; max-width: 100%; }
+.ai-seg-btn { border: 0; background: transparent; padding: 6px 12px; border-radius: 999px; font: inherit; cursor: pointer; color: var(--ink-soft); min-height: 38px; }
+.ai-seg-btn[aria-pressed="true"] { background: var(--paper); color: var(--ink); box-shadow: var(--shadow-sm); }
+.ai-doc-picker { display: flex; gap: 6px; align-items: center; font-size: .9rem; min-width: 0; max-width: 100%; }
+.ai-doc-picker select { min-width: 0; max-width: 100%; }
+.ai-doc-picker[hidden] { display: none; }
+.ai-stream { flex: 1 1 auto; overflow-y: auto; padding: 16px; max-height: 58vh; min-height: 240px; }
+.ai-log { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+.ai-msg { max-width: 94%; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--sand-line); background: var(--paper); min-width: 0; }
+.ai-msg-user { justify-self: end; background: var(--bone); }
+.ai-msg-ai { justify-self: start; }
+.ai-role { display: block; font-size: .78rem; color: var(--ink-soft); margin-bottom: 4px; font-weight: 600; }
+.ai-text { line-height: 1.9; overflow-wrap: anywhere; margin: 0; }
+.ai-msg-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.ai-mini { padding: 4px 10px; font-size: .82rem; min-height: 34px; }
+.ai-notes { margin: 8px 0 0; padding-inline-start: 1.2rem; font-size: .9rem; color: var(--ink-soft); }
+.ai-disclaimer { font-size: .85rem; margin: 8px 0 0; }
+.ai-pending { justify-self: start; color: var(--ink-soft); font-size: .95rem; }
+.ai-empty { display: grid; gap: 14px; padding: 6px 2px; }
+.ai-empty[hidden] { display: none; }
+.ai-suggestions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ai-suggestion { text-align: start; min-height: 44px; white-space: normal; }
+.ai-composer { border-top: 1px solid var(--sand-line); padding: 12px; display: grid; gap: 8px; background: var(--paper); }
+.ai-input { width: 100%; box-sizing: border-box; resize: vertical; min-height: 84px; max-height: 260px; font: inherit; padding: 10px 12px; border: 1px solid var(--sand-line); border-radius: 10px; background: #fff; }
+.ai-composer-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ai-counter { margin-inline-start: auto; font-size: .82rem; }
+.ai-send { min-width: 110px; min-height: 44px; }
+.ai-attachment { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: var(--bone); padding: 6px 10px; border-radius: 10px; font-size: .9rem; }
+.ai-attachment[hidden] { display: none; }
+.ai-status { margin: 0; font-size: .9rem; min-height: 1.2em; }
+@media (min-width: 900px) {
+  .ai-shell { grid-template-columns: 260px minmax(0, 1fr); align-items: start; }
+  .ai-threads { position: sticky; top: 90px; }
+  .ai-main { height: min(78vh, 760px); min-height: 0; }
+  .ai-stream { max-height: none; }
+}
+@media (max-width: 899px) {
+  .ai-threads { position: static; }
+  .ai-main { min-height: 0; }
+  .ai-stream { min-height: 220px; max-height: 52vh; }
+}
+
 /* جلسهٔ شبیه‌سازی دادگاه */
 .hearing-setup { display: grid; gap: .6rem; }
 .hearing-setup label { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
@@ -1168,3 +1225,5 @@ body.immersive main.container { width: 100%; max-width: none; padding: 0; margin
   .court-main { padding-bottom: 9rem; }
 }
 @media (prefers-reduced-motion: reduce) { .court-seat { transition: none; } }
+
+.pre-wrap { white-space: pre-wrap; }

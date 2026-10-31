@@ -4,6 +4,7 @@
 export const COURSES = Object.freeze([
   {
     id: 'civil-basics',
+    status: 'draft',
     title: 'مبانی دادرسی مدنی',
     level: 'مقدماتی',
     summary: 'آشنایی با مراحل کلی یک دعوای مدنی از طرح دادخواست تا اجرای حکم.',
@@ -27,6 +28,7 @@ export const COURSES = Object.freeze([
   },
   {
     id: 'advocacy-writing',
+    status: 'draft',
     title: 'اصول لایحه‌نویسی',
     level: 'متوسط',
     summary: 'ساختار لایحه، نحوهٔ استدلال و استناد صحیح به قانون و رأی.',
@@ -66,5 +68,11 @@ export function courseSummaries() {
     level: c.level,
     summary: c.summary,
     lessonCount: c.lessons.length,
+    status: c.status,
   }));
+}
+
+/** دوره‌ای که هنوز پیش‌نویس است، برای کاربر عادی ثبت‌نام و محتوا ندارد. */
+export function isPublicCourse(course) {
+  return Boolean(course) && course.status === 'published';
 }
