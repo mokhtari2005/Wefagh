@@ -602,7 +602,7 @@ function toolPage(kind) {
   const tool = TOOL_PAGES[kind];
   const section = tool.build();
   return h('div', {}, [
-    h('a', { class: 'btn secondary', href: '#/calculators', text: 'همهٔ محاسبه‌گرها' }),
+    h('a', { class: 'tool-back', href: '#/calculators', text: '‹ همهٔ محاسبه‌گرها' }),
     h('h1', { text: tool.title }),
     h('p', { class: 'lead', text: tool.intro }),
     h('div', { class: 'notice', role: 'note', text: CALC_NOTICE }),
