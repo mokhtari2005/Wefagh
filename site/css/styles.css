@@ -1289,3 +1289,8 @@ body.immersive main.container { width: 100%; max-width: none; padding: 0; margin
 .deadline-edit-area { margin-block: 1rem; }
 .deadline-edit-area .form { margin-block-end: 0; }
 .deadline-time-note { margin: 0; }
+
+/* ---- برچسب checkbox: ردیف ثابت کنار کادر؛ متن فارسی بین کلمات شکسته می‌شود، نه وسط کلمه ---- */
+label.check-row { display: flex; align-items: center; gap: 10px; font-weight: 700; cursor: pointer; line-height: 1.8; }
+label.check-row > input[type=checkbox] { width: 20px; height: 20px; margin: 0; flex: 0 0 auto; }
+label.check-row > span { min-width: 0; flex: 1 1 auto; word-break: keep-all; overflow-wrap: break-word; }
