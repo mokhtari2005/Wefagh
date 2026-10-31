@@ -1,4 +1,4 @@
-// تست پروفایل ثبت‌نام: اعتبارسنجی سرور، ذخیرهٔ پایدار، شماره‌های تکراری، دسترسی به پروفایل، قیدهای مهاجرت ۰۰۰۸ و تطابق فهرست‌های سایت با Worker.
+// تست پروفایل و ثبت‌نام: پروفایل از مسیر ویرایش ذخیره می‌شود؛ ثبت‌نام پروفایل و کنترل شماره تکراری ندارد. قیدهای مهاجرت ۰۰۰۸ و تطابق فهرست‌های سایت با Worker نیز بررسی می‌شوند.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -86,10 +86,48 @@ const user = (n, profile = {}) => ({
   profile: { ...baseProfile, phone: `0912000000${n}`, ...profile },
 });
 
-test('دانشجو ثبت‌نام می‌کند؛ پروفایل پایدار ذخیره و شماره به صورت ۰۹ نرمال می‌شود', { skip }, async () => {
+const verifiedCookie = async (env, sent, email, password = 'رمز-امن-۱۴۰۵') => {
+  const reg = await call(env, '/api/auth/register', { body: { email, password, displayName: 'کاربر آزمایشی' } });
+  assert.equal(reg.status, 202);
+  const token = sent.at(-1).text.match(/token=([A-Za-z0-9_-]+)/)[1];
+  await call(env, '/api/auth/verify-email', { body: { token } });
+  const login = await call(env, '/api/auth/login', { body: { email, password } });
+  assert.equal(login.status, 200);
+  return (login.headers.get('set-cookie') || '').match(/wefagh_session=[^;]+/)[0];
+};
+
+// ---- ثبت‌نام: پروفایل و کنترل شماره تکراری از ثبت‌نام حذف شده‌اند (تصمیم مالک) ----
+test('ثبت‌نام بدون کنترل شماره و بدون ذخیرهٔ پروفایل انجام می‌شود', { skip }, async () => {
   const { db, env, sent } = setup();
-  const res = await call(env, '/api/auth/register', { body: user(1, { phone: '۰۹۱۲-۳۴۵-۶۷۸۹' }) });
+  const res = await call(env, '/api/auth/register', { body: { email: 'plain@example.com', password: 'رمز-امن-۱۴۰۵', displayName: 'کاربر ساده' } });
   assert.equal(res.status, 202);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM users').get().n, 1);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM user_profiles').get().n, 0, 'ثبت‌نام نباید پروفایل بسازد');
+  assert.equal(sent.length, 1);
+});
+
+test('ثبت‌نام اطلاعات پروفایل ارسال‌شده را نادیده می‌گیرد و خطای پروفایل نمی‌دهد', { skip }, async () => {
+  const { db, env } = setup();
+  const res = await call(env, '/api/auth/register', { body: user(2, { phone: '0812', province: 'نامعتبر' }) });
+  assert.equal(res.status, 202);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM user_profiles').get().n, 0);
+});
+
+test('شماره تکراری در ثبت‌نام مانعی ندارد (کنترل حذف شده است)', { skip }, async () => {
+  const { db, env, sent } = setup();
+  await call(env, '/api/auth/register', { body: user(5, { phone: '09121112233' }) });
+  const second = await call(env, '/api/auth/register', { body: user(6, { phone: '09121112233' }) });
+  assert.equal(second.status, 202);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM users').get().n, 2);
+  assert.equal(sent.length, 2);
+});
+
+// ---- پروفایل: اعتبارسنجی و ذخیره از مسیر ویرایش پروفایل (PUT /api/me/profile) ----
+test('دانشجو پروفایل را ذخیره می‌کند و شماره به صورت ۰۹ نرمال می‌شود', { skip }, async () => {
+  const { db, env, sent } = setup();
+  const cookie = await verifiedCookie(env, sent, 'student@example.com');
+  const res = await call(env, '/api/me/profile', { method: 'PUT', cookie, body: { profile: { ...baseProfile, phone: '۰۹۱۲-۳۴۵-۶۷۸۹' } } });
+  assert.equal(res.status, 200);
   const row = db.prepare('SELECT phone, province, professional_status, practice_areas, skill_areas, bar_association, license_number FROM user_profiles').get();
   assert.equal(row.phone, '09123456789');
   assert.equal(row.province, 'اصفهان');
@@ -97,57 +135,43 @@ test('دانشجو ثبت‌نام می‌کند؛ پروفایل پایدار �
   assert.deepEqual(JSON.parse(row.practice_areas).sort(), ['civil', 'family']);
   assert.equal(row.bar_association, null, 'دانشجو نباید اطلاعات پروانه ذخیره کند');
   assert.equal(row.license_number, null);
-  assert.equal(sent.length, 1);
 });
 
-test('وکیل پایه یک بدون نام کانون رد می‌شود و شماره پروانهٔ غیرمجاز ثبت نمی‌شود', { skip }, async () => {
-  const { db, env } = setup();
-  const bad = await call(env, '/api/auth/register', { body: user(2, { professionalStatus: 'lawyer_p1', barAssociation: '' }) });
+test('وکیل پایه یک بدون نام کانون رد می‌شود و پروانهٔ معتبر ذخیره می‌شود', { skip }, async () => {
+  const { db, env, sent } = setup();
+  const cookie = await verifiedCookie(env, sent, 'lawyer@example.com');
+  const bad = await call(env, '/api/me/profile', { method: 'PUT', cookie, body: { profile: { ...baseProfile, professionalStatus: 'lawyer_p1', barAssociation: '' } } });
   assert.equal(bad.status, 422);
   assert.ok((await bad.json()).errors.barAssociation);
-  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM users').get().n, 0, 'کاربر ناقص نباید ساخته شود');
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM user_profiles').get().n, 0);
 
-  const ok = await call(env, '/api/auth/register', { body: user(3, { professionalStatus: 'lawyer_p1', barAssociation: 'کانون وکلای اصفهان', licenseNumber: 'ق-۱۲۳۴', licenseYear: '۱۴۰۲' }) });
-  assert.equal(ok.status, 202);
+  const ok = await call(env, '/api/me/profile', { method: 'PUT', cookie, body: { profile: { ...baseProfile, professionalStatus: 'lawyer_p1', barAssociation: 'کانون وکلای اصفهان', licenseNumber: 'ق-۱۲۳۴', licenseYear: '۱۴۰۲' } } });
+  assert.equal(ok.status, 200);
   const row = db.prepare('SELECT license_number, license_year FROM user_profiles').get();
   assert.equal(row.license_number, 'ق-1234');
   assert.equal(row.license_year, 1402);
 });
 
-test('شماره، استان، وضعیت و فهرست‌های نامعتبر با خطای فیلدی رد می‌شوند', { skip }, async () => {
-  const { db, env } = setup();
-  const res = await call(env, '/api/auth/register', { body: user(4, { phone: '0812', province: 'نامعتبر', professionalStatus: 'hacker', practiceAreas: ['civil', 'bogus'], skillAreas: [] }) });
+test('شماره، استان، وضعیت و فهرست‌های نامعتبر در ویرایش پروفایل با خطای فیلدی رد می‌شوند', { skip }, async () => {
+  const { db, env, sent } = setup();
+  const cookie = await verifiedCookie(env, sent, 'invalid@example.com');
+  const res = await call(env, '/api/me/profile', { method: 'PUT', cookie, body: { profile: { ...baseProfile, phone: '0812', province: 'نامعتبر', professionalStatus: 'hacker', practiceAreas: ['civil', 'bogus'], skillAreas: [] } } });
   assert.equal(res.status, 422);
   const { errors } = await res.json();
   for (const k of ['phone', 'province', 'professionalStatus', 'practiceAreas', 'skillAreas']) assert.ok(errors[k], `خطای ${k} انتظار می‌رفت`);
-  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM users').get().n, 0);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM user_profiles').get().n, 0);
 });
 
-test('شماره تکراری پاسخ عمومی می‌گیرد و کاربر دوم ساخته نمی‌شود', { skip }, async () => {
-  const { db, env, sent } = setup();
-  await call(env, '/api/auth/register', { body: user(5, { phone: '09121112233' }) });
-  const dup = await call(env, '/api/auth/register', { body: user(6, { phone: '09121112233' }) });
-  assert.equal(dup.status, 202);
-  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM users').get().n, 1);
-  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM user_profiles').get().n, 1);
-  assert.equal(sent.length, 1);
-});
-
-test('/api/me پروفایل کاربر وارد شده را برمی‌گرداند و بدون ورود پروفایلی نشت نمی‌کند', { skip }, async () => {
-  const { db, env, sent } = setup();
-  const u = user(7, { phone: '09129998877' });
-  await call(env, '/api/auth/register', { body: u });
-  const token = sent.at(-1).text.match(/token=([A-Za-z0-9_-]+)/)[1];
-  await call(env, '/api/auth/verify-email', { body: { token } });
-  const login = await call(env, '/api/auth/login', { body: { email: u.email, password: u.password } });
-  const cookie = (login.headers.get('set-cookie') || '').match(/wefagh_session=[^;]+/)[0];
+test('/api/me پروفایل ذخیره‌شده را برمی‌گرداند و بدون ورود پروفایلی نشت نمی‌کند', { skip }, async () => {
+  const { env, sent } = setup();
+  const cookie = await verifiedCookie(env, sent, 'me@example.com');
+  await call(env, '/api/me/profile', { method: 'PUT', cookie, body: { profile: { ...baseProfile, phone: '09129998877' } } });
   const me = await (await call(env, '/api/me', { method: 'GET', cookie })).json();
   assert.equal(me.user.profile.phone, '09129998877');
   assert.deepEqual(me.user.profile.practiceAreas.sort(), ['civil', 'family']);
   assert.ok(!JSON.stringify(me).includes('password'));
   const anon = await call(env, '/api/me', { method: 'GET' });
   assert.equal(anon.status, 401);
-  void db;
 });
 
 test('قیدهای مهاجرت ۰۰۰۸ ورودی بد را حتی بدون Worker رد می‌کنند', { skip }, () => {
@@ -199,7 +223,7 @@ function setupWithoutProfiles() {
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON;');
   for (const f of ['0001_init.sql', '0002_auth.sql']) db.exec(migration(f));
-  const env = { DB: d1Like(db), PUBLIC_BASE_URL: 'https://wefagh.ir', mailer: async () => {} };
+  const env = { DB: d1Like(db), PUBLIC_BASE_URL: 'https://mokhtari.ir', mailer: async () => {} };
   return { db, env };
 }
 
@@ -217,29 +241,10 @@ test('بدون جدول پروفایل: کاربر قدیمی می‌تواند 
   assert.equal(body.user.profile, null);
 });
 
-test('بدون جدول پروفایل: ثبت‌نام با ۵۰۳ رد می‌شود و هیچ کاربر ناقصی ساخته نمی‌شود', { skip }, async () => {
+test('بدون جدول پروفایل: ثبت‌نام همچنان کار می‌کند و کاربر ساخته می‌شود', { skip }, async () => {
   const { db, env } = setupWithoutProfiles();
-  const res = await call(env, '/api/auth/register', { body: user(8) });
-  assert.equal(res.status, 503);
-  assert.equal((await res.json()).error, 'SERVICE_UNAVAILABLE');
-  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM users').get().n, 0);
+  const res = await call(env, '/api/auth/register', { body: { email: 'noprofile@example.com', password: 'رمز-امن-۱۴۰۵', displayName: 'کاربر بدون جدول' } });
+  assert.equal(res.status, 202);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM users').get().n, 1);
 });
 
-test('خطای سرور در گزارش فنی نام خطا را دارد ولی ایمیل، رمز یا پروفایل را ندارد', { skip }, async () => {
-  const { env } = setupWithoutProfiles();
-  const logs = [];
-  const original = console.error;
-  console.error = (...args) => logs.push(args.join(' '));
-  try {
-    await call(env, '/api/auth/register', { body: user(9) });
-    await call(env, '/api/auth/register', { body: user(10) });
-  } finally {
-    console.error = original;
-  }
-  assert.ok(logs.length >= 1, 'باید گزارش فنی ثبت شود');
-  const all = logs.join('\n');
-  assert.ok(all.includes('register.phone_check'));
-  for (const secret of [user(9).password, user(9).email, '09120000009', user(9).displayName]) {
-    assert.ok(!all.includes(secret), `گزارش نباید شامل ${secret} باشد`);
-  }
-});

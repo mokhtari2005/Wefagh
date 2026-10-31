@@ -5,7 +5,6 @@ import { cleanText, normalizeEmail } from '../validate.js';
 import { hashPassword, verifyPassword, validatePasswordPolicy } from './password.js';
 import { generateToken, hashToken, addMs, SESSION_TTL_MS, EMAIL_TOKEN_TTL_MS } from './token.js';
 import { sendMail } from '../email/gmail.js';
-import { validateProfile } from './profile.js';
 
 /** گزارش فنی بدون داده‌های کاربر: فقط نام خطا و محل آن (هرگز ایمیل، رمز یا پروفایل). */
 export function logError(where, err) {
@@ -42,7 +41,8 @@ function mailer(env) {
 }
 
 function publicBaseUrl(env) {
-  return env.PUBLIC_BASE_URL || 'https://wefagh.ir';
+  // دامنهٔ اصلی mokhtari.ir است؛ مقدار از تنظیمات Worker خوانده می‌شود.
+  return env.PUBLIC_BASE_URL || env.BASE_URL || 'https://mokhtari.ir';
 }
 
 export async function register(request, env) {
@@ -57,24 +57,10 @@ export async function register(request, env) {
   const pol = validatePasswordPolicy(body.password);
   if (!pol.ok) errors.password = pol.error;
   if (displayName.length < 2 || displayName.length > 100) errors.displayName = 'نام نمایشی باید بین ۲ و ۱۰۰ نویسه باشد.';
-  const profileCheck = validateProfile(body.profile);
-  if (!profileCheck.ok) Object.assign(errors, profileCheck.errors);
   if (Object.keys(errors).length > 0) return json({ ok: false, error: 'VALIDATION_FAILED', errors }, 422);
-  const profile = profileCheck.value;
 
   const existing = await env.DB.prepare('SELECT id FROM users WHERE email = ?1').bind(email).first();
   if (existing) return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
-  // شماره تکراری: پاسخ عمومی همان ایمیل تکراری؛ شماره‌های ثبت‌شده فاش نمی‌شوند.
-  let phoneTaken;
-  try {
-    phoneTaken = await env.DB.prepare('SELECT user_id FROM user_profiles WHERE phone = ?1').bind(profile.phone).first();
-  } catch (err) {
-    // جدول پروفایل در این محیط وجود ندارد (مهاجرت ۰۰۰۸ اجرا نشده): ثبت‌نامی ساخته نمی‌شود.
-    logError('register.phone_check', err);
-    return json({ ok: false, error: 'SERVICE_UNAVAILABLE' }, 503);
-  }
-  if (phoneTaken) return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
-
   const passwordHash = await hashPassword(body.password);
   let userId;
   try {
@@ -87,16 +73,6 @@ export async function register(request, env) {
     // ثبت همزمان دو درخواست با یک ایمیل: پاسخ عمومی؛ سایر خطاها به کاربر نشان داده نمی‌شوند.
     if (String(err?.message || '').includes('UNIQUE')) return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
     logError('register.insert_user', err);
-    return json({ ok: false, error: 'INTERNAL_ERROR' }, 500);
-  }
-
-  try {
-    await insertProfile(env, userId, profile);
-  } catch (err) {
-    // پروفایل ذخیره نشد: حساب ناقص نماند.
-    await env.DB.prepare('DELETE FROM users WHERE id = ?1').bind(userId).run();
-    if (String(err?.message || '').includes('UNIQUE')) return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
-    logError('register.insert_profile', err);
     return json({ ok: false, error: 'INTERNAL_ERROR' }, 500);
   }
 
@@ -182,17 +158,6 @@ export async function resendVerification(request, env) {
   const sent = await issueVerificationEmail(env, user.id, email);
   logOutcome('auth.resend', sent ? 'sent' : 'send_failed');
   return generic();
-}
-
-async function insertProfile(env, userId, p) {
-  await env.DB
-    .prepare(`INSERT INTO user_profiles (user_id, phone, province, city, professional_status, bar_association,
-        license_number, license_year, experience_band, practice_areas, learning_goal, skill_areas, skill_level,
-        learning_format, notes) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)`)
-    .bind(userId, p.phone, p.province, p.city, p.professionalStatus, p.barAssociation, p.licenseNumber,
-      p.licenseYear, p.experienceBand, JSON.stringify(p.practiceAreas), p.learningGoal,
-      JSON.stringify(p.skillAreas), p.skillLevel, p.learningFormat, p.notes)
-    .run();
 }
 
 export async function getProfile(env, userId) {
