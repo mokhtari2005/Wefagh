@@ -64,7 +64,45 @@ export async function register(request, env) {
 
   const existing = await env.DB.prepare('SELECT id FROM users WHERE email = ?1').bind(email).first();
   if (existing) return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
-  // شماره تکراری: پاسخ عمومی همان ایمیل تکراری؛ شماره‌های ثبت‌شده فاش نمی‌شوند.
+  
   let phoneTaken;
   try {
-    phoneTaken = await env.DB
+    phoneTaken = await env.DB.prepare('SELECT user_id FROM user_profiles WHERE phone = ?1').bind(profile.phone).first();
+  } catch (err) {
+    logError('register.phone_check', err);
+    return json({ ok: false, error: 'SERVICE_UNAVAILABLE' }, 503);
+  }
+  if (phoneTaken) return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
+
+  const passwordHash = await hashPassword(body.password);
+  let userId;
+  try {
+    const row = await env.DB
+      .prepare('INSERT INTO users (email, password_hash, display_name) VALUES (?1, ?2, ?3) RETURNING id')
+      .bind(email, passwordHash, displayName)
+      .first();
+    userId = row?.id;
+  } catch (err) {
+    if (String(err?.message || '').includes('UNIQUE')) return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
+    logError('register.insert_user', err);
+    return json({ ok: false, error: 'INTERNAL_ERROR' }, 500);
+  }
+
+  try {
+    await insertProfile(env, userId, profile);
+  } catch (err) {
+    await env.DB.prepare('DELETE FROM users WHERE id = ?1').bind(userId).run();
+    if (String(err?.message || '').includes('UNIQUE')) return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
+    logError('register.insert_profile', err);
+    return json({ ok: false, error: 'INTERNAL_ERROR' }, 500);
+  }
+
+  if (env.ADMIN_EMAIL && normalizeEmail(env.ADMIN_EMAIL) === email) {
+    await env.DB.prepare("INSERT OR IGNORE INTO user_roles (user_id, role) VALUES (?1, 'super_admin')").bind(userId).run();
+  }
+
+  await issueVerificationEmail(env, userId, email);
+  return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
+}
+
+async function
