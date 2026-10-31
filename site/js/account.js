@@ -157,7 +157,8 @@ export async function accountPanel({ onLogout }) {
     user.profile ? profileSummary(user.profile) : h('p', { class: 'muted', text: 'پروفایل آموزشی برای این حساب ثبت نشده است.' }),
     h('details', { class: 'account-edit' }, [
       h('summary', { text: 'ویرایش پروفایل آموزشی' }),
-      profileEditForm(user.profile, () => {}),
+      // پس از ذخیرهٔ موفق، صفحهٔ حساب دوباره ساخته می‌شود تا خلاصهٔ پروفایل به‌روز شود.
+      profileEditForm(user.profile, () => window.dispatchEvent(new Event('hashchange'))),
     ]),
     h('details', { class: 'account-edit' }, [
       h('summary', { text: 'تغییر رمز عبور' }),
