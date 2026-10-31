@@ -6,6 +6,7 @@ import { formatShamsi } from '../shamsi.js';
 import { parseShamsiInput, isoToShamsiInput } from '../jalali.js';
 import { shamsiField } from '../shamsi-field.js';
 import { normalizeLimitations, formatNumbersInLine, formatRial, statusLabel } from './result-format.js';
+import { indexedDelayDamage, planDelayPeriod, periodLabel, periodKeyOfIso } from './indexation.js';
 
 function h(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
@@ -48,7 +49,7 @@ function resultBox(result, form = null) {
     ]));
   }
 
-  const facts = [];
+  const facts = [...(Array.isArray(result.facts) ? result.facts : [])];
   if (result.lastDay) facts.push(['آخرین روز', formatShamsi(new Date(result.lastDay + 'T12:00:00Z'))]);
   if (typeof result.interest === 'number') facts.push(['خسارت', formatRial(result.interest)]);
   if (typeof result.total === 'number') facts.push(['جمع با اصل', formatRial(result.total)]);
@@ -118,6 +119,115 @@ function delayTool() {
     out.replaceChildren(resultBox(result, form));
   });
   return h('section', { class: 'tool' }, [h('h2', { text: 'خسارت تأخیر تأدیه (روش ساده)' }), form]);
+}
+
+
+const INDEXED_ERRORS = {
+  INVALID_PRINCIPAL: 'اصل دین باید عددی بزرگ‌تر از صفر باشد.',
+  INVALID_DATES: 'تاریخ‌ها باید شمسی و معتبر باشند (مثال: ۱۴۰۵/۰۴/۰۸). تاریخ شروع و تاریخ محاسبه الزامی‌اند.',
+  INVALID_PERIOD: 'تاریخ پایان باید بعد از تاریخ شروع باشد.',
+  INVALID_PAYMENT: 'وضعیت پرداخت را انتخاب کنید.',
+  PARTIAL_PAYMENT_UNSUPPORTED: 'پرداخت جزئی در این ابزار پشتیبانی نمی‌شود؛ محاسبه تنها برای «پرداخت نشده» یا «پرداخت کامل» انجام می‌شود. برای پرداخت جزئی باید محاسبهٔ تفکیکی توسط وکیل انجام شود.',
+};
+
+/** خسارت تأخیر تأدیه بر اساس شاخص بانک مرکزی: محاسبهٔ مشروط؛ احراز شرایط قانونی با کاربر یا وکیل است. */
+function indexedDelayTool() {
+  const principal = h('input', { type: 'number', min: '1', step: '1', required: '', inputmode: 'numeric' });
+  const obligation = h('select', { id: 'dix-obligation' }, [
+    h('option', { value: 'money', text: 'دین پولی (وجه نقد یا مبلغ ریالی)' }),
+    h('option', { value: 'other', text: 'سایر تعهدات (این ابزار پشتیبانی نمی‌کند)' }),
+  ]);
+  const due = shamsiField('dix-due', 'تاریخ سررسید (شمسی، در صورت وجود)', {});
+  const demand = shamsiField('dix-demand', 'تاریخ مطالبه (شمسی، در صورت وجود)', {});
+  const startBasis = h('select', { id: 'dix-start-basis' }, [
+    h('option', { value: 'due', text: 'تاریخ سررسید' }),
+    h('option', { value: 'demand', text: 'تاریخ مطالبه' }),
+  ]);
+  const paymentStatus = h('select', { id: 'dix-payment' }, [
+    h('option', { value: 'unpaid', text: 'پرداخت نشده است' }),
+    h('option', { value: 'full', text: 'پرداخت کامل شده است' }),
+    h('option', { value: 'partial', text: 'پرداخت جزئی شده است (پشتیبانی نمی‌شود)' }),
+  ]);
+  const payDate = shamsiField('dix-pay-date', 'تاریخ پرداخت کامل (شمسی)', {});
+  const calcDate = shamsiField('dix-calc-date', 'تاریخ محاسبه (شمسی)', { required: true });
+  const out = h('div');
+  const form = h('form', { class: 'form', novalidate: '', 'aria-label': 'خسارت تأخیر تأدیه بر اساس شاخص بانک مرکزی' }, [
+    field('dix-principal', 'مبلغ اصل دین (ریال)', principal),
+    field('dix-obligation', 'نوع تعهد', obligation),
+    due.node,
+    demand.node,
+    field('dix-start-basis', 'تاریخ مبنای شروع تأخیر (انتخاب شما)', startBasis),
+    field('dix-payment', 'وضعیت پرداخت تا تاریخ محاسبه', paymentStatus),
+    payDate.node,
+    calcDate.node,
+    h('p', { class: 'muted', text: 'مبنای قانونی انتخاب تاریخ شروع و پایان در این ابزار احراز نشده است. تاریخ شروع را بر اساس قرارداد یا حکم انتخاب کنید.' }),
+    h('button', { class: 'btn', type: 'submit', text: 'محاسبهٔ مشروط بر اساس شاخص' }),
+    out,
+  ]);
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (obligation.value !== 'money') {
+      return out.replaceChildren(h('div', { class: 'notice', role: 'alert', text: 'این ابزار فقط برای دین پولی است؛ برای سایر تعهدات محاسبه انجام نمی‌شود.' }));
+    }
+    const startDate = startBasis.value === 'due' ? due : demand;
+    const startIso = parseShamsiInput(startDate.input.value) ?? '';
+    const calcIso = parseShamsiInput(calcDate.input.value) ?? '';
+    const payIso = parseShamsiInput(payDate.input.value) ?? '';
+    const plan = planDelayPeriod({
+      startIso,
+      calcIso,
+      payment: { status: paymentStatus.value, dateIso: payIso || undefined },
+    });
+    if (!plan.ok) {
+      return out.replaceChildren(h('div', { class: 'notice', role: 'alert', text: INDEXED_ERRORS[plan.error] || 'ورودی‌ها را بررسی کنید.' }));
+    }
+    const r = indexedDelayDamage({
+      principal: strictNumber(principal.value),
+      startIso,
+      endIso: plan.endIso,
+      startBasis: startBasis.value === 'due' ? 'تاریخ سررسید' : 'تاریخ مطالبه',
+      endBasis: plan.endBasis,
+    });
+    if (!r.ok) {
+      let text = INDEXED_ERRORS[r.error] || 'ورودی‌ها را بررسی کنید.';
+      if (r.error === 'NO_INDEX_DATA') {
+        const lines = r.outside.map((o) => (o.side === 'before'
+          ? `${periodLabel(o.periodKey)} قبل از اولین ماه جدول (${periodLabel(r.coverage.first)}) است.`
+          : `${periodLabel(o.periodKey)} بعد از آخرین ماه جدول (${periodLabel(r.coverage.last)}) است؛ شاخص آن هنوز در داده‌های معتبر نیست.`));
+        text = `${lines.join(' ')} محاسبه انجام نمی‌شود و عدد تقریبی ساخته نمی‌شود.`;
+      }
+      return out.replaceChildren(h('div', { class: 'notice', role: 'alert', text }));
+    }
+    const facts = [
+      ['ماه مبنا (شروع)', r.startIndex.period],
+      ['شاخص مبدأ', `${r.startIndex.index} (گزارش صفحه ${r.source.startPage})`],
+      ['ماه مقصد (پایان)', r.endIndex.period],
+      ['شاخص مقصد', `${r.endIndex.index} (گزارش صفحه ${r.source.endPage})`],
+      ['ضریب تعدیل', r.ratio.toFixed(6)],
+      ['فرمول', r.formula],
+      ['اصل دین', formatRial(r.principal)],
+    ];
+    out.replaceChildren(resultBox({
+      ok: true,
+      title: 'محاسبهٔ مشروط؛ احراز شرایط قانونی لازم است',
+      facts,
+      interest: r.interest,
+      total: r.total,
+      steps: r.steps,
+      ruleVersion: `شاخص بهای کالاها و خدمات مصرفی، ${r.source.reportPublishedAt} (فایل ${r.source.file})`,
+      limitations: [
+        `پایان محاسبه: ${plan.endBasis}.`,
+        `این عدد مشروط است؛ تا شرایط زیر احراز نشود، به‌عنوان مبلغ قطعی استفاده نکنید:`,
+        ...r.requiredVerification,
+        `منبع شاخص‌ها: ${r.source.publisher}، ${r.source.title}، صفحه‌های ${r.source.startPage} و ${r.source.endPage} فایل؛ سایت رسمی بانک مرکزی بررسی نشده است.`,
+        `جدول شاخص از ${periodLabel(r.coverage.first)} تا ${periodLabel(r.coverage.last)} داده دارد.`,
+      ],
+    }));
+  });
+  return h('div', {}, [
+    h('h3', { text: 'ب) محاسبه بر اساس شاخص بانک مرکزی (مشروط)' }),
+    form,
+  ]);
 }
 
 /** هزینهٔ دادرسی و حق‌الوکاله: قواعد تأییدشده از فهرست rates.js؛ نرخ‌ها از متن مستند است. */
@@ -249,7 +359,12 @@ export function calculatorsPage(params = {}) {
       ],
       withRanges: true,
     })]),
-    h('section', { id: 'calc-delay' }, [delayTool()]),
+    h('section', { id: 'calc-delay' }, [
+      h('h2', { text: 'خسارت تأخیر تأدیه' }),
+      h('h3', { text: 'الف) نرخ دستی (بدون شاخص بانک مرکزی)' }),
+      delayTool(),
+      indexedDelayTool(),
+    ]),
   ]);
   // پارامتر tool از کارت‌های آکادمی می‌آید؛ به بخش مربوط می‌رسیم.
   const target = { court: 'calc-court', attorney: 'calc-attorney', delay: 'calc-delay' }[params.tool];
