@@ -105,7 +105,8 @@ function detailView(wrap, item) {
   wrap.append(h('div', { class: 'notice', role: 'note', text: 'این پرونده صرفاً نقطهٔ شروع بررسی است؛ ارتباط، اصالت، کفایت و آثار هر دلیل باید مستقل ارزیابی شود. استنادهایی که «در انتظار بررسی» هستند هنوز تأیید نشده‌اند.' }));
   wrap.append(h('div', { class: 'row' }, [
     h('a', { class: 'btn secondary', href: '#/cases', text: 'بازگشت به بانک پرونده‌ها' }),
-    h('a', { class: 'btn', href: '#/moot-court/cases', text: 'انتخاب این پرونده برای موت‌کورت' }),
+    h('a', { class: 'btn', href: `#/moot-court?case=${encodeURIComponent(item.id)}`, text: 'تمرین مکتوب با این پرونده' }),
+    h('a', { class: 'btn secondary', href: '#/moot-court/cases', text: 'انتخاب برای جلسهٔ دادرسی' }),
   ]));
 }
 

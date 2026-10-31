@@ -61,11 +61,11 @@ const STAGES = [
   { id: 'result', title: 'نتیجه' },
 ];
 
-export function mootCourtPage() {
+function buildWorksheet(CASE, persistable) {
   const wrap = h('div', { class: 'moot' }, [
-    h('span', { class: 'section-kicker', text: 'تمرین دادرسی · پروندهٔ فرضی آموزشی' }),
+    h('span', { class: 'section-kicker', text: persistable ? 'تمرین دادرسی · پروندهٔ بانک پرونده‌ها' : 'تمرین دادرسی · پروندهٔ فرضی آموزشی' }),
     h('h1', { text: 'موت‌کورت' }),
-    h('p', { class: 'lead', text: 'یک پروندهٔ فرضی را مرحله‌به‌مرحله تحلیل کنید و در صورت ورود به حساب، تمرین را ذخیره کنید و بعداً ادامه دهید.' }),
+    h('p', { class: 'lead', text: persistable ? 'پروندهٔ انتخاب‌شده را مرحله‌به‌مرحله تحلیل کنید. در صورت ورود به حساب، پاسخ‌ها ذخیره می‌شود و بعداً می‌توانید ادامه دهید.' : 'یک تمرین آموزشی بدون ذخیرهٔ پایدار. برای ذخیرهٔ پاسخ‌ها، یک پروندهٔ منتشرشده را از بانک پرونده‌ها باز کنید.' }),
   ]);
   const accountBar = h('section', { class: 'case-panel', 'aria-label': 'ذخیره و بازیابی تمرین' }, [h('h2', { text: 'تمرین‌های من' })]);
   const accountStatus = h('p', { class: 'muted', role: 'status', 'aria-live': 'polite', text: 'در حال بررسی وضعیت حساب…' });
@@ -73,7 +73,8 @@ export function mootCourtPage() {
   const newSession = h('button', { class: 'btn', type: 'button', text: 'شروع تمرین ذخیره‌شونده' });
   const saveStatus = h('p', { class: 'muted', role: 'status', 'aria-live': 'polite', text: 'هنوز تمرینی انتخاب نشده است.' });
   accountBar.append(accountStatus, h('div', { class: 'row' }, [sessionSelect, newSession]), saveStatus);
-  wrap.append(accountBar, h('div', { class: 'notice', role: 'note', text: 'این تمرین فرضی و آموزشی است و جایگزین مشاورهٔ حقوقی نیست. اگر وارد حساب نشده‌اید، می‌توانید تمرین کنید اما پاسخ‌ها فقط تا وقتی صفحه باز است نگه داشته می‌شوند.' }));
+  wrap.append(accountBar, h('div', { class: 'notice', role: 'note', text: persistable ? 'این تمرین آموزشی است و جایگزین مشاورهٔ حقوقی نیست. اگر وارد حساب نشده‌اید، پاسخ‌ها فقط تا وقتی صفحه باز است نگه داشته می‌شوند.' : 'این تمرین فرضی و آموزشی است و جایگزین مشاورهٔ حقوقی نیست؛ پاسخ‌های آن ذخیره نمی‌شود.' }));
+  if (!persistable) wrap.append(h('p', {}, [h('a', { class: 'btn secondary', href: '#/moot-court/cases', text: 'انتخاب پروندهٔ منتشرشده از بانک' })]));
 
   const stepItems = STAGES.map((st, i) => h('li', { 'data-stage': st.id }, [h('span', { class: 'num', text: String(i + 1) }), h('span', { text: st.title })]));
   const stepper = h('ol', { class: 'stepper', 'aria-label': 'مراحل تمرین' }, stepItems);
@@ -390,6 +391,10 @@ export function mootCourtPage() {
     };
   }
   function loadPayload(session) {
+    if (session.caseId && session.caseId !== CASE.id) {
+      saveStatus.textContent = 'این تمرین مربوط به پروندهٔ دیگری است؛ برای ادامهٔ آن از صفحهٔ همان پرونده وارد شوید.';
+      return;
+    }
     for (const [key, ta] of Object.entries(answers)) ta.value = typeof session.answers?.[key] === 'string' ? session.answers[key] : '';
     boxes.forEach((b, i) => { b.checked = Boolean(session.rubric?.[i]); });
     out.replaceChildren();
@@ -453,7 +458,13 @@ export function mootCourtPage() {
     if (!sessionSelect.value) return;
     if (activeSessionId) await saveNow();
     const res = await getJson(`/api/moot/sessions/${encodeURIComponent(sessionSelect.value)}`);
-    if (res.ok) { activeSessionId = res.data.session.id; loadPayload(res.data.session); }
+    if (res.ok) {
+      if (res.data.session.caseId && res.data.session.caseId !== CASE.id) {
+        window.location.hash = `#/moot-court?case=${encodeURIComponent(res.data.session.caseId)}`;
+        return;
+      }
+      activeSessionId = res.data.session.id; loadPayload(res.data.session);
+    }
     else saveStatus.textContent = 'بازیابی تمرین انجام نشد.';
   });
   newSession.addEventListener('click', async () => {
@@ -515,4 +526,35 @@ export function mootCourtPage() {
   }, { once: true });
   show(0);
   return wrap;
+}
+
+/** تبدیل پروندهٔ منتشرشدهٔ بانک به ساختار کارگاه. فقط وقایع و مسائل خود پرونده می‌آیند؛ معیارها و راهنمای ساختار عمومی‌اند. */
+function toWorksheetCase(item, slug) {
+  const issues = (Array.isArray(item.issues) ? item.issues : [])
+    .map((issue, i) => ({ id: `i${i + 1}`, text: typeof issue === 'string' ? issue : String(issue?.text || '') }))
+    .filter((issue) => issue.text);
+  return {
+    id: slug,
+    title: item.title || 'پروندهٔ بانک',
+    facts: Array.isArray(item.facts) ? item.facts.filter((f) => typeof f === 'string') : [],
+    issues,
+    rubric: CASE.rubric,
+    outlineHint: CASE.outlineHint,
+  };
+}
+
+/** موت‌کورت: با ?case=<slug> پروندهٔ منتشرشدهٔ بانک را می‌خواند و پاسخ‌ها را ذخیره می‌کند؛ بدون آن تمرین آموزشی بدون ذخیره است. */
+export async function mootCourtPage(params = {}) {
+  const slug = typeof params.case === 'string' ? params.case.trim() : '';
+  if (!slug) return buildWorksheet(CASE, false);
+  const res = await getJson(`/api/cases/${encodeURIComponent(slug)}`);
+  if (!res.ok || !res.data?.case) {
+    return h('div', { class: 'moot' }, [
+      h('span', { class: 'section-kicker', text: 'تمرین دادرسی' }),
+      h('h1', { text: 'موت‌کورت' }),
+      h('p', { class: 'form-status err', role: 'alert', text: res.status === 404 ? 'این پرونده پیدا نشد یا هنوز منتشر نشده است.' : 'دریافت پرونده ناموفق بود؛ دوباره تلاش کنید.' }),
+      h('p', {}, [h('a', { class: 'btn secondary', href: '#/moot-court/cases', text: 'انتخاب پرونده از بانک' })]),
+    ]);
+  }
+  return buildWorksheet(toWorksheetCase(res.data.case, slug), true);
 }

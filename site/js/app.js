@@ -270,7 +270,7 @@ const ROUTES = {
   '/dashboard': () => lazy(dashboardPage),
   '/admin': () => lazy(adminPage),
   '/cases': () => lazy(() => casesPage()),
-  '/moot-court': () => mootCourtPage(),
+  '/moot-court': (params) => lazy(() => mootCourtPage(params)),
   '/assistant': () => assistantPage(),
   '/moot-court/hearing': (params) => courtRoomPage(params),
   '/moot-court/cases': (params) => casePickerPage(params),
