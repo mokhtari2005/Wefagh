@@ -6,6 +6,8 @@ import { formatShamsi } from '../shamsi.js';
 import { parseShamsiInput, isoToShamsiInput } from '../jalali.js';
 import { shamsiField } from '../shamsi-field.js';
 import { normalizeLimitations, formatNumbersInLine, formatRial, statusLabel } from './result-format.js';
+import { indexedDelayDamage, INDEXATION_CONDITIONS, periodKeyOfShamsi, periodLabel } from './indexation.js';
+import { CPI_SOURCE } from './cpi-data.js';
 
 function h(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
@@ -118,6 +120,72 @@ function delayTool() {
     out.replaceChildren(resultBox(result, form));
   });
   return h('section', { class: 'tool' }, [h('h2', { text: 'خسارت تأخیر تأدیه (روش ساده)' }), form]);
+}
+
+
+const INDEXED_ERRORS = {
+  INVALID_PRINCIPAL: 'اصل دین باید عددی بزرگ‌تر از صفر باشد.',
+  INVALID_DATES: 'تاریخ شروع و پایان باید شمسی و معتبر باشد (مثال: ۱۴۰۵/۰۴/۰۸).',
+  INVALID_PERIOD: 'تاریخ پایان باید بعد از تاریخ شروع باشد.',
+};
+
+/** خسارت تأخیر تأدیه بر اساس شاخص بانک مرکزی. بدون تأیید همهٔ شرایط و داشتن شاخص هر دو ماه، عددی نمی‌دهد. */
+function indexedDelayTool() {
+  const principal = h('input', { type: 'number', min: '1', step: '1', required: '', inputmode: 'numeric' });
+  const start = shamsiField('dix-start', 'تاریخ سررسید یا شروع تأخیر (شمسی)', { required: true });
+  const end = shamsiField('dix-end', 'تاریخ محاسبه (شمسی)', { required: true });
+  const boxes = {};
+  const conditionChecks = INDEXATION_CONDITIONS.map((c) => {
+    const box = h('input', { type: 'checkbox', name: `dix-${c.id}`, value: c.id });
+    boxes[c.id] = box;
+    return h('label', { class: 'chip' }, [box, h('span', { text: c.label })]);
+  });
+  const out = h('div');
+  const form = h('form', { class: 'form', novalidate: '', 'aria-label': 'خسارت تأخیر تأدیه بر اساس شاخص بانک مرکزی' }, [
+    field('dix-principal', 'مبلغ اصل دین (ریال)', principal),
+    start.node,
+    end.node,
+    h('div', { class: 'field' }, [
+      h('span', { text: 'شرایط قانونی (همه باید تأیید شوند؛ متن ماده ۵۲۲ در این ابزار احراز نشده است)' }),
+      h('div', { class: 'chips', role: 'group', 'aria-label': 'شرایط قانونی' }, conditionChecks),
+    ]),
+    h('button', { class: 'btn', type: 'submit', text: 'محاسبه خسارت بر اساس شاخص' }),
+    out,
+  ]);
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const startIso = parseShamsiInput(start.input.value) ?? '';
+    const endIso = parseShamsiInput(end.input.value) ?? '';
+    const confirmed = Object.fromEntries(Object.entries(boxes).map(([id, box]) => [id, box.checked]));
+    const r = indexedDelayDamage({ principal: strictNumber(principal.value), startIso, endIso, confirmed });
+    if (!r.ok) {
+      let text = INDEXED_ERRORS[r.error] || 'ورودی‌ها را بررسی کنید.';
+      if (r.error === 'CONDITIONS_NOT_CONFIRMED') {
+        text = `برای محاسبه باید همهٔ شرایط تأیید شوند. تأییدنشده: ${r.missingConditions.join(' | ')}`;
+      }
+      if (r.error === 'NO_INDEX_DATA') {
+        const have = `${periodLabel(r.coverage.first)} تا ${periodLabel(r.coverage.last)}`;
+        text = `برای دورهٔ انتخاب‌شده شاخص معتبر در داده‌های موجود نیست (${r.missingKeys.map(periodLabel).join('، ')}). دوره‌های دارای داده: ${have}. عدد تقریبی ساخته نمی‌شود.`;
+      }
+      return out.replaceChildren(h('div', { class: 'notice', role: 'alert', text }));
+    }
+    out.replaceChildren(resultBox({
+      ok: true,
+      title: 'خسارت تأخیر تأدیه بر اساس شاخص بانک مرکزی',
+      interest: r.interest,
+      total: r.total,
+      steps: r.steps,
+      ruleVersion: `شاخص بهای کالاها و خدمات مصرفی (${CPI_SOURCE.id})`,
+      limitations: [
+        'مبنای حقوقی: ماده ۵۲۲ قانون آیین دادرسی مدنی. متن رسمی و شرایط اجرایی این ماده در این ابزار احراز نشده و محاسبه تنها با تأیید همهٔ شرایط توسط کاربر انجام شده است.',
+        `شاخص‌ها از گزارش‌های رسمی بانک مرکزی خوانده شده‌اند (${CPI_SOURCE.file}، صفحه ${CPI_SOURCE.pages})؛ سایت رسمی بانک مرکزی بررسی نشده است.`,
+        `جدول شاخص فقط ${periodLabel(r.coverage.first)} تا ${periodLabel(r.coverage.last)} داده دارد.`,
+        'ملاک ماه شروع و پایان، ماه تقویمی تاریخ‌هاست؛ قاعدهٔ دقیق آن باید توسط وکیل تأیید شود.',
+        'این عدد پیش‌نویس است و پیش از ارائه به دادگاه یا طرف مقابل باید بازبینی شود.',
+      ],
+    }));
+  });
+  return h('div', {}, [h('h3', { text: 'بر اساس شاخص بانک مرکزی (ماده ۵۲۲)' }), form]);
 }
 
 /** هزینهٔ دادرسی و حق‌الوکاله: قواعد تأییدشده از فهرست rates.js؛ نرخ‌ها از متن مستند است. */
@@ -249,7 +317,7 @@ export function calculatorsPage(params = {}) {
       ],
       withRanges: true,
     })]),
-    h('section', { id: 'calc-delay' }, [delayTool()]),
+    h('section', { id: 'calc-delay' }, [delayTool(), indexedDelayTool()]),
   ]);
   // پارامتر tool از کارت‌های آکادمی می‌آید؛ به بخش مربوط می‌رسیم.
   const target = { court: 'calc-court', attorney: 'calc-attorney', delay: 'calc-delay' }[params.tool];
