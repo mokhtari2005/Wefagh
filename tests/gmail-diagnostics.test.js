@@ -83,7 +83,7 @@ test('پیام خام: From همان GMAIL_FROM است و موضوع فارسی 
   await sendMail({ env: SECRET_ENV, to: 'u@example.com', subject: 'تأیید حساب وِفاق', text: 'سلام', fetchImpl });
   const b64 = raw.replace(/-/g, '+').replace(/_/g, '/');
   const decoded = Buffer.from(b64, 'base64').toString('utf8');
-  assert.match(decoded, /^From: vefagh\.lawyers@gmail\.com\r\n/m);
+  assert.match(decoded, /^From: "Vefagh Law Society" <vefagh\.lawyers@gmail\.com>\r\n/m);
   assert.match(decoded, /^To: u@example\.com\r\n/m);
   assert.match(decoded, /^Subject: =\?UTF-8\?B\?[A-Za-z0-9+/=]+\?=\r\n/m);
 });
