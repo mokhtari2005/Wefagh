@@ -127,7 +127,7 @@ async function issueVerificationEmail(env, userId, email) {
   try {
     await mailer(env)({
       to: email,
-      subject: 'تأیید حساب وِفاق',
+      subject: 'تأیید حساب آکادمی وکالت شهرام مختاری',
       text: `برای تأیید حساب خود روی لینک زیر کلیک کنید (تا ۳۰ دقیقه معتبر است):\n${link}\n\nاگر شما درخواست نکرده‌اید، این پیام را نادیده بگیرید.`,
     });
     return true;

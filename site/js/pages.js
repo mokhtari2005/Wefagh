@@ -3,7 +3,7 @@
 
 export const NAV = [
   { id: 'home', path: '/', title: 'خانه' },
-  { id: 'about', path: '/about', title: 'درباره وِفاق' },
+  { id: 'about', path: '/about', title: 'درباره آکادمی وکالت شهرام مختاری' },
   { id: 'academy', path: '/academy', title: 'آکادمی' },
   { id: 'dashboard', path: '/dashboard', title: 'داشبورد من' },
   { id: 'cases', path: '/cases', title: 'بانک پرونده‌ها' },
@@ -26,8 +26,8 @@ export const VALUES = [
 // فقط اطلاعاتی که در مخزن و شرح پروژه ثبت شده‌اند؛ هیچ ادعای تأییدنشده‌ای درباره اعضا یا سوابق نیست.
 export const ABOUT_SECTIONS = [
   {
-    heading: 'وِفاق',
-    body: 'وِفاق گروه وکلای مدافع فرهنگ، اندیشه و قانون است.',
+    heading: 'آکادمی وکالت شهرام مختاری',
+    body: 'آکادمی وکالت شهرام مختاری (Shahram Mokhtari Law Academy) آموزش مجازی، تمرین دادرسی، بانک پرونده‌ها و ابزارهای حرفه‌ای وکالت را ارائه می‌کند.',
   },
   {
     heading: 'فعالیت‌ها',
