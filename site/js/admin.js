@@ -67,7 +67,44 @@ export async function adminPage() {
   cancel.hidden = true;
   const formActions = el('div', { class: 'row' }, [submit, cancel]);
   form.append(kindLabel, slugField, titleField, summaryField, statusLabel, levelField, lessonsField, areaField, factsField, issuesField, evidenceField, caseJsonField, formActions);
-  wrap.append(notice, form, el('h2', { text: 'محتواهای ثبت‌شده' }), list);
+  // بارگذاری دوره‌های داخلی و بانک پرونده‌ها به‌صورت پیش‌نویس؛ هیچ‌کدام منتشر نمی‌شوند.
+  const importNotice = el('p', { class: 'form-status', role: 'status' });
+  const importStatus = el('p', { class: 'muted', role: 'status' });
+  async function refreshImportStatus() {
+    const r = await getJson('/api/admin/cases/status');
+    if (!r.ok) { importStatus.textContent = ''; return; }
+    const d = r.data;
+    importStatus.textContent = `بانک: ${d.bankTotal} پرونده · در پایگاه داده: ${d.dbTotal} · پیش‌نویس: ${d.counts.draft || 0} · منتشرشده: ${d.counts.published || 0} · استناد تأییدشده: ${d.verifiedRefs} · سالم: ${d.intact}${d.missing.length ? ` · ناقص: ${d.missing.length}` : ''}`;
+  }
+  const importCourses = el('button', { class: 'btn secondary', type: 'button', text: 'بارگذاری دوره‌های داخلی (پیش‌نویس)' });
+  importCourses.addEventListener('click', async () => {
+    const r = await postJson('/api/admin/courses/import-builtin', {});
+    importNotice.className = `form-status${r.ok ? '' : ' err'}`;
+    importNotice.textContent = r.ok ? `دوره‌ها: ${r.data.inserted} افزوده، ${r.data.skippedExisting} موجود (بدون بازنویسی).` : errorText(r.data, r.status);
+    if (r.ok) await refresh();
+  });
+  const importCases = el('button', { class: 'btn secondary', type: 'button', text: 'بارگذاری بانک پرونده‌ها (پیش‌نویس)' });
+  importCases.addEventListener('click', async () => {
+    if (!window.confirm('پرونده‌های بانک به‌صورت پیش‌نویس ثبت می‌شوند. پرونده‌های موجود بازنویسی نمی‌شوند. ادامه می‌دهید؟')) return;
+    const r = await postJson('/api/admin/cases/import', {});
+    importNotice.className = `form-status${r.ok ? '' : ' err'}`;
+    importNotice.textContent = r.ok ? `پرونده‌ها: ${r.data.inserted} افزوده، ${r.data.skippedExisting} موجود (بدون بازنویسی).` : errorText(r.data, r.status);
+    if (r.ok) { await refresh(); await refreshImportStatus(); }
+  });
+  const importPanel = el('section', { class: 'admin-import card' }, [
+    el('h2', { text: 'بارگذاری محتوای داخلی' }),
+    el('p', { class: 'muted', text: 'این بارگذاری‌ها همیشه پیش‌نویس‌اند. پیش از انتشار، هر پرونده باید بررسی حقوقی شود و همهٔ استنادهای آن تأیید یا اصلاح گردد.' }),
+    el('div', { class: 'row' }, [importCourses, importCases]),
+    importStatus,
+    importNotice,
+  ]);
+  // جست‌وجو در فهرست محتوا (عنوان، شناسه، وضعیت)
+  const search = el('input', { type: 'search', placeholder: 'جست‌وجو در عنوان، شناسه یا وضعیت', 'aria-label': 'جست‌وجو در محتوا' });
+  search.addEventListener('input', () => {
+    const q = search.value.trim();
+    for (const row of list.children) row.hidden = Boolean(q) && !(row.dataset.search || '').includes(q);
+  });
+  wrap.append(notice, form, importPanel, el('h2', { text: 'محتواهای ثبت‌شده' }), search, list);
 
   function showKindFields() {
     const isCourse = select.value === 'course';
@@ -115,7 +152,7 @@ export async function adminPage() {
     form.hidden = false; notice.textContent = `${result.data.items.length} محتوا دریافت شد.`; notice.className = 'form-status'; currentItems = result.data.items; list.replaceChildren();
     if (!currentItems.length) list.append(el('p', { class: 'muted', text: 'هنوز محتوایی ثبت نشده است.' }));
     for (const item of currentItems) {
-      const statusText = item.status === 'published' ? 'منتشرشده' : 'پیش‌نویس';
+      const statusText = item.status === 'published' ? 'منتشرشده' : (item.payload?.review_status || 'پیش‌نویس');
       const row = el('article', { class: 'admin-content-row card' }, [
         el('div', {}, [el('span', { class: 'badge', text: `${item.kind === 'course' ? 'دوره' : 'پرونده'} · ${statusText}` }), el('h3', { text: item.title }), el('p', { class: 'muted', text: `${item.slug} — ${item.summary}` })]),
       ]);
@@ -143,6 +180,7 @@ export async function adminPage() {
         });
         actions.append(remove);
       }
+      row.dataset.search = `${item.title} ${item.slug} ${statusText}`;
       row.append(actions); list.append(row);
     }
   }
@@ -237,5 +275,6 @@ export async function adminPage() {
   await refreshMedia();
   showKindFields();
   await refresh();
+  await refreshImportStatus();
   return wrap;
 }

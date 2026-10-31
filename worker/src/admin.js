@@ -49,7 +49,7 @@ function dto(row) {
   return { id: row.id, kind: row.kind, slug: row.slug, title: row.title, summary: row.summary, status: row.status, payload, createdAt: row.created_at, updatedAt: row.updated_at };
 }
 
-async function requireAdmin(request, env) {
+export async function requireAdmin(request, env) {
   const user = await currentUser(request, env);
   if (!user) return { response: json({ ok: false, error: 'UNAUTHENTICATED' }, 401) };
   if (!user.roles.some((role) => role === 'admin' || role === 'super_admin' || role === 'academy_manager')) return { response: json({ ok: false, error: 'FORBIDDEN' }, 403) };
@@ -68,8 +68,8 @@ export async function handleAdmin(request, env, path) {
       const kind = url.searchParams.get('kind');
       if (kind && !KINDS.has(kind)) return json({ ok: false, error: 'VALIDATION_FAILED' }, 422);
       const result = kind
-        ? await env.DB.prepare('SELECT * FROM admin_content WHERE kind = ?1 ORDER BY updated_at DESC, id DESC LIMIT 200').bind(kind).all()
-        : await env.DB.prepare('SELECT * FROM admin_content ORDER BY updated_at DESC, id DESC LIMIT 200').all();
+        ? await env.DB.prepare('SELECT * FROM admin_content WHERE kind = ?1 ORDER BY updated_at DESC, id DESC LIMIT 500').bind(kind).all()
+        : await env.DB.prepare('SELECT * FROM admin_content ORDER BY updated_at DESC, id DESC LIMIT 500').all();
       return json({ ok: true, items: (result?.results || []).map(dto) });
     }
     if (request.method !== 'POST') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'GET, POST' });
