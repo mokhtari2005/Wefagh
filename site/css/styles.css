@@ -1357,3 +1357,8 @@ main.container > :not(.home-dashboard) h2 { margin-top: 1.2rem; font-size: clamp
   body { padding-bottom: 7.5rem; }
   .site-footer { padding-bottom: 2rem; }
 }
+
+/* ---- فاصلهٔ تیتر داخل کارت‌ها: فاصلهٔ بالای بخش‌های صفحه نباید به تیتر کارت منتقل شود ---- */
+main.container > :not(.home-dashboard) .card h2,
+main.container > :not(.home-dashboard) .panel h2,
+main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
