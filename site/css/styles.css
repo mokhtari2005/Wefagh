@@ -1264,3 +1264,11 @@ body.immersive main.container { width: 100%; max-width: none; padding: 0; margin
   .reg-form .seg { padding: 9px 4px; font-size: .88rem; }
   .reg-form .field-label, .reg-form .reg-step-body > .field-label { font-size: .95rem; }
 }
+
+/* ---------- بانک پرونده‌ها: جست‌وجو، فیلتر و استنادها ---------- */
+.case-filters { display: grid; gap: 8px; grid-template-columns: 1fr; margin: .5rem 0 .25rem; }
+.case-filters input, .case-filters select { min-height: 44px; }
+@media (min-width: 720px) { .case-filters { grid-template-columns: 2fr 1.5fr 1fr; } }
+.legal-refs { padding-inline-start: 1.1rem; display: grid; gap: 6px; }
+.legal-refs li { line-height: 1.8; }
+.legal-refs .badge { margin: 0 6px; }

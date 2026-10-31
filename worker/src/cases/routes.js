@@ -2,6 +2,7 @@
 import { json, readJsonBody } from '../http.js';
 import { currentUser } from '../auth/routes.js';
 import { listPublishedCases, getPublishedCase, publicCase, SLUG_RE } from '../moot/caseStore.js';
+import { AREAS, DIFFICULTIES } from '../moot/caseSchema.js';
 
 const ID_RE = /^[a-z0-9-]{1,64}$/;
 const STAGES = new Set(['facts', 'answers', 'check', 'result']);
@@ -53,8 +54,13 @@ export async function handleCases(request, env, path) {
   if (path === '/api/cases') {
     if (request.method !== 'GET') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'GET' });
     const url = new URL(request.url);
-    const area = url.searchParams.get('area');
-    const cases = await listPublishedCases(env, { area });
+    const area = url.searchParams.get('area') || null;
+    const difficulty = url.searchParams.get('difficulty') || null;
+    const q = (url.searchParams.get('q') || '').trim();
+    if (area && !AREAS.includes(area)) return json({ ok: false, error: 'VALIDATION_FAILED', errors: { area: 'حوزهٔ حقوقی نامعتبر است.' } }, 422);
+    if (difficulty && !DIFFICULTIES.includes(difficulty)) return json({ ok: false, error: 'VALIDATION_FAILED', errors: { difficulty: 'سطح نامعتبر است.' } }, 422);
+    if (q.length > 100) return json({ ok: false, error: 'VALIDATION_FAILED', errors: { q: 'عبارت جست‌وجو بیش از ۱۰۰ نویسه است.' } }, 422);
+    const cases = await listPublishedCases(env, { area, difficulty, q: q || null });
     return json({ ok: true, cases, total: cases.length });
   }
   const detail = path.match(/^\/api\/cases\/([a-z0-9-]{1,64})$/);

@@ -88,3 +88,25 @@ test('اعتبارسنجی ذخیرهٔ تمرین و جداسازی مالک ر
   const foreign = await worker.fetch(req(`/api/moot/sessions/${id}`, { cookie: 'wefagh_session=wrong-token' }), env);
   assert.equal(foreign.status, 401);
 });
+
+test('فیلتر فهرست: حوزه، سطح و جست‌وجو اعتبارسنجی و اعمال می‌شوند', { skip }, async () => {
+  const { env } = await setup();
+  assert.equal((await worker.fetch(req('/api/cases?area=نامعتبر'), env)).status, 422);
+  assert.equal((await worker.fetch(req('/api/cases?difficulty=expert'), env)).status, 422);
+  assert.equal((await worker.fetch(req(`/api/cases?q=${'x'.repeat(101)}`), env)).status, 422);
+  const all = await (await worker.fetch(req('/api/cases'), env)).json();
+  const byArea = await (await worker.fetch(req(`/api/cases?area=${encodeURIComponent(all.cases[0].area)}`), env)).json();
+  assert.ok(byArea.cases.length >= 1 && byArea.cases.every((c) => c.area === all.cases[0].area));
+  const none = await (await worker.fetch(req('/api/cases?q=این-عبارت-وجود-ندارد'), env)).json();
+  assert.equal(none.total, 0);
+  const hit = await (await worker.fetch(req(`/api/cases?q=${encodeURIComponent(all.cases[0].title.slice(0, 6))}`), env)).json();
+  assert.ok(hit.cases.some((c) => c.id === all.cases[0].id));
+});
+
+test('جزئیات عمومی: استناد بررسی‌نشده بدون شمارهٔ ماده است و طرفین و ادعاها نمایش داده می‌شوند', { skip }, async () => {
+  const { env } = await setup();
+  const detail = await (await worker.fetch(req(`/api/cases/${batch01[0].id}`), env)).json();
+  assert.ok(detail.case.claims.plaintiff.length > 0);
+  assert.ok(detail.case.legalRefs.length > 0);
+  assert.ok(detail.case.legalRefs.every((r) => r.article === null && r.status === 'needs_review'));
+});
