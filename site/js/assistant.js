@@ -39,7 +39,7 @@ export function summarizeReply(data) {
 
 export function assistantPage() {
   const wrap = h('div', { class: 'assistant' }, [
-    h('span', { class: 'section-kicker', text: 'آکادمی وفاق · ابزار حرفه‌ای' }),
+    h('span', { class: 'section-kicker', text: 'آکادمی وکالت شهرام مختاری · ابزار حرفه‌ای' }),
     h('h1', { text: 'دستیار هوشمند وکیل' }),
     h('p', { class: 'lead', text: 'تنظیم پیش‌نویس اسناد، تحلیل پرونده و بازبینی متن حقوقی.' }),
     h('div', { class: 'notice', role: 'note', text: ASSISTANT_NOTICE }),
@@ -184,7 +184,7 @@ function assistantWorkspace() {
       try { await navigator.clipboard.writeText(m.text); status.textContent = 'متن پاسخ کپی شد.'; } catch { status.textContent = 'کپی انجام نشد؛ متن را دستی انتخاب کنید.'; }
     });
     const dl = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'دریافت فایل متنی' });
-    dl.addEventListener('click', () => downloadText(m.text, 'پیش‌نویس-وفاق.txt'));
+    dl.addEventListener('click', () => downloadText(m.text, 'پیش‌نویس-آکادمی.txt'));
     actions.append(copy, dl);
     const children = [h('span', { class: 'ai-role', text: 'دستیار' }), h('div', { class: 'ai-text pre-wrap', text: m.text })];
     if (m.notes?.length) children.push(h('ul', { class: 'ai-notes', 'aria-label': 'یادداشت‌های بررسی' }, m.notes.map((n) => h('li', { text: n }))));

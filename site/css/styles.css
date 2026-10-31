@@ -1250,3 +1250,5 @@ body.immersive main.container { width: 100%; max-width: none; padding: 0; margin
   .deadlines-page .calendar-card .cal-nav { min-height: 44px; font-size: .9rem; padding-inline: 1rem; }
   .deadlines-page .calendar-title { font-size: 1.15rem; }
 }
+
+.brand-en { display: block; font-size: .7rem; font-weight: 500; color: var(--ink-soft); direction: ltr; text-align: left; letter-spacing: .02em; }

@@ -96,7 +96,7 @@ function pageHome() {
   const hero = h('section', { class: 'hero-banner', 'aria-labelledby': 'hero-title' }, [
     h('img', { class: 'hero-bg', src: 'assets/images/legal-hero.webp', alt: '', width: '1200', height: '400', loading: 'eager' }),
     h('div', { class: 'hero-copy' }, [
-      h('h1', { id: 'hero-title' }, [document.createTextNode('به آکادمی '), h('span', { class: 'accent', text: 'وفاق' }), document.createTextNode(' خوش آمدید')]),
+      h('h1', { id: 'hero-title' }, [document.createTextNode('به '), h('span', { class: 'accent', text: 'آکادمی وکالت شهرام مختاری' }), document.createTextNode(' خوش آمدید')]),
       h('p', { class: 'hero-sub', text: 'مسیر حرفه‌ای شدن در وکالت؛ از آموزش تا تجربه' }),
       h('p', { class: 'hero-desc', text: 'با دوره‌های تخصصی، پرونده‌های شبیه‌سازی‌شده و تمرین‌های عملی، مهارت‌های خود را تقویت کنید و با اطمینان در مسیر حرفه‌ای وکالت گام بردارید.' }),
       h('a', { class: 'btn-gold', href: '#/academy', text: 'مشاهدهٔ دوره‌ها ‹' }),
@@ -139,15 +139,11 @@ function pageHome() {
   ]);
 
   const lower = h('section', { class: 'dashboard-lower' }, [
-    h('article', { class: 'panel deadline-panel' }, [
-      h('div', { class: 'section-heading' }, [h('h2', { class: 'block-title', text: 'موعدهای پیش‌رو' }), h('a', { href: '#/deadlines', text: 'مشاهدهٔ تقویم کامل ‹' })]),
-      lazy(upcomingCard),
-    ]),
     h('article', { class: 'panel quote-panel' }, [
       h('div', { class: 'quote-image' }, [h('p', { text: 'وکیل موفق، فقط به قانون مسلط نیست؛ بلکه می‌داند چگونه از آن استفاده کند.' })]),
       h('h2', { class: 'block-title', text: 'به‌روز بمانید' }),
       h('p', { class: 'muted', text: 'مقاله‌ها، پادکست‌ها و نکته‌های کاربردی برای رشد حرفه‌ای.' }),
-      h('a', { class: 'btn-pill', href: '#/media', text: 'مطالعهٔ مطالب وفاق' }),
+      h('a', { class: 'btn-pill', href: '#/media', text: 'مطالعهٔ مطالب آکادمی' }),
     ]),
   ]);
 
@@ -155,18 +151,25 @@ function pageHome() {
     h('img', { class: 'cta-bg', src: 'assets/images/legal-hero.webp', alt: '', width: '1200', height: '400', loading: 'lazy' }),
     h('div', { class: 'cta-copy' }, [
       h('h2', { text: 'به سوی آینده‌ای روشن در مسیر وکالت' }),
-      h('p', { text: 'با آکادمی وفاق، دانش، مهارت و اعتمادبه‌نفس را هم‌زمان تجربه کنید.' }),
+      h('p', { text: 'با آکادمی وکالت شهرام مختاری، دانش، مهارت و اعتمادبه‌نفس را هم‌زمان تجربه کنید.' }),
     ]),
     h('a', { class: 'btn-outline-light cta-button', href: '#/account', text: 'شروع مسیر آموزشی ‹' }),
   ]);
 
-  const calendarSection = h('section', { class: 'home-calendar', 'aria-label': 'تقویم شمسی' }, [shamsiCalendar()]);
-  root.append(hero, stats, quick, lower, calendarSection, cta);
+  // تقویم و مواعد پیش‌رو بلافاصله زیر بنر اصلی قرار می‌گیرند.
+  const calendarSection = h('section', { class: 'home-calendar', 'aria-label': 'تقویم و مواعد پیش‌رو' }, [
+    h('article', { class: 'panel deadline-panel' }, [
+      h('div', { class: 'section-heading' }, [h('h2', { class: 'block-title', text: 'موعدهای پیش‌رو' }), h('a', { href: '#/deadlines', text: 'مشاهدهٔ تقویم کامل ‹' })]),
+      lazy(upcomingCard),
+    ]),
+    shamsiCalendar(),
+  ]);
+  root.append(hero, calendarSection, quick, stats, lower, cta);
   return root;
 }
 
 function pageAbout() {
-  const wrap = h('div', {}, [h('h1', { text: 'درباره وِفاق' })]);
+  const wrap = h('div', {}, [h('h1', { text: 'درباره آکادمی وکالت شهرام مختاری' })]);
   for (const section of ABOUT_SECTIONS) {
     wrap.append(h('h2', { text: section.heading }));
     const p = h('p', { text: section.body });
@@ -296,7 +299,7 @@ function render() {
   const EXTRA_TITLES = { '/admin': 'مدیریت محتوا', '/dashboard': 'داشبورد من', '/verify': 'تأیید ایمیل', '/moot-court': 'موت کورت', '/cases': 'بانک پرونده‌ها', '/assistant': 'دستیار هوشمند وکیل', '/moot-court/hearing': 'اتاق دادگاه', '/moot-court/cases': 'انتخاب پرونده' };
   const navTitle = NAV.find((n) => n.path === path)?.title;
   const title = navTitle ?? EXTRA_TITLES[path] ?? (path.startsWith('/academy/') ? 'آکادمی' : 'صفحه پیدا نشد');
-  document.title = `${title} | وِفاق`;
+  document.title = `${title} | آکادمی وکالت شهرام مختاری`;
   main.focus({ preventScroll: true });
   window.scrollTo({ top: 0, behavior: 'instant' });
 }
@@ -334,7 +337,7 @@ searchForm?.addEventListener('submit', (event) => {
     notice.id = 'search-feedback';
     notice.className = 'search-feedback';
     notice.setAttribute('role', 'status');
-    notice.textContent = 'بخش مستقیمی با این عبارت پیدا نشد؛ از منوی وفاق یکی از بخش‌ها را انتخاب کنید.';
+    notice.textContent = 'بخش مستقیمی با این عبارت پیدا نشد؛ از منوی آکادمی یکی از بخش‌ها را انتخاب کنید.';
     searchForm.insertAdjacentElement('afterend', notice);
   }
 });

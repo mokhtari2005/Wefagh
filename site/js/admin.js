@@ -215,7 +215,7 @@ export async function adminPage() {
   const mSlug = field('شناسهٔ انگلیسی', 'mediaSlug');
   const mTitle = field('عنوان رسانه', 'mediaTitle');
   const mSummary = field('خلاصه (۱۰ تا ۶۰۰ نویسه)', 'mediaSummary', '', 'textarea');
-  const mAuthor = field('نویسنده (مقاله)', 'mediaAuthor', 'تحریریهٔ وِفاق');
+  const mAuthor = field('نویسنده (مقاله)', 'mediaAuthor', 'تحریریهٔ آکادمی وکالت شهرام مختاری');
   const mBody = field('متن مقاله؛ هر بند یک خط و حداقل ۲۰ نویسه', 'mediaBody', '', 'textarea');
   const mDate = field('تاریخ انتشار YYYY-MM-DD', 'mediaDate', new Date().toISOString().slice(0, 10));
   const mDescription = field('توضیحات قسمت پادکست', 'mediaDescription', '', 'textarea');
@@ -269,7 +269,7 @@ export async function adminPage() {
     const body = { kind: mediaKind.value, slug: mSlug.querySelector('input').value.trim(), title: mTitle.querySelector('input').value.trim(), summary: mSummary.querySelector('textarea').value.trim(), status: mediaStatus.value, payload };
     const result = await postJson('/api/admin/media', body);
     mediaNotice.className = `form-status${result.ok ? '' : ' err'}`; mediaNotice.textContent = result.ok ? 'رسانه ثبت شد.' : errorText(result.data, result.status);
-    if (result.ok) { mediaForm.reset(); mediaStatus.value = 'draft'; mAuthor.querySelector('input').value = 'تحریریهٔ وِفاق'; mDate.querySelector('input').value = new Date().toISOString().slice(0, 10); await refreshMedia(); }
+    if (result.ok) { mediaForm.reset(); mediaStatus.value = 'draft'; mAuthor.querySelector('input').value = 'تحریریهٔ آکادمی وکالت شهرام مختاری'; mDate.querySelector('input').value = new Date().toISOString().slice(0, 10); await refreshMedia(); }
   });
   showMediaFields();
   await refreshMedia();

@@ -5,7 +5,7 @@ export const ARTICLES = Object.freeze([
   {
     slug: 'why-legal-literacy',
     title: 'چرا سواد حقوقی برای شهروندان مهم است؟',
-    author: 'تحریریهٔ وِفاق',
+    author: 'تحریریهٔ آکادمی وکالت شهرام مختاری',
     publishedAt: '2026-10-01',
     summary: 'آشنایی پایهٔ شهروندان با حقوق خود، کاهش هزینهٔ نزاع‌های غیرضروری را به همراه دارد.',
     body: [
@@ -16,7 +16,7 @@ export const ARTICLES = Object.freeze([
   {
     slug: 'reading-a-judgment',
     title: 'چگونه یک رأی را بخوانیم؟',
-    author: 'تحریریهٔ وِفاق',
+    author: 'تحریریهٔ آکادمی وکالت شهرام مختاری',
     publishedAt: '2026-10-08',
     summary: 'راهنمای گام‌به‌گام برای تشخیص خواسته، استدلال و منطوق یک رأی قضایی.',
     body: [

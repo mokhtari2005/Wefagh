@@ -45,7 +45,7 @@ export function academyToolCards(items = ACADEMY_TOOLS) {
 
 export async function academyList() {
   const wrap = h('div', {}, [
-    h('h1', { text: 'آکادمی وِفاق' }),
+    h('h1', { text: 'آکادمی وکالت شهرام مختاری' }),
     h('p', { class: 'lead', text: 'دوره‌های کوتاه برای دانشجویان حقوق، کارآموزان و وکلا.' }),
     academyToolCards(),
     h('h2', { text: 'دوره‌ها' }),

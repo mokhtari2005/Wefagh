@@ -9,10 +9,11 @@ const here = dirname(fileURLToPath(import.meta.url));
 const site = join(here, '..', 'site');
 const html = readFileSync(join(site, 'index.html'), 'utf8');
 
-test('سربرگ بدون لوگو است و نام گروه در آن نمایش داده می‌شود', () => {
+test('سربرگ بدون لوگو است و نام آکادمی به فارسی و انگلیسی در آن نمایش داده می‌شود', () => {
   const header = html.match(/<header class="site-header">[\s\S]*?<\/header>/)[0];
   assert.doesNotMatch(header, /<img/);
-  assert.match(header, /class="brand-text">گروه وکلای مدافع فرهنگ، اندیشه و قانون/);
+  assert.match(header, /class="brand-text"><strong>آکادمی وکالت شهرام مختاری<\/strong>/);
+  assert.match(header, /Shahram Mokhtari Law Academy/);
 });
 
 test('فوتر لوگو ندارد و انتخاب پوسته رنگی را دارد', () => {
