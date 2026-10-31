@@ -92,14 +92,18 @@ function sessionCookieFrom(res) {
 }
 
 async function registerAndLogin(env, sent, { email, phone }) {
-  await call(env, '/api/auth/register', {
-    body: { email, password: OLD, displayName: 'کاربر آزمایشی', profile: { ...profileBase, phone } },
-  });
+  // ثبت‌نام پروفایل نمی‌سازد؛ پروفایل (در صورت نیاز) از مسیر ویرایش ذخیره می‌شود.
+  await call(env, '/api/auth/register', { body: { email, password: OLD, displayName: 'کاربر آزمایشی' } });
   const token = sent.at(-1).text.match(/token=([A-Za-z0-9_-]+)/)[1];
   await call(env, '/api/auth/verify-email', { body: { token } });
   const res = await call(env, '/api/auth/login', { body: { email, password: OLD } });
   assert.equal(res.status, 200);
-  return sessionCookieFrom(res);
+  const cookie = sessionCookieFrom(res);
+  if (phone) {
+    const saved = await call(env, '/api/me/profile', { method: 'PUT', cookie, body: { profile: { ...profileBase, phone } } });
+    assert.equal(saved.status, 200);
+  }
+  return cookie;
 }
 
 test('تغییر رمز: نیاز به ورود دارد', { skip }, async () => {
