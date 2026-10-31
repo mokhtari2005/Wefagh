@@ -1293,3 +1293,67 @@ body.immersive main.container { width: 100%; max-width: none; padding: 0; margin
 label.check-row { display: flex; align-items: center; gap: 10px; font-weight: 700; cursor: pointer; line-height: 1.8; }
 label.check-row > input[type=checkbox] { width: 20px; height: 20px; margin: 0; flex: 0 0 auto; }
 label.check-row > span { min-width: 0; flex: 1 1 auto; word-break: keep-all; overflow-wrap: break-word; }
+
+/* =====================================================================
+   سیستم طراحی: اندازه‌ها و فاصله‌های واحد برای صفحات داخلی
+   این بلوک آخرِ فایل است تا بر قواعد قبلی اولویت داشته باشد.
+   اصول: دکمه‌های کم‌ارتفاع، گوشهٔ ملایم به‌جای قرص کامل، کادر سبک، بدون فضای خالی اجباری.
+   ===================================================================== */
+:root {
+  --ds-radius-control: 12px;
+  --ds-radius-panel: 14px;
+  --ds-btn-h: 42px;
+  --ds-btn-h-small: 36px;
+}
+
+/* دکمه‌ها: ارتفاع و گردی یکسان؛ دکمه‌های ناوبری و تقویم جدا می‌مانند */
+.btn, .btn-link {
+  min-height: var(--ds-btn-h);
+  padding: 0.5rem 1.1rem;
+  border-radius: var(--ds-radius-control);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+.btn.small { min-height: var(--ds-btn-h-small); padding: 0.3rem 0.8rem; font-size: 0.88rem; border-radius: 10px; }
+.btn.secondary, .btn-link.secondary { border-color: rgba(31, 36, 33, 0.35); }
+
+/* صفحات داخلی: حذف فضای خالی اجباری پایین کوتاه‌ترین صفحه‌ها */
+main.container > :not(.home-dashboard) { min-height: 0; }
+
+/* کادرها و کارت‌ها: گوشهٔ ملایم‌تر، فاصلهٔ داخلی متعادل */
+main.container > :not(.home-dashboard) .panel,
+main.container > :not(.home-dashboard) article,
+main.container > :not(.home-dashboard) fieldset,
+main.container > :not(.home-dashboard) details { border-radius: var(--ds-radius-panel); }
+main.container > :not(.home-dashboard) .card { border-radius: var(--ds-radius-panel); }
+
+/* اطلاعیه‌ها: سبک‌تر و کم‌حجم‌تر */
+.notice { padding: 0.7rem 0.95rem; font-size: 0.93rem; line-height: 1.8; }
+
+/* نوار ابزارهای محاسبه‌گر: دکمه‌ها کوچک و کنار هم */
+.tool-toolbar { gap: 0.5rem; margin-block: 0.75rem; }
+.tool-toolbar .btn { min-height: var(--ds-btn-h-small); padding: 0.3rem 0.8rem; font-size: 0.88rem; border-radius: 10px; }
+
+/* لینک بازگشت صفحات ابزار: متن ساده به‌جای دکمهٔ بزرگ */
+.tool-back { display: inline-block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--teal); font-weight: 700; text-decoration: none; }
+.tool-back:hover { text-decoration: underline; }
+
+/* فاصلهٔ تیترهای داخلی: تیتر صفحه با خط جداکننده، بدون تکرار در بخش ابزار */
+main.container > :not(.home-dashboard) h2 { margin-top: 1.2rem; font-size: clamp(1.2rem, 2.4vw, 1.5rem); }
+
+/* در موبایل: پدینگ‌های کمتر برای جلوگیری از فضای خالی زیاد */
+@media (max-width: 560px) {
+  main.container > :not(.home-dashboard) .panel,
+  main.container > :not(.home-dashboard) article,
+  main.container > :not(.home-dashboard) .card { padding: 0.9rem; }
+  .btn, .btn-link { padding: 0.45rem 0.9rem; }
+  .tool-toolbar .btn { flex: 1 1 auto; }
+}
+/* تیتر اول هر کادر بدون فاصلهٔ بالای اضافه */
+:is(.panel, .case-panel, .card, .form, .calendar-card, .deadline-card, fieldset) > h2:first-child,
+:is(.panel, .case-panel, .card, .form, .calendar-card, .deadline-card, fieldset) > legend:first-child + h2 { margin-top: 0; }
+/* نوار پایین موبایل: دکمهٔ خانهٔ برجسته حدود ۲۶ پیکسل بالاتر از نوار است؛ فضای پایین صفحه باید آن را هم پوشش دهد */
+@media (max-width: 860px) {
+  body { padding-bottom: 7.5rem; }
+  .site-footer { padding-bottom: 2rem; }
+}
