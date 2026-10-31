@@ -328,6 +328,8 @@ p { margin: 0 0 var(--space-2); }
 
 /* ---------- فرم ---------- */
 form.form { display: grid; gap: 14px; max-width: 640px; }
+form.dix-form .dix-submit { width: 100%; min-height: 48px; font-size: 1.05rem; }
+form.dix-form .notice { margin: 0; }
 .field { display: grid; gap: 6px; }
 .field label { font-weight: 700; }
 .field input, .field select, .field textarea {
