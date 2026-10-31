@@ -19,6 +19,15 @@ export function publicCase(c) {
     facts: c.facts,
     documents: (c.documents || []).map((d) => ({ title: d.title, summary: d.summary })),
     issues: c.issues,
+    claims: c.claims ? { plaintiff: c.claims.plaintiff, defendant: c.claims.defendant } : null,
+    // استناد قانونی: شمارهٔ ماده فقط برای استنادهای تأییدشده یا اصلاح‌شده نمایش داده می‌شود.
+    legalRefs: (c.legal_refs || []).map((r) => ({
+      law: r.law,
+      topic: r.topic,
+      article: r.status === 'verified' || r.status === 'corrected' ? (r.article ?? null) : null,
+      status: r.status,
+      source: r.status === 'verified' || r.status === 'corrected' ? (r.source ?? null) : null,
+    })),
   };
 }
 
