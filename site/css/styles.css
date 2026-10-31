@@ -1227,3 +1227,26 @@ body.immersive main.container { width: 100%; max-width: none; padding: 0; margin
 @media (prefers-reduced-motion: reduce) { .court-seat { transition: none; } }
 
 .pre-wrap { white-space: pre-wrap; }
+
+
+/* ---------- تقویم مواعد: تمام‌صفحه در موبایل ---------- */
+@media (max-width: 899px) {
+  .deadlines-page .calendar-card {
+    width: 100vw;
+    margin-inline: calc(50% - 50vw);
+    border-inline: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: .75rem 1rem 1.25rem;
+    gap: .9rem;
+    background: var(--paper);
+  }
+  .deadlines-page .calendar-grid-wrap { overflow: visible; }
+  main.container .deadlines-page .calendar-table { display: table; min-width: 0; width: 100%; border-spacing: 6px; overflow: visible; border-radius: 0; }
+  main.container .deadlines-page .calendar-table th,
+  main.container .deadlines-page .calendar-table td { padding: 0; border: 0; }
+  .deadlines-page .calendar-table th { font-size: .8rem; }
+  .deadlines-page .calendar-table td { height: 54px; font-size: 1rem; border-radius: 12px; }
+  .deadlines-page .calendar-card .cal-nav { min-height: 44px; font-size: .9rem; padding-inline: 1rem; }
+  .deadlines-page .calendar-title { font-size: 1.15rem; }
+}
