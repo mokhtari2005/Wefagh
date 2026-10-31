@@ -4,7 +4,8 @@ import { getPublishedCase, SLUG_RE } from '../moot/caseStore.js';
 import { json, readJsonBody } from '../http.js';
 import { currentUser } from '../auth/routes.js';
 import { handleThreads } from './threads.js';
-import { AiError, aiConfigured, generateText, transcribeAudio, synthesizeSpeech } from './gemini.js';
+import { AiError, aiConfigured, generateText, transcribeAudio, synthesizeLongSpeech } from './gemini.js';
+import { clampReply } from './speech.js';
 import {
   LEGAL_DISCLAIMER, ASSISTANT_DOC_TYPES, ASSISTANT_MODES, ASSISTANT_SCHEMA, MOOT_EVAL_SCHEMA,
   HEARING_ROLES, HEARING_STAGES, mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt,
@@ -17,7 +18,8 @@ export const LIMITS = Object.freeze({
   turnChars: 2000,
   historyItems: 40,
   historyChars: 30000,
-  speechChars: 1200,
+  speechChars: 2000,
+  mootBodyBytes: 80 * 1024,
   audioBytes: 2 * 1024 * 1024,
   assistantChars: 6000,
   callsPerMinute: 20,
@@ -98,10 +100,12 @@ async function authorized(request, env) {
   return { user };
 }
 
-async function readBody(request, maxBytes = 16 * 1024) {
+const DEFAULT_BODY_BYTES = 16 * 1024;
+
+async function readBody(request, maxBytes = DEFAULT_BODY_BYTES) {
   const declared = Number(request.headers.get('content-length') || 0);
   if (declared > maxBytes) return { error: fail('PAYLOAD_TOO_LARGE', 413) };
-  if (maxBytes === 16 * 1024) return readJsonBody(request);
+  if (maxBytes === DEFAULT_BODY_BYTES) return readJsonBody(request);
   const type = request.headers.get('content-type') || '';
   if (!type.toLowerCase().includes('application/json')) return { error: fail('UNSUPPORTED_MEDIA_TYPE', 415) };
   const text = await request.text();
@@ -117,7 +121,7 @@ async function moot(request, env, path) {
   const auth = await authorized(request, env);
   if (auth.error) return auth.error;
   if (request.method !== 'POST') return fail('METHOD_NOT_ALLOWED', 405);
-  const parsed = await readBody(request);
+  const parsed = await readBody(request, LIMITS.mootBodyBytes);
   if (parsed.error) return parsed.error;
   const body = parsed.body || {};
   const caseId = typeof body.caseId === 'string' && SLUG_RE.test(body.caseId) ? body.caseId : null;
@@ -148,7 +152,7 @@ async function moot(request, env, path) {
         contents: [{ role: 'user', parts: [{ text: turnRequest }] }],
         maxOutputTokens: 600,
       });
-      return json({ ok: true, reply: text, role, stage });
+      return json({ ok: true, reply: clampReply(text, LIMITS.turnChars), role, stage });
     }
     if (path === '/api/ai/moot/evaluate') {
       if (history.length < 2) return fail('VALIDATION_FAILED', 422, { field: 'history' });
@@ -178,7 +182,7 @@ async function speech(request, env) {
   if (!text) return fail('VALIDATION_FAILED', 422, { field: 'text' });
   try {
     const voice = VOICES.includes(parsed.body?.voice) ? parsed.body.voice : 'Kore';
-    const { bytes, mimeType } = await synthesizeSpeech(env, text, voice);
+    const { bytes, mimeType } = await synthesizeLongSpeech(env, text, voice);
     return new Response(bytes, {
       status: 200,
       headers: { 'Content-Type': mimeType, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' },
