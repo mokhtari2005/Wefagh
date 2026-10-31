@@ -54,7 +54,7 @@ export async function upcomingCard() {
 
 /** صفحهٔ کامل تقویم */
 export async function deadlinesPage() {
-  const wrap = h('div', {}, [
+  const wrap = h('div', { class: 'deadlines-page' }, [
     h('h1', { text: 'تقویم مواعد دادرسی' }),
     h('p', { class: 'lead', text: 'مواعد پرونده‌های خود را ثبت کنید و یادآوری ببینید. این اطلاعات فقط برای شما نمایش داده می‌شود.' }),
   ]);
