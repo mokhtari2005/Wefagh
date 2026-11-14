@@ -51,6 +51,48 @@ function d1Like(conn) {
 }
 const env = { DB: d1Like(db), PUBLIC_BASE_URL: 'http://localhost:' + (process.env.PORT || 8092), ADMIN_EMAIL: 'admin@example.test' };
 
+// MOCK_GEMINI=1: Gemini کاملاً شبیه‌سازی می‌شود (هیچ درخواستی به اینترنت نمی‌رود) و یک پروندهٔ نمونه در همین حافظهٔ موقت منتشر می‌شود.
+// فقط برای آزمون مرورگر محلی؛ کلید زیر ساختگی است و هیچ‌جا معتبر نیست.
+const mock = { log: [], failEvalOnce: false, longReply: true };
+if (process.env.MOCK_GEMINI === '1') {
+  env.GEMINI_API_KEY = 'AIzaSyLOCAL-MOCK-KEY-NOT-REAL';
+  const { default: batch01 } = await import(join(REPO, 'worker/src/moot/bank/batch-01.js'));
+  const c = batch01[0];
+  const owner = db.prepare("SELECT id FROM users WHERE email = 'manager@example.test'").get();
+  db.prepare("INSERT INTO admin_content (kind, slug, title, summary, status, payload_json, created_by) VALUES ('case', ?1, ?2, ?3, 'published', ?4, ?5)")
+    .run(c.id, c.title, c.subject.padEnd(12, '.').slice(0, 300), JSON.stringify(c), owner.id);
+  mock.caseId = c.id;
+  const tone = () => {
+    const rate = 24000; const n = rate * 0.3; const data = new Int16Array(n);
+    for (let i = 0; i < n; i++) data[i] = Math.round(Math.sin(2 * Math.PI * 440 * i / rate) * 8000);
+    const out = Buffer.alloc(44 + data.length * 2);
+    out.write('RIFF', 0); out.writeUInt32LE(out.length - 8, 4); out.write('WAVEfmt ', 8); out.writeUInt32LE(16, 16);
+    out.writeUInt16LE(1, 20); out.writeUInt16LE(1, 22); out.writeUInt32LE(rate, 24); out.writeUInt32LE(rate * 2, 28);
+    out.writeUInt16LE(2, 32); out.writeUInt16LE(16, 34); out.write('data', 36); out.writeUInt32LE(data.length * 2, 40);
+    Buffer.from(data.buffer).copy(out, 44);
+    return out;
+  };
+  const sentence = 'دادگاه ادعای طرفین را با توجه به مستندات پرونده بررسی می‌کند. ';
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    const u = String(url);
+    if (!u.startsWith('https://generativelanguage.googleapis.com/')) return realFetch(url, init);
+    const body = JSON.parse(init.body);
+    const j = (status, value) => new Response(JSON.stringify(value), { status, headers: { 'content-type': 'application/json' } });
+    if (u.endsWith('/interactions')) {
+      mock.log.push({ kind: 'speech', chars: body.input[0].content[0].text.length });
+      return j(200, { steps: [{ type: 'model_output', content: [{ type: 'audio', data: tone().toString('base64') }] }] });
+    }
+    if (body.generationConfig?.responseSchema) {
+      mock.log.push({ kind: 'evaluate' });
+      if (mock.failEvalOnce) { mock.failEvalOnce = false; return j(429, { error: { status: 'RESOURCE_EXHAUSTED' } }); }
+      return j(200, { candidates: [{ content: { parts: [{ text: JSON.stringify({ strengths: ['استدلال روشن'], weaknesses: ['ادله کم'], legalOrProcedural: [], answerQuality: 'خوب', citationFit: 'مناسب', unanswered: [], nextPractice: 'تمرین بیشتر', overallScore: 72 }) }] } }] });
+    }
+    mock.log.push({ kind: 'turn' });
+    return j(200, { candidates: [{ content: { parts: [{ text: sentence.repeat(mock.longReply ? 25 : 1).trim() }] } }] });
+  };
+}
+
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.png': 'image/png', '.json': 'application/json', '.ico': 'image/x-icon' };
 
 // همان سرآیندهای امنیتی فایل site/_headers را اعمال می‌کند تا آزمون مرورگر با تنظیمات واقعی انجام شود.
@@ -66,10 +108,22 @@ function securityHeaders() {
 
 createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost:8092');
+  if (process.env.MOCK_GEMINI === '1' && url.pathname === '/__mock') {
+    if (req.method === 'POST') {
+      const chunks = [];
+      for await (const c of req) chunks.push(c);
+      Object.assign(mock, JSON.parse(Buffer.concat(chunks).toString() || '{}'));
+      if (mock.reset) { mock.log = []; mock.bodies = []; delete mock.reset; }
+    }
+    const done = db.prepare('SELECT SUM(completions) AS n FROM moot_case_history').get().n || 0;
+    res.writeHead(200, { 'content-type': 'application/json' });
+    return res.end(JSON.stringify({ ...mock, completions: done }));
+  }
   if (url.pathname.startsWith('/api/')) {
     const chunks = [];
     for await (const c of req) chunks.push(c);
     const body = chunks.length ? Buffer.concat(chunks) : undefined;
+    if (process.env.MOCK_GEMINI === '1' && url.pathname === '/api/ai/moot/turn' && body) (mock.bodies ||= []).push(body.length);
     const headers = new Headers();
     for (const [k, v] of Object.entries(req.headers)) if (typeof v === 'string') headers.set(k, v);
     try {

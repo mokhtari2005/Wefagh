@@ -14,6 +14,12 @@ const HISTORY_CHARS = 24000;
 
 export const SIDE_OPTIONS = [['plaintiff', 'وکیل خواهان (شرکت ب)'], ['defendant', 'وکیل خوانده (آقای الف)']];
 export const DIFFICULTY_OPTIONS = [['beginner', 'مبتدی'], ['intermediate', 'متوسط'], ['advanced', 'پیشرفته']];
+export const PLAY_FAILURE_TEXT = Object.freeze({
+  NOT_ALLOWED: 'مرورگر پخش خودکار را مسدود کرد. روی «تکرار» بزنید.',
+  ABORTED: 'پخش متوقف شد. برای شنیدن دوباره روی «تکرار» بزنید.',
+  PLAY_FAILED: 'پخش صدا شروع نشد. روی «تکرار» بزنید.',
+});
+export const playFailureText = (error) => PLAY_FAILURE_TEXT[error] || PLAY_FAILURE_TEXT.PLAY_FAILED;
 export const SPEED_OPTIONS = [[0.75, '۰٫۷۵×'], [1, '۱×'], [1.25, '۱٫۲۵×'], [1.5, '۱٫۵×']];
 
 export const SPEAKER_LABEL = Object.freeze({ clerk: 'منشی دادگاه', judge: 'قاضی', plaintiff: 'وکیل خواهان', defendant: 'وکیل خوانده' });
@@ -96,6 +102,7 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
   let index = 0;
   let busy = false;
   let finished = false;
+  let completionSent = false;
   let recorder = null;
   let recordTimer = null;
   let chunks = [];
@@ -105,6 +112,8 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
 
   player.setRate(initialRate);
   player.setVolume(initialVolume);
+  // این تابع هنوز در همان لمس «ورود به اتاق دادگاه» اجرا می‌شود؛ بدون آن iOS اولین صدای منشی را مسدود می‌کند.
+  player.unlock();
 
   // ---- عناصر ----
   const banner = h('p', { class: 'court-banner', role: 'status', 'aria-live': 'polite' });
@@ -123,6 +132,10 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
   const speedSelect = h('select', { class: 'court-speed', 'aria-label': 'سرعت صدا' }, SPEED_OPTIONS.map(([v, t]) => h('option', { value: String(v), text: t })));
   speedSelect.value = String(initialRate);
   const volume = h('input', { type: 'range', min: '0', max: '1', step: '0.05', value: String(initialVolume), class: 'court-volume', 'aria-label': 'حجم صدا' });
+  if (!player.volumeSupported) {
+    volume.disabled = true;
+    volume.title = 'در این دستگاه حجم صدا را با دکمه‌های کنار دستگاه تنظیم کنید.';
+  }
   const speakToggle = h('input', { type: 'checkbox' });
   if (speechOn) speakToggle.checked = true;
   const micSupported = Boolean(navigator.mediaDevices?.getUserMedia) && typeof MediaRecorder !== 'undefined';
@@ -241,7 +254,7 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
     } else {
       activeSpeaker = null;
       renderSeats();
-      audioStatus.textContent = 'پخش خودکار در این مرورگر مجاز نیست. روی «تکرار» بزنید.';
+      audioStatus.textContent = playFailureText(played.error);
     }
     renderLog();
   }
@@ -319,10 +332,21 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
       setBusy(false);
       return;
     }
+    await evaluate();
+  }
+
+  /** گزارش را می‌سازد. در صورت خطا دکمهٔ تلاش دوباره می‌گذارد و جلسه را «تکمیل‌شده» ثبت نمی‌کند. */
+  async function evaluate() {
+    setBusy(true);
     report.replaceChildren(h('p', { class: 'muted', text: 'گزارش در حال ساختن است…' }));
     const res = await postJson('/api/ai/moot/evaluate', { caseId, history: historyForApi(history) }, { timeoutMs: 60000 });
     if (!res.ok || !res.data?.report) {
-      report.replaceChildren(notice(`${errorText(res.data?.error || (res.networkError ? 'NETWORK' : 'AI_UNAVAILABLE'))} گزارش ساخته نشد.`));
+      const retry = h('button', { class: 'btn secondary', type: 'button', text: 'تلاش دوباره برای ساخت گزارش' });
+      retry.addEventListener('click', evaluate);
+      report.replaceChildren(
+        notice(`${errorText(res.data?.error || (res.networkError ? 'NETWORK' : 'AI_UNAVAILABLE'))} گزارش ساخته نشد.`),
+        h('p', {}, [retry]),
+      );
       setBusy(false);
       return;
     }
@@ -343,12 +367,24 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
     );
     setBanner('گزارش ارزیابی آماده است.');
     setBusy(false);
+    await recordCompletion();
+  }
+
+  async function recordCompletion() {
+    if (completionSent) return;
+    const done = await postJson(`/api/moot/cases/${encodeURIComponent(caseId)}/complete`, {});
+    if (done.ok) {
+      completionSent = true;
+      return;
+    }
+    report.append(h('p', { class: 'muted', text: 'گزارش آماده است، اما ثبت تکمیل جلسه در سوابق شما انجام نشد.' }));
   }
 
   // ---- رویدادها ----
   nextBtn.addEventListener('click', () => {
-    if (nextBtn.textContent === 'تلاش دوباره') { nextBtn.textContent = 'ادامه'; runCurrent(); return; }
+    if (nextBtn.textContent === 'تلاش دوباره') { nextBtn.textContent = 'ادامه'; player.unlock(); runCurrent(); return; }
     player.stop();
+    player.unlock();
     activeSpeaker = null;
     advance();
   });
@@ -356,8 +392,8 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
   submitBtn.addEventListener('click', () => {
     const v = validAnswer(answer.value);
     if (!v.ok) { audioStatus.textContent = v.error; return; }
-    player.unlock();
     player.stop();
+    player.unlock();
     addLine(userSide, v.text, true);
     answer.value = '';
     renderInput(false);
@@ -369,18 +405,17 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
     if (!btn) return;
     const item = history[Number(btn.dataset.index)];
     if (!item?.blob) return;
-    player.unlock();
     const played = await player.play(item.blob);
-    audioStatus.textContent = played.ok ? 'در حال پخش…' : 'پخش شروع نشد؛ دوباره بزنید.';
+    audioStatus.textContent = played.ok ? 'در حال پخش…' : playFailureText(played.error);
   });
 
   replayBtn.addEventListener('click', async () => {
-    player.unlock();
     if (lastBlob) {
       const played = await player.play(lastBlob);
-      audioStatus.textContent = played.ok ? 'در حال پخش…' : 'پخش شروع نشد؛ دوباره بزنید.';
+      audioStatus.textContent = played.ok ? 'در حال پخش…' : playFailureText(played.error);
       return;
     }
+    player.unlock();
     if (lastText && lastSpeaker) await speak(lastText, lastSpeaker);
   });
 
@@ -445,7 +480,7 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
       h('dt', { text: 'خواهان' }), h('dd', { text: parties.plaintiff }),
       h('dt', { text: 'خوانده' }), h('dd', { text: parties.defendant }),
     ]),
-    h('p', { class: 'muted court-note', text: 'اطلاعات این پرونده از پروندهٔ آموزشی ثابت برنامه است، نه از پایگاه داده.' }),
+    h('p', { class: 'muted court-note', text: 'اطلاعات این پرونده از بانک پرونده‌های منتشرشدهٔ وفاق خوانده شده است.' }),
   ]);
   const stageCard = h('section', { class: 'court-side-card', 'aria-label': 'مراحل رسیدگی' }, [h('h2', { text: 'مراحل رسیدگی' }), stageList]);
   const userCard = h('section', { class: 'court-side-card', 'aria-label': 'نقش شما' }, [

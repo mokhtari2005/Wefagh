@@ -5,6 +5,7 @@ import { getJson } from './api.js';
 export const AI_ERROR_TEXT = Object.freeze({
   AI_NOT_CONFIGURED: 'سرویس هوش مصنوعی هنوز روی سرور فعال نشده است. تا آن زمان از حالت آموزشی قاعده‌محور استفاده کنید.',
   AI_KEY_REJECTED: 'اتصال به سرویس هوش مصنوعی برقرار نشد (تنظیمات سرور). لطفاً بعداً دوباره تلاش کنید.',
+  AI_MODEL_UNAVAILABLE: 'مدل هوش مصنوعی تنظیم‌شده روی سرور در دسترس نیست. موضوع را به مدیر سایت اطلاع دهید.',
   AI_QUOTA: 'سهمیهٔ سرویس هوش مصنوعی موقتاً پر شده است. کمی بعد دوباره تلاش کنید.',
   AI_RATE_LIMITED: 'درخواست‌ها خیلی سریع ارسال شده‌اند. چند ثانیه صبر کنید و دوباره تلاش کنید.',
   AI_UNAVAILABLE: 'سرویس هوش مصنوعی در دسترس نیست یا پاسخ نداد. متن را ذخیره کنید و بعداً دوباره تلاش کنید.',
@@ -71,34 +72,52 @@ export function silentWavBlob() {
   return new Blob([buffer], { type: 'audio/wav' });
 }
 
+/** در Safari آیفون تنظیم volume عنصر صوتی بی‌اثر است و مقدار همیشه ۱ می‌ماند. */
+export function volumeAdjustable(audio) {
+  const before = audio.volume;
+  audio.volume = 0.5;
+  const ok = audio.volume === 0.5;
+  audio.volume = before;
+  return ok;
+}
+
 /**
  * پخش‌کنندهٔ واحد: فقط یک صدا همزمان؛ قبل از پخش جدید، صدای قبلی متوقف می‌شود.
- * unlock() باید مستقیماً در یک رویداد کلیک صدا زده شود تا پخش بعدی در موبایل مجاز باشد.
+ * unlock() باید مستقیماً در یک رویداد کلیک صدا زده شود تا پخش بعدی (پس از دریافت صدا از سرور) در موبایل مجاز باشد.
+ * پخش مستقیم داخل کلیک (مثل «تکرار») نیازی به unlock ندارد.
  */
 export function createPlayer({ onEnded } = {}) {
   const audio = new Audio();
   audio.addEventListener('ended', () => onEnded?.());
   let currentUrl = null;
   let silentUrl = null;
+  let rate = 1;
+  const volumeSupported = volumeAdjustable(audio);
   return {
     audio,
+    volumeSupported,
     unlock() {
+      // اگر صدایی در حال پخش است، جایگزین‌کردن src آن را قطع می‌کرد.
+      if (!audio.paused) return;
       if (!silentUrl) silentUrl = URL.createObjectURL(silentWavBlob());
       audio.src = silentUrl;
-      // pause پس از پایان play انجام می‌شود تا خطای قطع شدن پخش ایجاد نشود.
-      audio.play().then(() => audio.pause()).catch(() => {});
+      // promise با «شروع» پخش حل می‌شود، نه پایان آن؛ اگر تا آن لحظه صدای واقعی جایگزین شده باشد نباید قطعش کنیم.
+      audio.play().then(() => { if (audio.src === silentUrl) audio.pause(); }).catch(() => {});
     },
-    /** @returns {Promise<{ok: boolean, error?: string}>} */
+    /** @returns {Promise<{ok: boolean, error?: 'NOT_ALLOWED'|'ABORTED'|'PLAY_FAILED'}>} */
     async play(blob) {
       audio.pause();
       if (currentUrl) URL.revokeObjectURL(currentUrl);
       currentUrl = URL.createObjectURL(blob);
       audio.src = currentUrl;
+      // تغییر src الگوریتم load را اجرا می‌کند و سرعت را به defaultPlaybackRate برمی‌گرداند.
+      audio.playbackRate = rate;
       try {
         await audio.play();
         return { ok: true };
       } catch (err) {
-        return { ok: false, error: err?.name === 'NotAllowedError' ? 'NOT_ALLOWED' : 'PLAY_FAILED' };
+        const error = err?.name === 'NotAllowedError' ? 'NOT_ALLOWED' : err?.name === 'AbortError' ? 'ABORTED' : 'PLAY_FAILED';
+        return { ok: false, error };
       }
     },
     stop() { audio.pause(); },
@@ -108,12 +127,13 @@ export function createPlayer({ onEnded } = {}) {
       audio.volume = Number.isFinite(n) ? n : 1;
       return audio.volume;
     },
-    /** سرعت پخش؛ بین ۰٫۵ تا ۲ مجاز است و زیر و بم صدا حفظ می‌شود. */
-    setRate(rate) {
-      const r = Math.min(2, Math.max(0.5, Number(rate) || 1));
-      audio.playbackRate = r;
+    /** سرعت پخش؛ بین ۰٫۵ تا ۲ مجاز است، زیر و بم حفظ می‌شود و برای صداهای بعدی هم می‌ماند. */
+    setRate(next) {
+      rate = Math.min(2, Math.max(0.5, Number(next) || 1));
+      audio.defaultPlaybackRate = rate;
+      audio.playbackRate = rate;
       audio.preservesPitch = true;
-      return r;
+      return rate;
     },
     dispose() {
       audio.pause();
