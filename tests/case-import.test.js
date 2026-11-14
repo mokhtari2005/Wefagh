@@ -41,7 +41,7 @@ async function setup({ roles = ['academy_manager'] } = {}) {
   return { db, env: { DB: d1Like(db) }, cookie: `wefagh_session=${token}` };
 }
 
-const req = (path, { method = 'GET', cookie } = {}) => new Request(`https://wefagh.ir${path}`, { method, headers: cookie ? { cookie } : {} });
+const req = (path, { method = 'GET', cookie } = {}) => new Request(`https://mokhtari.ir${path}`, { method, headers: cookie ? { cookie } : {} });
 
 test('بانک ۲۰۷ پرونده دارد و شناسه‌ها یکتاست', () => {
   assert.equal(BANK_CASES.length, 207);

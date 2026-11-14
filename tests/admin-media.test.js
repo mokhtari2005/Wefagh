@@ -18,7 +18,7 @@ async function setup(role = 'super_admin') {
   db.prepare('INSERT INTO sessions(token_hash,user_id,expires_at) VALUES (?,?,?)').run(await hashToken(token),u.id,'2099-01-01T00:00:00.000Z');
   return { env: { DB: d1Like(db) }, cookie: `wefagh_session=${token}` };
 }
-function req(path,{method='GET',body,cookie}={}) { const headers={}; if(body!==undefined) headers['content-type']='application/json'; if(cookie) headers.cookie=cookie; return new Request(`https://wefagh.ir${path}`,{method,headers,body:body===undefined?undefined:JSON.stringify(body)}); }
+function req(path,{method='GET',body,cookie}={}) { const headers={}; if(body!==undefined) headers['content-type']='application/json'; if(cookie) headers.cookie=cookie; return new Request(`https://mokhtari.ir${path}`,{method,headers,body:body===undefined?undefined:JSON.stringify(body)}); }
 const article = { kind:'article',slug:'evidence-basics-managed',title:'مبانی ارزیابی دلیل',summary:'یادداشتی آموزشی دربارهٔ ارزیابی و تحلیل مدارک در یک اختلاف فرضی.',status:'draft',payload:{author:'تحریریهٔ وفاق',publishedAt:'2026-10-28',body:['در ارزیابی دلیل باید ارتباط آن با موضوع اختلاف، منشأ و قابلیت اتکای آن را با دقت بررسی کرد.']}};
 
 test('مدیریت رسانه نیازمند نقش مدیر است و مقالهٔ منتشرشده به API عمومی می‌رسد', { skip }, async () => {

@@ -23,7 +23,7 @@ function fakeDb({ fail = false, id = 42 } = {}) {
   };
 }
 
-const URL_BASE = 'https://wefagh.ir';
+const URL_BASE = 'https://mokhtari.ir';
 
 function post(path, body, headers = {}) {
   return new Request(URL_BASE + path, {

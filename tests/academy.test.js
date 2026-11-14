@@ -77,7 +77,7 @@ function req(path, { method = 'GET', body, cookie } = {}) {
   const headers = {};
   if (body !== undefined) headers['content-type'] = 'application/json';
   if (cookie) headers.cookie = cookie;
-  return new Request(`https://wefagh.ir${path}`, {
+  return new Request(`https://mokhtari.ir${path}`, {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,

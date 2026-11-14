@@ -49,7 +49,7 @@ function setup({ adminEmail } = {}) {
   const sent = [];
   const env = {
     DB: d1Like(db),
-    PUBLIC_BASE_URL: 'https://wefagh.ir',
+    PUBLIC_BASE_URL: 'https://mokhtari.ir',
     ADMIN_EMAIL: adminEmail,
     mailer: async (msg) => {
       sent.push(msg);
@@ -62,7 +62,7 @@ async function call(env, path, { method = 'POST', body, cookie } = {}) {
   const headers = {};
   if (body !== undefined) headers['content-type'] = 'application/json';
   if (cookie) headers.cookie = cookie;
-  const req = new Request(`https://wefagh.ir${path}`, {
+  const req = new Request(`https://mokhtari.ir${path}`, {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import worker from '../worker/src/index.js';
 import { ARTICLES, EPISODES } from '../worker/src/media/catalog.js';
 
-const get = (p) => worker.fetch(new Request(`https://wefagh.ir${p}`), {});
+const get = (p) => worker.fetch(new Request(`https://mokhtari.ir${p}`), {});
 
 test('فهرست مقاله‌ها بدون متن کامل برگردانده می‌شود', async () => {
   const res = await get('/api/media/articles');
@@ -28,6 +28,6 @@ test('قسمت‌های پادکست برگردانده می‌شوند و بد�
 });
 
 test('رسانه فقط خواندنی است', async () => {
-  const res = await worker.fetch(new Request('https://wefagh.ir/api/media/articles', { method: 'POST' }), {});
+  const res = await worker.fetch(new Request('https://mokhtari.ir/api/media/articles', { method: 'POST' }), {});
   assert.equal(res.status, 405);
 });
