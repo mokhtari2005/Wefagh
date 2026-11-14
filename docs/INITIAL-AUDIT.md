@@ -8,7 +8,7 @@
 - رابط کاربری: HTML/CSS/ES Modules خالص در `site/`، با مسیرهای hash.
 - API: Cloudflare Worker در `worker/src/index.js`.
 - پایگاه دادهٔ هدف: Cloudflare D1/SQLite؛ مهاجرت‌ها در `worker/migrations/`.
-- استقرار هدف: Cloudflare Pages و Worker؛ تنظیم route برای `wefagh.ir/api/*` در `worker/wrangler.toml`.
+- استقرار هدف: Cloudflare Pages و Worker؛ تنظیم route برای `mokhtari.ir/api/*` در `worker/wrangler.toml`.
 - احراز هویت: ایمیل/رمز، PBKDF2، کوکی نشست HttpOnly و توکن تأیید ایمیل.
 - آزمون: `node:test` و `node:sqlite`، بدون وابستگی خارجی نصب‌شونده.
 

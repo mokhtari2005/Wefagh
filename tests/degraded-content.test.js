@@ -12,7 +12,7 @@ function brokenDb() {
 }
 
 async function get(path) {
-  return worker.fetch(new Request(`https://wefagh.ir${path}`), { DB: brokenDb() });
+  return worker.fetch(new Request(`https://mokhtari.ir${path}`), { DB: brokenDb() });
 }
 
 test('فهرست دوره‌ها بدون جدول محتوا ۲۰۰ و دوره‌های داخلی را برمی‌گرداند', async () => {
@@ -54,14 +54,14 @@ test('داشبورد بدون جدول‌های اختیاری ۵۰۰ نمی‌�
     },
   };
   // کاربر واردشده: احراز هویت را با نشست ساختگی در حافظه تأمین می‌کنیم از طریق مسیر /api/me در آزمون‌های دیگر؛ این آزمون فقط مسیر بدون ورود را بررسی می‌کند.
-  const res = await worker.fetch(new Request('https://wefagh.ir/api/dashboard/summary'), { DB: db });
+  const res = await worker.fetch(new Request('https://mokhtari.ir/api/dashboard/summary'), { DB: db });
   assert.equal(res.status, 401);
 });
 
 test('فهرست تمرین‌های موت‌کورت بدون جدول ۵۰۳ با کد روشن می‌دهد (نه ۵۰۰)', async () => {
   const { currentUser } = await import('../worker/src/auth/routes.js');
   assert.equal(typeof currentUser, 'function');
-  const res = await worker.fetch(new Request('https://wefagh.ir/api/moot/sessions'), { DB: brokenDb() });
+  const res = await worker.fetch(new Request('https://mokhtari.ir/api/moot/sessions'), { DB: brokenDb() });
   assert.ok([401, 503].includes(res.status), `status=${res.status}`);
   assert.doesNotMatch(await res.text(), /moot_sessions|no such table/);
 });

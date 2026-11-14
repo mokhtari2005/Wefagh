@@ -11,7 +11,7 @@ const SAMPLE_CASE = batch01[0];
 const SAMPLE_ROW = { slug: SAMPLE_CASE.id, title: SAMPLE_CASE.title, summary: SAMPLE_CASE.subject.padEnd(12, '.').slice(0, 300), payload_json: JSON.stringify(SAMPLE_CASE) };
 
 const KEY = 'AIzaSyTESTKEY-0123456789';
-const BASE = 'https://wefagh.ir';
+const BASE = 'https://mokhtari.ir';
 
 function withFetch(impl, fn) {
   const original = globalThis.fetch;

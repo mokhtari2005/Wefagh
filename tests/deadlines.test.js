@@ -62,7 +62,7 @@ const call = (env, path, { method = 'GET', body, cookie } = {}) => {
     init.headers['Content-Type'] = 'application/json';
     init.body = JSON.stringify(body);
   }
-  return worker.fetch(new Request(`https://wefagh.ir${path}`, init), env);
+  return worker.fetch(new Request(`https://mokhtari.ir${path}`, init), env);
 };
 
 const valid = { title: 'جلسه دادگاه', caseNo: '123/45', dueDate: '2026-11-03', kind: 'hearing', note: 'ساعت ۹' };

@@ -38,7 +38,7 @@ async function setup() {
   db.prepare('INSERT INTO sessions (token_hash,user_id,expires_at) VALUES (?,?,?)').run(await hashToken(token), user.id, '2099-01-01T00:00:00.000Z');
   return { db, env: { DB: d1Like(db) }, cookie: `wefagh_session=${token}`, userId: user.id };
 }
-function req(path, cookie) { return new Request(`https://wefagh.ir${path}`, { headers: cookie ? { cookie } : {} }); }
+function req(path, cookie) { return new Request(`https://mokhtari.ir${path}`, { headers: cookie ? { cookie } : {} }); }
 
 test('داشبورد بدون ورود دادهٔ خصوصی را برنمی‌گرداند', { skip }, async () => {
   const { env } = await setup();
@@ -65,6 +65,6 @@ test('داشبورد خلاصهٔ دوره، تمرین و موعدهای خود
 
 test('داشبورد فقط مسیر GET را می‌پذیرد', { skip }, async () => {
   const { env, cookie } = await setup();
-  const res = await worker.fetch(new Request('https://wefagh.ir/api/dashboard/summary', { method: 'POST', headers: { cookie } }), env);
+  const res = await worker.fetch(new Request('https://mokhtari.ir/api/dashboard/summary', { method: 'POST', headers: { cookie } }), env);
   assert.equal(res.status, 405);
 });

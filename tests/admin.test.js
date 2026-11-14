@@ -41,7 +41,7 @@ async function setup(role = 'super_admin') {
 }
 function req(path, { method = 'GET', body, cookie } = {}) {
   const headers = {}; if (body !== undefined) headers['content-type'] = 'application/json'; if (cookie) headers.cookie = cookie;
-  return new Request(`https://wefagh.ir${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  return new Request(`https://mokhtari.ir${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
 }
 const course = { kind: 'course', slug: 'contract-writing-basics', title: 'مبانی تنظیم قرارداد', summary: 'دوره‌ای برای تمرین اصول پایهٔ تنظیم و بررسی قراردادهای روزمره.', status: 'published', payload: { level: 'مقدماتی', lessons: [{ id: 'intro', title: 'شناخت ساختار قرارداد', body: 'در این درس اجزای اصلی قرارداد و اهمیت تعریف دقیق تعهدات را بررسی می‌کنیم.' }] } };
 const caseItem = { kind: 'case', slug: batch01Case.id, title: batch01Case.title, summary: batch01Case.subject.padEnd(12, '.').slice(0, 300), status: 'draft', payload: batch01Case };
