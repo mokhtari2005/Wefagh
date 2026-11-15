@@ -96,11 +96,25 @@ export function registerForm() {
   const nextBtn = h('button', { class: 'btn', type: 'button', text: 'ادامه' });
   const submitBtn = h('button', { class: 'btn', type: 'submit', text: 'ثبت نهایی و ساختن حساب' });
   const status = h('p', { class: 'form-status', role: 'status', 'aria-live': 'polite' });
+  // ایمیل نرسید؟ پاسخ سرور همیشه عمومی است؛ فاصلهٔ مجاز بین دو ارسال یک دقیقه است.
+  let lastEmail = '';
+  const resendBtn = h('button', { class: 'btn secondary', type: 'button', hidden: true, text: 'ایمیل نرسید؟ ارسال مجدد لینک تأیید' });
+  resendBtn.addEventListener('click', async () => {
+    if (!lastEmail) return;
+    resendBtn.disabled = true;
+    status.className = 'form-status';
+    status.textContent = 'در حال ارسال…';
+    const r = await postJson('/api/auth/resend-verification', { email: lastEmail });
+    status.className = `form-status${r.ok ? ' ok' : ' err'}`;
+    status.textContent = r.ok ? (r.data?.message || 'ایمیل تأیید دوباره ارسال شد.') : messageFor(r.networkError ? 'NETWORK' : r.data?.error);
+    setTimeout(() => { resendBtn.disabled = false; }, 60 * 1000);
+  });
 
   const form = h('form', { class: 'form reg-form', novalidate: '', 'aria-label': 'فرم ثبت‌نام' }, [
     progress, bar, heading, ...panels,
     h('div', { class: 'reg-actions' }, [backBtn, nextBtn, submitBtn]),
     status,
+    h('div', { class: 'row' }, [resendBtn]),
     h('p', {}, [h('a', { href: '#/account', text: 'قبلاً حساب دارید؟ وارد شوید' })]),
   ]);
 
@@ -218,10 +232,13 @@ export function registerForm() {
     backBtn.disabled = false;
 
     if (res.ok) {
+      lastEmail = v.email;
       form.reset();
       clearErrors();
       status.className = 'form-status ok';
       status.textContent = REGISTER_SENT;
+      resendBtn.hidden = false;
+      resendBtn.disabled = false;
       renderStep(0);
       return;
     }

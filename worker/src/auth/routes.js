@@ -82,7 +82,8 @@ export async function register(request, env) {
   }
 
   // ارسال ناموفق کاربر را خطا نمی‌بیند (پاسخ عمومی)؛ کاربر می‌تواند از /api/auth/resend-verification استفاده کند.
-  await issueVerificationEmail(env, userId, email);
+  const sent = await issueVerificationEmail(env, userId, email);
+  logOutcome('auth.register', sent ? 'mail_sent' : 'mail_failed');
   return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
 }
 
