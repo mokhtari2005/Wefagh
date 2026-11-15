@@ -101,11 +101,11 @@ function textOrLog(op, model, data) {
 /** تولید متن (و JSON ساخت‌یافته در صورت تعیین schema). */
 export async function generateText(env, { system, contents, maxOutputTokens = 1024, json = false, schema = null, timeoutMs = AI_TIMEOUT_MS }) {
   const configuredModel = modelIds(env).text;
-  const fallbackModel = 'gemini-2.5-flash';
+  const fallbackModel = 'gemini-3.5-flash-lite';
   const makePayload = (model) => {
     // Gemini 3 defaults to medium reasoning; low keeps interactive latency predictable.
     const generationConfig = { maxOutputTokens };
-    if (model.startsWith('gemini-3.')) generationConfig.thinkingConfig = { thinkingLevel: 'low' };
+    if (model.startsWith('gemini-3.') && model !== fallbackModel) generationConfig.thinkingConfig = { thinkingLevel: 'low' };
     if (json) {
       generationConfig.responseMimeType = 'application/json';
       if (schema) generationConfig.responseSchema = schema;
@@ -121,7 +121,7 @@ export async function generateText(env, { system, contents, maxOutputTokens = 10
   try {
     data = await post(env, 'text', model, `${GEMINI_API}/models/${encodeURIComponent(model)}:generateContent`, makePayload(model), timeoutMs);
   } catch (err) {
-    // If the configured model stalls, make one bounded attempt with the stable Flash fallback.
+    // If the configured model stalls, make one bounded attempt with the supported Flash-Lite fallback.
     // Never retry quota, key, validation, or provider HTTP errors.
     if (model === fallbackModel || err?.code !== 'AI_NETWORK_ERROR' || err?.details?.reason !== 'TIMEOUTERROR') throw err;
     logGeminiFailure('text', model, { stage: 'fallback', reason: 'TIMEOUT', fallbackModel });
