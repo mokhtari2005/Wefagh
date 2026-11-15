@@ -100,21 +100,34 @@ function textOrLog(op, model, data) {
 
 /** تولید متن (و JSON ساخت‌یافته در صورت تعیین schema). */
 export async function generateText(env, { system, contents, maxOutputTokens = 1024, json = false, schema = null, timeoutMs = AI_TIMEOUT_MS }) {
-  // Gemini 3 defaults to medium reasoning; low keeps interactive legal-assistant latency predictable.
-  const generationConfig = { maxOutputTokens };
-  if (modelIds(env).text.startsWith('gemini-3.')) {
-    generationConfig.thinkingConfig = { thinkingLevel: 'low' };
+  const configuredModel = modelIds(env).text;
+  const fallbackModel = 'gemini-2.5-flash';
+  const makePayload = (model) => {
+    // Gemini 3 defaults to medium reasoning; low keeps interactive latency predictable.
+    const generationConfig = { maxOutputTokens };
+    if (model.startsWith('gemini-3.')) generationConfig.thinkingConfig = { thinkingLevel: 'low' };
+    if (json) {
+      generationConfig.responseMimeType = 'application/json';
+      if (schema) generationConfig.responseSchema = schema;
+    }
+    return {
+      systemInstruction: { parts: [{ text: system }] },
+      contents,
+      generationConfig,
+    };
+  };
+  let model = configuredModel;
+  let data;
+  try {
+    data = await post(env, 'text', model, `${GEMINI_API}/models/${encodeURIComponent(model)}:generateContent`, makePayload(model), timeoutMs);
+  } catch (err) {
+    // If the configured model stalls, make one bounded attempt with the stable Flash fallback.
+    // Never retry quota, key, validation, or provider HTTP errors.
+    if (model === fallbackModel || err?.code !== 'AI_NETWORK_ERROR' || err?.details?.reason !== 'TIMEOUTERROR') throw err;
+    logGeminiFailure('text', model, { stage: 'fallback', reason: 'TIMEOUT', fallbackModel });
+    model = fallbackModel;
+    data = await post(env, 'text', model, `${GEMINI_API}/models/${encodeURIComponent(model)}:generateContent`, makePayload(model), 25_000);
   }
-  if (json) {
-    generationConfig.responseMimeType = 'application/json';
-    if (schema) generationConfig.responseSchema = schema;
-  }
-  const model = modelIds(env).text;
-  const data = await post(env, 'text', model, `${GEMINI_API}/models/${encodeURIComponent(model)}:generateContent`, {
-    systemInstruction: { parts: [{ text: system }] },
-    contents,
-    generationConfig,
-  }, timeoutMs);
   const text = textOrLog('text', model, data);
   if (!json) return { text };
   try {
