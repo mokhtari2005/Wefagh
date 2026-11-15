@@ -55,7 +55,7 @@ function selectField(label, options, value) {
 /** صفحهٔ انتخاب پرونده؛ بدون ورود هم قابل مشاهده است، اما شروع جلسه و سوابق نیاز به ورود دارد. */
 export function casePickerPage() {
   const body = h('section', { class: 'container moot-cases-page' });
-  body.append(h('h1', { text: 'انتخاب پرونده' }), h('p', { class: 'muted', text: 'پرونده‌ها پس از تأیید استنادهای حقوقی منتشر می‌شوند. فقط پرونده‌های منتشرشده نمایش داده می‌شوند.' }));
+  body.append(h('h1', { text: 'انتخاب پرونده' }), h('p', { class: 'muted', text: 'پرونده‌ها پس از تأیید استنادهای حقوقی منتشر می‌شوند. فقط پرونده‌های منتشرشده نمایش داده می‌شوند.' }), h('p', { class: 'ai-privacy', role: 'note', text: 'این پرونده‌ها سناریوهای آموزشی و فرضی‌اند و رأی دادگاه منتشرشده یا واقعی نیستند؛ «رأی آموزشی» فقط برای تمرین است.' }));
 
   const suggestionsBox = h('div', { class: 'moot-suggestions' }, [h('p', { class: 'muted', text: 'در حال تهیهٔ پیشنهادها…' })]);
   const listBox = h('div', { class: 'moot-case-list', 'aria-live': 'polite' }, [h('p', { class: 'muted', text: 'در حال بارگذاری…' })]);
