@@ -1,5 +1,6 @@
 // صفحه‌های آکادمی: فهرست دوره‌ها، جزئیات، ثبت‌نام و علامت‌زدن درس‌ها. DOM امن.
 import { getJson, postJson } from './api.js';
+import { icon } from './icons.js';
 import { messageFor } from './auth-messages.js';
 
 function h(tag, attrs = {}, children = []) {
@@ -22,23 +23,23 @@ function loginHint() {
 
 // فقط مقصدهای واقعی و فعال سایت. هر مورد باید به یک مسیر موجود در app.js اشاره کند.
 export const ACADEMY_TOOLS = [
-  { icon: '🎓', title: 'دوره‌های آموزشی', href: '#/academy' },
-  { icon: '🎙', title: 'تمرین دادرسی و موت‌کورت', href: '#/moot-court' },
-  { icon: '⚖️', title: 'دستیار هوشمند وکیل', href: '#/assistant' },
-  { icon: '📁', title: 'بانک پرونده‌ها', href: '#/cases' },
-  { icon: '🧾', title: 'هزینهٔ دادرسی', href: '#/calculators/court' },
-  { icon: '💼', title: 'حق‌الوکاله قانونی', href: '#/calculators/attorney' },
-  { icon: '🧮', title: 'خسارت تأخیر تأدیه', href: '#/calculators/delay' },
-  { icon: '📅', title: 'تقویم مواعد', href: '#/deadlines' },
-  { icon: '📰', title: 'مطالب و پادکست', href: '#/media' },
-  { icon: '📊', title: 'داشبورد من', href: '#/dashboard' },
-  { icon: '👤', title: 'حساب کاربری', href: '#/account' },
+  { icon: 'cap', title: 'دوره‌های آموزشی', href: '#/academy' },
+  { icon: 'mic', title: 'تمرین دادرسی و موت‌کورت', href: '#/moot-court' },
+  { icon: 'scale', title: 'دستیار هوشمند وکیل', href: '#/assistant' },
+  { icon: 'folder', title: 'بانک پرونده‌ها', href: '#/cases' },
+  { icon: 'receipt', title: 'هزینهٔ دادرسی', href: '#/calculators/court' },
+  { icon: 'briefcase', title: 'حق‌الوکاله قانونی', href: '#/calculators/attorney' },
+  { icon: 'calculator', title: 'خسارت تأخیر تأدیه', href: '#/calculators/delay' },
+  { icon: 'calendar', title: 'تقویم مواعد', href: '#/deadlines' },
+  { icon: 'news', title: 'مطالب و پادکست', href: '#/media' },
+  { icon: 'chart', title: 'داشبورد من', href: '#/dashboard' },
+  { icon: 'user', title: 'حساب کاربری', href: '#/account' },
 ];
 
 export function academyToolCards(items = ACADEMY_TOOLS) {
   return h('nav', { class: 'academy-tools', 'aria-label': 'بخش‌های آکادمی' },
     items.map((item) => h('a', { class: 'academy-tool', href: item.href }, [
-      h('span', { class: 'academy-tool-icon', 'aria-hidden': 'true', text: item.icon }),
+      h('span', { class: 'academy-tool-icon', 'aria-hidden': 'true' }, [icon(item.icon, { size: 26 })]),
       h('span', { class: 'academy-tool-title', text: item.title }),
     ])));
 }

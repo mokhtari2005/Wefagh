@@ -25,6 +25,32 @@ export async function postJson(path, payload, { timeoutMs = 15000 } = {}) {
   }
 }
 
+/** ارسال FormData (فایل‌ها). هدر Content-Type را مرورگر با مرز (boundary) خودش می‌گذارد. */
+export async function postForm(path, formData, { timeoutMs = 60000 } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(path, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+      body: formData,
+      signal: controller.signal,
+    });
+    let data = null;
+    try {
+      data = await res.json();
+    } catch {
+      data = null;
+    }
+    return { status: res.status, ok: res.ok, data };
+  } catch {
+    return { status: 0, ok: false, data: null, networkError: true };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function getJson(path, { timeoutMs = 15000 } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);

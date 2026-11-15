@@ -6,6 +6,7 @@ import { currentUser } from '../auth/routes.js';
 import { handleThreads } from './threads.js';
 import { AiError, aiConfigured, generateText, transcribeAudio, synthesizeLongSpeech } from './gemini.js';
 import { clampReply } from './speech.js';
+import { AttachmentError, ATTACHMENT_LIMITS, processAttachments, buildUserParts, summarizeAttachments } from './attachments.js';
 import {
   LEGAL_DISCLAIMER, ASSISTANT_DOC_TYPES, ASSISTANT_MODES, ASSISTANT_SCHEMA, MOOT_EVAL_SCHEMA,
   HEARING_ROLES, HEARING_STAGES, mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt,
@@ -221,41 +222,99 @@ export function citationWarnings(text) {
   return CITATION_PATTERNS.some((re) => re.test(text)) ? [CITATION_WARNING] : [];
 }
 
+const DEFAULT_ATTACHMENT_MESSAGE = 'پیوست‌ها را بر اساس نوع کار و نوع سند انتخاب‌شده بررسی کن.';
+const ATTACHMENT_TIMEOUT_MS = 55_000;
+
+/** ورودی دستیار: JSON (بدون پیوست) یا multipart/form-data (با پیوست). فایل‌ها هرگز در لاگ یا تاریخچه ذخیره نمی‌شوند. */
+async function readAssistantInput(request) {
+  const type = (request.headers.get('content-type') || '').toLowerCase();
+  if (!type.includes('multipart/form-data')) {
+    const parsed = await readBody(request, 32 * 1024);
+    return parsed.error ? { error: parsed.error } : { body: parsed.body || {}, files: [] };
+  }
+  const declared = Number(request.headers.get('content-length') || 0);
+  if (!declared) return { error: fail('LENGTH_REQUIRED', 411) };
+  if (declared > ATTACHMENT_LIMITS.totalBytes + 256 * 1024) return { error: fail('FILE_TOO_LARGE', 413) };
+  let form;
+  try {
+    form = await request.formData();
+  } catch {
+    return { error: fail('INVALID_FORM', 400) };
+  }
+  const field = (name) => (typeof form.get(name) === 'string' ? form.get(name) : undefined);
+  const body = { mode: field('mode'), docType: field('docType'), message: field('message') };
+  const historyRaw = field('history');
+  if (historyRaw) {
+    try {
+      body.history = JSON.parse(historyRaw);
+    } catch {
+      return { error: fail('VALIDATION_FAILED', 422, { field: 'history' }) };
+    }
+  }
+  const files = [];
+  for (const f of form.getAll('files')) {
+    if (typeof f === 'string' || typeof f?.arrayBuffer !== 'function') return { error: fail('VALIDATION_FAILED', 422, { field: 'files' }) };
+    files.push({ name: f.name, type: f.type, bytes: new Uint8Array(await f.arrayBuffer()) });
+  }
+  return { body, files };
+}
+
 async function assistant(request, env) {
   const auth = await authorized(request, env);
   if (auth.error) return auth.error;
   if (request.method !== 'POST') return fail('METHOD_NOT_ALLOWED', 405);
-  const parsed = await readBody(request, 32 * 1024);
-  if (parsed.error) return parsed.error;
-  const body = parsed.body || {};
+  const input = await readAssistantInput(request);
+  if (input.error) return input.error;
+  const { body, files } = input;
   const mode = ASSISTANT_MODES.includes(body.mode) ? body.mode : null;
   if (!mode) return fail('VALIDATION_FAILED', 422, { field: 'mode' });
-  const docType = mode === 'draft' ? (Object.hasOwn(ASSISTANT_DOC_TYPES, body.docType) ? body.docType : null) : null;
+  // نوع سند در همهٔ حالت‌ها به مدل می‌رسد؛ فقط در «تنظیم سند» الزامی است.
+  const docType = Object.hasOwn(ASSISTANT_DOC_TYPES, body.docType) ? body.docType : null;
   if (mode === 'draft' && !docType) return fail('VALIDATION_FAILED', 422, { field: 'docType' });
-  const message = cleanText(body.message, LIMITS.assistantChars);
-  if (!message) return fail('VALIDATION_FAILED', 422, { field: 'message' });
+  const rawMessage = typeof body.message === 'string' ? body.message.trim() : '';
+  let message = cleanText(rawMessage, LIMITS.assistantChars);
+  if (!message) {
+    if (rawMessage || !files.length) return fail('VALIDATION_FAILED', 422, { field: 'message' });
+    message = DEFAULT_ATTACHMENT_MESSAGE;
+  }
   const history = cleanHistory(body.history);
   if (!history) return fail('VALIDATION_FAILED', 422, { field: 'history' });
 
+  let attachments = [];
   try {
-    const turns = [...history, { role: 'user', text: message }];
+    attachments = await processAttachments(files);
+  } catch (err) {
+    if (err instanceof AttachmentError) return fail(err.code, err.status, err.file ? { file: err.file } : {});
+    throw err;
+  }
+
+  try {
+    const contents = [
+      ...toContents(history),
+      { role: 'user', parts: buildUserParts(message, attachments) },
+    ];
     const { data } = await generateText(env, {
-      system: assistantSystemPrompt({ mode, docType }),
-      contents: toContents(turns),
+      system: assistantSystemPrompt({ mode, docType, hasAttachments: attachments.length > 0 }),
+      contents,
       maxOutputTokens: 3000,
       json: true,
       schema: ASSISTANT_SCHEMA,
+      ...(attachments.length ? { timeoutMs: ATTACHMENT_TIMEOUT_MS } : {}),
     });
     const questions = Array.isArray(data.questions) ? data.questions.filter((q) => typeof q === 'string').slice(0, 5) : [];
     const notes = Array.isArray(data.notes) ? data.notes.filter((n) => typeof n === 'string').slice(0, 10) : [];
     const text = typeof data.text === 'string' ? data.text : '';
     for (const warning of citationWarnings(text)) if (!notes.includes(warning)) notes.push(warning);
+    for (const a of attachments) {
+      if (a.truncated) notes.push(`فقط بخش ابتدایی «${a.name}» (حداکثر ${ATTACHMENT_LIMITS.extractedChars.toLocaleString('fa-IR')} نویسه) بررسی شد.`);
+    }
     return json({
       ok: true,
       status: data.status === 'need_info' ? 'need_info' : 'ready',
       questions,
-      text: typeof data.text === 'string' ? data.text : '',
+      text,
       notes,
+      attachments: summarizeAttachments(attachments),
       disclaimer: LEGAL_DISCLAIMER,
     });
   } catch (err) {

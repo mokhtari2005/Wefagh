@@ -2,6 +2,7 @@
 // منشی متن ثابت دارد؛ قاضی و طرف مقابل از سرور (Gemini) پاسخ می‌گیرند. صدا با TTS و ورودی با تبدیل گفتار به متن.
 // فقط برای کاربر واردشده و وقتی سرویس روی سرور فعال است کار می‌کند؛ در غیر این صورت حالت قاعده‌محور نشان داده می‌شود.
 import { h } from './dom.js';
+import { icon } from './icons.js';
 import { getJson, postJson } from './api.js';
 import { aiStatus, errorText, postForBlob, createPlayer, blobToBase64, pickRecordingMime, baseMime } from './ai-client.js';
 import { oralDefensePanel } from './moot-oral.js';
@@ -123,7 +124,9 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
   const report = h('div', { class: 'court-report', role: 'region', 'aria-live': 'polite' });
   const inputArea = h('div', { class: 'court-input' });
   const answer = h('textarea', { rows: '3', maxlength: String(ANSWER_MAX), id: 'court-answer', 'aria-label': 'پاسخ شما در دادگاه', placeholder: 'پاسخ خود را بنویسید یا با میکروفون بگویید…' });
-  const micBtn = h('button', { class: 'court-mic', type: 'button', 'aria-label': 'ضبط صدا', text: '🎙 ضبط صدا' });
+  const micBtn = h('button', { class: 'court-mic', type: 'button', 'aria-label': 'ضبط صدا' });
+  const setMicLabel = (label) => micBtn.replaceChildren(icon('mic', { size: 18 }), document.createTextNode(` ${label}`));
+  setMicLabel('ضبط صدا');
   const submitBtn = h('button', { class: 'btn', type: 'button', text: 'ارسال پاسخ' });
   const audioStatus = h('p', { class: 'court-audio-status', role: 'status', 'aria-live': 'polite', text: 'آماده' });
   const nextBtn = h('button', { class: 'btn court-next', type: 'button', text: 'ادامه', disabled: '' });
@@ -139,7 +142,7 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
   const speakToggle = h('input', { type: 'checkbox' });
   if (speechOn) speakToggle.checked = true;
   const micSupported = Boolean(navigator.mediaDevices?.getUserMedia) && typeof MediaRecorder !== 'undefined';
-  if (!micSupported) { micBtn.disabled = true; micBtn.textContent = '🎙 میکروفون در دسترس نیست'; }
+  if (!micSupported) { micBtn.disabled = true; setMicLabel('میکروفون در دسترس نیست'); }
   const micIndicator = h('span', { class: 'court-mic-state', text: micSupported ? 'میکروفون آماده' : 'میکروفون ندارد' });
 
   // تب‌ها
@@ -444,7 +447,7 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
       stream.getTracks().forEach((t) => t.stop());
       const type = baseMime(recorder?.mimeType || mime || 'audio/webm');
       recorder = null;
-      micBtn.textContent = '🎙 ضبط صدا';
+      setMicLabel('ضبط صدا');
       micBtn.classList.remove('recording');
       micIndicator.textContent = 'میکروفون آماده';
       const blob = new Blob(chunks, { type });

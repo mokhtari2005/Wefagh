@@ -22,9 +22,9 @@
       <form class="global-search" id="global-search" role="search">
         <label class="visually-hidden" for="global-search-input">جست‌وجو در بخش‌های آکادمی</label>
         <input id="global-search-input" type="search" placeholder="جست‌وجو در دوره‌ها، پرونده‌ها، مقاله‌ها…" autocomplete="off">
-        <button type="submit" aria-label="جست‌وجو"><span aria-hidden="true">⌕</span></button>
+        <button type="submit" aria-label="جست‌وجو"><span aria-hidden="true" data-icon="search" data-icon-size="20"></span></button>
       </form>
-      <a class="avatar-link" href="#/account" aria-label="حساب کاربری"><span aria-hidden="true">👤</span></a>
+      <a class="avatar-link" href="#/account" aria-label="حساب کاربری"><span aria-hidden="true" data-icon="user" data-icon-size="22"></span></a>
       <button class="nav-toggle" type="button" aria-label="باز کردن منو" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span></button>
       <nav id="site-nav" class="site-nav" aria-label="ناوبری اصلی"></nav>
     </div>
@@ -47,11 +47,11 @@
   </footer>
 
   <nav class="bottom-nav" aria-label="دسترسی سریع پایین صفحه">
-    <a href="#/account" data-bottom-route="/account"><span aria-hidden="true">👤</span><small>حساب کاربری</small></a>
-    <a href="#/deadlines" data-bottom-route="/deadlines"><span aria-hidden="true">📅</span><small>مواعد</small></a>
-    <a href="#/" data-bottom-route="/"><span class="bottom-home" aria-hidden="true">⌂</span><small>خانه</small></a>
-    <a href="#/academy" data-bottom-route="/academy"><span aria-hidden="true">📖</span><small>دوره‌ها</small></a>
-    <button type="button" id="bottom-more" aria-label="نمایش منوی بیشتر"><span aria-hidden="true">▦</span><small>بیشتر</small></button>
+    <a href="#/account" data-bottom-route="/account"><span aria-hidden="true" data-icon="user"></span><small>حساب کاربری</small></a>
+    <a href="#/deadlines" data-bottom-route="/deadlines"><span aria-hidden="true" data-icon="calendar"></span><small>مواعد</small></a>
+    <a href="#/" data-bottom-route="/"><span class="bottom-home" aria-hidden="true" data-icon="home" data-icon-size="26"></span><small>خانه</small></a>
+    <a href="#/academy" data-bottom-route="/academy"><span aria-hidden="true" data-icon="book"></span><small>دوره‌ها</small></a>
+    <button type="button" id="bottom-more" aria-label="نمایش منوی بیشتر"><span aria-hidden="true" data-icon="grid"></span><small>بیشتر</small></button>
   </nav>
   <script type="module" src="js/app.js"></script>
 </body>
