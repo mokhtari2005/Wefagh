@@ -104,7 +104,7 @@ test('Gemini network timeout retries once on the bounded Gemini 3.5 Flash-Lite f
       system: 'x',
       contents: [{ role: 'user', parts: [{ text: 'x' }] }],
       json: true,
-      timeoutMs: 12_000,
+      timeoutMs: 40_000,
     });
     assert.equal(result.data.text, 'پاسخ');
     assert.equal(requests.length, 2);
@@ -112,6 +112,37 @@ test('Gemini network timeout retries once on the bounded Gemini 3.5 Flash-Lite f
     assert.match(requests[1].url, /gemini-3\.5-flash-lite:generateContent$/);
     assert.equal(requests[1].init.signal.aborted, false);
     assert.equal(requests[1].body.generationConfig.thinkingConfig, undefined);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+
+test('Gemini response-body timeout also retries once on Flash-Lite', async () => {
+  const original = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (url, init) => {
+    requests.push(String(url));
+    if (requests.length === 1) {
+      return new Response(new ReadableStream({
+        start(controller) {
+          init.signal.addEventListener('abort', () => controller.error(new DOMException('aborted', 'AbortError')), { once: true });
+        },
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response(JSON.stringify({
+      candidates: [{ content: { parts: [{ text: 'پاسخ جایگزین' }] } }],
+    }), { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  try {
+    const result = await generateText(env, {
+      system: 'x',
+      contents: [{ role: 'user', parts: [{ text: 'x' }] }],
+      timeoutMs: 5,
+    });
+    assert.deepEqual(result, { text: 'پاسخ جایگزین' });
+    assert.equal(requests.length, 2);
+    assert.match(requests[1], /gemini-3\\.5-flash-lite:generateContent$/);
   } finally {
     globalThis.fetch = original;
   }
