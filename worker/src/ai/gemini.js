@@ -20,11 +20,12 @@ export function aiConfigured(env) {
 
 /** خطای امن برای پاسخ HTTP: کد ثابت و وضعیت، بدون جزئیات فنی یا داده. */
 export class AiError extends Error {
-  constructor(code, status) {
+  constructor(code, status, details = {}) {
     super(code);
     this.name = 'AiError';
     this.code = code;
     this.status = status;
+    this.details = details;
   }
 }
 
@@ -48,8 +49,9 @@ async function post(env, op, model, url, payload, timeoutMs = AI_TIMEOUT_MS) {
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (err) {
-    logGeminiFailure(op, model, { stage: 'network', reason: safeEnum(String(err?.name || '').toUpperCase()) || 'FETCH_ERROR' });
-    throw new AiError('AI_UNAVAILABLE', 503);
+    const reason = safeEnum(String(err?.name || '').toUpperCase()) || 'FETCH_ERROR';
+    logGeminiFailure(op, model, { stage: 'network', reason });
+    throw new AiError('AI_NETWORK_ERROR', 503, { reason });
   }
   if (!res.ok) {
     let reason;
@@ -58,14 +60,14 @@ async function post(env, op, model, url, payload, timeoutMs = AI_TIMEOUT_MS) {
     if (res.status === 429) throw new AiError('AI_QUOTA', 429);
     if (res.status === 401 || res.status === 403) throw new AiError('AI_KEY_REJECTED', 503);
     if (res.status === 404) throw new AiError('AI_MODEL_UNAVAILABLE', 503);
-    if (res.status >= 500) throw new AiError('AI_UNAVAILABLE', 503);
+    if (res.status >= 500) throw new AiError('AI_PROVIDER_ERROR', 503, { providerStatus: res.status, ...(reason ? { providerReason: reason } : {}) });
     throw new AiError('AI_REJECTED', 502);
   }
   try {
     return await res.json();
   } catch {
     logGeminiFailure(op, model, { stage: 'body', reason: 'BAD_JSON' });
-    throw new AiError('AI_UNAVAILABLE', 503);
+    throw new AiError('AI_PROVIDER_BAD_RESPONSE', 503);
   }
 }
 
