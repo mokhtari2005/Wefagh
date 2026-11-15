@@ -4,7 +4,7 @@
 import { splitForSpeech, concatWav, SPEECH_CHUNK_CHARS } from './speech.js';
 
 export const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta';
-export const AI_TIMEOUT_MS = 25000;
+export const AI_TIMEOUT_MS = 55_000;
 
 // شناسه‌های مدل از متغیرهای [vars] خوانده می‌شوند تا بدون تغییر کد قابل تعویض باشند.
 export function modelIds(env) {
@@ -94,7 +94,11 @@ function textOrLog(op, model, data) {
 
 /** تولید متن (و JSON ساخت‌یافته در صورت تعیین schema). */
 export async function generateText(env, { system, contents, maxOutputTokens = 1024, json = false, schema = null, timeoutMs = AI_TIMEOUT_MS }) {
+  // Gemini 3 defaults to medium reasoning; low keeps interactive legal-assistant latency predictable.
   const generationConfig = { maxOutputTokens };
+  if (/^gemini-3\\./.test(modelIds(env).text)) {
+    generationConfig.thinkingConfig = { thinkingLevel: 'low' };
+  }
   if (json) {
     generationConfig.responseMimeType = 'application/json';
     if (schema) generationConfig.responseSchema = schema;
@@ -126,7 +130,10 @@ export async function transcribeAudio(env, { mimeType, base64 }) {
         { inlineData: { mimeType, data: base64 } },
       ],
     }],
-    generationConfig: { maxOutputTokens: 1500 },
+    generationConfig: {
+      maxOutputTokens: 1500,
+      ...(model.startsWith('gemini-3.') ? { thinkingConfig: { thinkingLevel: 'low' } } : {}),
+    },
   });
   return { text: textOrLog('transcribe', model, data) };
 }
