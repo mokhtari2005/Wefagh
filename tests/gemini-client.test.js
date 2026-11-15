@@ -109,7 +109,7 @@ test('Gemini network timeout retries once on the bounded Gemini 3.5 Flash-Lite f
     assert.equal(result.data.text, 'پاسخ');
     assert.equal(requests.length, 2);
     assert.match(requests[0].url, /gemini-3\.8-flash:generateContent$/);
-    assert.match(requests[1].url, /gemini-2\.5-flash:generateContent$/);
+    assert.match(requests[1].url, /gemini-3\.5-flash-lite:generateContent$/);
     assert.equal(requests[1].init.signal.aborted, false);
     assert.equal(requests[1].body.generationConfig.thinkingConfig, undefined);
   } finally {
