@@ -88,3 +88,31 @@ test('Gemini response body timeout is classified and does not wait for the clien
     globalThis.fetch = original;
   }
 });
+
+test('Gemini network timeout retries once on the bounded 2.5 Flash fallback', async () => {
+  const original = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (url, init) => {
+    requests.push({ url: String(url), init, body: JSON.parse(init.body) });
+    if (requests.length === 1) throw new DOMException('timeout', 'TimeoutError');
+    return new Response(JSON.stringify({
+      candidates: [{ content: { parts: [{ text: '{"status":"ready","text":"پاسخ","questions":[],"notes":[]}' }] } }],
+    }), { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  try {
+    const result = await generateText(env, {
+      system: 'x',
+      contents: [{ role: 'user', parts: [{ text: 'x' }] }],
+      json: true,
+      timeoutMs: 12_000,
+    });
+    assert.equal(result.data.text, 'پاسخ');
+    assert.equal(requests.length, 2);
+    assert.match(requests[0].url, /gemini-3\.8-flash:generateContent$/);
+    assert.match(requests[1].url, /gemini-2\.5-flash:generateContent$/);
+    assert.equal(requests[1].init.signal.aborted, false);
+    assert.equal(requests[1].body.generationConfig.thinkingConfig, undefined);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
