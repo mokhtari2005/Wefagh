@@ -84,14 +84,14 @@ test('کلید در هدر می‌رود، نه در آدرس، و در پیام
 });
 
 test('خطاهای API به کدهای امن و وضعیت مناسب نگاشت می‌شوند', async () => {
-  const cases = [[429, 'AI_QUOTA', 429], [500, 'AI_UNAVAILABLE', 503], [400, 'AI_REJECTED', 502]];
+  const cases = [[429, 'AI_QUOTA', 429], [500, 'AI_PROVIDER_ERROR', 503], [400, 'AI_REJECTED', 502]];
   for (const [upstream, code, status] of cases) {
     await withFetch(async () => jsonRes(upstream, {}), async () => {
       await assert.rejects(() => generateText({ GEMINI_API_KEY: KEY }, { system: 's', contents: [] }), (e) => e.code === code && e.status === status);
     });
   }
   await withFetch(async () => { throw new TypeError('network down'); }, async () => {
-    await assert.rejects(() => generateText({ GEMINI_API_KEY: KEY }, { system: 's', contents: [] }), (e) => e.code === 'AI_UNAVAILABLE');
+    await assert.rejects(() => generateText({ GEMINI_API_KEY: KEY }, { system: 's', contents: [] }), (e) => e.code === 'AI_NETWORK_ERROR');
   });
 });
 
