@@ -138,7 +138,7 @@ test('Gemini response-body timeout retries once on Flash-Lite', async () => {
     });
     assert.deepEqual(result, { text: 'پاسخ جایگزین' });
     assert.equal(requests.length, 2);
-    assert.match(requests[1].url, /gemini-3\\.5-flash-lite:generateContent$/);
+    assert.ok(requests[1].url.endsWith('/models/gemini-3.5-flash-lite:generateContent'));
   } finally {
     globalThis.fetch = original;
   }
