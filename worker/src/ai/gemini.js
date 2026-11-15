@@ -4,7 +4,7 @@
 import { splitForSpeech, concatWav, SPEECH_CHUNK_CHARS } from './speech.js';
 
 export const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta';
-export const AI_TIMEOUT_MS = 100_000;
+export const AI_TIMEOUT_MS = 40_000;
 
 // شناسه‌های مدل از متغیرهای [vars] خوانده می‌شوند تا بدون تغییر کد قابل تعویض باشند.
 export function modelIds(env) {
@@ -65,8 +65,12 @@ async function post(env, op, model, url, payload, timeoutMs = AI_TIMEOUT_MS) {
   }
   try {
     return await res.json();
-  } catch {
-    logGeminiFailure(op, model, { stage: 'body', reason: 'BAD_JSON' });
+  } catch (err) {
+    const errorName = String(err?.name || '').toUpperCase();
+    const timedOut = errorName === 'ABORTERROR' || errorName === 'TIMEOUTERROR';
+    const reason = timedOut ? 'TIMEOUT' : 'BAD_JSON';
+    logGeminiFailure(op, model, { stage: 'body', reason });
+    if (timedOut) throw new AiError('AI_NETWORK_ERROR', 503, { reason, stage: 'body' });
     throw new AiError('AI_PROVIDER_BAD_RESPONSE', 503);
   }
 }

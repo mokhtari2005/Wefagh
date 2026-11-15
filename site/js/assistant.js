@@ -298,9 +298,9 @@ function assistantWorkspace() {
       form.append('message', typed);
       form.append('history', JSON.stringify(trimHistory(history)));
       for (const a of sent) form.append('files', a.file, a.file.name);
-      res = await postForm('/api/ai/assistant', form, { timeoutMs: 115000 });
+      res = await postForm('/api/ai/assistant', form, { timeoutMs: 50000 });
     } else {
-      res = await postJson('/api/ai/assistant', { mode, docType: docSelect.value, message: typed, history: trimHistory(history) }, { timeoutMs: 115000 });
+      res = await postJson('/api/ai/assistant', { mode, docType: docSelect.value, message: typed, history: trimHistory(history) }, { timeoutMs: 50000 });
     }
     busy = false;
     sendBtn.disabled = false;
