@@ -37,7 +37,7 @@ export function logGeminiFailure(op, model, fields) {
   console.error(JSON.stringify({ where: 'gemini', op, model, ...fields }));
 }
 
-async function post(env, op, model, url, payload) {
+async function post(env, op, model, url, payload, timeoutMs = AI_TIMEOUT_MS) {
   if (!aiConfigured(env)) throw new AiError('AI_NOT_CONFIGURED', 503);
   let res;
   try {
@@ -45,7 +45,7 @@ async function post(env, op, model, url, payload) {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY.trim() },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (err) {
     logGeminiFailure(op, model, { stage: 'network', reason: safeEnum(String(err?.name || '').toUpperCase()) || 'FETCH_ERROR' });
@@ -93,7 +93,7 @@ function textOrLog(op, model, data) {
 }
 
 /** تولید متن (و JSON ساخت‌یافته در صورت تعیین schema). */
-export async function generateText(env, { system, contents, maxOutputTokens = 1024, json = false, schema = null }) {
+export async function generateText(env, { system, contents, maxOutputTokens = 1024, json = false, schema = null, timeoutMs = AI_TIMEOUT_MS }) {
   const generationConfig = { maxOutputTokens, temperature: 0.4 };
   if (json) {
     generationConfig.responseMimeType = 'application/json';
@@ -104,7 +104,7 @@ export async function generateText(env, { system, contents, maxOutputTokens = 10
     systemInstruction: { parts: [{ text: system }] },
     contents,
     generationConfig,
-  });
+  }, timeoutMs);
   const text = textOrLog('text', model, data);
   if (!json) return { text };
   try {
