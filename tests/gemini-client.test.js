@@ -19,7 +19,7 @@ test('Gemini 3 uses low thinking effort and a practical interactive timeout', as
       contents: [{ role: 'user', parts: [{ text: 'سلام' }] }],
     });
     assert.deepEqual(result, { text: 'سلام' });
-    assert.equal(AI_TIMEOUT_MS, 55_000);
+    assert.equal(AI_TIMEOUT_MS, 100_000);
     assert.equal(request.url, 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent');
     assert.deepEqual(request.body.generationConfig.thinkingConfig, { thinkingLevel: 'low' });
     assert.equal(request.body.generationConfig.maxOutputTokens, 1024);

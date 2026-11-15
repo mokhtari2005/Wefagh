@@ -4,7 +4,7 @@
 import { splitForSpeech, concatWav, SPEECH_CHUNK_CHARS } from './speech.js';
 
 export const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta';
-export const AI_TIMEOUT_MS = 55_000;
+export const AI_TIMEOUT_MS = 100_000;
 
 // شناسه‌های مدل از متغیرهای [vars] خوانده می‌شوند تا بدون تغییر کد قابل تعویض باشند.
 export function modelIds(env) {

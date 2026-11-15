@@ -49,7 +49,11 @@ function fail(code, status, extra = {}) {
 }
 
 function aiFailure(err) {
-  if (err instanceof AiError) return fail(err.code, err.status);
+  // فقط کد و نوع خطا ثبت می‌شود؛ متن پرونده، prompt، فایل و جزئیات کلید هرگز لاگ نمی‌شوند.
+  if (err instanceof AiError) {
+    console.error(JSON.stringify({ where: 'ai', error: err.name, code: err.code, status: err.status }));
+    return fail(err.code, err.status);
+  }
   console.error(JSON.stringify({ where: 'ai', error: err?.name || 'Error' }));
   return fail('AI_UNAVAILABLE', 503);
 }
@@ -223,7 +227,7 @@ export function citationWarnings(text) {
 }
 
 const DEFAULT_ATTACHMENT_MESSAGE = 'پیوست‌ها را بر اساس نوع کار و نوع سند انتخاب‌شده بررسی کن.';
-const ATTACHMENT_TIMEOUT_MS = 55_000;
+const ATTACHMENT_TIMEOUT_MS = 100_000;
 
 /** ورودی دستیار: JSON (بدون پیوست) یا multipart/form-data (با پیوست). فایل‌ها هرگز در لاگ یا تاریخچه ذخیره نمی‌شوند. */
 async function readAssistantInput(request) {
@@ -296,7 +300,7 @@ async function assistant(request, env) {
     const { data } = await generateText(env, {
       system: assistantSystemPrompt({ mode, docType, hasAttachments: attachments.length > 0 }),
       contents,
-      maxOutputTokens: 3000,
+      maxOutputTokens: 5000,
       json: true,
       schema: ASSISTANT_SCHEMA,
       ...(attachments.length ? { timeoutMs: ATTACHMENT_TIMEOUT_MS } : {}),
