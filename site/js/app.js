@@ -7,6 +7,7 @@ import { loginForm, registerForm, verifyPanel, accountPanel } from './account.js
 import { academyList, academyCourse, ACADEMY_TOOLS } from './academy.js';
 import { shamsiCalendar } from './calendar.js';
 import { assistantPage } from './assistant.js';
+import { icon, mountIcons } from './icons.js';
 import { courtRoomPage } from './moot-ai.js';
 import { casePickerPage } from './moot-cases.js';
 import { mootCourtPage } from './moot.js';
@@ -113,7 +114,7 @@ function pageHome() {
       ]),
     ]),
     h('article', { class: 'stat-card level-card' }, [
-      h('span', { class: 'level-icon', 'aria-hidden': 'true', text: '⚖' }),
+      h('span', { class: 'level-icon', 'aria-hidden': 'true' }, [icon('scale', { size: 30 })]),
       h('h2', { text: 'سطح مهارت فعلی' }),
       h('strong', { text: 'در مسیر یادگیری' }),
       h('a', { class: 'btn-outline-light', href: '#/dashboard', text: 'گزارش عملکرد' }),
@@ -312,6 +313,7 @@ toggle?.addEventListener('click', () => {
   toggle.setAttribute('aria-expanded', String(open));
 });
 
+mountIcons();
 const bottomMore = document.getElementById('bottom-more');
 bottomMore?.addEventListener('click', () => {
   const open = nav.classList.toggle('open');

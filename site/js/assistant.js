@@ -1,7 +1,7 @@
 // دستیار هوشمند وکیل: گفت‌وگوی حرفه‌ای با تاریخچه، کادر ارسال ثابت و بارگذاری متن سند.
 // فقط برای کاربر واردشده و وقتی سرویس روی سرور فعال است. هر دکمه‌ای که نشان داده می‌شود عملکرد واقعی دارد.
 import { h } from './dom.js';
-import { getJson, postJson, sendJson } from './api.js';
+import { getJson, postJson, postForm, sendJson } from './api.js';
 import { aiStatus, errorText } from './ai-client.js';
 
 export const DOC_TYPES = [
@@ -9,15 +9,47 @@ export const DOC_TYPES = [
   ['cassation', 'لایحه فرجام‌خواهی'], ['enforcement', 'درخواست و لایحهٔ اجرایی'], ['notice', 'اظهارنامه'],
   ['criminal_complaint', 'شکواییه و دفاعیات کیفری'], ['reply', 'پاسخ به دادخواست یا لایحهٔ طرف مقابل'],
   ['contract', 'تنظیم یا بازنویسی قرارداد'], ['judicial_request', 'درخواست قضایی متناسب با موضوع'],
-  ['letter', 'نامهٔ رسمی و مکاتبهٔ حقوقی'],
+  ['letter', 'نامهٔ رسمی و مکاتبهٔ حقوقی'], ['other', 'سایر اسناد (تحلیل و بررسی)'],
 ];
 export const MODES = [['draft', 'تنظیم سند'], ['analyze', 'تحلیل حقوقی پرونده'], ['review', 'بررسی و اصلاح متن']];
 
 export const ASSISTANT_NOTICE = 'این ابزار آموزشی و پیش‌نویس‌ساز است. خروجی آن پیش از هر استفاده در پرونده واقعی باید توسط وکیل با قوانین و مقررات جاری و رویهٔ معتبر تطبیق داده شود. اطلاعات پرونده در این بخش فقط برای تولید پاسخ به سرویس هوش مصنوعی فرستاده می‌شود.';
 
 const MESSAGE_LIMIT = 6000;
-const FILE_LIMIT_BYTES = 200 * 1024;
-const TEXT_FILE_RE = /\.(txt|md|csv)$/i;
+
+// پیوست‌ها: همین حدها در سرور (worker/src/ai/attachments.js) اعمال می‌شود؛ سرور مرجع نهایی است.
+export const ATTACH_LIMITS = Object.freeze({ files: 3, fileBytes: 8 * 1024 * 1024, textFileBytes: 512 * 1024, totalBytes: 12 * 1024 * 1024 });
+export const ATTACH_TYPES = Object.freeze({
+  pdf: 'PDF', docx: 'Word', jpg: 'تصویر', jpeg: 'تصویر', png: 'تصویر', webp: 'تصویر', txt: 'متن', md: 'Markdown', csv: 'CSV',
+});
+export const ATTACH_ACCEPT = Object.keys(ATTACH_TYPES).map((e) => `.${e}`).join(',');
+const TEXT_EXTS = new Set(['txt', 'md', 'csv']);
+export const ATTACH_PRIVACY_NOTE = 'فایل‌های پیوست برای تحلیل به سرویس هوش مصنوعی (Gemini) فرستاده می‌شوند و در تاریخچه ذخیره نمی‌شوند. پیش از ارسال، نام و مشخصات هویتی موکل و اطلاعات محرمانه را حذف یا ناشناس کنید.';
+
+export function fileExt(name) {
+  const m = /\.([A-Za-z0-9]{1,5})$/.exec(String(name ?? '').trim());
+  return m ? m[1].toLowerCase() : '';
+}
+
+export function formatSize(bytes) {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toLocaleString('fa-IR', { maximumFractionDigits: 1 })} مگابایت`;
+  return `${Math.max(1, Math.round(bytes / 1024)).toLocaleString('fa-IR')} کیلوبایت`;
+}
+
+/**
+ * بررسی سریع پیش از افزودن فایل (برای بازخورد فوری). خطاها همان کدهای سرور هستند و با errorText نمایش داده می‌شوند.
+ * @returns {{ok:true, label:string} | {ok:false, code:string}}
+ */
+export function checkNewFile(file, current = []) {
+  const ext = fileExt(file?.name);
+  if (!Object.hasOwn(ATTACH_TYPES, ext)) return { ok: false, code: 'UNSUPPORTED_FILE_TYPE' };
+  if (!file.size) return { ok: false, code: 'FILE_EMPTY' };
+  if (current.length >= ATTACH_LIMITS.files) return { ok: false, code: 'TOO_MANY_FILES' };
+  const limit = TEXT_EXTS.has(ext) ? ATTACH_LIMITS.textFileBytes : ATTACH_LIMITS.fileBytes;
+  const total = current.reduce((sum, a) => sum + a.file.size, 0) + file.size;
+  if (file.size > limit || total > ATTACH_LIMITS.totalBytes) return { ok: false, code: 'FILE_TOO_LARGE' };
+  return { ok: true, label: ATTACH_TYPES[ext] };
+}
 const SUGGESTIONS = [
   ['draft', 'petition', 'دادخواست مطالبهٔ وجه چک برگشتی را پیش‌نویس کن.'],
   ['analyze', 'petition', 'نقاط قوت و ضعف این پرونده را تحلیل کن: ...'],
@@ -80,7 +112,7 @@ function assistantWorkspace() {
   const history = [];
   let busy = false;
   let threadId = null;
-  let attachment = null; // { name, text }
+  let attachments = []; // [{ file, label }]
 
   // ---------- فهرست گفت‌وگوها ----------
   const threadList = h('ul', { class: 'ai-thread-list', 'aria-label': 'گفت‌وگوهای قبلی' });
@@ -148,7 +180,6 @@ function assistantWorkspace() {
     b.addEventListener('click', () => {
       mode = value;
       modeButtons.forEach((x) => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
-      docWrap.hidden = mode !== 'draft';
     });
     return b;
   });
@@ -164,7 +195,6 @@ function assistantWorkspace() {
       b.addEventListener('click', () => {
         mode = m;
         modeButtons.forEach((x, i) => x.setAttribute('aria-pressed', MODES[i][0] === m ? 'true' : 'false'));
-        docWrap.hidden = m !== 'draft';
         docSelect.value = d;
         composerText.value = text;
         composerText.focus();
@@ -205,72 +235,95 @@ function assistantWorkspace() {
   const composerText = h('textarea', { class: 'ai-input', rows: '3', maxlength: String(MESSAGE_LIMIT), 'aria-label': 'پیام یا شرح پرونده', placeholder: 'موضوع دعوا، سمت موکل، مرجع رسیدگی، مرحله، خواسته، وقایع و دلایل موجود…' });
   const counter = h('span', { class: 'muted ai-counter', 'aria-live': 'polite', text: `0 / ${MESSAGE_LIMIT}` });
   composerText.addEventListener('input', () => { counter.textContent = `${composerText.value.length} / ${MESSAGE_LIMIT}`; });
-  const fileInput = h('input', { type: 'file', accept: '.txt,.md,.csv', hidden: '', 'aria-hidden': 'true', tabindex: '-1' });
-  const attachBtn = h('button', { class: 'btn secondary', type: 'button', text: 'بارگذاری متن سند' });
+  const fileInput = h('input', { type: 'file', accept: ATTACH_ACCEPT, multiple: '', hidden: '', 'aria-hidden': 'true', tabindex: '-1' });
+  const attachBtn = h('button', { class: 'btn secondary', type: 'button', text: 'پیوست فایل' });
+  attachBtn.setAttribute('aria-label', 'پیوست فایل: PDF، Word، تصویر یا متن');
   attachBtn.addEventListener('click', () => fileInput.click());
   const attachChip = h('div', { class: 'ai-attachment', hidden: '' });
-  fileInput.addEventListener('change', async () => {
-    const file = fileInput.files?.[0];
-    fileInput.value = '';
-    if (!file) return;
-    if (!TEXT_FILE_RE.test(file.name)) { status.textContent = 'فعلاً فقط فایل‌های متنی با پسوند txt، md یا csv پشتیبانی می‌شوند. متن سند را کپی و در کادر بچسبانید.'; return; }
-    if (file.size > FILE_LIMIT_BYTES) { status.textContent = 'حجم فایل بیش از ۲۰۰ کیلوبایت است. بخش مورد نیاز را در کادر بچسبانید.'; return; }
-    attachment = { name: file.name, text: await file.text() };
+  function renderAttachments() {
+    attachChip.hidden = attachments.length === 0;
     attachChip.replaceChildren(
-      h('span', { text: `سند پیوست: ${attachment.name}` }),
-      (() => { const x = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'حذف پیوست' }); x.addEventListener('click', () => { attachment = null; attachChip.hidden = true; }); return x; })(),
+      ...attachments.map((a, i) => {
+        const x = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'حذف' });
+        x.setAttribute('aria-label', `حذف پیوست ${a.file.name}`);
+        x.addEventListener('click', () => { attachments.splice(i, 1); renderAttachments(); });
+        return h('div', { class: 'ai-attachment-item' }, [
+          h('span', { class: 'ai-attachment-name', text: a.file.name }),
+          h('span', { class: 'muted', text: `${a.label} · ${formatSize(a.file.size)}` }),
+          x,
+        ]);
+      }),
+      ...(attachments.length ? [h('p', { class: 'muted ai-privacy', text: ATTACH_PRIVACY_NOTE })] : []),
     );
-    attachChip.hidden = false;
-    status.textContent = 'سند پیوست شد. با ارسال، متن آن همراه پیام فرستاده می‌شود.';
+  }
+  fileInput.addEventListener('change', () => {
+    const picked = Array.from(fileInput.files || []);
+    fileInput.value = '';
+    const problems = [];
+    for (const file of picked) {
+      const check = checkNewFile(file, attachments);
+      if (check.ok) attachments.push({ file, label: check.label });
+      else problems.push(`${file.name}: ${errorText(check.code)}`);
+    }
+    renderAttachments();
+    status.textContent = problems.length ? problems.join(' ') : (picked.length ? 'پیوست شد. با ارسال، فایل برای بررسی همراه پیام فرستاده می‌شود.' : '');
   });
 
   const sendBtn = h('button', { class: 'btn ai-send', type: 'button', text: 'ارسال' });
   const newBtn = h('button', { class: 'btn secondary', type: 'button', text: 'گفت‌وگوی تازه' });
   const status = h('p', { class: 'muted ai-status', role: 'status', 'aria-live': 'polite' });
 
-  function buildPayloadMessage() {
-    const typed = composerText.value.trim();
-    if (!attachment) return typed;
-    return `${typed}\n\n--- متن سند پیوست (${attachment.name}) ---\n${attachment.text}`.trim();
-  }
-
   async function send() {
     if (busy) return;
     const typed = composerText.value.trim();
-    if (!typed && !attachment) { status.textContent = 'ابتدا شرح پرونده یا متن را بنویسید.'; return; }
-    const text = buildPayloadMessage();
-    if (text.length > MESSAGE_LIMIT) {
-      status.textContent = `متن شامل سند پیوست بیش از ${MESSAGE_LIMIT.toLocaleString('fa-IR')} نویسه است. بخشی از سند را جدا کنید یا پیام را کوتاه‌تر کنید.`;
+    if (!typed && !attachments.length) { status.textContent = 'ابتدا شرح پرونده یا متن را بنویسید یا فایلی پیوست کنید.'; return; }
+    if (typed.length > MESSAGE_LIMIT) {
+      status.textContent = `متن بیش از ${MESSAGE_LIMIT.toLocaleString('fa-IR')} نویسه است. آن را کوتاه‌تر کنید یا بخش بلند را به‌صورت فایل پیوست کنید.`;
       return;
     }
     busy = true;
     sendBtn.disabled = true;
+    attachBtn.disabled = true;
     pending.hidden = false;
     log.append(pending);
     emptyState.hidden = true;
     stream.scrollTop = stream.scrollHeight;
     status.textContent = '';
-    const payload = { mode, message: text, history: trimHistory(history) };
-    if (mode === 'draft') payload.docType = docSelect.value;
-    const res = await postJson('/api/ai/assistant', payload, { timeoutMs: 60000 });
+    const sent = attachments.slice();
+    let res;
+    if (sent.length) {
+      const form = new FormData();
+      form.append('mode', mode);
+      form.append('docType', docSelect.value);
+      form.append('message', typed);
+      form.append('history', JSON.stringify(trimHistory(history)));
+      for (const a of sent) form.append('files', a.file, a.file.name);
+      res = await postForm('/api/ai/assistant', form, { timeoutMs: 90000 });
+    } else {
+      res = await postJson('/api/ai/assistant', { mode, docType: docSelect.value, message: typed, history: trimHistory(history) }, { timeoutMs: 60000 });
+    }
     busy = false;
     sendBtn.disabled = false;
+    attachBtn.disabled = false;
     pending.hidden = true;
     pending.remove();
     if (!res.ok || !res.data?.ok) {
       const code = res.data?.error || (res.networkError ? 'NETWORK' : 'AI_UNAVAILABLE');
-      status.textContent = `${errorText(code)} متن شما در کادر باقی ماند.`;
+      const which = res.data?.file ? ` (فایل: ${res.data.file})` : '';
+      status.textContent = `${errorText(code)}${which} متن و پیوست‌های شما حفظ شد.`;
       renderLog();
       return;
     }
-    const userText = typed || `سند پیوست: ${attachment?.name || ''}`;
+    // فقط نام فایل‌ها در گفت‌وگو و تاریخچه می‌ماند؛ محتوای فایل هرگز ذخیره نمی‌شود.
+    const names = sent.map((a) => a.file.name);
+    const userText = [typed, names.length ? `[پیوست: ${names.join('، ')}]` : ''].filter(Boolean).join('\n');
     history.push({ role: 'user', text: userText });
     const reply = summarizeReply(res.data);
     history.push({ role: 'ai', text: reply, notes: res.data.notes || [], disclaimer: res.data.status === 'ready' ? res.data.disclaimer : '' });
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
-    attachment = null;
-    attachChip.hidden = true;
+    attachments = [];
+    renderAttachments();
     renderLog();
     const saved = await persistTurn(userText, reply).catch(() => false);
     status.textContent = saved
@@ -283,8 +336,8 @@ function assistantWorkspace() {
     history.length = 0;
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
-    attachment = null;
-    attachChip.hidden = true;
+    attachments = [];
+    renderAttachments();
     renderLog();
     status.textContent = '';
     threadStatus.textContent = '';

@@ -1094,7 +1094,11 @@ h1, h2, h3 { color: var(--teal-dark); }
 .ai-composer-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .ai-counter { margin-inline-start: auto; font-size: .82rem; }
 .ai-send { min-width: 110px; min-height: 44px; }
-.ai-attachment { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: var(--bone); padding: 6px 10px; border-radius: 10px; font-size: .9rem; }
+.ai-attachment { display: grid; gap: 8px; background: var(--bone); padding: 8px 10px; border-radius: 10px; font-size: .9rem; min-width: 0; }
+.ai-attachment-item { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; min-width: 0; }
+.ai-attachment-name { font-weight: 600; overflow-wrap: anywhere; min-width: 0; flex: 1 1 140px; }
+.ai-attachment .ai-mini { min-height: 44px; min-width: 56px; }
+.ai-privacy { font-size: .85rem; margin: 0; line-height: 1.8; }
 .ai-attachment[hidden] { display: none; }
 .ai-status { margin: 0; font-size: .9rem; min-height: 1.2em; }
 @media (min-width: 900px) {
