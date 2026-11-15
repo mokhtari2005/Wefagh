@@ -19,6 +19,6 @@ crons = ["*/30 * * * *"]
 enabled = true
 
 [vars]
-GEMINI_TEXT_MODEL = "gemini-2.5-flash"
+GEMINI_TEXT_MODEL = "gemini-3.8-flash"
 GEMINI_TTS_MODEL = "gemini-3.8-flash-tts"
 BASE_URL = "https://mokhtari.ir"
