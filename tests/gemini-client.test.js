@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateText, AiError, AI_TIMEOUT_MS } from '../worker/src/ai/gemini.js';
 
-const env = { GEMINI_API_KEY: 'AIzaSyTESTKEY-0123456789', GEMINI_TEXT_MODEL: 'gemini-3.8-flash' };
+const env = { GEMINI_API_KEY: 'test-key-not-real-0123456789', GEMINI_TEXT_MODEL: 'gemini-3.8-flash' };
 
 test('Gemini 3 uses low thinking effort and a practical interactive timeout', async () => {
   const original = globalThis.fetch;
@@ -89,7 +89,7 @@ test('Gemini response body timeout is classified and does not wait for the clien
   }
 });
 
-test('Gemini network timeout retries once on the bounded 2.5 Flash fallback', async () => {
+test('Gemini network timeout retries once on the bounded Gemini 3.5 Flash-Lite fallback', async () => {
   const original = globalThis.fetch;
   const requests = [];
   globalThis.fetch = async (url, init) => {
