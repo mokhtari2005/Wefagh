@@ -94,7 +94,7 @@ function textOrLog(op, model, data) {
 
 /** تولید متن (و JSON ساخت‌یافته در صورت تعیین schema). */
 export async function generateText(env, { system, contents, maxOutputTokens = 1024, json = false, schema = null, timeoutMs = AI_TIMEOUT_MS }) {
-  const generationConfig = { maxOutputTokens, temperature: 0.4 };
+  const generationConfig = { maxOutputTokens };
   if (json) {
     generationConfig.responseMimeType = 'application/json';
     if (schema) generationConfig.responseSchema = schema;
@@ -126,7 +126,7 @@ export async function transcribeAudio(env, { mimeType, base64 }) {
         { inlineData: { mimeType, data: base64 } },
       ],
     }],
-    generationConfig: { maxOutputTokens: 1500, temperature: 0 },
+    generationConfig: { maxOutputTokens: 1500 },
   });
   return { text: textOrLog('transcribe', model, data) };
 }
