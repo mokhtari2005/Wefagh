@@ -43,3 +43,23 @@ test('Gemini HTTP errors remain sanitized and classified', async () => {
     globalThis.fetch = original;
   }
 });
+
+test('Gemini provider 5xx errors expose only safe status diagnostics', async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    error: { status: 'INTERNAL', message: 'private provider detail' },
+  }), { status: 503 });
+  try {
+    await assert.rejects(
+      generateText(env, { system: 'x', contents: [{ role: 'user', parts: [{ text: 'x' }] }] }),
+      (error) => error instanceof AiError
+        && error.code === 'AI_PROVIDER_ERROR'
+        && error.status === 503
+        && error.details.providerStatus === 503
+        && error.details.providerReason === 'INTERNAL'
+        && !JSON.stringify(error).includes('private provider detail'),
+    );
+  } finally {
+    globalThis.fetch = original;
+  }
+});

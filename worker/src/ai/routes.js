@@ -52,7 +52,7 @@ function aiFailure(err) {
   // فقط کد و نوع خطا ثبت می‌شود؛ متن پرونده، prompt، فایل و جزئیات کلید هرگز لاگ نمی‌شوند.
   if (err instanceof AiError) {
     console.error(JSON.stringify({ where: 'ai', error: err.name, code: err.code, status: err.status }));
-    return fail(err.code, err.status);
+    return fail(err.code, err.status, err.details || {});
   }
   console.error(JSON.stringify({ where: 'ai', error: err?.name || 'Error' }));
   return fail('AI_UNAVAILABLE', 503);
