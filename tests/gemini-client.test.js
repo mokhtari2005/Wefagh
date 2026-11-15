@@ -66,6 +66,7 @@ test('Gemini provider 5xx errors expose only safe status diagnostics', async () 
 
 test('Gemini response body timeout is classified and does not wait for the client disconnect', async () => {
   const original = globalThis.fetch;
+  const keepAlive = setTimeout(() => {}, 100);
   globalThis.fetch = async (_url, init) => new Response(new ReadableStream({
     start(controller) {
       init.signal.addEventListener('abort', () => controller.error(new DOMException('aborted', 'AbortError')), { once: true });
@@ -85,6 +86,7 @@ test('Gemini response body timeout is classified and does not wait for the clien
         && error.details.stage === 'body',
     );
   } finally {
+    clearTimeout(keepAlive);
     globalThis.fetch = original;
   }
 });
@@ -120,6 +122,7 @@ test('Gemini network timeout retries once on the bounded Gemini 3.5 Flash-Lite f
 
 test('Gemini response-body timeout also retries once on Flash-Lite', async () => {
   const original = globalThis.fetch;
+  const keepAlive = setTimeout(() => {}, 100);
   const requests = [];
   globalThis.fetch = async (url, init) => {
     requests.push(String(url));
@@ -144,6 +147,7 @@ test('Gemini response-body timeout also retries once on Flash-Lite', async () =>
     assert.equal(requests.length, 2);
     assert.match(requests[1], /gemini-3\.5-flash-lite:generateContent$/);
   } finally {
+    clearTimeout(keepAlive);
     globalThis.fetch = original;
   }
 });
