@@ -227,8 +227,6 @@ export function citationWarnings(text) {
 }
 
 const DEFAULT_ATTACHMENT_MESSAGE = 'پیوست‌ها را بر اساس نوع کار و نوع سند انتخاب‌شده بررسی کن.';
-const ATTACHMENT_TIMEOUT_MS = 40_000;
-
 /** ورودی دستیار: JSON (بدون پیوست) یا multipart/form-data (با پیوست). فایل‌ها هرگز در لاگ یا تاریخچه ذخیره نمی‌شوند. */
 async function readAssistantInput(request) {
   const type = (request.headers.get('content-type') || '').toLowerCase();
@@ -301,10 +299,9 @@ async function assistant(request, env) {
       system: assistantSystemPrompt({ mode, docType, hasAttachments: attachments.length > 0 }),
       contents,
       maxOutputTokens: 3000,
-      timeoutMs: 12_000,
+      timeoutMs: 40_000,
       json: true,
       schema: ASSISTANT_SCHEMA,
-      ...(attachments.length ? { timeoutMs: ATTACHMENT_TIMEOUT_MS } : {}),
     });
     const questions = Array.isArray(data.questions) ? data.questions.filter((q) => typeof q === 'string').slice(0, 5) : [];
     const notes = Array.isArray(data.notes) ? data.notes.filter((n) => typeof n === 'string').slice(0, 10) : [];

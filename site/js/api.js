@@ -2,7 +2,8 @@
 
 export async function postJson(path, payload, { timeoutMs = 15000 } = {}) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let timedOut = false;
+  const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs);
   try {
     const res = await fetch(path, {
       method: 'POST',
@@ -19,7 +20,7 @@ export async function postJson(path, payload, { timeoutMs = 15000 } = {}) {
     }
     return { status: res.status, ok: res.ok, data };
   } catch {
-    return { status: 0, ok: false, data: null, networkError: true };
+    return { status: 0, ok: false, data: null, networkError: true, timeoutError: timedOut };
   } finally {
     clearTimeout(timer);
   }
@@ -28,7 +29,8 @@ export async function postJson(path, payload, { timeoutMs = 15000 } = {}) {
 /** ارسال FormData (فایل‌ها). هدر Content-Type را مرورگر با مرز (boundary) خودش می‌گذارد. */
 export async function postForm(path, formData, { timeoutMs = 60000 } = {}) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let timedOut = false;
+  const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs);
   try {
     const res = await fetch(path, {
       method: 'POST',
@@ -45,7 +47,7 @@ export async function postForm(path, formData, { timeoutMs = 60000 } = {}) {
     }
     return { status: res.status, ok: res.ok, data };
   } catch {
-    return { status: 0, ok: false, data: null, networkError: true };
+    return { status: 0, ok: false, data: null, networkError: true, timeoutError: timedOut };
   } finally {
     clearTimeout(timer);
   }

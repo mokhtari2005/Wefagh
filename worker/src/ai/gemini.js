@@ -121,9 +121,11 @@ export async function generateText(env, { system, contents, maxOutputTokens = 10
   try {
     data = await post(env, 'text', model, `${GEMINI_API}/models/${encodeURIComponent(model)}:generateContent`, makePayload(model), timeoutMs);
   } catch (err) {
-    // If the configured model stalls, make one bounded attempt with the supported Flash-Lite fallback.
+    // If the configured model times out while connecting or reading its response, make one bounded fallback attempt.
     // Never retry quota, key, validation, or provider HTTP errors.
-    if (model === fallbackModel || err?.code !== 'AI_NETWORK_ERROR' || err?.details?.reason !== 'TIMEOUTERROR') throw err;
+    const timedOut = err?.details?.reason === 'TIMEOUTERROR'
+      || (err?.details?.stage === 'body' && err?.details?.reason === 'TIMEOUT');
+    if (model === fallbackModel || err?.code !== 'AI_NETWORK_ERROR' || !timedOut) throw err;
     logGeminiFailure('text', model, { stage: 'fallback', reason: 'TIMEOUT', fallbackModel });
     model = fallbackModel;
     data = await post(env, 'text', model, `${GEMINI_API}/models/${encodeURIComponent(model)}:generateContent`, makePayload(model), 25_000);
