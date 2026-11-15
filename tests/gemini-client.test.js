@@ -66,8 +66,10 @@ test('Gemini provider 5xx errors expose only safe status diagnostics', async () 
 
 test('Gemini response body timeout is classified and does not wait for the client disconnect', async () => {
   const original = globalThis.fetch;
-  globalThis.fetch = async () => new Response(new ReadableStream({
-    start() { /* Simulate provider headers arriving while the body stalls. */ },
+  globalThis.fetch = async (_url, init) => new Response(new ReadableStream({
+    start(controller) {
+      init.signal.addEventListener('abort', () => controller.error(new DOMException('aborted', 'AbortError')), { once: true });
+    },
   }), { status: 200, headers: { 'content-type': 'application/json' } });
   try {
     await assert.rejects(
