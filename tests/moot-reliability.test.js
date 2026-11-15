@@ -10,7 +10,7 @@ import { makeWav } from './helpers/wav.js';
 
 const KEY = 'AIzaSyTESTKEY-0123456789-SECRET';
 const CASE = batch01[0];
-const BASE = 'https://wefagh.ir';
+const BASE = 'https://mokhtari.ir';
 
 async function setup() {
   const db = createTestDb();

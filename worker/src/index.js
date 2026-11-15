@@ -14,6 +14,8 @@ import { handleAdminCases } from './admin-cases.js';
 import { handleAdmin } from './admin.js';
 import { handleAdminMedia } from './admin-media.js';
 import { handleAi } from './ai/routes.js';
+import { handleTelegram } from './telegram/routes.js';
+import { sendDueReminders } from './telegram/reminders.js';
 
 // برای سازگاری با تست‌های قبلی، json را از اینجا هم صادر می‌کنیم.
 export { json };
@@ -128,11 +130,21 @@ export default {
       if (res) return res;
     }
 
+    if (path.startsWith('/api/telegram/')) {
+      const res = await handleTelegram(request, env, path);
+      if (res) return res;
+    }
+
     if (path.startsWith('/api/academy/')) {
       const res = await handleAcademy(request, env, path);
       if (res) return res;
     }
 
     return json({ ok: false, error: 'NOT_FOUND' }, 404);
+  },
+
+  // Cron: یادآوری مواعد در تلگرام (هر ۳۰ دقیقه؛ فقط از ساعت ۸ صبح تهران می‌فرستد).
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(sendDueReminders(env).catch((err) => console.error(JSON.stringify({ where: 'telegram.cron', error: err?.name || 'Error' }))));
   },
 };
