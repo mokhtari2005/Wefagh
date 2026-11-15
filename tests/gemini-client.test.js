@@ -66,10 +66,14 @@ test('Gemini provider 5xx errors expose only safe status diagnostics', async () 
 
 test('Gemini response body timeout is classified and does not wait for the client disconnect', async () => {
   const original = globalThis.fetch;
-  const keepAlive = setTimeout(() => {}, 100);
+  const keepAlive = setTimeout(() => {}, 500);
   globalThis.fetch = async (_url, init) => new Response(new ReadableStream({
     start(controller) {
-      init.signal.addEventListener('abort', () => controller.error(new DOMException('aborted', 'AbortError')), { once: true });
+      const abort = () => {
+          try { controller.error(new DOMException('aborted', 'AbortError')); } catch {}
+        };
+        if (init.signal.aborted) abort();
+        else init.signal.addEventListener('abort', abort, { once: true });
     },
   }), { status: 200, headers: { 'content-type': 'application/json' } });
   try {
@@ -77,7 +81,7 @@ test('Gemini response body timeout is classified and does not wait for the clien
       generateText(env, {
         system: 'x',
         contents: [{ role: 'user', parts: [{ text: 'x' }] }],
-        timeoutMs: 5,
+        timeoutMs: 20,
       }),
       (error) => error instanceof AiError
         && error.code === 'AI_NETWORK_ERROR'
@@ -122,14 +126,18 @@ test('Gemini network timeout retries once on the bounded Gemini 3.5 Flash-Lite f
 
 test('Gemini response-body timeout also retries once on Flash-Lite', async () => {
   const original = globalThis.fetch;
-  const keepAlive = setTimeout(() => {}, 100);
+  const keepAlive = setTimeout(() => {}, 500);
   const requests = [];
   globalThis.fetch = async (url, init) => {
     requests.push(String(url));
     if (requests.length === 1) {
       return new Response(new ReadableStream({
         start(controller) {
-          init.signal.addEventListener('abort', () => controller.error(new DOMException('aborted', 'AbortError')), { once: true });
+          const abort = () => {
+          try { controller.error(new DOMException('aborted', 'AbortError')); } catch {}
+        };
+        if (init.signal.aborted) abort();
+        else init.signal.addEventListener('abort', abort, { once: true });
         },
       }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
@@ -141,7 +149,7 @@ test('Gemini response-body timeout also retries once on Flash-Lite', async () =>
     const result = await generateText(env, {
       system: 'x',
       contents: [{ role: 'user', parts: [{ text: 'x' }] }],
-      timeoutMs: 5,
+      timeoutMs: 20,
     });
     assert.deepEqual(result, { text: 'پاسخ جایگزین' });
     assert.equal(requests.length, 2);
