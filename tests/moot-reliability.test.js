@@ -59,16 +59,17 @@ test('خطای ۴۰۳ Gemini علت را فقط با کد شمارشی لاگ م
     const res = await worker.fetch(post('/api/ai/moot/turn', { caseId: CASE.id, role: 'judge', stage: 'claim', history: [{ role: 'user', speaker: 'plaintiff', text: secretText }] }, cookie), env);
     assert.equal(res.status, 503);
     assert.equal((await res.json()).error, 'AI_KEY_REJECTED');
-    assert.equal(logs.length, 1);
+    assert.equal(logs.length, 2); // لاگ امن Gemini و لاگ طبقه‌بندی مسیر Worker
     const entry = JSON.parse(logs[0]);
     assert.deepEqual(entry, { where: 'gemini', op: 'text', model: 'gemini-2.5-flash', stage: 'http', httpStatus: 403, reason: 'PERMISSION_DENIED' });
+    assert.deepEqual(JSON.parse(logs[1]), { where: 'ai', error: 'AiError', code: 'AI_KEY_REJECTED', status: 503 });
     for (const bad of [KEY, 'AIzaSy', secretText, CASE.facts[0], 'متن پرونده شما']) assert.ok(!logs[0].includes(bad), `نباید در لاگ باشد: ${bad}`);
   });
 });
 
 test('کدهای ۴۰۴، ۴۲۹، ۴۰۰ و ۵۰۰ هر کدام به خطای مشخص نگاشت می‌شوند و لاگ دارند', async () => {
   const { env, cookie } = await setup();
-  const cases = [[404, 'NOT_FOUND', 'AI_MODEL_UNAVAILABLE', 503], [429, 'RESOURCE_EXHAUSTED', 'AI_QUOTA', 429], [400, 'INVALID_ARGUMENT', 'AI_REJECTED', 502], [500, 'INTERNAL', 'AI_UNAVAILABLE', 503]];
+  const cases = [[404, 'NOT_FOUND', 'AI_MODEL_UNAVAILABLE', 503], [429, 'RESOURCE_EXHAUSTED', 'AI_QUOTA', 429], [400, 'INVALID_ARGUMENT', 'AI_REJECTED', 502], [500, 'INTERNAL', 'AI_PROVIDER_ERROR', 503]];
   for (const [httpStatus, status, code, out] of cases) {
     await withGemini(async () => jsonRes(httpStatus, { error: { status, message: 'x' } }), async ({ logs }) => {
       const res = await worker.fetch(post('/api/ai/speech', { text: 'سلام' }, cookie), env);
@@ -106,7 +107,7 @@ test('خطای شبکه لاگ می‌شود بدون جزئیات پیام اس
   const { env, cookie } = await setup();
   await withGemini(async () => { throw Object.assign(new Error(`connect failed key=${KEY}`), { name: 'TypeError' }); }, async ({ logs }) => {
     const res = await worker.fetch(post('/api/ai/speech', { text: 'سلام' }, cookie), env);
-    assert.equal((await res.json()).error, 'AI_UNAVAILABLE');
+    assert.equal((await res.json()).error, 'AI_NETWORK_ERROR');
     assert.deepEqual(JSON.parse(logs[0]), { where: 'gemini', op: 'speech', model: 'gemini-3.8-flash-tts', stage: 'network', reason: 'TYPEERROR' });
     assert.ok(!logs[0].includes(KEY));
   });
