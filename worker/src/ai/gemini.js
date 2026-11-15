@@ -96,7 +96,7 @@ function textOrLog(op, model, data) {
 export async function generateText(env, { system, contents, maxOutputTokens = 1024, json = false, schema = null, timeoutMs = AI_TIMEOUT_MS }) {
   // Gemini 3 defaults to medium reasoning; low keeps interactive legal-assistant latency predictable.
   const generationConfig = { maxOutputTokens };
-  if (/^gemini-3\\./.test(modelIds(env).text)) {
+  if (/^gemini-3\./.test(modelIds(env).text)) {
     generationConfig.thinkingConfig = { thinkingLevel: 'low' };
   }
   if (json) {
