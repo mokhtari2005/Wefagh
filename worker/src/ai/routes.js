@@ -227,7 +227,7 @@ export function citationWarnings(text) {
 }
 
 const DEFAULT_ATTACHMENT_MESSAGE = 'پیوست‌ها را بر اساس نوع کار و نوع سند انتخاب‌شده بررسی کن.';
-const ATTACHMENT_TIMEOUT_MS = 100_000;
+const ATTACHMENT_TIMEOUT_MS = 40_000;
 
 /** ورودی دستیار: JSON (بدون پیوست) یا multipart/form-data (با پیوست). فایل‌ها هرگز در لاگ یا تاریخچه ذخیره نمی‌شوند. */
 async function readAssistantInput(request) {
@@ -300,7 +300,7 @@ async function assistant(request, env) {
     const { data } = await generateText(env, {
       system: assistantSystemPrompt({ mode, docType, hasAttachments: attachments.length > 0 }),
       contents,
-      maxOutputTokens: 5000,
+      maxOutputTokens: 3000,
       json: true,
       schema: ASSISTANT_SCHEMA,
       ...(attachments.length ? { timeoutMs: ATTACHMENT_TIMEOUT_MS } : {}),
