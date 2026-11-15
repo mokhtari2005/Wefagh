@@ -98,13 +98,42 @@ export async function adminPage() {
     importStatus,
     importNotice,
   ]);
+  // تشخیص ارسال ایمیل (فقط مدیر سامانه): وضعیت Secretها، بررسی توکن Gmail و ایمیل آزمایشی.
+  const mailNotice = el('p', { class: 'form-status', role: 'status' });
+  const mailCheck = el('button', { class: 'btn secondary', type: 'button', text: 'بررسی تنظیمات ایمیل' });
+  mailCheck.addEventListener('click', async () => {
+    mailNotice.className = 'form-status';
+    mailNotice.textContent = 'در حال بررسی…';
+    const r = await getJson('/api/admin/mail/status?probe=1');
+    if (!r.ok) { mailNotice.className = 'form-status err'; mailNotice.textContent = errorText(r.data, r.status); return; }
+    const d = r.data;
+    const bad = !d.configured || (d.probe && !d.probe.ok);
+    mailNotice.className = `form-status${bad ? ' err' : ' ok'}`;
+    mailNotice.textContent = bad
+      ? `مشکل ایمیل: ${d.hint || d.probe?.hint || 'نامشخص'}`
+      : `تنظیمات ایمیل کامل است و توکن Gmail معتبر است. آدرس پایه لینک‌ها: ${d.baseUrl}`;
+  });
+  const mailTest = el('button', { class: 'btn secondary', type: 'button', text: 'ارسال ایمیل آزمایشی به خودم' });
+  mailTest.addEventListener('click', async () => {
+    mailNotice.className = 'form-status';
+    mailNotice.textContent = 'در حال ارسال…';
+    const r = await postJson('/api/admin/mail/test', {});
+    mailNotice.className = `form-status${r.ok ? ' ok' : ' err'}`;
+    mailNotice.textContent = r.ok ? 'ایمیل آزمایشی ارسال شد؛ صندوق ورودی و Spam را ببینید.' : `ارسال ناموفق: ${r.data?.hint || errorText(r.data, r.status)}`;
+  });
+  const mailPanel = el('section', { class: 'admin-mail card' }, [
+    el('h2', { text: 'تشخیص ارسال ایمیل' }),
+    el('p', { class: 'muted', text: 'اگر ایمیل تأیید ثبت‌نام نمی‌رسد، از این‌جا علت را ببینید. مقدار Secretها هرگز نمایش داده نمی‌شود.' }),
+    el('div', { class: 'row' }, [mailCheck, mailTest]),
+    mailNotice,
+  ]);
   // جست‌وجو در فهرست محتوا (عنوان، شناسه، وضعیت)
   const search = el('input', { type: 'search', placeholder: 'جست‌وجو در عنوان، شناسه یا وضعیت', 'aria-label': 'جست‌وجو در محتوا' });
   search.addEventListener('input', () => {
     const q = search.value.trim();
     for (const row of list.children) row.hidden = Boolean(q) && !(row.dataset.search || '').includes(q);
   });
-  wrap.append(notice, form, importPanel, el('h2', { text: 'محتواهای ثبت‌شده' }), search, list);
+  wrap.append(notice, form, importPanel, mailPanel, el('h2', { text: 'محتواهای ثبت‌شده' }), search, list);
 
   function showKindFields() {
     const isCourse = select.value === 'course';

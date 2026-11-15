@@ -19,6 +19,18 @@ function toBase64Url(str) {
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+function base64Utf8(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+
+/** RFC 2045: خطوط base64 حداکثر ۷۶ نویسه؛ خط بلند باعث رد شدن یا اسپم شدن پیام می‌شود. */
+function wrap76(b64) {
+  return b64.match(/.{1,76}/g)?.join('\r\n') ?? '';
+}
+
 /** کنترل ساده برای جلوگیری از تزریق هدر (CRLF). */
 function assertSafeHeader(value, name) {
   if (typeof value !== 'string' || /[\r\n]/.test(value)) {
@@ -44,7 +56,7 @@ export function buildRawMessage({ from, to, subject, text, fromName = SENDER_NAM
     'Content-Type: text/plain; charset="UTF-8"',
     'Content-Transfer-Encoding: base64',
     '',
-    btoa(String.fromCharCode(...new TextEncoder().encode(text))),
+    wrap76(base64Utf8(text)),
   ];
   return toBase64Url(lines.join('\r\n'));
 }

@@ -75,3 +75,14 @@ npx wrangler secret put TURNSTILE_SECRET
 | `/api` با ۴۰۴ پاسخ می‌دهد | Route در زون تنظیم نشده یا Worker دیپلوی نشده است |
 | خطای TLS | حالت SSL را روی Full (strict) بگذارید و مطمئن شوید گواهی صادر شده است |
 | کوکی‌ها ست نمی‌شوند | سایت باید روی HTTPS باشد؛ `Secure` بدون HTTPS کار نمی‌کند |
+
+## ارسال ایمیل تأیید (Gmail API)
+Worker برای ارسال ایمیل چهار Secret لازم دارد: `GMAIL_CLIENT_ID`، `GMAIL_CLIENT_SECRET`، `GMAIL_REFRESH_TOKEN` و `GMAIL_FROM`. اگر ارسال شکست بخورد، کاربر خطایی نمی‌بیند و فقط در لاگ Worker (`auth.send_verification`) ثبت می‌شود.
+
+تشخیص: با حساب مدیر وارد پنل مدیریت شوید و در بخش «تشخیص ارسال ایمیل» دکمهٔ «بررسی تنظیمات ایمیل» و سپس «ارسال ایمیل آزمایشی به خودم» را بزنید. (مسیرهای معادل: `GET /api/admin/mail/status?probe=1` و `POST /api/admin/mail/test`.)
+
+علت‌های رایج:
+- `invalid_grant`: Refresh token باطل شده است. اگر برنامهٔ OAuth در Google Cloud روی حالت Testing باشد، توکن بعد از ۷ روز منقضی می‌شود. برنامه را به Production ببرید و توکن تازه بسازید.
+- `invalid_client`: شناسه یا رمز کلاینت درست نیست.
+- خطای 403 هنگام ارسال: Gmail API فعال نیست یا scope مربوط به `gmail.send` داده نشده است.
+- پس از تغییر Secretها، Worker را دوباره deploy کنید.
