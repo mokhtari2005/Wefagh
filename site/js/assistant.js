@@ -202,8 +202,55 @@ function assistantWorkspace() {
       return b;
     })),
   ]);
-  const pending = h('li', { class: 'ai-msg ai-pending', role: 'status', text: 'در حال تنظیم پاسخ… این کار ممکن است چند ثانیه طول بکشد.' });
+  const pendingTitle = h('strong', { class: 'ai-pending-title', text: 'در حال آماده‌سازی پاسخ حقوقی…' });
+  const pendingElapsed = h('span', { class: 'ai-progress-elapsed', text: 'زمان سپری‌شده: ۰:۰۰' });
+  const pendingRemaining = h('span', { class: 'ai-progress-remaining', text: 'زمان تخمینی باقی‌مانده: ۱:۰۵' });
+  const pendingTrack = h('div', { class: 'ai-progress-track', role: 'progressbar', 'aria-label': 'پیشرفت تخمینی پردازش', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' });
+  const pendingFill = h('span', { class: 'ai-progress-fill' });
+  pendingTrack.append(pendingFill);
+  const pending = h('li', { class: 'ai-msg ai-pending', role: 'status', 'aria-live': 'polite' }, [
+    pendingTitle,
+    h('div', { class: 'ai-progress-meta' }, [pendingElapsed, pendingRemaining]),
+    pendingTrack,
+  ]);
   pending.hidden = true;
+  const ESTIMATED_TOTAL_MS = 65_000; // ۴۰ ثانیه برای مدل اصلی + حداکثر ۲۵ ثانیه برای fallback
+  let progressStartedAt = 0;
+  let progressTimer = null;
+  function formatProgressTime(ms) {
+    const seconds = Math.max(0, Math.ceil(ms / 1000));
+    const minutes = Math.floor(seconds / 60);
+    const remainder = seconds % 60;
+    const mm = minutes.toLocaleString('fa-IR');
+    const ss = String(remainder).padStart(2, '0').replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
+    return `${mm}:${ss}`;
+  }
+  function updatePendingProgress() {
+    const elapsed = Math.max(0, Date.now() - progressStartedAt);
+    const remaining = Math.max(0, ESTIMATED_TOTAL_MS - elapsed);
+    pendingElapsed.textContent = `زمان سپری‌شده: ${formatProgressTime(elapsed)}`;
+    pendingRemaining.textContent = elapsed < ESTIMATED_TOTAL_MS
+      ? `زمان تخمینی باقی‌مانده: ${formatProgressTime(remaining)}`
+      : 'زمان معمول گذشته؛ هنوز منتظر پاسخ سرور هستیم.';
+    pendingTitle.textContent = elapsed < 40_000
+      ? 'در حال آماده‌سازی پاسخ حقوقی…'
+      : elapsed < ESTIMATED_TOTAL_MS
+        ? 'در حال تکمیل پاسخ…'
+        : 'پردازش بیشتر از برآورد زمان برده است.';
+    const percent = Math.min(95, Math.floor((elapsed / ESTIMATED_TOTAL_MS) * 95));
+    pendingFill.style.width = `${percent}%`;
+    pendingTrack.setAttribute('aria-valuenow', String(percent));
+  }
+  function startPendingProgress() {
+    if (progressTimer) clearInterval(progressTimer);
+    progressStartedAt = Date.now();
+    updatePendingProgress();
+    progressTimer = setInterval(updatePendingProgress, 1000);
+  }
+  function stopPendingProgress() {
+    if (progressTimer) clearInterval(progressTimer);
+    progressTimer = null;
+  }
   const log = h('ol', { class: 'ai-log', 'aria-label': 'گفت‌وگو' });
   const stream = h('div', { class: 'ai-stream', tabindex: '-1' }, [emptyState, log]);
 
@@ -285,6 +332,7 @@ function assistantWorkspace() {
     sendBtn.disabled = true;
     attachBtn.disabled = true;
     pending.hidden = false;
+    startPendingProgress();
     log.append(pending);
     emptyState.hidden = true;
     stream.scrollTop = stream.scrollHeight;
@@ -298,17 +346,18 @@ function assistantWorkspace() {
       form.append('message', typed);
       form.append('history', JSON.stringify(trimHistory(history)));
       for (const a of sent) form.append('files', a.file, a.file.name);
-      res = await postForm('/api/ai/assistant', form, { timeoutMs: 50000 });
+      res = await postForm('/api/ai/assistant', form, { timeoutMs: 80000 });
     } else {
-      res = await postJson('/api/ai/assistant', { mode, docType: docSelect.value, message: typed, history: trimHistory(history) }, { timeoutMs: 50000 });
+      res = await postJson('/api/ai/assistant', { mode, docType: docSelect.value, message: typed, history: trimHistory(history) }, { timeoutMs: 80000 });
     }
+    stopPendingProgress();
     busy = false;
     sendBtn.disabled = false;
     attachBtn.disabled = false;
     pending.hidden = true;
     pending.remove();
     if (!res.ok || !res.data?.ok) {
-      const code = res.data?.error || (res.networkError ? 'NETWORK' : 'AI_UNAVAILABLE');
+      const code = res.data?.error || (res.timeoutError ? 'AI_REQUEST_TIMEOUT' : res.networkError ? 'NETWORK' : 'AI_UNAVAILABLE');
       const which = res.data?.file ? ` (فایل: ${res.data.file})` : '';
       status.textContent = `${errorText(code)}${which} متن و پیوست‌های شما حفظ شد.`;
       renderLog();
