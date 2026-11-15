@@ -301,6 +301,7 @@ async function assistant(request, env) {
       system: assistantSystemPrompt({ mode, docType, hasAttachments: attachments.length > 0 }),
       contents,
       maxOutputTokens: 3000,
+      timeoutMs: 12_000,
       json: true,
       schema: ASSISTANT_SCHEMA,
       ...(attachments.length ? { timeoutMs: ATTACHMENT_TIMEOUT_MS } : {}),
