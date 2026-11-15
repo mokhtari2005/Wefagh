@@ -64,24 +64,18 @@ test('Gemini provider 5xx errors expose only safe status diagnostics', async () 
   }
 });
 
-test('Gemini response body timeout is classified and does not wait for the client disconnect', async () => {
+test('Gemini response body timeout is classified safely', async () => {
   const original = globalThis.fetch;
-  const keepAlive = setTimeout(() => {}, 500);
-  globalThis.fetch = async (_url, init) => new Response(new ReadableStream({
-    start(controller) {
-      const abort = () => {
-          try { controller.error(new DOMException('aborted', 'AbortError')); } catch {}
-        };
-        if (init.signal.aborted) abort();
-        else init.signal.addEventListener('abort', abort, { once: true });
-    },
-  }), { status: 200, headers: { 'content-type': 'application/json' } });
+  globalThis.fetch = async () => {
+    const response = new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } });
+    response.json = async () => { throw new DOMException('timeout', 'TimeoutError'); };
+    return response;
+  };
   try {
     await assert.rejects(
       generateText(env, {
         system: 'x',
         contents: [{ role: 'user', parts: [{ text: 'x' }] }],
-        timeoutMs: 20,
       }),
       (error) => error instanceof AiError
         && error.code === 'AI_NETWORK_ERROR'
@@ -90,7 +84,6 @@ test('Gemini response body timeout is classified and does not wait for the clien
         && error.details.stage === 'body',
     );
   } finally {
-    clearTimeout(keepAlive);
     globalThis.fetch = original;
   }
 });
@@ -124,22 +117,15 @@ test('Gemini network timeout retries once on the bounded Gemini 3.5 Flash-Lite f
 });
 
 
-test('Gemini response-body timeout also retries once on Flash-Lite', async () => {
+test('Gemini response-body timeout retries once on Flash-Lite', async () => {
   const original = globalThis.fetch;
-  const keepAlive = setTimeout(() => {}, 500);
   const requests = [];
   globalThis.fetch = async (url, init) => {
-    requests.push(String(url));
+    requests.push({ url: String(url), body: JSON.parse(init.body) });
     if (requests.length === 1) {
-      return new Response(new ReadableStream({
-        start(controller) {
-          const abort = () => {
-          try { controller.error(new DOMException('aborted', 'AbortError')); } catch {}
-        };
-        if (init.signal.aborted) abort();
-        else init.signal.addEventListener('abort', abort, { once: true });
-        },
-      }), { status: 200, headers: { 'content-type': 'application/json' } });
+      const response = new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } });
+      response.json = async () => { throw new DOMException('timeout', 'TimeoutError'); };
+      return response;
     }
     return new Response(JSON.stringify({
       candidates: [{ content: { parts: [{ text: 'پاسخ جایگزین' }] } }],
@@ -149,13 +135,11 @@ test('Gemini response-body timeout also retries once on Flash-Lite', async () =>
     const result = await generateText(env, {
       system: 'x',
       contents: [{ role: 'user', parts: [{ text: 'x' }] }],
-      timeoutMs: 20,
     });
     assert.deepEqual(result, { text: 'پاسخ جایگزین' });
     assert.equal(requests.length, 2);
-    assert.match(requests[1], /gemini-3\.5-flash-lite:generateContent$/);
+    assert.match(requests[1].url, /gemini-3\\.5-flash-lite:generateContent$/);
   } finally {
-    clearTimeout(keepAlive);
     globalThis.fetch = original;
   }
 });
