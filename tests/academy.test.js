@@ -8,7 +8,7 @@ import { hashToken } from '../worker/src/auth/token.js';
 import { COURSES } from '../worker/src/academy/catalog.js';
 import { lessonLearning } from '../worker/src/academy/learning.js';
 import { EXAM_SUBJECTS } from '../worker/src/academy/exam-bank.js';
-import { getExamSubject, selectExamQuestions } from '../worker/src/academy/exam-question-bank.js';
+import { getExamSubject, selectExamQuestions, selectEssayQuestion, formatEssayPrompt } from '../worker/src/academy/exam-question-bank.js';
 import { buildQuestionReviews } from '../worker/src/academy/exam-routes.js';
 
 let DatabaseSync;
@@ -327,4 +327,16 @@ test('هر آزمون ده سؤال یکتا و با توزیع ۳ آسان، ۴
   const next = selectExamQuestions(subject, () => 0.71, excluded);
   assert.equal(next.length, 10);
   assert.ok(next.every(q=>!excluded.has(q.id)));
+});
+
+
+test('سؤال تشریحی از بانک متنوع انتخاب می‌شود و تا ۱۲ تلاش اخیر تکرار نمی‌شود', () => {
+  const subject = getExamSubject('civil');
+  const first = selectEssayQuestion(subject, () => 0.12);
+  const second = selectEssayQuestion(subject, () => 0.82, new Set([first.id]));
+  assert.ok(first && second);
+  assert.notEqual(first.id, second.id);
+  assert.notEqual(formatEssayPrompt(first), formatEssayPrompt(second));
+  assert.match(formatEssayPrompt(first), /سناریوی تشریحی/);
+  assert.match(formatEssayPrompt(first), /نتیجه‌گیری مستدل/);
 });
