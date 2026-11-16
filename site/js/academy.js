@@ -149,7 +149,8 @@ async function renderProgress(area, course) {
 }
 
 async function submitAssessment(area, course, lessonId, answerIndex, responseText, feedback, done, assessments, summary) {
-  const button = feedback.querySelector('button[type="submit"]');
+  const form = feedback.closest('form');
+  const button = form?.querySelector('button[type="submit"]');
   if (button) button.disabled = true;
   const result = await postJson('/api/academy/assess', { courseId: course.id, lessonId, answerIndex, responseText });
   if (!result.ok) {
