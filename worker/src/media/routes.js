@@ -18,7 +18,14 @@ async function managed(env, kind, slug = null) {
 export async function handleMedia(request, env, path) {
   if (request.method !== 'GET') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'GET' });
   if (path === '/api/media/news') {
-    return json({ ok: true, news: await listLegalNews(env) });
+    if (!env?.DB) return json({ ok: false, error: 'NEWS_STORAGE_UNAVAILABLE' }, 503);
+    try {
+      return json({ ok: true, news: await listLegalNews(env) });
+    } catch (err) {
+      // خطای D1 ثبت می‌شود، اما جزئیات پایگاه داده به کاربر افشا نمی‌شود.
+      console.error(JSON.stringify({ where: 'media.news.list', error: err?.name || 'Error' }));
+      return json({ ok: false, error: 'NEWS_STORAGE_UNAVAILABLE' }, 503);
+    }
   }
   if (path === '/api/media/articles') {
     const items = await managed(env, 'article');
@@ -26,7 +33,7 @@ export async function handleMedia(request, env, path) {
     const unique = [...new Map(articles.map((a) => [a.slug, a])).values()];
     return json({ ok: true, articles: unique });
   }
-  const m = path.match(/^\/api\/media\/articles\/([a-z0-9-]{1,100})$/);
+  const m = path.match(/^\\/api\\/media\\/articles\\/([a-z0-9-]{1,100})$/);
   if (m) {
     if (!SLUG_RE.test(m[1])) return json({ ok: false, error: 'NOT_FOUND' }, 404);
     const dynamic = (await managed(env, 'article', m[1]))[0];
