@@ -100,7 +100,7 @@ export const ASSISTANT_DOC_TYPES = Object.freeze({
   other: 'تحلیل و بررسی سایر اسناد',
 });
 
-export const ASSISTANT_MODES = Object.freeze(['draft', 'analyze', 'review']);
+export const ASSISTANT_MODES = Object.freeze(['consult', 'draft', 'analyze', 'review']);
 
 export const ASSISTANT_SCHEMA = Object.freeze({
   type: 'OBJECT',
@@ -115,7 +115,9 @@ export const ASSISTANT_SCHEMA = Object.freeze({
 
 export function assistantSystemPrompt({ mode, docType, hasAttachments = false }) {
   const docLabel = ASSISTANT_DOC_TYPES[docType] || null;
-  const task = mode === 'review'
+  const task = mode === 'consult'
+    ? 'به پرسش حقوقی یا قضایی کاربر در نظام حقوقی ایران پاسخ مشاوره‌ای بده. ساختار پاسخ: ۱) پاسخ کوتاه و روشن؛ ۲) مبنای حقوقی (نام قانون یا نهاد حقوقی؛ شماره ماده یا رأی را فقط اگر کاملاً مطمئنی بنویس)؛ ۳) مرجع صالح و مراحل عملی؛ ۴) مهلت‌ها، مدارک لازم و خطرهای مهم. متن را رسمی ولی قابل‌فهم، با تیترهای ساده و حداکثر حدود ۷۰۰ کلمه بنویس. اگر پرسش مبهم است، ابتدا پاسخ عمومی بده و حداکثر ۳ پرسش تکمیلی در questions بنویس؛ status را فقط وقتی need_info بگذار که بدون اطلاعات بیشتر هیچ پاسخ مفیدی ممکن نیست. اگر پرسش حقوقی نیست، کوتاه بگو در این بخش فقط به پرسش‌های حقوقی و قضایی پاسخ می‌دهی.'
+    : mode === 'review'
     ? `متن کاربر را از نظر نگارش، ساختار، ابهام، تناقض و استدلال ناقص بررسی و در صورت درخواست بازنویسی کن.${docLabel ? ` نوع سند: «${docLabel}»؛ معیارهای ساختاری همین نوع سند را رعایت کن.` : ''}`
     : mode === 'analyze'
       ? `وقایع، مسائل حقوقی، ادعا، دلیل، دفاع و خواسته را تفکیک کن؛ نقاط قوت و ضعف استدلال و دفاعیات احتمالی طرف مقابل و مدارک تکمیلی را فهرست کن.${docLabel ? ` نوع سند یا پروندهٔ مورد تحلیل: «${docLabel}».` : ''}`
