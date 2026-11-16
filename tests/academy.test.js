@@ -7,6 +7,8 @@ import worker from '../worker/src/index.js';
 import { hashToken } from '../worker/src/auth/token.js';
 import { COURSES } from '../worker/src/academy/catalog.js';
 import { lessonLearning } from '../worker/src/academy/learning.js';
+import { EXAM_SUBJECTS } from '../worker/src/academy/exam-bank.js';
+import { buildQuestionReviews } from '../worker/src/academy/exam-routes.js';
 
 let DatabaseSync;
 let sqliteAvailable = true;
@@ -284,4 +286,15 @@ test('مرکز آزمون برای کاربر واردشده حوزه‌های �
 test('مرکز آزمون بدون ورود در دسترس نیست', async () => {
   const response = await worker.fetch(req('/api/academy/exams'), { DB: { prepare(){ throw new Error('DB should not be reached'); } } });
   assert.equal(response.status, 401);
+});
+
+
+test('پاسخ‌نامه آزمون، گزینه درست را با ترتیب چرخانده‌شده و استدلال سؤال برمی‌گرداند', () => {
+  const subject = EXAM_SUBJECTS.find((item) => item.id === 'civil');
+  const question = subject.questions[0];
+  const review = buildQuestionReviews(subject, [question.id], { [question.id]: 0 })[0];
+  assert.equal(review.question, question.q);
+  assert.equal(review.correctAnswer, question.o[question.a]);
+  assert.equal(review.explanation, question.e);
+  assert.equal(typeof review.isCorrect, 'boolean');
 });
