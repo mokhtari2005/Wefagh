@@ -153,7 +153,7 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
   autoContinue.addEventListener('change', () => { if (!autoContinue.checked) clearAutoAdvance(); });
   const micSupported = Boolean(navigator.mediaDevices?.getUserMedia) && typeof MediaRecorder !== 'undefined';
   if (!micSupported || !speechOn) { micBtn.disabled = true; setMicLabel(!speechOn ? 'ورودی صوتی خاموش' : 'میکروفون در دسترس نیست'); }
-  const micIndicator = h('span', { class: 'court-mic-state', text: micSupported ? 'میکروفون آماده' : 'میکروفون ندارد' });
+  const micIndicator = h('span', { class: 'court-mic-state', text: !speechOn ? 'ورودی صوتی غیرفعال' : micSupported ? 'میکروفون آماده' : 'میکروفون ندارد' });
 
   // تب‌ها
   const tabTranscript = h('button', { class: 'court-tab', type: 'button', role: 'tab', 'aria-selected': 'true', text: 'مکالمه' });
@@ -323,7 +323,7 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
       nextBtn.textContent = 'تلاش دوباره';
       return;
     }
-    nextBtn.textContent = 'ادامه';
+    nextBtn.textContent = 'ادامه رسیدگی';
     const item = addLine(step.speaker, res.data.reply);
     await speak(res.data.reply, step.speaker, item);
     setBusy(false);
@@ -422,7 +422,7 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
   // ---- رویدادها ----
   nextBtn.addEventListener('click', () => {
     clearAutoAdvance();
-    if (nextBtn.textContent === 'تلاش دوباره') { nextBtn.textContent = 'ادامه'; player.unlock(); runCurrent(); return; }
+    if (nextBtn.textContent === 'تلاش دوباره') { nextBtn.textContent = 'ادامه رسیدگی'; if (speechOn) player.unlock(); runCurrent(); return; }
     player.stop();
     if (speechOn) player.unlock();
     activeSpeaker = null;
