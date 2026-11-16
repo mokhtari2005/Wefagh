@@ -18,6 +18,10 @@ export function modelIds(env) {
   };
 }
 
+export function fallbackTextModel(primary) {
+  return primary === 'gemini-3.5-flash-lite' ? 'gemini-3.8-flash' : 'gemini-3.5-flash-lite';
+}
+
 export function aiConfigured(env) {
   return typeof env.GEMINI_API_KEY === 'string' && env.GEMINI_API_KEY.trim().length >= 10;
 }
@@ -105,7 +109,7 @@ function textOrLog(op, model, data) {
 /** تولید متن (و JSON ساخت‌یافته در صورت تعیین schema). */
 export async function generateText(env, { system, contents, maxOutputTokens = 1024, json = false, schema = null, timeoutMs = AI_TIMEOUT_MS, plainFallback = false }) {
   const configuredModel = modelIds(env).text;
-  const fallbackModel = 'gemini-3.5-flash-lite';
+  const fallbackModel = fallbackTextModel(configuredModel);
   const makePayload = (model, { useSchema, useMime }) => {
     // Gemini 3 defaults to medium reasoning; low keeps interactive latency predictable.
     const generationConfig = { maxOutputTokens };
@@ -124,9 +128,9 @@ export async function generateText(env, { system, contents, maxOutputTokens = 10
   };
   // برنامهٔ تلاش‌ها: مدل اصلی، مدل جایگزین، و (فقط اگر خواسته شود) یک درخواست ساده بدون schema و بدون حالت JSON
   // برای وقتی که Google به‌خاطر شکل درخواست ساخت‌یافته خطای 5xx می‌دهد.
-  const plan = [{ model: configuredModel, useSchema: true, useMime: true, timeout: timeoutMs }];
-  if (configuredModel !== fallbackModel) plan.push({ model: fallbackModel, useSchema: true, useMime: true, timeout: 25_000 });
-  if (plainFallback && json) plan.push({ model: fallbackModel, useSchema: false, useMime: false, timeout: 25_000, plain: true });
+  const plan = [{ model: configuredModel, useSchema: true, useMime: true, timeout: Math.min(timeoutMs, 30_000) }];
+  plan.push({ model: fallbackModel, useSchema: true, useMime: true, timeout: 20_000 });
+  if (plainFallback && json) plan.push({ model: fallbackModel, useSchema: false, useMime: false, timeout: 15_000, plain: true });
   let model = configuredModel;
   let data;
   let used = plan[0];
