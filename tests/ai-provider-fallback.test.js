@@ -1,0 +1,59 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { generateText } from '../worker/src/ai/gemini.js';
+
+const env = { GEMINI_API_KEY: 'test-key-123456789', GEMINI_TEXT_MODEL: 'gemini-2.5-flash' };
+const input = { system: 'system', contents: [{ role: 'user', parts: [{ text: 'hello' }] }] };
+const success = () => new Response(JSON.stringify({
+  candidates: [{ content: { parts: [{ text: 'پاسخ آزمایشی' }] } }],
+}), { status: 200, headers: { 'content-type': 'application/json' } });
+
+test('retries a provider 5xx once with the fallback model', async () => {
+  const originalFetch = globalThis.fetch;
+  const urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(String(url));
+    return urls.length === 1
+      ? new Response(JSON.stringify({ error: { status: 'INTERNAL' } }), { status: 500 })
+      : success();
+  };
+  try {
+    const result = await generateText(env, input);
+    assert.equal(result.text, 'پاسخ آزمایشی');
+    assert.equal(urls.length, 2);
+    assert.match(urls[0], /gemini-2\.5-flash/);
+    assert.match(urls[1], /gemini-3\.5-flash-lite/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('does not retry quota errors', async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    return new Response(JSON.stringify({ error: { status: 'RESOURCE_EXHAUSTED' } }), { status: 429 });
+  };
+  try {
+    await assert.rejects(generateText(env, input), (error) => error.code === 'AI_QUOTA');
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('does not retry rejected API keys or access errors', async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    return new Response(JSON.stringify({ error: { status: 'PERMISSION_DENIED' } }), { status: 403 });
+  };
+  try {
+    await assert.rejects(generateText(env, input), (error) => error.code === 'AI_KEY_REJECTED');
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
