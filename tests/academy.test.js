@@ -6,6 +6,7 @@ import { join, dirname } from 'node:path';
 import worker from '../worker/src/index.js';
 import { hashToken } from '../worker/src/auth/token.js';
 import { COURSES } from '../worker/src/academy/catalog.js';
+import { lessonLearning } from '../worker/src/academy/learning.js';
 
 let DatabaseSync;
 let sqliteAvailable = true;
@@ -230,4 +231,35 @@ test('ارسال تمرین بدون ثبت‌نام یا با پاسخ کوتا
     body: { courseId: 'civil-litigation-practice', lessonId: 'l1', answerIndex: 1, responseText: 'کوتاه' },
   }), env);
   assert.equal(short.status, 422);
+});
+
+
+test('برای همه دوره‌های منتشرشده درس تعاملی و تمرین اختصاصی تعریف شده است', () => {
+  const courseIds = [...COURSES.filter((course) => course.status === 'published').map((course) => course.id), 'advocacy-writing', 'civil-basics'];
+  let total = 0;
+  for (const courseId of courseIds) {
+    const lessonCount = courseId === 'advocacy-writing' || courseId === 'civil-basics' ? 3 : 5;
+    for (let i = 1; i <= lessonCount; i++) {
+      const activity = lessonLearning(courseId, `l${i}`);
+      assert.ok(activity, `فعالیت درس ${courseId}/l${i} تعریف نشده است`);
+      assert.equal(activity.quiz.options.length, 4);
+      assert.ok(activity.assignment.length >= 30);
+      total++;
+    }
+  }
+  assert.equal(total, 41);
+});
+
+test('نسخه منتشرشده پنل مدیریت بر نسخه پیش‌نویس داخلی همان دوره اولویت دارد', { skip }, async () => {
+  const { db, env } = await setup();
+  db.prepare(`INSERT INTO admin_content (kind, slug, title, summary, status, payload_json, created_by)
+    VALUES ('course', 'civil-basics', 'مبانی دادرسی مدنی منتشرشده', 'نسخه مدیریت‌شده', 'published', ?1, 1)`).run(JSON.stringify({
+      level: 'مقدماتی',
+      lessons: [{ id: 'l1', title: 'درس مدیریت‌شده', body: 'محتوای منتشرشده از پنل مدیریت برای آزمون اولویت نسخه.' }],
+    }));
+  const response = await worker.fetch(req('/api/academy/courses/civil-basics'), env);
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.equal(data.course.title, 'مبانی دادرسی مدنی منتشرشده');
+  assert.equal(data.course.lessons[0].title, 'درس مدیریت‌شده');
 });
