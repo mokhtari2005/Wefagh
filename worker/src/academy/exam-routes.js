@@ -6,13 +6,13 @@ import { EXAM_SUBJECTS, examSubject } from './exam-bank.js';
 const ready = new WeakMap();
 async function ensureSchema(db) {
   let p=ready.get(db);
-  if(!p){p=db.prepare(\`CREATE TABLE IF NOT EXISTS academy_exam_attempts (
+  if(!p){p=db.prepare(`CREATE TABLE IF NOT EXISTS academy_exam_attempts (
     id TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     subject_id TEXT NOT NULL, subject_title TEXT NOT NULL, question_ids_json TEXT NOT NULL,
     answers_json TEXT, essay_response TEXT, objective_score INTEGER, essay_score INTEGER,
     total_score INTEGER, grading_status TEXT NOT NULL DEFAULT 'started',
     feedback_json TEXT, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-    submitted_at TEXT)\`).run().catch(e=>{ready.delete(db);throw e;});ready.set(db,p);}
+    submitted_at TEXT)`).run().catch(e=>{ready.delete(db);throw e;});ready.set(db,p);}
   await p;
 }
 const fail=(error,status,extra={})=>json({ok:false,error,...extra},status);
