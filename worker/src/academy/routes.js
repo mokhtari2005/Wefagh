@@ -182,7 +182,7 @@ export async function handleAcademy(request, env, path) {
     return json({
       ok: true, enrolled: Boolean(enr),
       completedLessonIds: (rows?.results || []).map((r) => r.lesson_id),
-      assessments: (assessments?.results || []).map((r) => ({ lessonId: r.lesson_id, score: r.score, passed: Boolean(r.passed), submittedAt: r.submitted_at })),
+      assessments: (assessments?.results || []).map((r) => ({ lessonId: r.lesson_id, answerIndex: r.answer_index, responseText: r.response_text, score: r.score, passed: Boolean(r.passed), submittedAt: r.submitted_at, explanation: r.passed ? lessonLearning(course.id, r.lesson_id)?.quiz.explanation || null : null })),
       total: course.lessons.length,
     });
   }
