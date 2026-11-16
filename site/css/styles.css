@@ -1386,3 +1386,39 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
 .ai-toolbar { padding: 8px 10px; gap: 6px; }
 .ai-suggestion { min-height: 38px; padding: 6px 12px; font-size: .88rem; }
 .ai-empty { gap: 8px; }
+
+/* ---------- پنل مدیریت: داشبورد و ناوبری بخش‌بندی‌شده ---------- */
+.admin-workspace { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 1.25rem; align-items: start; margin-block: 1rem 2rem; }
+.admin-sidebar { display: grid; gap: .45rem; padding: .8rem; background: var(--paper); border: 1px solid var(--sand-line); border-radius: 16px; position: sticky; top: 1rem; }
+.admin-nav-item { display: flex; align-items: center; gap: .7rem; width: 100%; min-height: 46px; padding: .65rem .8rem; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--ink); font: inherit; text-align: start; cursor: pointer; }
+.admin-nav-item:hover { background: var(--sand); }
+.admin-nav-item.active { background: var(--deep); color: var(--paper); border-color: var(--deep); font-weight: 700; }
+.admin-nav-icon { width: 1.5rem; text-align: center; font-size: 1.1rem; }
+.admin-main-column { min-width: 0; }
+.admin-view[hidden] { display: none !important; }
+.admin-view > h2:first-child { margin-top: 0; }
+.admin-dashboard-view { display: grid; gap: .9rem; }
+.admin-dashboard-view > h2, .admin-dashboard-view > p { margin-block: 0; }
+.admin-dashboard-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
+.admin-stat-card { display: grid; gap: .35rem; min-width: 0; padding: 1rem; }
+.admin-stat-card strong { font-size: 1.8rem; line-height: 1.3; color: var(--deep); }
+.admin-stat-card small { color: var(--ink-soft); line-height: 1.8; overflow-wrap: anywhere; }
+.admin-stat-wide { grid-column: 1 / -1; }
+.admin-menu-toggle { display: none; margin-bottom: .7rem; }
+.admin-view .admin-form { margin-block: .8rem 1rem; }
+.admin-view .admin-content-list { display: grid; gap: .7rem; }
+.admin-view .admin-content-row { margin: 0; }
+@media (max-width: 860px) {
+  .admin-workspace { display: block; }
+  .admin-menu-toggle { display: inline-flex; align-items: center; gap: .5rem; }
+  .admin-sidebar { display: none; position: static; margin-bottom: .8rem; }
+  .admin-sidebar.open { display: grid; }
+  .admin-main-column { display: flex; flex-direction: column; }
+  .admin-main-column > .admin-menu-toggle { order: -1; }
+  .admin-main-column > .admin-sidebar { order: 0; }
+  .admin-dashboard-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 520px) {
+  .admin-dashboard-grid { grid-template-columns: 1fr; }
+  .admin-stat-wide { grid-column: auto; }
+}
