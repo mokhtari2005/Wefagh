@@ -32,8 +32,8 @@ function errorText(data, status) {
 export async function adminPage() {
   const wrap = el('div', {}, [
     el('span', { class: 'section-kicker', text: 'ویژهٔ مدیران مجاز' }),
-    el('h1', { text: 'مدیریت محتوای آکادمی' }),
-    el('p', { class: 'lead', text: 'ایجاد و مدیریت پیش‌نویس دوره‌ها و پرونده‌های آموزشی. انتشار محتوا باید پس از بازبینی علمی و حقوقی انجام شود.' }),
+    el('h1', { text: 'پنل مدیریت محتوا' }),
+    el('p', { class: 'lead', text: 'از منوی مدیریت، بخش موردنیاز را انتخاب کنید. نمای اصلی فقط گزارش کلی و وضعیت بخش‌ها را نمایش می‌دهد.' }),
   ]);
   const notice = el('p', { class: 'form-status', role: 'status' });
   const list = el('div', { class: 'admin-content-list' });
@@ -148,7 +148,14 @@ export async function adminPage() {
     const q = search.value.trim();
     for (const row of list.children) row.hidden = Boolean(q) && !(row.dataset.search || '').includes(q);
   });
-  wrap.append(notice, form, importPanel, mailPanel, el('h2', { text: 'محتواهای ثبت‌شده' }), search, list);
+  const contentView = el('section', { class: 'admin-view card', 'data-admin-view': 'content', hidden: 'hidden' }, [
+    el('h2', { text: 'مدیریت دوره‌ها و پرونده‌ها' }), notice, form,
+    el('h3', { text: 'محتواهای ثبت‌شده' }), search, list,
+  ]);
+  const dashboardView = el('section', { class: 'admin-view admin-dashboard-view', 'data-admin-view': 'dashboard' });
+  const importView = el('section', { class: 'admin-view', 'data-admin-view': 'imports', hidden: 'hidden' }, [importPanel]);
+  const mediaView = el('section', { class: 'admin-view', 'data-admin-view': 'media', hidden: 'hidden' });
+  const servicesView = el('section', { class: 'admin-view', 'data-admin-view': 'services', hidden: 'hidden' }, [mailPanel]);
 
   function showKindFields() {
     const isCourse = select.value === 'course';
@@ -272,7 +279,7 @@ export async function adminPage() {
   );
   const mediaList = el('div', { class: 'admin-content-list' });
   mediaSection.append(mediaNotice, mediaForm, el('h3', { text: 'رسانه‌های ثبت‌شده' }), mediaList);
-  wrap.append(mediaSection);
+  mediaView.append(mediaSection);
   function showMediaFields() {
     const article = mediaKind.value === 'article';
     for (const node of [mAuthor, mBody]) node.hidden = !article;
@@ -319,22 +326,59 @@ export async function adminPage() {
   await refreshMedia();
   showKindFields();
   await refresh();
-  // ورود اولیهٔ محتوای مجاز به‌صورت خودکار و تکرارپذیر؛ فقط مدیر واردشده به این صفحه دسترسی دارد.
-  // پرونده‌ها draft می‌مانند؛ دوره‌های منتشرشده در کاتالوگ عمومی از این مسیر دوباره وارد نمی‌شوند.
-  importNotice.className = 'form-status';
-  importNotice.textContent = 'در حال بارگذاری سناریوهای فرضی بانک و پیش‌نویس‌های آموزشی…';
-  const [caseSeed, courseSeed] = await Promise.all([
-    postJson('/api/admin/cases/import', {}),
-    postJson('/api/admin/courses/import-builtin', {}),
-  ]);
-  const seedErrors = [];
-  if (!caseSeed.ok) seedErrors.push(`بانک پرونده‌ها: ${errorText(caseSeed.data, caseSeed.status)}`);
-  if (!courseSeed.ok) seedErrors.push(`دوره‌های پیش‌نویس: ${errorText(courseSeed.data, courseSeed.status)}`);
-  importNotice.className = `form-status${seedErrors.length ? ' err' : ''}`;
-  importNotice.textContent = seedErrors.length
-    ? seedErrors.join(' | ')
-    : `بارگذاری انجام شد؛ سناریوهای منتشرشده: ${caseSeed.data.inserted} جدید و ${caseSeed.data.skippedExisting} قبلی؛ دوره‌های پیش‌نویس: ${courseSeed.data.inserted} جدید و ${courseSeed.data.skippedExisting} قبلی. هیچ محتوای موجودی بازنویسی نشد.`;
-  await refresh();
   await refreshImportStatus();
+
+  const dashboardCards = el('div', { class: 'admin-dashboard-grid' });
+  const dashboardIntro = el('p', { class: 'muted', text: 'برای ورود به هر ابزار، بخش مربوط را از منوی کناری انتخاب کنید.' });
+  dashboardView.append(el('h2', { text: 'نمای کلی مدیریت' }), dashboardIntro, dashboardCards);
+
+  function updateDashboard() {
+    const published = currentItems.filter((item) => item.status === 'published').length;
+    const drafts = currentItems.length - published;
+    const mediaCount = mediaList.querySelectorAll('.admin-content-row').length;
+    const caseSummary = importStatus.textContent || 'برای مشاهدهٔ آمار بانک، بخش بانک پرونده و دوره‌ها را باز کنید.';
+    dashboardCards.replaceChildren(
+      el('article', { class: 'admin-stat-card card' }, [el('span', { class: 'muted', text: 'محتواهای آموزشی' }), el('strong', { text: String(currentItems.length) }), el('small', { text: `${published} منتشرشده · ${drafts} پیش‌نویس` })]),
+      el('article', { class: 'admin-stat-card card' }, [el('span', { class: 'muted', text: 'رسانه‌ها' }), el('strong', { text: String(mediaCount) }), el('small', { text: 'مقاله‌ها و قسمت‌های پادکست' })]),
+      el('article', { class: 'admin-stat-card card admin-stat-wide' }, [el('span', { class: 'muted', text: 'وضعیت بانک تمرین' }), el('small', { text: caseSummary })]),
+      el('article', { class: 'admin-stat-card card' }, [el('span', { class: 'muted', text: 'سرویس‌های سامانه' }), el('strong', { text: 'آمادهٔ بررسی' }), el('small', { text: 'آزمون ایمیل و هوش مصنوعی از بخش سلامت سرویس‌ها' })]),
+    );
+  }
+  updateDashboard();
+
+  const nav = el('nav', { class: 'admin-sidebar', 'aria-label': 'منوی مدیریت', id: 'admin-sidebar' });
+  const menuItems = [
+    ['dashboard', 'نمای کلی', '▦'],
+    ['content', 'دوره‌ها و پرونده‌ها', '▤'],
+    ['imports', 'بانک پرونده و بارگذاری', '⇧'],
+    ['media', 'رسانه و اندیشه', '▧'],
+    ['services', 'سلامت سرویس‌ها', '⚙'],
+  ];
+  const menuToggle = el('button', { class: 'admin-menu-toggle btn secondary', type: 'button', 'aria-expanded': 'false', 'aria-controls': 'admin-sidebar' }, [el('span', { text: '☰' }), el('span', { text: ' منوی مدیریت' })]);
+  const views = { dashboard: dashboardView, content: contentView, imports: importView, media: mediaView, services: servicesView };
+  function selectView(key) {
+    for (const [name, view] of Object.entries(views)) view.hidden = name !== key;
+    for (const button of nav.querySelectorAll('[data-admin-target]')) {
+      const active = button.dataset.adminTarget === key;
+      button.classList.toggle('active', active);
+      if (active) button.setAttribute('aria-current', 'page'); else button.removeAttribute('aria-current');
+    }
+    nav.classList.remove('open');
+    menuToggle.setAttribute('aria-expanded', 'false');
+  }
+  for (const [key, label, symbol] of menuItems) {
+    const button = el('button', { class: 'admin-nav-item', type: 'button', 'data-admin-target': key }, [
+      el('span', { class: 'admin-nav-icon', 'aria-hidden': 'true', text: symbol }),
+      el('span', { text: label }),
+    ]);
+    button.addEventListener('click', () => selectView(key));
+    nav.append(button);
+  }
+  menuToggle.addEventListener('click', () => {
+    const open = nav.classList.toggle('open');
+    menuToggle.setAttribute('aria-expanded', String(open));
+  });
+  const workspace = el('div', { class: 'admin-workspace' }, [nav, el('div', { class: 'admin-main-column' }, [menuToggle, dashboardView, contentView, importView, mediaView, servicesView])]);
+  wrap.append(workspace);
   return wrap;
 }
