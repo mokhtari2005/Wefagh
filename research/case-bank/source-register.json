@@ -11,7 +11,12 @@
       "court_document_number": "9209970222900384",
       "final_judgment_date": "1392/04/16",
       "domain": "حقوقی",
-      "topics": ["قراردادها", "فسخ", "حدود خواسته", "اجاره به شرط تملیک"],
+      "topics": [
+        "قراردادها",
+        "فسخ",
+        "حدود خواسته",
+        "اجاره به شرط تملیک"
+      ],
       "source_url": "https://ara.jri.ac.ir/Judge/Text/4639",
       "source_type": "سامانه ملی آرای قضایی",
       "source_page_checked": true,
@@ -25,7 +30,12 @@
       "court_document_number": "140291920009220359",
       "final_judgment_date": "1403/07/30",
       "domain": "حقوقی",
-      "topics": ["اسناد تجاری", "چک", "وصف تجریدی", "دارنده با حسن نیت"],
+      "topics": [
+        "اسناد تجاری",
+        "چک",
+        "وصف تجریدی",
+        "دارنده با حسن نیت"
+      ],
       "source_url": "https://ara.jri.ac.ir/Judge/Text/39412",
       "source_type": "سامانه ملی آرای قضایی",
       "source_page_checked": true,
@@ -39,7 +49,12 @@
       "court_document_number": "140368920002061619",
       "final_judgment_date": "1403/07/23",
       "domain": "حقوقی",
-      "topics": ["املاک", "صورتمجلس تفکیکی", "الزام به تنظیم سند رسمی", "تطبیق موضوع قرارداد"],
+      "topics": [
+        "املاک",
+        "صورتمجلس تفکیکی",
+        "الزام به تنظیم سند رسمی",
+        "تطبیق موضوع قرارداد"
+      ],
       "source_url": "https://ara.jri.ac.ir/Judge/Text/39386",
       "source_type": "سامانه ملی آرای قضایی",
       "source_page_checked": true,
@@ -53,7 +68,12 @@
       "court_document_number": "140332920000672087",
       "final_judgment_date": "1403/07/23",
       "domain": "حقوقی",
-      "topics": ["اسناد تجاری", "چک", "مرور زمان", "ماده 318 قانون تجارت"],
+      "topics": [
+        "اسناد تجاری",
+        "چک",
+        "مرور زمان",
+        "ماده 318 قانون تجارت"
+      ],
       "source_url": "https://ara.jri.ac.ir/Judge/Text/39383",
       "source_type": "سامانه ملی آرای قضایی",
       "source_page_checked": true,
@@ -67,7 +87,13 @@
       "court_document_number": "140391920000986529",
       "final_judgment_date": "1403/05/29",
       "domain": "حقوقی",
-      "topics": ["اسناد تجاری", "چک", "ضمانت", "ظهرنویسی", "مسئولیت تضامنی"],
+      "topics": [
+        "اسناد تجاری",
+        "چک",
+        "ضمانت",
+        "ظهرنویسی",
+        "مسئولیت تضامنی"
+      ],
       "source_url": "https://ara.jri.ac.ir/Judge/Text/39411",
       "source_type": "سامانه ملی آرای قضایی",
       "source_page_checked": true,
@@ -81,13 +107,97 @@
       "court_document_number": "9309970223300100",
       "final_judgment_date": "1393/01/31",
       "domain": "حقوقی",
-      "topics": ["خسارت تأخیر تأدیه", "محکوم‌به", "اموال و تعهدات نهادهای عمومی", "حقوق کار"],
+      "topics": [
+        "خسارت تأخیر تأدیه",
+        "محکوم‌به",
+        "اموال و تعهدات نهادهای عمومی",
+        "حقوق کار"
+      ],
       "source_url": "https://ara.jri.ac.ir/Judge/Text/6479",
       "source_type": "سامانه ملی آرای قضایی",
       "source_page_checked": true,
       "duplicate_key": "ara.jri.ac.ir/Judge/Text/6479|9309970223300100",
       "training_candidate": true,
       "notes": "صفحه رسمی شامل شماره و تاریخ دادنامه و متن رأی بدوی قابل مشاهده است؛ اعتبار استدلال با قوانین لازم‌الاجرا در زمان حاضر باید جداگانه ارزیابی شود."
+    },
+    {
+      "source_id": "ara-39327",
+      "title": "شرایط طلاق به درخواست زوج",
+      "court_document_number": "140250920002237030",
+      "final_judgment_date": "1403/10/24",
+      "domain": "حقوقی",
+      "topics": [
+        "خانواده",
+        "طلاق به درخواست زوج",
+        "شرط تنصیف دارایی",
+        "حقوق مالی زوجه"
+      ],
+      "source_url": "https://ara.jri.ac.ir/Judge/Text/39327",
+      "source_type": "سامانه ملی آرای قضایی",
+      "source_page_checked": true,
+      "duplicate_key": "ara.jri.ac.ir/Judge/Text/39327|140250920002237030",
+      "training_candidate": true,
+      "notes": "متن رأی تجدیدنظر و استدلال درباره فروش ملک پیش از تقدیم دادخواست طلاق و شرط تنصیف در صفحه رسمی مشاهده شد؛ رأی طبق متن صفحه قابل فرجام‌خواهی بوده و نباید بدون بررسی وضعیت بعدی قطعی تلقی شود."
+    },
+    {
+      "source_id": "ara-39409",
+      "title": "اثر انتقال چک پس از صدور گواهی عدم پرداخت",
+      "court_document_number": "140391920002469886",
+      "final_judgment_date": "1403/05/22",
+      "domain": "حقوقی",
+      "topics": [
+        "اسناد تجاری",
+        "چک",
+        "انتقال پس از گواهی عدم پرداخت",
+        "خسارت تأخیر تأدیه",
+        "تأمین خواسته"
+      ],
+      "source_url": "https://ara.jri.ac.ir/Judge/Text/39409",
+      "source_type": "سامانه ملی آرای قضایی",
+      "source_page_checked": true,
+      "duplicate_key": "ara.jri.ac.ir/Judge/Text/39409|140391920002469886",
+      "training_candidate": true,
+      "notes": "متن رأی بدوی و تفکیک خسارت تأخیر تأدیه قبل و بعد از ثبت دادخواست در صفحه رسمی مشاهده شد؛ وضعیت اعتراض یا قطعیت نهایی باید بررسی شود."
+    },
+    {
+      "source_id": "ara-277",
+      "title": "اجرت‌المثل پس از پایان مدت اجاره",
+      "court_document_number": "9109970224400796",
+      "final_judgment_date": "1391/07/10",
+      "domain": "حقوقی",
+      "topics": [
+        "اجاره",
+        "اجرت‌المثل ایام تصرف",
+        "کارشناسی",
+        "تجدیدنظر",
+        "اعاده دادرسی"
+      ],
+      "source_url": "https://ara.jri.ac.ir/Judge/Text/277",
+      "source_type": "سامانه ملی آرای قضایی",
+      "source_page_checked": true,
+      "duplicate_key": "ara.jri.ac.ir/Judge/Text/277|9109970224400796",
+      "training_candidate": true,
+      "notes": "متن رأی بدوی، تجدیدنظر و بخشی از رسیدگی اعاده دادرسی در صفحه رسمی مشاهده شد؛ برای سناریوی تمرینی باید مراحل و نتیجه نهایی از هم تفکیک شوند."
+    },
+    {
+      "source_id": "ara-291",
+      "title": "وضعیت دعوای ابطال بازداشت ملک",
+      "court_document_number": "9109970270400836",
+      "final_judgment_date": "1391/07/10",
+      "domain": "حقوقی",
+      "topics": [
+        "املاک",
+        "رهن",
+        "حقوق مرتهن",
+        "ابطال عملیات اجرایی",
+        "الزام به تنظیم سند رسمی"
+      ],
+      "source_url": "https://ara.jri.ac.ir/Judge/Text/291",
+      "source_type": "سامانه ملی آرای قضایی",
+      "source_page_checked": true,
+      "duplicate_key": "ara.jri.ac.ir/Judge/Text/291|9109970270400836",
+      "training_candidate": true,
+      "notes": "متن رأی بدوی و استدلال درباره حفظ حقوق مرتهن و معاملات ملک مرهونه در صفحه رسمی مشاهده شد؛ نتیجه مرحله تجدیدنظر باید جداگانه احراز شود."
     }
   ],
   "quality_gates_before_publication": [
@@ -99,5 +209,23 @@
     "تبدیل مستقل رأی واقعی به سناریوی تمرینی بدون نسبت دادن جزئیات ساختگی به دادنامه",
     "کنترل تکراری بودن بر اساس شناسه منبع، شماره دادنامه و اثرانگشت عنوان",
     "بازبینی حقوقی نهایی پیش از تغییر وضعیت به published"
-  ]
+  ],
+  "research_batch_2": {
+    "status": "source_pages_checked",
+    "added_records": 4,
+    "excluded_candidates": [
+      {
+        "source_url": "https://ara.jri.ac.ir/Judge/Text/39410",
+        "reason": "صفحه در زمان بررسی مستقیم باز نشد؛ صرفاً از داده ثانویه شناسایی شده و وارد فهرست تأییدشده نشد."
+      },
+      {
+        "source_url": "https://ara.jri.ac.ir/Judge/Text/330",
+        "reason": "صفحه در زمان بررسی مستقیم باز نشد؛ صرفاً از داده ثانویه شناسایی شده و وارد فهرست تأییدشده نشد."
+      },
+      {
+        "source_url": "https://ara.jri.ac.ir/Judge/Text/252",
+        "reason": "صفحه در زمان بررسی مستقیم باز نشد؛ صرفاً از داده ثانویه شناسایی شده و وارد فهرست تأییدشده نشد."
+      }
+    ]
+  }
 }
