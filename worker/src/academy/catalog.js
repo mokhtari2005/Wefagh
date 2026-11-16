@@ -50,6 +50,7 @@ export const COURSES = Object.freeze([
       },
     ],
   },
+  ...PRACTICAL_COURSES,
 ]);
 
 export function findCourse(id) {
