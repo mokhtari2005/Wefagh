@@ -44,7 +44,7 @@ function d1Like(db) {
 function setup() {
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON;');
-  for (const f of ['0001_init.sql', '0002_auth.sql', '0008_registration_profile.sql']) db.exec(migration(f));
+  for (const f of ['0001_init.sql', '0002_auth.sql', '0008_registration_profile.sql', '0014_member_identity.sql']) db.exec(migration(f));
   const sent = [];
   const env = {
     DB: d1Like(db),
@@ -222,7 +222,7 @@ import { hashPassword } from '../worker/src/auth/password.js';
 function setupWithoutProfiles() {
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON;');
-  for (const f of ['0001_init.sql', '0002_auth.sql']) db.exec(migration(f));
+  for (const f of ['0001_init.sql', '0002_auth.sql', '0014_member_identity.sql']) db.exec(migration(f));
   const env = { DB: d1Like(db), PUBLIC_BASE_URL: 'https://mokhtari.ir', mailer: async () => {} };
   return { db, env };
 }
