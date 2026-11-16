@@ -6,7 +6,7 @@ import { parseHash } from './route.js';
 import { loginForm, registerForm, verifyPanel, accountPanel } from './account.js';
 import { academyList, academyCourse, ACADEMY_TOOLS } from './academy.js';
 import { shamsiCalendar } from './calendar.js';
-import { assistantPage } from './assistant.js';
+import { assistantPage, assistantHistoryPage } from './assistant.js';
 import { icon, mountIcons } from './icons.js';
 import { courtRoomPage } from './moot-ai.js';
 import { casePickerPage } from './moot-cases.js';
@@ -272,7 +272,8 @@ const ROUTES = {
   '/admin': () => lazy(adminPage),
   '/cases': () => lazy(() => casesPage()),
   '/moot-court': (params) => lazy(() => mootCourtPage(params)),
-  '/assistant': () => assistantPage(),
+  '/assistant': (params) => assistantPage(params),
+  '/assistant/history': () => assistantHistoryPage(),
   '/moot-court/hearing': (params) => courtRoomPage(params),
   '/moot-court/cases': (params) => casePickerPage(params),
   '/calculators': (params) => calculatorsPage(params),
@@ -300,7 +301,7 @@ function render() {
 
   document.body.classList.toggle('immersive', path === '/moot-court/hearing');
   main.replaceChildren(content);
-  const EXTRA_TITLES = { '/admin': 'مدیریت محتوا', '/dashboard': 'داشبورد من', '/verify': 'تأیید ایمیل', '/moot-court': 'موت کورت', '/cases': 'بانک پرونده‌ها', '/assistant': 'دستیار هوشمند وکیل', '/moot-court/hearing': 'اتاق دادگاه', '/moot-court/cases': 'انتخاب پرونده' };
+  const EXTRA_TITLES = { '/admin': 'مدیریت محتوا', '/dashboard': 'داشبورد من', '/verify': 'تأیید ایمیل', '/moot-court': 'موت کورت', '/cases': 'بانک پرونده‌ها', '/assistant': 'دستیار هوشمند وکیل', '/assistant/history': 'سوابق گفت‌وگوهای دستیار', '/moot-court/hearing': 'اتاق دادگاه', '/moot-court/cases': 'انتخاب پرونده' };
   const navTitle = NAV.find((n) => n.path === path)?.title;
   const title = navTitle ?? EXTRA_TITLES[path] ?? (path.startsWith('/academy/') ? 'آکادمی' : 'صفحه پیدا نشد');
   document.title = `${title} | آکادمی وکالت شهرام مختاری`;
