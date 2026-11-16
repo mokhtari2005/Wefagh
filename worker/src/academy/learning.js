@@ -57,7 +57,7 @@ export function lessonLearning(courseId, lessonId) {
   if (!item) return null;
   return {
     assignment: item[4],
-    rubric: ['تشخیص دقیق مسئله و خواسته (۲۵ امتیاز)', 'استفاده از وقایع و ادله مرتبط (۲۵ امتیاز)', 'استدلال منظم و قابل پیگیری (۲۵ امتیاز)', 'بیان روشن و رعایت حدود قانونی (۲۵ امتیاز)'],
+    rubric: ['تشخیص دقیق مسئله و خواسته', 'استفاده از وقایع و ادله مرتبط', 'استدلال منظم و قابل پیگیری', 'بیان روشن و رعایت حدود قانونی'],
     quiz: { question: item[0], options: item[1], correctIndex: item[2], explanation: item[3] }
   };
 }
