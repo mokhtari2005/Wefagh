@@ -13,7 +13,7 @@ const FALLBACK_CODES = new Set(['AI_NETWORK_ERROR', 'AI_PROVIDER_ERROR', 'AI_PRO
 // شناسه‌های مدل از متغیرهای [vars] خوانده می‌شوند تا بدون تغییر کد قابل تعویض باشند.
 export function modelIds(env) {
   return {
-    text: env.GEMINI_TEXT_MODEL || 'gemini-2.5-flash',
+    text: env.GEMINI_TEXT_MODEL || 'gemini-3.5-flash-lite',
     tts: env.GEMINI_TTS_MODEL || 'gemini-3.8-flash-tts',
   };
 }

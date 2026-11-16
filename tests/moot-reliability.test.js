@@ -62,7 +62,7 @@ test('خطای ۴۰۳ Gemini علت را فقط با کد شمارشی لاگ م
     // خطای دسترسی retry نمی‌شود؛ فقط لاگ امن سرویس‌دهنده و مسیر Worker ثبت می‌شود.
     assert.equal(logs.length, 2);
     const entry = JSON.parse(logs[0]);
-    assert.deepEqual(entry, { where: 'gemini', op: 'text', model: 'gemini-2.5-flash', stage: 'http', httpStatus: 403, reason: 'PERMISSION_DENIED' });
+    assert.deepEqual(entry, { where: 'gemini', op: 'text', model: 'gemini-3.5-flash-lite', stage: 'http', httpStatus: 403, reason: 'PERMISSION_DENIED' });
     assert.deepEqual(JSON.parse(logs[1]), { where: 'ai', error: 'AiError', code: 'AI_KEY_REJECTED', status: 503 });
     for (const log of logs) for (const bad of [KEY, 'AIzaSy', secretText, CASE.facts[0], 'متن پرونده شما']) assert.ok(!log.includes(bad), `نباید در لاگ باشد: ${bad}`);
   });
@@ -100,7 +100,7 @@ test('پاسخ خالی یا قطع‌شده با MAX_TOKENS در لاگ finishR
   await withGemini(async () => jsonRes(200, { candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ text: '  ' }] } }] }), async ({ logs }) => {
     const res = await worker.fetch(post('/api/ai/moot/turn', { caseId: CASE.id, role: 'judge', stage: 'claim', history: [] }, cookie), env);
     assert.equal((await res.json()).error, 'AI_EMPTY');
-    assert.deepEqual(JSON.parse(logs[0]), { where: 'gemini', op: 'text', model: 'gemini-2.5-flash', stage: 'content', reason: 'AI_EMPTY', finishReason: 'MAX_TOKENS' });
+    assert.deepEqual(JSON.parse(logs[0]), { where: 'gemini', op: 'text', model: 'gemini-3.5-flash-lite', stage: 'content', reason: 'AI_EMPTY', finishReason: 'MAX_TOKENS' });
   });
 });
 
