@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { BANK_CASES } from '../worker/src/moot/bank/index.js';
 import { validateCase } from '../worker/src/moot/caseSchema.js';
+import { publicCase } from '../worker/src/moot/caseStore.js';
 import { COURSES } from '../worker/src/academy/catalog.js';
 
 test('bank contains at least 200 unique, structurally valid training scenarios', () => {
@@ -13,6 +14,26 @@ test('bank contains at least 200 unique, structurally valid training scenarios',
     return result.ok ? [] : [{ id: item.id, errors: result.errors }];
   });
   assert.deepEqual(invalid, [], JSON.stringify(invalid.slice(0, 10), null, 2));
+  const publishedInvalid = BANK_CASES.flatMap((item) => {
+    const training = {
+      ...item,
+      scenario_type: 'hypothetical',
+      training_only: true,
+      publication_note: 'سناریوی فرضی آموزشی برای تمرین دادرسی است؛ رأی واقعی نیست و استنادها نیازمند بررسی‌اند.',
+    };
+    const result = validateCase(training, { status: 'published' });
+    return result.ok ? [] : [{ id: item.id, errors: result.errors }];
+  });
+  assert.deepEqual(publishedInvalid, [], JSON.stringify(publishedInvalid.slice(0, 10), null, 2));
+  const publicView = publicCase({
+    ...BANK_CASES[0],
+    scenario_type: 'hypothetical',
+    training_only: true,
+    publication_note: 'سناریوی فرضی آموزشی برای تمرین دادرسی است؛ رأی واقعی نیست و استنادها نیازمند بررسی‌اند.',
+  });
+  assert.equal(publicView.trainingOnly, true);
+  assert.equal('verdict' in publicView, false, 'training verdict must not be exposed to learners');
+  assert.equal(publicView.legalRefs[0].article, null, 'unverified article numbers must not be exposed');
 });
 
 test('academy has six complete practical courses available to learners', () => {
