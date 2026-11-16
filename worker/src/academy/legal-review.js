@@ -10,7 +10,7 @@ export function normalizeLegalReview(value) {
     legalAuthorities: take(value.legalAuthorities, 8).map((x) => ({
       law: clean(x?.law, 180), article: clean(x?.article, 50),
       rule: clean(x?.rule, 500), application: clean(x?.application, 700),
-      status: ['verified', 'needs_review', 'uncertain'].includes(x?.status) ? x.status : 'uncertain',
+      status: x?.status === 'uncertain' ? 'uncertain' : 'needs_review',
     })).filter((x) => x.law || x.rule),
     fiqhPrinciples: take(value.fiqhPrinciples, 6).map((x) => ({
       principle: clean(x?.principle, 180), scope: clean(x?.scope, 400),
