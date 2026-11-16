@@ -357,6 +357,7 @@ export async function adminPage() {
   const menuToggle = el('button', { class: 'admin-menu-toggle btn secondary', type: 'button', 'aria-expanded': 'false', 'aria-controls': 'admin-sidebar' }, [el('span', { text: '☰' }), el('span', { text: ' منوی مدیریت' })]);
   const views = { dashboard: dashboardView, content: contentView, imports: importView, media: mediaView, services: servicesView };
   function selectView(key) {
+    if (key === 'dashboard') updateDashboard();
     for (const [name, view] of Object.entries(views)) view.hidden = name !== key;
     for (const button of nav.querySelectorAll('[data-admin-target]')) {
       const active = button.dataset.adminTarget === key;
