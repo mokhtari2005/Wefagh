@@ -217,7 +217,7 @@ function lessonsList(course, progress) {
         const selected = form.querySelector(`input[name="answer-${lesson.id}"]:checked`);
         if (!selected) { feedback.textContent = 'یک گزینه از آزمونک انتخاب کنید.'; return; }
         if (response.value.trim().length < 30) { feedback.textContent = 'پاسخ تشریحی باید دست‌کم ۳۰ نویسه داشته باشد.'; response.focus(); return; }
-        progress.onAssess(lesson.id, Number(selected.value), response.value, form);
+        progress.onAssess(lesson.id, Number(selected.value), response.value, feedback);
       });
       article.append(form);
     } else {
