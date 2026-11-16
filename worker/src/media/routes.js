@@ -33,7 +33,7 @@ export async function handleMedia(request, env, path) {
     const unique = [...new Map(articles.map((a) => [a.slug, a])).values()];
     return json({ ok: true, articles: unique });
   }
-  const m = path.match(/^\\/api\\/media\\/articles\\/([a-z0-9-]{1,100})$/);
+  const m = path.match(/^\/api\/media\/articles\/([a-z0-9-]{1,100})$/);
   if (m) {
     if (!SLUG_RE.test(m[1])) return json({ ok: false, error: 'NOT_FOUND' }, 404);
     const dynamic = (await managed(env, 'article', m[1]))[0];
