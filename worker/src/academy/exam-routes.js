@@ -22,7 +22,7 @@ function optionShift(q){return q.o.length ? [...q.id].reduce((n,ch)=>n+ch.charCo
 function publicQuestions(questions){return questions.map(({id,q,o,difficulty,topic})=>{const shift=optionShift({id,o});return{id,question:q,options:o.map((_,i)=>o[(i+shift)%o.length]),difficulty,topic};});}
 export function buildQuestionReviews(s,ids,answers){
  return ids.map((id)=>{
-  const q=s.questions.find((item)=>item.id===id);if(!q)return null;
+  const q=s.questions.find((item)=>item.id===id)||EXAM_SUBJECTS.find(item=>item.id===s.id)?.questions.find(item=>item.id===id);if(!q)return null;
   const shift=optionShift(q),correctIndex=(q.a-shift+q.o.length)%q.o.length,selectedIndex=answers[id];
   const options=q.o.map((_,i)=>q.o[(i+shift)%q.o.length]);
   return {id,question:q.q,selectedIndex,correctIndex,selectedAnswer:options[selectedIndex]||'',correctAnswer:options[correctIndex],isCorrect:selectedIndex===correctIndex,explanation:q.e||'پاسخ صحیح بر اساس مبانی آموزشی این پرسش انتخاب شده است.'};
@@ -79,7 +79,7 @@ export async function handleAcademyExams(request,env,path){
   }
   const s=getExamSubject(row.subject_id);if(!s)return fail('EXAM_VERSION_UNAVAILABLE',409);
   const ids=JSON.parse(row.question_ids_json),cleanAnswers={};let correct=0;
-  for(const qid of ids){const q=s.questions.find(x=>x.id===qid),v=answers[qid];if(!q||!Number.isInteger(v)||v<0||v>=q.o.length)return fail('INVALID_ANSWERS',422);cleanAnswers[qid]=v;const correctIndex=(q.a-optionShift(q)+q.o.length)%q.o.length;if(v===correctIndex)correct++;}
+  for(const qid of ids){const q=s.questions.find(x=>x.id===qid)||EXAM_SUBJECTS.find(item=>item.id===s.id)?.questions.find(x=>x.id===qid),v=answers[qid];if(!q||!Number.isInteger(v)||v<0||v>=q.o.length)return fail('INVALID_ANSWERS',422);cleanAnswers[qid]=v;const correctIndex=(q.a-optionShift(q)+q.o.length)%q.o.length;if(v===correctIndex)correct++;}
   const objectiveScore=Math.round(correct/ids.length*100);
   await env.DB.prepare("UPDATE academy_exam_attempts SET answers_json=?1,essay_response=?2,objective_score=?3,grading_status='pending',submitted_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?4 AND user_id=?5").bind(JSON.stringify(cleanAnswers),essayResponse.trim(),objectiveScore,attemptId,user.id).run();
   try{
