@@ -59,13 +59,11 @@ test('خطای ۴۰۳ Gemini علت را فقط با کد شمارشی لاگ م
     const res = await worker.fetch(post('/api/ai/moot/turn', { caseId: CASE.id, role: 'judge', stage: 'claim', history: [{ role: 'user', speaker: 'plaintiff', text: secretText }] }, cookie), env);
     assert.equal(res.status, 503);
     assert.equal((await res.json()).error, 'AI_KEY_REJECTED');
-    // مدل اصلی رد می‌شود، یک تلاش با مدل جایگزین هم رد می‌شود، سپس لاگ طبقه‌بندی مسیر Worker.
-    assert.equal(logs.length, 4);
+    // خطای دسترسی retry نمی‌شود؛ فقط لاگ امن سرویس‌دهنده و مسیر Worker ثبت می‌شود.
+    assert.equal(logs.length, 2);
     const entry = JSON.parse(logs[0]);
     assert.deepEqual(entry, { where: 'gemini', op: 'text', model: 'gemini-2.5-flash', stage: 'http', httpStatus: 403, reason: 'PERMISSION_DENIED' });
-    assert.deepEqual(JSON.parse(logs[1]), { where: 'gemini', op: 'text', model: 'gemini-2.5-flash', stage: 'fallback', reason: 'AI_KEY_REJECTED', fallbackModel: 'gemini-3.5-flash-lite' });
-    assert.equal(JSON.parse(logs[2]).model, 'gemini-3.5-flash-lite');
-    assert.deepEqual(JSON.parse(logs[3]), { where: 'ai', error: 'AiError', code: 'AI_KEY_REJECTED', status: 503 });
+    assert.deepEqual(JSON.parse(logs[1]), { where: 'ai', error: 'AiError', code: 'AI_KEY_REJECTED', status: 503 });
     for (const log of logs) for (const bad of [KEY, 'AIzaSy', secretText, CASE.facts[0], 'متن پرونده شما']) assert.ok(!log.includes(bad), `نباید در لاگ باشد: ${bad}`);
   });
 });
