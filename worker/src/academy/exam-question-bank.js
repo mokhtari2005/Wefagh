@@ -168,7 +168,7 @@ const TOPICS = {
  ]
 };
 
-function makeQuestion(subject, topic, scenario, index) {
+function makeQuestion(subject, topic, scenario, index, difficulty) {
  const stems = [
   'در وضعیت زیر، کدام تحلیل حقوقی دقیق‌تر است؟',
   'با توجه به فرض پرونده، کدام اقدام یا نتیجه موجه‌تر است؟',
@@ -177,13 +177,13 @@ function makeQuestion(subject, topic, scenario, index) {
  ];
  const options=[topic[4],...topic[5]];
  const id=subject.id+'-'+topic[0]+'-'+String(index+1).padStart(2,'0');
- return {id,q:stems[index%stems.length]+' '+scenario+'؛ محور بررسی: '+topic[1]+'.',o:options,a:0,e:topic[6],difficulty:topic[2],topic:topic[1]};
+ return {id,q:stems[index%stems.length]+' '+scenario+'؛ محور بررسی: '+topic[1]+'.',o:options,a:0,e:topic[6],difficulty,topic:topic[1]};
 }
 export function buildExamQuestionBank(subject) {
  const topics=TOPICS[subject.id];
  if(!topics)return subject.questions.map(q=>({...q,difficulty:q.difficulty||'medium'}));
  const questions=[];
- for(const topic of topics) for(let i=0;i<SCENARIOS.length;i++) questions.push(makeQuestion(subject,topic,SCENARIOS[i],i));
+ for(const [topicIndex,topic] of topics.entries()) { const difficulty=topicIndex<3?'easy':topicIndex<7?'medium':'hard'; for(let i=0;i<SCENARIOS.length;i++) questions.push(makeQuestion(subject,topic,SCENARIOS[i],i,difficulty)); }
  return questions;
 }
 export function getExamSubject(id) {
