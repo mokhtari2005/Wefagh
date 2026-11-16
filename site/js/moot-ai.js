@@ -150,6 +150,7 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
   }
   const speakToggle = h('input', { type: 'checkbox', checked: Boolean(speechOn), disabled: '' });
   const autoContinue = h('input', { type: 'checkbox', checked: '' });
+  autoContinue.addEventListener('change', () => { if (!autoContinue.checked) clearAutoAdvance(); });
   const micSupported = Boolean(navigator.mediaDevices?.getUserMedia) && typeof MediaRecorder !== 'undefined';
   if (!micSupported || !speechOn) { micBtn.disabled = true; setMicLabel(!speechOn ? 'ورودی صوتی خاموش' : 'میکروفون در دسترس نیست'); }
   const micIndicator = h('span', { class: 'court-mic-state', text: micSupported ? 'میکروفون آماده' : 'میکروفون ندارد' });
@@ -192,7 +193,7 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
     const isUser = key === userSide;
     const status = isUser ? 'شما' : (speaking ? 'در حال صحبت' : 'منتظر');
     return h('div', { class: `court-seat ${speaking ? 'speaking' : ''} ${isUser ? 'you' : ''}`, 'data-seat': key }, [
-      h('span', { class: 'court-avatar', 'aria-hidden': 'true', text: name.slice(0, 1) }),
+      h('span', { class: 'court-avatar', 'aria-hidden': 'true' }, [icon(key === 'judge' ? 'gavel' : key === 'clerk' ? 'clipboard-list' : 'user-round', { size: 22 })]),
       h('strong', { text: roleText }),
       h('small', { text: name }),
       h('span', { class: 'court-pill', text: status }),
@@ -591,8 +592,8 @@ export function hearingSetup(onStart) {
 export function courtRoomPage(params = {}) {
   const body = h('div', { class: 'court-page' });
   const topbar = h('header', { class: 'court-topbar' }, [
-    h('a', { class: 'court-back', href: '#/academy', text: '→ بازگشت به آکادمی' }),
-    h('div', { class: 'court-title' }, [h('strong', { text: 'موت‌کورت هوشمند' }), h('small', { text: 'اتاق دادگاه · پروندهٔ آموزشی' })]),
+    h('a', { class: 'court-back', href: '#/academy', text: '← بازگشت به آکادمی' }),
+    h('div', { class: 'court-title' }, [h('span', { class: 'court-title-icon', 'aria-hidden': 'true' }, [icon('landmark', { size: 23 })]), h('strong', { text: 'موت‌کورت هوشمند' }), h('small', { text: 'اتاق دادگاه · پروندهٔ آموزشی' })]),
     h('span', { class: 'court-ai-state', id: 'court-ai-state', text: 'بررسی سرویس…' }),
   ]);
   body.append(topbar, h('p', { class: 'muted', role: 'status', text: 'در حال بررسی امکان ورود به جلسه…' }));
