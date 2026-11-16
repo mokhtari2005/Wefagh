@@ -234,7 +234,8 @@ test('ارسال تمرین بدون ثبت‌نام یا با پاسخ کوتا
 });
 
 
-test('برای همه دوره‌های منتشرشده درس تعاملی و تمرین اختصاصی تعریف شده است', () => {
+test('کاتالوگ شامل ۱۰۰ دوره است و همه درس‌ها تمرین و آزمونک دارند', () => {
+  assert.equal(COURSES.length, 100);
   const courseIds = [...COURSES.filter((course) => course.status === 'published').map((course) => course.id), 'advocacy-writing', 'civil-basics'];
   let total = 0;
   for (const courseId of courseIds) {
@@ -247,7 +248,7 @@ test('برای همه دوره‌های منتشرشده درس تعاملی و 
       total++;
     }
   }
-  assert.equal(total, 41);
+  assert.equal(total, 496);
 });
 
 test('نسخه منتشرشده پنل مدیریت بر نسخه پیش‌نویس داخلی همان دوره اولویت دارد', { skip }, async () => {
