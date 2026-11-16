@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "purpose": "پیش‌فهرست پژوهشی منابع رأی برای بانک تمرین دادرسی وِفاق؛ این فایل به‌تنهایی مجوز انتشار پرونده آموزشی نیست.",
+  "collection_method": "جست‌وجوی وب و بررسی مستقیم صفحه رأی در سامانه ملی آرای قضایی؛ بدون استفاده از TinyFish.",
+  "review_status": "initial_source_check",
+  "publication_status": "not_for_publication",
+  "records": [
+    {
+      "source_id": "ara-4639",
+      "title": "دعوای تأیید فسخ قرارداد",
+      "court_document_number": "9209970222900384",
+      "final_judgment_date": "1392/04/16",
+      "domain": "حقوقی",
+      "topics": ["قراردادها", "فسخ", "حدود خواسته", "اجاره به شرط تملیک"],
+      "source_url": "https://ara.jri.ac.ir/Judge/Text/4639",
+      "source_type": "سامانه ملی آرای قضایی",
+      "source_page_checked": true,
+      "duplicate_key": "ara.jri.ac.ir/Judge/Text/4639|9209970222900384",
+      "training_candidate": true,
+      "notes": "صفحه رسمی شامل عنوان، شماره و تاریخ دادنامه و متن رأی بدوی قابل مشاهده است؛ پیش از تبدیل به سناریوی آموزشی، گردش پرونده و نتیجه نهایی باید جداگانه استخراج و تحلیل شود."
+    },
+    {
+      "source_id": "ara-39412",
+      "title": "اثر وصف تجریدی چک",
+      "court_document_number": "140291920009220359",
+      "final_judgment_date": "1403/07/30",
+      "domain": "حقوقی",
+      "topics": ["اسناد تجاری", "چک", "وصف تجریدی", "دارنده با حسن نیت"],
+      "source_url": "https://ara.jri.ac.ir/Judge/Text/39412",
+      "source_type": "سامانه ملی آرای قضایی",
+      "source_page_checked": true,
+      "duplicate_key": "ara.jri.ac.ir/Judge/Text/39412|140291920009220359",
+      "training_candidate": true,
+      "notes": "متن رأی تجدیدنظر و استدلال مربوط به وصف تجریدی چک در صفحه قابل مشاهده است."
+    },
+    {
+      "source_id": "ara-39386",
+      "title": "شرایط دعوای الزام به تنظیم صورتمجلس تفکیکی",
+      "court_document_number": "140368920002061619",
+      "final_judgment_date": "1403/07/23",
+      "domain": "حقوقی",
+      "topics": ["املاک", "صورتمجلس تفکیکی", "الزام به تنظیم سند رسمی", "تطبیق موضوع قرارداد"],
+      "source_url": "https://ara.jri.ac.ir/Judge/Text/39386",
+      "source_type": "سامانه ملی آرای قضایی",
+      "source_page_checked": true,
+      "duplicate_key": "ara.jri.ac.ir/Judge/Text/39386|140368920002061619",
+      "training_candidate": true,
+      "notes": "صفحه رسمی شامل خواسته‌های متعدد و متن رأی بدوی قابل مشاهده است؛ وضعیت و نتیجه مراحل بعدی باید بررسی شود."
+    },
+    {
+      "source_id": "ara-39383",
+      "title": "مرور زمان در دعاوی مطالبه وجه چک",
+      "court_document_number": "140332920000672087",
+      "final_judgment_date": "1403/07/23",
+      "domain": "حقوقی",
+      "topics": ["اسناد تجاری", "چک", "مرور زمان", "ماده 318 قانون تجارت"],
+      "source_url": "https://ara.jri.ac.ir/Judge/Text/39383",
+      "source_type": "سامانه ملی آرای قضایی",
+      "source_page_checked": true,
+      "duplicate_key": "ara.jri.ac.ir/Judge/Text/39383|140332920000672087",
+      "training_candidate": true,
+      "notes": "صفحه رسمی شامل عنوان، مشخصات دادنامه و بخش‌هایی از روند رسیدگی و رأی قابل مشاهده است."
+    },
+    {
+      "source_id": "ara-39411",
+      "title": "نقش امضاکننده ظهر چک",
+      "court_document_number": "140391920000986529",
+      "final_judgment_date": "1403/05/29",
+      "domain": "حقوقی",
+      "topics": ["اسناد تجاری", "چک", "ضمانت", "ظهرنویسی", "مسئولیت تضامنی"],
+      "source_url": "https://ara.jri.ac.ir/Judge/Text/39411",
+      "source_type": "سامانه ملی آرای قضایی",
+      "source_page_checked": true,
+      "duplicate_key": "ara.jri.ac.ir/Judge/Text/39411|140391920000986529",
+      "training_candidate": true,
+      "notes": "متن رأی بدوی و استدلال دادگاه درباره تمایز ضمانت از ظهرنویسی در صفحه رسمی قابل مشاهده است."
+    },
+    {
+      "source_id": "ara-6479",
+      "title": "مطالبه خسارت تأخیر تأدیه از محکومیت نقدی دانشگاه‌ها",
+      "court_document_number": "9309970223300100",
+      "final_judgment_date": "1393/01/31",
+      "domain": "حقوقی",
+      "topics": ["خسارت تأخیر تأدیه", "محکوم‌به", "اموال و تعهدات نهادهای عمومی", "حقوق کار"],
+      "source_url": "https://ara.jri.ac.ir/Judge/Text/6479",
+      "source_type": "سامانه ملی آرای قضایی",
+      "source_page_checked": true,
+      "duplicate_key": "ara.jri.ac.ir/Judge/Text/6479|9309970223300100",
+      "training_candidate": true,
+      "notes": "صفحه رسمی شامل شماره و تاریخ دادنامه و متن رأی بدوی قابل مشاهده است؛ اعتبار استدلال با قوانین لازم‌الاجرا در زمان حاضر باید جداگانه ارزیابی شود."
+    }
+  ],
+  "quality_gates_before_publication": [
+    "تطبیق شناسه صفحه، شماره دادنامه و تاریخ با متن کامل رأی",
+    "بررسی تمام مراحل رسیدگی و قطعیت رأی؛ تفکیک رأی بدوی از تجدیدنظر و رأی نهایی",
+    "ثبت دقیق مرجع صادرکننده و نتیجه هر مرحله",
+    "استخراج و راستی‌آزمایی مواد قانونی با منبع رسمی و نسخه معتبر در تاریخ مربوط",
+    "حذف یا ناشناس‌سازی اطلاعات هویتی و محرمانه",
+    "تبدیل مستقل رأی واقعی به سناریوی تمرینی بدون نسبت دادن جزئیات ساختگی به دادنامه",
+    "کنترل تکراری بودن بر اساس شناسه منبع، شماره دادنامه و اثرانگشت عنوان",
+    "بازبینی حقوقی نهایی پیش از تغییر وضعیت به published"
+  ]
+}
