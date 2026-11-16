@@ -82,6 +82,26 @@ export function cleanHistory(value) {
   return out;
 }
 
+/** تاریخچهٔ دستیار: سخت‌گیرانه رد نمی‌کند؛ پیام‌های خالی را حذف و پیام‌های بلند را کوتاه می‌کند (پاسخ‌های مدل می‌تواند از ۲۰۰۰ نویسه بیشتر باشد). */
+export function lenientHistory(value) {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) return null;
+  const items = [];
+  for (const item of value.slice(-LIMITS.historyItems)) {
+    if (!item || (item.role !== 'ai' && item.role !== 'user')) continue;
+    const text = typeof item.text === 'string' ? item.text.replace(/\r/g, '').trim().slice(0, 4000) : '';
+    if (text) items.push({ role: item.role, text });
+  }
+  let total = 0;
+  const out = [];
+  for (let i = items.length - 1; i >= 0; i -= 1) {
+    total += items[i].text.length;
+    if (total > LIMITS.historyChars) break;
+    out.unshift(items[i]);
+  }
+  return out;
+}
+
 /** متن گفت‌وگو با برچسب گوینده؛ به‌عنوان داده (نه دستور) به مدل داده می‌شود. */
 export function transcriptText(history) {
   if (!history.length) return '(هنوز گفت‌وگویی انجام نشده است.)';
@@ -279,7 +299,7 @@ async function assistant(request, env) {
     if (rawMessage || !files.length) return fail('VALIDATION_FAILED', 422, { field: 'message' });
     message = DEFAULT_ATTACHMENT_MESSAGE;
   }
-  const history = cleanHistory(body.history);
+  const history = lenientHistory(body.history);
   if (!history) return fail('VALIDATION_FAILED', 422, { field: 'history' });
 
   let attachments = [];

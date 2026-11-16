@@ -240,3 +240,17 @@ test('حالت مشاورهٔ حقوقی بدون نوع سند پاسخ می‌
     assert.ok(!system.includes('تهیه کن'));
   });
 });
+
+test('تاریخچهٔ دستیار: پیام بلند کوتاه و پیام خالی حذف می‌شود، نه اینکه درخواست رد شود', async () => {
+  const { lenientHistory } = await import('../worker/src/ai/routes.js');
+  const out = lenientHistory([
+    { role: 'user', text: 'سلام' },
+    { role: 'ai', text: 'پ'.repeat(5000) },
+    { role: 'ai', text: '   ' },
+    { role: 'x', text: 'نامعتبر' },
+  ]);
+  assert.equal(out.length, 2);
+  assert.equal(out[1].text.length, 4000);
+  assert.equal(lenientHistory(undefined).length, 0);
+  assert.equal(lenientHistory('bad'), null);
+});
