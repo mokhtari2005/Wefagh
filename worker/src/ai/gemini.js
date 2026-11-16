@@ -109,6 +109,8 @@ export async function generateText(env, { system, contents, maxOutputTokens = 10
     // Gemini 3 defaults to medium reasoning; low keeps interactive latency predictable.
     const generationConfig = { maxOutputTokens };
     if (model.startsWith('gemini-3.') && model !== fallbackModel) generationConfig.thinkingConfig = { thinkingLevel: 'low' };
+    // Gemini 2.5 Flash به‌طور پیش‌فرض «تفکر پویا» دارد که پاسخ را کند می‌کند؛ برای دستیار تعاملی خاموش می‌شود.
+    else if (model.startsWith('gemini-2.5-flash') && !model.includes('lite')) generationConfig.thinkingConfig = { thinkingBudget: 0 };
     if (json) {
       generationConfig.responseMimeType = 'application/json';
       if (schema) generationConfig.responseSchema = schema;

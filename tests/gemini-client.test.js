@@ -216,3 +216,18 @@ test('JSON خراب بدون MAX_TOKENS ترمیم نمی‌شود و AI_EMPTY �
     globalThis.fetch = original;
   }
 });
+
+test('Gemini 2.5 Flash با تفکر خاموش (thinkingBudget=0) فراخوانی می‌شود', async () => {
+  const original = globalThis.fetch;
+  let body;
+  globalThis.fetch = async (url, init) => {
+    body = JSON.parse(init.body);
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'سلام' }] } }] }), { status: 200 });
+  };
+  try {
+    await generateText({ GEMINI_API_KEY: env.GEMINI_API_KEY, GEMINI_TEXT_MODEL: 'gemini-2.5-flash' }, { system: 'x', contents: [{ role: 'user', parts: [{ text: 'x' }] }] });
+    assert.deepEqual(body.generationConfig.thinkingConfig, { thinkingBudget: 0 });
+  } finally {
+    globalThis.fetch = original;
+  }
+});
