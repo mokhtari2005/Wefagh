@@ -295,10 +295,11 @@ async function assistant(request, env) {
       ...toContents(history),
       { role: 'user', parts: buildUserParts(message, attachments) },
     ];
-    const { data } = await generateText(env, {
+    const { data, truncated } = await generateText(env, {
       system: assistantSystemPrompt({ mode, docType, hasAttachments: attachments.length > 0 }),
       contents,
-      maxOutputTokens: 3000,
+      // توکن‌های «تفکر» مدل هم از این سقف کم می‌شوند؛ سقف پایین باعث قطع شدن پیش‌نویس‌های فارسی می‌شد.
+      maxOutputTokens: 6000,
       timeoutMs: 40_000,
       json: true,
       schema: ASSISTANT_SCHEMA,
@@ -306,6 +307,7 @@ async function assistant(request, env) {
     const questions = Array.isArray(data.questions) ? data.questions.filter((q) => typeof q === 'string').slice(0, 5) : [];
     const notes = Array.isArray(data.notes) ? data.notes.filter((n) => typeof n === 'string').slice(0, 10) : [];
     const text = typeof data.text === 'string' ? data.text : '';
+    if (truncated) notes.push('پاسخ به‌دلیل طول زیاد کامل نشد. برای ادامه بنویسید «ادامه بده».');
     for (const warning of citationWarnings(text)) if (!notes.includes(warning)) notes.push(warning);
     for (const a of attachments) {
       if (a.truncated) notes.push(`فقط بخش ابتدایی «${a.name}» (حداکثر ${ATTACHMENT_LIMITS.extractedChars.toLocaleString('fa-IR')} نویسه) بررسی شد.`);
