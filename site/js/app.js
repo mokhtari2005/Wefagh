@@ -192,7 +192,7 @@ function pageContact() {
   mountContactForm(holder);
   wrap.append(h('p', { class: 'muted' }, [
     document.createTextNode('یا مستقیماً به ایمیل '),
-    h('a', { href: 'mailto:Vefagh.lawyers@gmail.com', text: 'Vefagh.lawyers@gmail.com' }),
+    h('a', { href: 'mailto:Mokhtari.ai.app@gmail.com', text: 'Mokhtari.ai.app@gmail.com' }),
     document.createTextNode(' بنویسید.'),
   ]));
   return wrap;
