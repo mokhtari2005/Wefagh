@@ -23,6 +23,7 @@ function loginHint() {
 
 export const ACADEMY_TOOLS = [
   { icon: 'cap', title: 'دوره‌های آموزشی', href: '#/courses' },
+  { icon: 'edit', title: 'مرکز آزمون هوشمند', href: '#/academy/exams' },
   { icon: 'mic', title: 'تمرین دادرسی و موت‌کورت', href: '#/moot-court' },
   { icon: 'scale', title: 'دستیار هوشمند وکیل', href: '#/assistant' },
   { icon: 'folder', title: 'بانک پرونده‌ها', href: '#/cases' },
@@ -227,4 +228,52 @@ function lessonsList(course, progress) {
     list.append(article);
   });
   return list;
+}
+
+/** مرکز آزمون مرحله‌ای با تصحیح قطعی تستی و ارزیابی تشریحی سمت سرور. */
+export async function academyExamsPage() {
+  const wrap=h('div',{class:'academy-exam-center'});
+  wrap.append(h('p',{},[h('a',{href:'#/academy',text:'← بازگشت به آکادمی'})]),h('h1',{text:'مرکز آزمون و ارزیابی هوشمند'}),h('p',{class:'lead',text:'آزمون‌های موضوعی و مرحله‌ای در دروس اصلی حقوق؛ شامل پرسش‌های چهارگزینه‌ای و پاسخ تشریحی با ارزیابی هوش مصنوعی.'}),h('div',{class:'notice',text:'۴۰٪ نمره از بخش تستی و ۶۰٪ از پاسخ تشریحی محاسبه می‌شود. ارزیابی هوش مصنوعی آموزشی است و جایگزین نظر استاد یا بررسی منابع رسمی نیست.'}));
+  const area=h('div',{role:'region','aria-live':'polite'});wrap.append(area);
+  const me=await getJson('/api/me');if(!me.ok){area.append(loginHint());return wrap;}
+  const load=await getJson('/api/academy/exams');
+  if(!load.ok){area.append(h('p',{class:'form-status err',text:messageFor(load.networkError?'NETWORK':load.data?.error)}));return wrap;}
+  const subjects=h('div',{class:'cards'});
+  area.append(h('h2',{text:'انتخاب درس'}),subjects);
+  for(const s of load.data.subjects){
+    const card=h('article',{class:'card'},[h('h3',{text:s.title}),h('p',{text:s.description}),h('p',{class:'muted',text:`${s.questionCount} سؤال تستی · ۱ سؤال تشریحی`})]);
+    const btn=h('button',{class:'btn',type:'button',text:'شروع آزمون'});
+    btn.addEventListener('click',()=>start(s.id,area));card.append(btn);subjects.append(card);
+  }
+  if(load.data.attempts?.length){
+    area.append(h('h2',{text:'سوابق آزمون'}));
+    const history=h('div',{class:'table-wrap'});
+    for(const a of load.data.attempts)history.append(h('p',{class:'notice',text:`${a.subject_title} · ${a.grading_status==='graded'?`نمره ${a.total_score} از ۱۰۰`:'در انتظار تکمیل تصحیح'} · ${new Date(a.created_at).toLocaleDateString('fa-IR')}`}));
+    area.append(history);
+  }
+  return wrap;
+}
+async function start(subjectId,area){
+  const r=await postJson('/api/academy/exams/start',{subjectId});
+  if(!r.ok){area.append(h('p',{class:'form-status err',text:messageFor(r.networkError?'NETWORK':r.data?.error)}));return;}
+  const a=r.data.attempt,section=h('section',{class:'panel academy-exam'});
+  section.append(h('h2',{text:a.subjectTitle}),h('p',{class:'muted',text:'به هر پرسش یک پاسخ بدهید؛ سپس پاسخ تشریحی را کامل کنید.'}));
+  const form=h('form',{class:'academy-assessment'});
+  for(const q of a.questions){
+    const field=h('fieldset',{class:'academy-quiz-options'});field.append(h('legend',{text:q.question}));
+    q.options.forEach((option,i)=>{const id=`exam-${q.id}-${i}`;const input=h('input',{type:'radio',name:q.id,id,value:String(i),required:'required'});field.append(h('label',{class:'academy-quiz-option',for:id},[input,h('span',{text:option})]));});
+    form.append(field);
+  }
+  const essay=h('textarea',{rows:'9',maxlength:'12000',required:'required',placeholder:'پاسخ تحلیلی خود را با استدلال و ذکر مبانی بنویسید.'});
+  form.append(h('h3',{text:'پرسش تشریحی'}),h('p',{text:a.essay.prompt}),h('label',{class:'academy-answer-label'},[h('span',{text:'پاسخ تشریحی (حداقل ۸۰ نویسه)'}),essay]));
+  const feedback=h('div',{class:'academy-feedback','aria-live':'polite'}),submit=h('button',{class:'btn',type:'submit',text:'ثبت پاسخ‌ها و تصحیح آزمون'});
+  form.append(submit,feedback);form.addEventListener('submit',async event=>{
+    event.preventDefault();if(essay.value.trim().length<80){feedback.textContent='پاسخ تشریحی باید دست‌کم ۸۰ نویسه داشته باشد.';essay.focus();return;}
+    const answers={};for(const q of a.questions){const selected=form.querySelector(`input[name="${q.id}"]:checked`);if(!selected){feedback.textContent='به همه پرسش‌های تستی پاسخ دهید.';return;}answers[q.id]=Number(selected.value);}
+    submit.disabled=true;submit.textContent='در حال تصحیح پاسخ‌ها…';
+    const result=await postJson('/api/academy/exams/submit',{attemptId:a.id,answers,essayResponse:essay.value});
+    if(!result.ok){submit.disabled=false;submit.textContent='تلاش دوباره برای تصحیح';feedback.replaceChildren(h('p',{class:'form-status err',text:result.data?.message||messageFor(result.networkError?'NETWORK':result.data?.error)}));return;}
+    const g=result.data.result;form.replaceChildren(h('h2',{text:`نمره نهایی: ${g.totalScore} از ۱۰۰`}),h('p',{text:`تستی: ${g.objectiveScore} از ۱۰۰ · تشریحی: ${g.essayScore} از ۱۰۰`}),h('h3',{text:'بازخورد ارزیاب'}),h('p',{text:g.overall}),h('h3',{text:'ارزیابی معیارها'}),h('ul',{},g.criteria.map(c=>h('li',{text:`${c.criterion}: ${c.score} از ۲۰ — ${c.feedback}` }))),h('h3',{text:'نقاط قوت'}),h('ul',{},g.strengths.map(x=>h('li',{text:x}))),h('h3',{text:'موارد قابل بهبود'}),h('ul',{},g.improvements.map(x=>h('li',{text:x}))),h('p',{class:'notice',text:g.verificationNote}),h('a',{href:'#/academy/exams',text:'بازگشت به مرکز آزمون'}));
+  });
+  area.replaceChildren(section);section.append(form);
 }

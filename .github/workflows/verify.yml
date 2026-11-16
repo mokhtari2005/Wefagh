@@ -3,7 +3,7 @@ name: Verify
 on:
   pull_request:
   push:
-    branches: [main, 'fix/**']
+    branches: [main, 'fix/**', 'feat/**']
 
 jobs:
   verify:
