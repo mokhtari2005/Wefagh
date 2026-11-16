@@ -1,4 +1,4 @@
-// بارگذاری بانک پرونده‌ها به‌صورت پیش‌نویس: شمارش، تکرارناپذیری، یکپارچگی و دسترسی.
+// بارگذاری سناریوهای فرضی آموزشی: شمارش، انتشار امن، تکرارناپذیری و دسترسی.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -55,7 +55,7 @@ test('بدون ورود بارگذاری ۴۰۱ و کاربر عادی ۴۰۳ م
   assert.equal((await worker.fetch(req('/api/admin/cases/import', { method: 'POST', cookie: user.cookie }), user.env)).status, 403);
 });
 
-test('بارگذاری: آزمایشی بدون نوشتن، سپس ۲۰۷ پیش‌نویس؛ تکرار چیزی اضافه نمی‌کند', { skip }, async () => {
+test('بارگذاری: آزمایشی بدون نوشتن، سپس ۲۰۷ سناریوی فرضی منتشرشده؛ تکرار چیزی اضافه نمی‌کند', { skip }, async () => {
   const { db, env, cookie } = await setup();
   const dry = await (await worker.fetch(req('/api/admin/cases/import?dryRun=1', { method: 'POST', cookie }), env)).json();
   assert.equal(dry.wouldInsert, 207);
@@ -67,10 +67,11 @@ test('بارگذاری: آزمایشی بدون نوشتن، سپس ۲۰۷ پی�
   assert.equal(again.inserted, 0);
   assert.equal(again.skippedExisting, 207);
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM admin_content WHERE kind='case'").get().n, 207);
-  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM admin_content WHERE kind='case' AND status<>'draft'").get().n, 0);
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM admin_content WHERE kind='case' AND status='published'").get().n, 207);
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM admin_content WHERE kind='case' AND json_extract(payload_json, '$.training_only')=1").get().n, 207);
 });
 
-test('گزارش یکپارچگی: همهٔ پرونده‌ها سالم، هیچ استنادی تأیید نشده و هیچ پروندهٔ منتشرشده‌ای نیست', { skip }, async () => {
+test('گزارش یکپارچگی: ۲۰۷ سناریوی سالم و منتشرشده با استنادهای نیازمند بررسی', { skip }, async () => {
   const { env, cookie } = await setup();
   await worker.fetch(req('/api/admin/cases/import', { method: 'POST', cookie }), env);
   const s = await (await worker.fetch(req('/api/admin/cases/status', { cookie }), env)).json();
@@ -80,12 +81,18 @@ test('گزارش یکپارچگی: همهٔ پرونده‌ها سالم، هی�
   assert.deepEqual(s.missing, []);
   assert.deepEqual(s.changed, []);
   assert.equal(s.verifiedRefs, 0);
-  assert.equal(s.counts.published, 0);
+  assert.equal(s.counts.published, 207);
 });
 
-test('پیش‌نویس‌ها در فهرست عمومی پرونده‌ها دیده نمی‌شوند', { skip }, async () => {
+test('سناریوهای فرضی منتشرشده در بانک عمومی دیده می‌شوند و رأی آموزشی افشا نمی‌شود', { skip }, async () => {
   const { env, cookie } = await setup();
   await worker.fetch(req('/api/admin/cases/import', { method: 'POST', cookie }), env);
-  const pub = await (await worker.fetch(req('/api/cases'), env)).json();
-  assert.deepEqual(pub.cases, []);
+  const pub = await (await worker.fetch(req('/api/moot/cases'), env)).json();
+  assert.equal(pub.total, 207);
+  assert.equal(pub.cases.length, 207);
+  assert.equal(pub.cases[0].trainingOnly, true);
+  const detail = await (await worker.fetch(req(`/api/moot/cases/${pub.cases[0].id}`), env)).json();
+  assert.equal(detail.case.trainingOnly, true);
+  assert.equal('verdict' in detail.case, false);
+  assert.equal(detail.case.legalRefs[0].article, null);
 });
