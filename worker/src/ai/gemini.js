@@ -64,7 +64,7 @@ async function post(env, op, model, url, payload, timeoutMs = AI_TIMEOUT_MS) {
     if (res.status === 429) throw new AiError('AI_QUOTA', 429);
     if (res.status === 401 || res.status === 403) throw new AiError('AI_KEY_REJECTED', 503);
     if (res.status === 404) throw new AiError('AI_MODEL_UNAVAILABLE', 503);
-    if (res.status >= 500) throw new AiError('AI_PROVIDER_ERROR', 503, { providerStatus: res.status, ...(reason ? { providerReason: reason } : {}) });
+    if (res.status >= 500 || res.status === 499 || res.status === 408) throw new AiError('AI_PROVIDER_ERROR', 503, { providerStatus: res.status, ...(reason ? { providerReason: reason } : {}) });
     throw new AiError('AI_REJECTED', 502);
   }
   try {
@@ -271,6 +271,7 @@ export function probeHint(result) {
   if (result.httpStatus === 403) return 'دسترسی رد شد: کلید برای این مدل مجاز نیست یا Generative Language API در پروژه فعال نیست.';
   if (result.httpStatus === 400) return 'درخواست یا کلید نامعتبر است (کلید API را در Cloudflare بررسی کنید).';
   if (result.httpStatus === 429) return 'سهمیهٔ این مدل پر شده است (Billing یا سقف رایگان).';
+  if (result.httpStatus === 499 || result.httpStatus === 408) return 'درخواست از سمت Google لغو شد (CANCELLED)؛ معمولاً موقتی است.';
   if (result.httpStatus >= 500) return 'خطای موقت از سمت Google؛ چند دقیقه بعد دوباره بررسی کنید.';
   if (result.reason === 'TIMEOUTERROR' || result.reason === 'ABORTERROR') return 'پاسخی در ۲۰ ثانیه نیامد.';
   return 'علت نامشخص؛ لاگ Worker را ببینید.';

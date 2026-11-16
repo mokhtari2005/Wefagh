@@ -232,3 +232,19 @@ test('Gemini 2.5 Flash با تفکر خاموش (thinkingBudget=0) فراخوا�
     globalThis.fetch = original;
   }
 });
+
+test('Gemini 499 (CANCELLED) is treated as a transient provider error', async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({ error: { status: 'CANCELLED', message: 'private' } }), { status: 499 });
+  try {
+    await assert.rejects(
+      generateText(env, { system: 'x', contents: [{ role: 'user', parts: [{ text: 'x' }] }] }),
+      (error) => error instanceof AiError
+        && error.code === 'AI_PROVIDER_ERROR'
+        && error.details.providerStatus === 499
+        && !JSON.stringify(error).includes('private'),
+    );
+  } finally {
+    globalThis.fetch = original;
+  }
+});
