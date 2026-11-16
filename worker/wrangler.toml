@@ -2,6 +2,9 @@ name = "wefagh"
 main = "src/index.js"
 compatibility_date = "2026-01-01"
 
+[build]
+command = "npx wrangler d1 migrations apply DB --remote"
+
 routes = [
   { pattern = "mokhtari.ir/api/*", zone_name = "mokhtari.ir" }
 ]
