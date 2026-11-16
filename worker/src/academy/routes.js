@@ -4,7 +4,7 @@ import { currentUser } from '../auth/routes.js';
 import { COURSES, courseSummaries, findCourse, findLesson, isPublicCourse } from './catalog.js';
 import { lessonLearning } from './learning.js';
 import { handleAcademyExams } from './exam-routes.js';
-import { generateLessonLegalReview } from './legal-review.js';
+import { generateLessonLegalReview, gradeLessonResponse } from './legal-review.js';
 
 const MANAGER_ROLES = ['admin', 'super_admin', 'academy_manager'];
 const isManager = (user) => Boolean(user && Array.isArray(user.roles) && user.roles.some((r) => MANAGER_ROLES.includes(r)));
@@ -174,8 +174,16 @@ export async function handleAcademy(request, env, path) {
     if (!(await canAccessCourse(request, env, course))) return json({ ok: false, error: 'COURSE_NOT_PUBLISHED' }, 403);
     const enrolled = await env.DB.prepare('SELECT 1 AS x FROM enrollments WHERE user_id = ?1 AND course_id = ?2').bind(user.id, course.id).first();
     if (!enrolled) return json({ ok: false, error: 'NOT_ENROLLED' }, 403);
-    const passed = answerIndex === learning.quiz.correctIndex;
-    const score = passed ? 100 : 0;
+    let essayAssessment;
+    try {
+      essayAssessment = await gradeLessonResponse(env, course, lesson, { ...learning, _answerIndex: answerIndex }, responseText);
+    } catch (error) {
+      console.error('academy essay grading unavailable', String(error?.code || error?.name || 'Error').slice(0, 80));
+      return json({ ok: false, error: 'ESSAY_GRADING_UNAVAILABLE', gradingPending: true, message: 'پاسخ شما هنوز نمره‌دهی نشده است؛ سرویس تصحیح در دسترس نیست. لطفاً بعداً دوباره تلاش کنید.' }, 503);
+    }
+    const objectiveCorrect = answerIndex === learning.quiz.correctIndex;
+    const score = Math.round((objectiveCorrect ? 40 : 0) + essayAssessment.score * 0.6);
+    const passed = objectiveCorrect && essayAssessment.score >= 60;
     try {
       await ensureAssessmentSchema(env.DB);
       await env.DB.prepare(`INSERT INTO lesson_assessments (user_id, course_id, lesson_id, answer_index, response_text, score, passed)
@@ -196,9 +204,13 @@ export async function handleAcademy(request, env, path) {
     try {
       await ensureLegalReviewSchema(env.DB);
       legalReview = await generateLessonLegalReview(env, course, lesson, learning, answerIndex, responseText);
-      if (legalReview) await env.DB.prepare('INSERT INTO lesson_legal_reviews (user_id, course_id, lesson_id, review_json, updated_at) VALUES (?1, ?2, ?3, ?4, strftime(\'%Y-%m-%dT%H:%M:%fZ\',\'now\')) ON CONFLICT(user_id, course_id, lesson_id) DO UPDATE SET review_json=excluded.review_json, updated_at=excluded.updated_at').bind(user.id, course.id, lesson.id, JSON.stringify(legalReview)).run();
-    } catch (error) { console.error('academy legal review unavailable', String(error?.code || error?.name || 'Error').slice(0, 80)); }
-    return json({ ok: true, score, passed, explanation: learning.quiz.explanation, legalReview, legalReviewPending: !legalReview, legalReviewNote: legalReview ? null : 'تحلیل مستندات حقوقی فعلاً آماده نشد؛ پاسخ شما ذخیره شده است.', message: passed ? 'آزمونک با موفقیت گذرانده شد و درس در کارنامه ثبت شد.' : 'پاسخ تمرین ذخیره شد. توضیح را بخوانید و پس از مرور درس دوباره تلاش کنید.' });
+      legalReview = { ...(legalReview || {}), essayAssessment };
+      await env.DB.prepare('INSERT INTO lesson_legal_reviews (user_id, course_id, lesson_id, review_json, updated_at) VALUES (?1, ?2, ?3, ?4, strftime(\'%Y-%m-%dT%H:%M:%fZ\',\'now\')) ON CONFLICT(user_id, course_id, lesson_id) DO UPDATE SET review_json=excluded.review_json, updated_at=excluded.updated_at').bind(user.id, course.id, lesson.id, JSON.stringify(legalReview)).run();
+    } catch (error) {
+      legalReview = { essayAssessment };
+      console.error('academy legal review unavailable', String(error?.code || error?.name || 'Error').slice(0, 80));
+    }
+    return json({ ok: true, score, essayScore: essayAssessment.score, passed, explanation: learning.quiz.explanation, legalReview, essayAssessment, legalReviewPending: !legalReview?.analysis, legalReviewNote: legalReview?.analysis ? null : 'تحلیل مستندات حقوقی تکمیلی فعلاً آماده نشد؛ نمره پاسخ تشریحی ثبت شده است.', message: passed ? 'آزمونک با موفقیت گذرانده شد و درس در کارنامه ثبت شد.' : 'پاسخ ثبت شد، اما برای قبولی باید هم گزینه تستی صحیح باشد و هم نمره پاسخ تشریحی دست‌کم ۶۰ از ۱۰۰ شود. بازخورد را بخوانید و دوباره تلاش کنید.' });
   }
 
   if (path === '/api/academy/complete') {
