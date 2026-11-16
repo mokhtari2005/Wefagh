@@ -1549,3 +1549,49 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
 .academy-question-level.easy { background: #e8f4ed; color: #236447; }
 .academy-question-level.medium { background: #fff3d9; color: #76531a; }
 .academy-question-level.hard { background: #f8e8e8; color: #8b3434; }
+
+
+/* کارنامه آزمون: چیدمان فشرده و مستقل برای چاپ تک‌برگ A5 افقی */
+.academy-exam-report { box-sizing: border-box; overflow: hidden; min-height: 0; }
+.academy-report-identity { display: grid; gap: .15rem; margin: .35rem 0 .55rem; padding: .45rem .7rem; border-radius: 8px; background: #eef2f7; text-align: center; }
+.academy-report-identity span, .academy-report-details span { color: #566477; font-size: .75rem; }
+.academy-report-identity strong { color: #102b57; font-size: 1.12rem; }
+.academy-report-details { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .35rem .5rem; margin-bottom: .55rem; }
+.academy-report-details > div { display: flex; justify-content: space-between; align-items: baseline; gap: .35rem; min-width: 0; padding: .25rem .4rem; border-bottom: 1px solid #e2e7ed; }
+.academy-report-details strong { min-width: 0; overflow-wrap: anywhere; color: #263c56; font-size: .76rem; text-align: end; }
+.academy-exam-report .academy-report-scores { gap: .45rem; }
+.academy-exam-report .academy-report-scores > div { padding: .4rem .3rem; gap: .12rem; }
+.academy-exam-report .academy-report-scores span { font-size: .72rem; }
+.academy-exam-report .academy-report-scores strong { font-size: 1rem; }
+.academy-report-correct-count { margin: .45rem 0; text-align: center; color: #33465d; font-size: .78rem; font-weight: 700; }
+.academy-exam-report .academy-report-bottom { margin-top: .5rem; padding-top: .4rem; font-size: .7rem; }
+.academy-exam-report .academy-report-signature { margin-top: .45rem; font-size: .75rem; }
+.academy-report-note { margin: .4rem 0 0; color: #647184; font-size: .65rem; text-align: center; }
+.academy-exam-review { margin-top: 1.5rem; }
+@media print {
+  @page { size: A5 landscape; margin: 0; }
+  html, body { width: 210mm !important; height: 148mm !important; margin: 0 !important; padding: 0 !important; background: #fff !important; }
+  body * { visibility: hidden !important; }
+  .academy-exam-report, .academy-exam-report * { visibility: visible !important; }
+  .academy-print-sheet:not(.academy-exam-report) { visibility: hidden !important; }
+  .academy-exam-results { display: block !important; margin: 0 !important; padding: 0 !important; }
+  .academy-exam-report { position: absolute !important; inset: 0 !important; width: 210mm !important; height: 148mm !important; max-width: none !important; min-height: 0 !important; margin: 0 !important; padding: 7mm 10mm !important; border: 1px solid #17345f !important; outline: 1px solid #b69a4d !important; outline-offset: -3mm !important; border-radius: 0 !important; box-shadow: none !important; overflow: hidden !important; box-sizing: border-box !important; page-break-after: avoid !important; break-inside: avoid !important; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
+  .academy-exam-report .academy-report-brand { font-size: 9pt !important; }
+  .academy-exam-report .academy-report-kicker { margin: 1mm 0 !important; font-size: 8pt !important; }
+  .academy-exam-report h2 { margin: 1mm 0 !important; font-size: 15pt !important; }
+  .academy-exam-report .academy-report-subject { margin: 1mm 0 2mm !important; font-size: 10pt !important; }
+  .academy-report-identity { margin: 1.5mm 0 2mm !important; padding: 1.5mm 3mm !important; }
+  .academy-report-identity span, .academy-report-details span { font-size: 7pt !important; }
+  .academy-report-identity strong { font-size: 10pt !important; }
+  .academy-report-details { gap: 1mm 2mm !important; margin-bottom: 2mm !important; }
+  .academy-report-details > div { padding: 1mm 1.5mm !important; }
+  .academy-report-details strong { font-size: 7pt !important; }
+  .academy-exam-report .academy-report-scores > div { padding: 2mm 1mm !important; }
+  .academy-exam-report .academy-report-scores span { font-size: 7pt !important; }
+  .academy-exam-report .academy-report-scores strong { font-size: 10pt !important; }
+  .academy-report-correct-count { margin: 2mm 0 !important; font-size: 7pt !important; }
+  .academy-exam-report .academy-report-bottom { margin-top: 2mm !important; padding-top: 1.5mm !important; font-size: 7pt !important; }
+  .academy-exam-report .academy-report-signature { margin-top: 2mm !important; font-size: 7pt !important; }
+  .academy-report-note { margin-top: 1mm !important; font-size: 6pt !important; }
+  .academy-print-actions, .academy-exam-review, .no-print { display: none !important; }
+}

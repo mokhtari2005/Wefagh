@@ -202,3 +202,15 @@ export function selectExamQuestions(subject, random=Math.random, excludedIds=new
  for(let i=selected.length-1;i>0;i--){const j=Math.floor(random()*(i+1));[selected[i],selected[j]]=[selected[j],selected[i]];}
  return selected;
 }
+
+
+export function selectEssayQuestion(subject, random=Math.random, excludedIds=new Set()) {
+ const fresh=subject.questions.filter(q=>!excludedIds.has(q.id));
+ const pool=fresh.length?fresh:subject.questions;
+ if(!pool.length)return null;
+ return pool[Math.min(pool.length-1,Math.floor(random()*pool.length))];
+}
+export function formatEssayPrompt(question) {
+ if(!question)return '';
+ return 'سناریوی تشریحی: '+question.q+'\n\nاین وضعیت را با تفکیک وقایع مؤثر، مسئله حقوقی، قواعد قابل اعمال، تطبیق قواعد بر وقایع پرونده و نتیجه‌گیری مستدل تحلیل کنید. از ذکر شماره ماده یا رأی بدون اطمینان از منبع رسمی خودداری کنید.';
+}

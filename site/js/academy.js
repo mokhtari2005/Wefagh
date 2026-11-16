@@ -289,9 +289,34 @@ export async function academyExamsPage() {
 function examReportCard(user, attempt, result) {
   const issued = new Date().toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' });
   const reportNo = String(attempt.id || '').replace(/-/g, '').slice(-10).toUpperCase();
+  const profile = user?.profile || {};
+  const fullName = user?.displayName || user?.name || 'شرکت‌کننده';
+  const info = [
+    ['ایمیل', user?.email],
+    ['شماره تماس', profile.phone],
+    ['شهر / استان', [profile.city, profile.province].filter(Boolean).join('، ')],
+    ['وضعیت حرفه‌ای', profile.professionalStatus],
+    ['کانون / مرجع', profile.barAssociation],
+    ['شماره پروانه', profile.licenseNumber],
+  ].filter(([, value]) => value);
+  const objective = Number(result.objectiveScore ?? 0);
+  const essay = Number(result.essayScore ?? 0);
+  const total = Number(result.totalScore ?? Math.round(objective * .4 + essay * .6));
   const review = h('section', { class: 'academy-exam-review' }, [
     h('h2', { text: 'پاسخ‌نامه و تحلیل آزمون' }),
     h('p', { class: 'muted', text: 'پاسخ درست هر سؤال، توضیح آن و پاسخ پیشنهادی سؤال تشریحی در این بخش آمده است.' }),
+    h('article', { class: 'academy-review-essay' }, [
+      h('h3', { text: 'صورت سؤال تشریحی' }),
+      h('p', { text: result.essayPrompt || attempt.essayPrompt || 'پرسش تشریحی این آزمون' }),
+      h('h3', { text: 'پاسخ پیشنهادی و استدلال' }),
+      h('p', { text: result.sampleAnswer || 'پاسخ پیشنهادی مستقلی برای این سؤال تولید نشد؛ معیارهای ارزیابی و بازخورد زیر مبنای بررسی پاسخ شماست.' }),
+      h('h4', { text: 'منطق و مراحل استدلال' }),
+      h('ul', {}, (result.reasoning || []).map(x => h('li', { text: x }))),
+      h('h4', { text: 'ارزیابی پاسخ شما' }),
+      h('p', { text: result.overall || '' }),
+      h('ul', {}, (result.criteria || []).map(c => h('li', { text: `${c.criterion}: ${c.score} از ۲۰ — ${c.feedback}` }))),
+      h('p', { class: 'muted', text: result.verificationNote || 'این ارزیابی آموزشی است و باید با منابع رسمی حقوقی تطبیق داده شود.' }),
+    ]),
   ]);
   for (const [index, item] of (result.questionReviews || []).entries()) {
     const row = h('article', { class: 'academy-review-question' }, [
@@ -302,39 +327,37 @@ function examReportCard(user, attempt, result) {
     ]);
     review.append(row);
   }
-  review.append(h('article', { class: 'academy-review-essay' }, [
-    h('h3', { text: 'پاسخ تشریحی؛ پاسخ پیشنهادی و استدلال' }),
-    h('p', { text: result.sampleAnswer || 'پاسخ پیشنهادی مستقلی برای این سؤال تولید نشد؛ معیارهای ارزیابی و بازخورد زیر مبنای بررسی پاسخ شماست.' }),
-    h('h4', { text: 'منطق و مراحل استدلال' }),
-    h('ul', {}, (result.reasoning || []).map(x => h('li', { text: x }))),
-    h('h4', { text: 'ارزیابی پاسخ شما' }),
-    h('p', { text: result.overall || '' }),
-    h('ul', {}, (result.criteria || []).map(c => h('li', { text: `${c.criterion}: ${c.score} از ۲۰ — ${c.feedback}` }))),
-    h('p', { class: 'muted', text: result.verificationNote || 'این ارزیابی آموزشی است و باید با منابع رسمی حقوقی تطبیق داده شود.' }),
-  ]));
   const report = h('article', { class: 'academy-print-sheet academy-exam-report', dir: 'rtl' }, [
     h('div', { class: 'academy-report-brand', text: 'آکادمی وکالت شهرام مختاری' }),
     h('p', { class: 'academy-report-kicker', text: 'کارنامه ارزیابی آموزشی' }),
     h('h2', { text: 'کارنامه آزمون' }),
     h('h3', { class: 'academy-report-subject', text: attempt.subjectTitle || 'آزمون تخصصی حقوق' }),
-    h('p', { class: 'academy-report-person', text: user?.displayName || 'شرکت‌کننده' }),
-    h('div', { class: 'academy-report-scores' }, [
-      h('div', {}, [h('span', { text: 'نمره تستی' }), h('strong', { text: String(result.objectiveScore ?? 0) + ' از ۱۰۰' })]),
-      h('div', {}, [h('span', { text: 'نمره تشریحی' }), h('strong', { text: String(result.essayScore ?? 0) + ' از ۱۰۰' })]),
-      h('div', { class: 'academy-report-total' }, [h('span', { text: 'نمره نهایی' }), h('strong', { text: String(result.totalScore ?? 0) + ' از ۱۰۰' })]),
+    h('div', { class: 'academy-report-identity' }, [
+      h('span', { text: 'نام و نام خانوادگی' }),
+      h('strong', { text: fullName }),
     ]),
+    h('div', { class: 'academy-report-details' }, info.map(([label, value]) => h('div', {}, [
+      h('span', { text: label }), h('strong', { text: String(value) }),
+    ]))),
+    h('div', { class: 'academy-report-scores' }, [
+      h('div', {}, [h('span', { text: 'نمره تستی' }), h('strong', { text: objective + ' از ۱۰۰' })]),
+      h('div', {}, [h('span', { text: 'نمره تشریحی' }), h('strong', { text: essay + ' از ۱۰۰' })]),
+      h('div', { class: 'academy-report-total' }, [h('span', { text: 'نمره نهایی' }), h('strong', { text: total + ' از ۱۰۰' })]),
+    ]),
+    h('p', { class: 'academy-report-correct-count', text: `پاسخ صحیح تستی: ${Number(result.correctAnswers ?? 0)} از ${Number(result.totalQuestions ?? 10)} سؤال` }),
     h('div', { class: 'academy-report-bottom' }, [
       h('span', { text: 'شماره کارنامه: ' + (reportNo || '—') }),
       h('span', { text: 'تاریخ صدور: ' + issued }),
     ]),
     h('div', { class: 'academy-report-signature' }, [h('span', { text: 'مدیر آکادمی وکالت' }), h('strong', { text: 'شهرام مختاری' })]),
+    h('p', { class: 'academy-report-note', text: 'این کارنامه صرفاً نتیجه یک ارزیابی آموزشی است و گواهی صلاحیت حرفه‌ای یا مدرک رسمی محسوب نمی‌شود.' }),
   ]);
   const actions = h('div', { class: 'academy-print-actions no-print' }, [
     h('button', { class: 'btn', type: 'button', text: 'چاپ کارنامه A5 / ذخیره PDF' }),
     h('a', { class: 'btn btn-outline', href: '#/academy/exams', text: 'بازگشت به مرکز آزمون' }),
   ]);
   actions.querySelector('button').addEventListener('click', () => window.print());
-  return h('div', { class: 'academy-exam-results' }, [review, report, actions]);
+  return h('div', { class: 'academy-exam-results' }, [report, actions, review]);
 }
 
 async function start(subjectId,area,user){
@@ -358,7 +381,7 @@ async function start(subjectId,area,user){
     const result=await postJson('/api/academy/exams/submit',{attemptId:a.id,answers,essayResponse:essay.value});
     if(!result.ok){submit.disabled=false;submit.textContent='تلاش دوباره برای تصحیح';feedback.replaceChildren(h('p',{class:'form-status err',text:result.data?.message||messageFor(result.networkError?'NETWORK':result.data?.error)}));return;}
     const g=result.data.result;
-    area.replaceChildren(examReportCard(user,{id:a.id,subjectTitle:a.subjectTitle},g));
+    area.replaceChildren(examReportCard(user,{id:a.id,subjectTitle:a.subjectTitle,essayPrompt:a.essay?.prompt},g));
   });
   area.replaceChildren(section);section.append(form);
 }
