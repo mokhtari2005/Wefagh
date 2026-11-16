@@ -58,7 +58,7 @@ export async function handleAcademyExams(request,env,path){
   const ids=selected.map(q=>q.id);
   const recentEssays=await env.DB.prepare('SELECT prompt_key FROM academy_exam_essay_prompts WHERE subject_id=?1 AND attempt_id IN (SELECT id FROM academy_exam_attempts WHERE user_id=?2) ORDER BY created_at DESC LIMIT 12').bind(s.id,user.id).all();
   const excludedEssays=new Set((recentEssays.results||[]).map(row=>row.prompt_key));
-  const essayQuestion=selectEssayQuestion(s,Math.random,excludedEssays);
+  const essayQuestion=selectEssayQuestion(s,Math.random,new Set([...excludedEssays,...ids]));
   const essayPrompt=formatEssayPrompt(essayQuestion)||s.essay;
   await env.DB.prepare("INSERT INTO academy_exam_attempts (id,user_id,subject_id,subject_title,question_ids_json,grading_status) VALUES (?1,?2,?3,?4,?5,'started')").bind(id,user.id,s.id,s.title,JSON.stringify(ids)).run();
   await env.DB.prepare('INSERT INTO academy_exam_essay_prompts (attempt_id,subject_id,prompt_key,prompt) VALUES (?1,?2,?3,?4)').bind(id,s.id,essayQuestion?.id||'legacy',essayPrompt).run();
