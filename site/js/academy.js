@@ -168,8 +168,8 @@ function courseCertificateCard(user, course) {
       h('span', { text: 'شماره گواهینامه: ' + serial }),
     ]),
     h('div', { class: 'academy-cert-signatures' }, [
-      h('span', { text: 'استاد دوره' }),
-      h('span', { text: 'مدیر آکادمی وکالت' }),
+      h('div', { class: 'academy-cert-signature' }, [h('span', { text: '' }), h('strong', { text: 'استاد دوره' })]),
+      h('div', { class: 'academy-cert-signature' }, [h('span', { text: '' }), h('strong', { text: 'شهرام مختاری' }), h('small', { text: 'مدیر آکادمی وکالت' })]),
     ]),
     h('p', { class: 'academy-cert-footnote', text: 'این گواهینامه ناظر بر اتمام دوره آموزشی در آکادمی است.' }),
   ]);
