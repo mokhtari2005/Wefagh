@@ -52,11 +52,15 @@ export async function register(request, env) {
 
   const email = normalizeEmail(body.email);
   const displayName = cleanText(body.displayName);
+  const professionalTitle = cleanText(body.professionalTitle);
+  const position = cleanText(body.position);
   const errors = {};
   if (!email) errors.email = 'نشانی ایمیل معتبر نیست.';
   const pol = validatePasswordPolicy(body.password);
   if (!pol.ok) errors.password = pol.error;
-  if (displayName.length < 2 || displayName.length > 100) errors.displayName = 'نام نمایشی باید بین ۲ و ۱۰۰ نویسه باشد.';
+  if (displayName.length < 2 || displayName.length > 100) errors.displayName = 'نام و نام خانوادگی باید بین ۲ و ۱۰۰ نویسه باشد.';
+  if (professionalTitle && (professionalTitle.length < 2 || professionalTitle.length > 100)) errors.professionalTitle = 'عنوان حرفه‌ای باید بین ۲ و ۱۰۰ نویسه باشد.';
+  if (position && (position.length < 2 || position.length > 100)) errors.position = 'سمت باید بین ۲ و ۱۰۰ نویسه باشد.';
   if (Object.keys(errors).length > 0) return json({ ok: false, error: 'VALIDATION_FAILED', errors }, 422);
 
   const existing = await env.DB.prepare('SELECT id FROM users WHERE email = ?1').bind(email).first();
@@ -69,6 +73,15 @@ export async function register(request, env) {
       .bind(email, passwordHash, displayName)
       .first();
     userId = row?.id;
+    if (userId) {
+      const membershipNo = `WFA-${String(userId).padStart(8, '0')}`;
+      try {
+        await env.DB.prepare('UPDATE users SET membership_no=?1, professional_title=?2, position=?3 WHERE id=?4').bind(membershipNo, professionalTitle, position, userId).run();
+      } catch (identityError) {
+        // سازگاری با محیط‌های آزمایشی یا نسخه‌های قدیمی DB تا زمان اجرای مهاجرت ۰۰۱۴.
+        if (!String(identityError?.message || '').includes('no such column')) throw identityError;
+      }
+    }
   } catch (err) {
     // ثبت همزمان دو درخواست با یک ایمیل: پاسخ عمومی؛ سایر خطاها به کاربر نشان داده نمی‌شوند.
     if (String(err?.message || '').includes('UNIQUE')) return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
@@ -284,11 +297,20 @@ export async function currentUser(request, env) {
     .bind(await hashToken(token), nowIso)
     .first();
   if (!row) return null;
+  let identity = {};
+  try {
+    identity = await env.DB.prepare('SELECT membership_no, professional_title, position FROM users WHERE id=?1').bind(row.id).first() || {};
+  } catch (identityError) {
+    if (!String(identityError?.message || '').includes('no such column')) throw identityError;
+  }
   const roleRows = await env.DB.prepare('SELECT role FROM user_roles WHERE user_id = ?1').bind(row.id).all();
   return {
     id: row.id,
     email: row.email,
     displayName: row.display_name,
+    membershipNo: identity.membership_no || `WFA-${String(row.id).padStart(8, '0')}`,
+    professionalTitle: identity.professional_title || '',
+    position: identity.position || '',
     roles: (roleRows?.results || []).map((r) => r.role),
   };
 }

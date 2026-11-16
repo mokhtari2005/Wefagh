@@ -45,6 +45,7 @@ function setup() {
   db.exec(migration('0001_init.sql'));
   db.exec(migration('0002_auth.sql'));
   db.exec(migration('0008_registration_profile.sql'));
+  db.exec(migration('0014_member_identity.sql'));
   const sent = [];
   const env = {
     DB: d1Like(db),
@@ -93,7 +94,7 @@ function sessionCookieFrom(res) {
 
 async function registerAndLogin(env, sent, { email, phone }) {
   // ثبت‌نام پروفایل نمی‌سازد؛ پروفایل (در صورت نیاز) از مسیر ویرایش ذخیره می‌شود.
-  await call(env, '/api/auth/register', { body: { email, password: OLD, displayName: 'کاربر آزمایشی' } });
+  await call(env, '/api/auth/register', { body: { email, password: OLD, displayName: 'کاربر آزمایشی', professionalTitle: 'کارآموز وکالت', position: 'عضو' } });
   const token = sent.at(-1).text.match(/token=([A-Za-z0-9_-]+)/)[1];
   await call(env, '/api/auth/verify-email', { body: { token } });
   const res = await call(env, '/api/auth/login', { body: { email, password: OLD } });

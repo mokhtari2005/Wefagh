@@ -288,17 +288,10 @@ export async function academyExamsPage() {
 
 function examReportCard(user, attempt, result) {
   const issued = new Date().toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' });
-  const reportNo = String(attempt.id || '').replace(/-/g, '').slice(-10).toUpperCase();
-  const profile = user?.profile || {};
+  const membershipNo = user?.membershipNo || 'پس از تکمیل اطلاعات عضویت';
   const fullName = user?.displayName || user?.name || 'شرکت‌کننده';
-  const info = [
-    ['ایمیل', user?.email],
-    ['شماره تماس', profile.phone],
-    ['شهر / استان', [profile.city, profile.province].filter(Boolean).join('، ')],
-    ['وضعیت حرفه‌ای', profile.professionalStatus],
-    ['کانون / مرجع', profile.barAssociation],
-    ['شماره پروانه', profile.licenseNumber],
-  ].filter(([, value]) => value);
+  const professionalTitle = user?.professionalTitle || '—';
+  const position = user?.position || '—';
   const objective = Number(result.objectiveScore ?? 0);
   const essay = Number(result.essayScore ?? 0);
   const total = Number(result.totalScore ?? Math.round(objective * .4 + essay * .6));
@@ -333,12 +326,11 @@ function examReportCard(user, attempt, result) {
     h('h2', { text: 'کارنامه آزمون' }),
     h('h3', { class: 'academy-report-subject', text: attempt.subjectTitle || 'آزمون تخصصی حقوق' }),
     h('div', { class: 'academy-report-identity' }, [
-      h('span', { text: 'نام و نام خانوادگی' }),
-      h('strong', { text: fullName }),
+      h('div', {}, [h('span', { text: 'نام و نام خانوادگی' }), h('strong', { text: fullName })]),
+      h('div', {}, [h('span', { text: 'عنوان' }), h('strong', { text: professionalTitle })]),
+      h('div', {}, [h('span', { text: 'سمت' }), h('strong', { text: position })]),
+      h('div', {}, [h('span', { text: 'شماره عضویت' }), h('strong', { text: membershipNo })]),
     ]),
-    h('div', { class: 'academy-report-details' }, info.map(([label, value]) => h('div', {}, [
-      h('span', { text: label }), h('strong', { text: String(value) }),
-    ]))),
     h('div', { class: 'academy-report-scores' }, [
       h('div', {}, [h('span', { text: 'نمره تستی' }), h('strong', { text: objective + ' از ۱۰۰' })]),
       h('div', {}, [h('span', { text: 'نمره تشریحی' }), h('strong', { text: essay + ' از ۱۰۰' })]),
@@ -346,17 +338,19 @@ function examReportCard(user, attempt, result) {
     ]),
     h('p', { class: 'academy-report-correct-count', text: `پاسخ صحیح تستی: ${Number(result.correctAnswers ?? 0)} از ${Number(result.totalQuestions ?? 10)} سؤال` }),
     h('div', { class: 'academy-report-bottom' }, [
-      h('span', { text: 'شماره کارنامه: ' + (reportNo || '—') }),
       h('span', { text: 'تاریخ صدور: ' + issued }),
     ]),
     h('div', { class: 'academy-report-signature' }, [h('span', { text: 'مدیر آکادمی وکالت' }), h('strong', { text: 'شهرام مختاری' })]),
     h('p', { class: 'academy-report-note', text: 'این کارنامه صرفاً نتیجه یک ارزیابی آموزشی است و گواهی صلاحیت حرفه‌ای یا مدرک رسمی محسوب نمی‌شود.' }),
   ]);
-  const actions = h('div', { class: 'academy-print-actions no-print' }, [
-    h('button', { class: 'btn', type: 'button', text: 'چاپ کارنامه A5 / ذخیره PDF' }),
-    h('a', { class: 'btn btn-outline', href: '#/academy/exams', text: 'بازگشت به مرکز آزمون' }),
-  ]);
-  actions.querySelector('button').addEventListener('click', () => window.print());
+  const printButton = h('button', { class: 'btn', type: 'button', text: 'چاپ کارنامه A5 / ذخیره PDF' });
+  const backButton = h('button', { class: 'btn btn-outline', type: 'button', text: 'بازگشت به مرکز آزمون' });
+  const actions = h('div', { class: 'academy-print-actions no-print' }, [printButton, backButton]);
+  printButton.addEventListener('click', () => window.print());
+  backButton.addEventListener('click', () => {
+    if (window.location.hash === '#/academy/exams') window.dispatchEvent(new Event('hashchange'));
+    else window.location.hash = '#/academy/exams';
+  });
   return h('div', { class: 'academy-exam-results' }, [report, actions, review]);
 }
 

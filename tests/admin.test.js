@@ -32,7 +32,7 @@ function d1Like(db) {
 }
 async function setup(role = 'super_admin') {
   const db = new DatabaseSync(':memory:'); db.exec('PRAGMA foreign_keys = ON;');
-  for (const file of ['0001_init.sql', '0002_auth.sql', '0003_academy.sql', '0004_deadlines.sql', '0005_casework.sql', '0006_admin_content.sql', '0009_moot_case_bank.sql']) db.exec(migration(file));
+  for (const file of ['0001_init.sql', '0002_auth.sql', '0003_academy.sql', '0004_deadlines.sql', '0005_casework.sql', '0006_admin_content.sql', '0009_moot_case_bank.sql', '0014_member_identity.sql']) db.exec(migration(file));
   const user = db.prepare("INSERT INTO users (email,password_hash,display_name,email_verified_at) VALUES ('admin@example.com','h','مدیر','2026-01-01T00:00:00Z') RETURNING id").get();
   if (role) db.prepare('INSERT INTO user_roles (user_id, role) VALUES (?, ?)').run(user.id, role);
   const token = `admin-session-token-${role || 'none'}-123456`;

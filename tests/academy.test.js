@@ -49,6 +49,7 @@ async function setup() {
   db.exec(migration('0003_academy.sql'));
   db.exec(migration('0006_admin_content.sql'));
   db.exec(migration('0013_academy_assessments.sql'));
+  db.exec(migration('0014_member_identity.sql'));
   const env = { DB: d1Like(db) };
   // کاربر تأییدشده و نشست معتبر را مستقیم می‌سازیم (بدون وابستگی به ایمیل).
   const u = db

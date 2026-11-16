@@ -46,6 +46,7 @@ function setup(extra = {}) {
   db.exec(migration('0001_init.sql'));
   db.exec(migration('0002_auth.sql'));
   db.exec(migration('0008_registration_profile.sql'));
+  db.exec(migration('0014_member_identity.sql'));
   const sent = [];
   const env = {
     DB: d1Like(db),

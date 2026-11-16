@@ -192,3 +192,19 @@ test('حذف کاربر، نشست و نقش‌هایش را هم حذف می‌
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM sessions').get().n, 0);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM user_roles').get().n, 0);
 });
+
+
+test('مهاجرت ۰۰۱۴ برای همه کاربران شماره عضویت یکتا می‌سازد', { skip }, () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(read('0001_init.sql'));
+  db.exec(read('0002_auth.sql'));
+  db.prepare('INSERT INTO users (email, password_hash, display_name) VALUES (?,?,?)').run('one@example.com', 'h', 'کاربر یک');
+  db.prepare('INSERT INTO users (email, password_hash, display_name) VALUES (?,?,?)').run('two@example.com', 'h', 'کاربر دو');
+  db.exec(read('0014_member_identity.sql'));
+  const rows = db.prepare('SELECT id, membership_no FROM users ORDER BY id').all();
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].membership_no, 'WFA-00000001');
+  assert.equal(rows[1].membership_no, 'WFA-00000002');
+  assert.notEqual(rows[0].membership_no, rows[1].membership_no);
+  assert.throws(() => db.prepare('UPDATE users SET membership_no=? WHERE id=?').run(rows[0].membership_no, rows[1].id));
+});
