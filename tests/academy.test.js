@@ -44,6 +44,7 @@ async function setup() {
   db.exec(migration('0002_auth.sql'));
   db.exec(migration('0003_academy.sql'));
   db.exec(migration('0006_admin_content.sql'));
+  db.exec(migration('0013_academy_assessments.sql'));
   const env = { DB: d1Like(db) };
   // کاربر تأییدشده و نشست معتبر را مستقیم می‌سازیم (بدون وابستگی به ایمیل).
   const u = db
@@ -175,4 +176,58 @@ test('فهرست دوره‌ها وضعیت ثبت‌نام کاربر وارد�
   assert.equal(mine.enrolled, true);
   assert.equal(list.courses.filter((c) => c.enrolled).length, 1);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM enrollments').get().n, 1);
+});
+
+
+test('تمرین تشریحی و آزمونک دوره در سرور ارزیابی و در کارنامه ذخیره می‌شود', { skip }, async () => {
+  const { db, env, cookie } = await setup();
+  const enrolled = await worker.fetch(req('/api/academy/enroll', { method: 'POST', body: { courseId: 'civil-litigation-practice' }, cookie }), env);
+  assert.equal(enrolled.status, 200);
+
+  const detail = await worker.fetch(req('/api/academy/courses/civil-litigation-practice'), env);
+  const course = await detail.json();
+  assert.equal(course.course.lessons[0].learning.quiz.options.length, 4);
+  assert.ok(course.course.lessons[0].learning.assignment);
+
+  const failed = await worker.fetch(req('/api/academy/assess', {
+    method: 'POST',
+    cookie,
+    body: { courseId: 'civil-litigation-practice', lessonId: 'l1', answerIndex: 0, responseText: 'تحلیل تمرینی کافی برای ثبت و ارزیابی پاسخ کارآموز.' },
+  }), env);
+  assert.equal(failed.status, 200);
+  assert.equal((await failed.json()).passed, false);
+
+  const passed = await worker.fetch(req('/api/academy/assess', {
+    method: 'POST',
+    cookie,
+    body: { courseId: 'civil-litigation-practice', lessonId: 'l1', answerIndex: 1, responseText: 'در این پرونده باید خواسته، سبب، طرفین، مرجع صالح و ادله اصلی را جداگانه مشخص و ابهام‌ها را ثبت کرد.' },
+  }), env);
+  const result = await passed.json();
+  assert.equal(passed.status, 200);
+  assert.equal(result.passed, true);
+  assert.equal(result.score, 100);
+
+  const progress = await worker.fetch(req('/api/academy/progress?courseId=civil-litigation-practice', { cookie }), env);
+  const state = await progress.json();
+  assert.deepEqual(state.completedLessonIds, ['l1']);
+  assert.equal(state.assessments[0].passed, true);
+  assert.equal(state.assessments[0].answerIndex, 1);
+  assert.equal(state.assessments[0].responseText.startsWith('در این پرونده'), true);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM lesson_assessments').get().n, 1);
+});
+
+test('ارسال تمرین بدون ثبت‌نام یا با پاسخ کوتاه پذیرفته نمی‌شود', { skip }, async () => {
+  const { env, cookie } = await setup();
+  const notEnrolled = await worker.fetch(req('/api/academy/assess', {
+    method: 'POST', cookie,
+    body: { courseId: 'civil-litigation-practice', lessonId: 'l1', answerIndex: 1, responseText: 'پاسخ تشریحی کامل و قابل ارزیابی برای تمرین آموزشی.' },
+  }), env);
+  assert.equal(notEnrolled.status, 403);
+  const enrolled = await worker.fetch(req('/api/academy/enroll', { method: 'POST', body: { courseId: 'civil-litigation-practice' }, cookie }), env);
+  assert.equal(enrolled.status, 200);
+  const short = await worker.fetch(req('/api/academy/assess', {
+    method: 'POST', cookie,
+    body: { courseId: 'civil-litigation-practice', lessonId: 'l1', answerIndex: 1, responseText: 'کوتاه' },
+  }), env);
+  assert.equal(short.status, 422);
 });
