@@ -13,7 +13,7 @@ function rowFor(c) {
     slug: c.id,
     title: c.title,
     summary: `${c.area} ـ ${c.subject}`,
-    payload: { ...c, review_status: BANK_REVIEW_LABEL },
+    payload: { ...c, scenario_type: 'hypothetical', training_only: true, publication_note: 'سناریوی فرضی برای تمرین دادرسی است؛ رأی واقعی نیست. استنادهای حقوقی تا بررسی نهایی، صرفاً موضوعی و بدون شماره ماده نمایش داده می‌شوند.', review_status: BANK_REVIEW_LABEL },
   };
 }
 
@@ -23,8 +23,8 @@ function buildPlan() {
   const seen = new Set();
   const rows = [];
   for (const c of BANK_CASES) {
-    const v = validateCase(c, { status: 'draft' });
     const row = rowFor(c);
+    const v = validateCase(row.payload, { status: 'published' });
     if (seen.has(c.id)) invalid.push({ id: c.id, errors: ['شناسهٔ تکراری در بانک'] });
     seen.add(c.id);
     if (!v.ok) { invalid.push({ id: c.id, errors: v.errors }); continue; }
@@ -57,7 +57,7 @@ async function handleImport(request, env, access) {
   for (let i = 0; i < toInsert.length; i += CHUNK) {
     const stmts = toInsert.slice(i, i + CHUNK).map((r) => env.DB
       .prepare(`INSERT OR IGNORE INTO admin_content (kind, slug, title, summary, status, payload_json, created_by)
-        VALUES ('case', ?1, ?2, ?3, 'draft', ?4, ?5)`)
+        VALUES ('case', ?1, ?2, ?3, 'published', ?4, ?5)`)
       .bind(r.slug, r.title, r.summary, JSON.stringify(r.payload), access.user.id));
     await env.DB.batch(stmts);
   }
@@ -79,7 +79,7 @@ async function handleStatus(env) {
     if (Array.isArray(payload?.legal_refs)) verifiedRefs += payload.legal_refs.filter((r) => r.status === 'verified').length;
     const bank = bySlug.get(row.slug);
     if (!bank) continue;
-    const { review_status: _review, ...stored } = payload;
+    const { review_status: _review, scenario_type: _type, training_only: _training, publication_note: _note, ...stored } = payload;
     if (JSON.stringify(stored) === JSON.stringify(bank)) intact += 1; else changed.push(row.slug);
   }
   const dbSlugs = new Set(rows.map((r) => r.slug));
