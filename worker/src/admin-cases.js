@@ -101,15 +101,16 @@ async function handleStatus(env) {
 
 /** دوره‌های داخلی را به‌صورت پیش‌نویس در پنل مدیریت قابل ویرایش و تأیید می‌کند؛ دوره‌های موجود بازنویسی نمی‌شوند. */
 async function handleCourseImport(env, access) {
+  const importable = COURSES.filter((c) => c.status !== 'published');
   const existing = new Set((await env.DB.prepare("SELECT slug FROM admin_content WHERE kind = 'course'").all())?.results?.map((r) => r.slug) || []);
-  const toInsert = COURSES.filter((c) => !existing.has(c.id) && c.lessons.length >= 1 && c.lessons.length <= 40);
+  const toInsert = importable.filter((c) => !existing.has(c.id) && c.lessons.length >= 1 && c.lessons.length <= 40);
   for (const c of toInsert) {
     const payload = { level: c.level, lessons: c.lessons.map((l) => ({ id: l.id, title: l.title, body: l.body })) };
     await env.DB.prepare(`INSERT OR IGNORE INTO admin_content (kind, slug, title, summary, status, payload_json, created_by)
       VALUES ('course', ?1, ?2, ?3, 'draft', ?4, ?5)`)
       .bind(c.id, c.title, c.summary, JSON.stringify(payload), access.user.id).run();
   }
-  return json({ ok: true, total: COURSES.length, inserted: toInsert.length, skippedExisting: COURSES.length - toInsert.length }, 201);
+  return json({ ok: true, total: importable.length, inserted: toInsert.length, skippedExisting: importable.length - toInsert.length }, 201);
 }
 
 export async function handleAdminCases(request, env, path) {
