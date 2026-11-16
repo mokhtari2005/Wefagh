@@ -1,6 +1,7 @@
 // رسانهٔ عمومی: محتوای پایهٔ داخل کد و محتوای تأییدشدهٔ مدیران.
 import { json } from '../http.js';
 import { ARTICLES, EPISODES, findArticle } from './catalog.js';
+import { listLegalNews } from './news.js';
 
 const SLUG_RE = /^[a-z0-9-]{1,100}$/;
 async function managed(env, kind, slug = null) {
@@ -16,6 +17,9 @@ async function managed(env, kind, slug = null) {
 }
 export async function handleMedia(request, env, path) {
   if (request.method !== 'GET') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'GET' });
+  if (path === '/api/media/news') {
+    return json({ ok: true, news: await listLegalNews(env) });
+  }
   if (path === '/api/media/articles') {
     const items = await managed(env, 'article');
     const articles = [...ARTICLES.map(({ slug, title, author, publishedAt, summary }) => ({ slug, title, author, publishedAt, summary })), ...items.map(({ slug, title, author, publishedAt, summary }) => ({ slug, title, author, publishedAt, summary }))];
