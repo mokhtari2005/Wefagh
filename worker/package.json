@@ -3,5 +3,6 @@
   "private": true,
   "scripts": {
     "deploy": "npx wrangler d1 migrations apply DB --remote && npx wrangler deploy"
-  }
+  },
+  "type": "module"
 }
