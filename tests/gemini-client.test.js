@@ -162,27 +162,28 @@ test('Gemini provider 503 falls back once to Flash-Lite', async () => {
   }
 });
 
-test('Gemini model-unavailable (404)، quota (429) و دسترسی رد‌شده (403) هم به مدل جایگزین می‌روند', async () => {
+test('Gemini model-unavailable (404) falls back, but quota (429) and access errors (403) do not', async () => {
   const original = globalThis.fetch;
   try {
-    for (const status of [403, 404, 429]) {
+    let modelCalls = 0;
+    globalThis.fetch = async () => {
+      modelCalls += 1;
+      if (modelCalls === 1) return new Response('{}', { status: 404 });
+      return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }), { status: 200 });
+    };
+    const modelResult = await generateText(env, { system: 'x', contents: [{ role: 'user', parts: [{ text: 'x' }] }] });
+    assert.equal(modelResult.text, 'ok');
+    assert.equal(modelCalls, 2, 'مدل ناموجود یک بار با مدل جایگزین امتحان می‌شود');
+
+    for (const [status, code] of [[403, 'AI_KEY_REJECTED'], [429, 'AI_QUOTA']]) {
       let calls = 0;
-      globalThis.fetch = async () => {
-        calls += 1;
-        if (calls === 1) return new Response('{}', { status });
-        return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }), { status: 200 });
-      };
-      const result = await generateText(env, { system: 'x', contents: [{ role: 'user', parts: [{ text: 'x' }] }] });
-      assert.equal(result.text, 'ok');
-      assert.equal(calls, 2, `status ${status}`);
+      globalThis.fetch = async () => { calls += 1; return new Response('{}', { status }); };
+      await assert.rejects(
+        generateText(env, { system: 'x', contents: [{ role: 'user', parts: [{ text: 'x' }] }] }),
+        (error) => error.code === code,
+      );
+      assert.equal(calls, 1, `status ${status} نباید retry شود`);
     }
-    let both = 0;
-    globalThis.fetch = async () => { both += 1; return new Response('{}', { status: 403 }); };
-    await assert.rejects(
-      generateText(env, { system: 'x', contents: [{ role: 'user', parts: [{ text: 'x' }] }] }),
-      (e) => e.code === 'AI_KEY_REJECTED',
-    );
-    assert.equal(both, 2, 'یک بار مدل اصلی و یک بار جایگزین');
   } finally {
     globalThis.fetch = original;
   }
