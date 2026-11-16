@@ -180,6 +180,19 @@ function courseCertificateCard(user, course) {
   return h('section', { class: 'academy-print-wrap' }, [h('h2', { text: 'گواهینامه پایان دوره' }), certificate, actions]);
 }
 
+function legalReviewNodes(review, note = '') {
+  if (!review) return [h('p', { class: 'notice', text: note || 'تحلیل مستندات حقوقی فعلاً در دسترس نیست؛ پاسخ شما ذخیره شده است.' })];
+  const nodes = [h('h4', { text: 'تحلیل مستند پاسخ و مستندات حقوقی' })];
+  if (review.analysis) nodes.push(h('p', { text: review.analysis }));
+  if (review.legalAuthorities?.length) {
+    nodes.push(h('h5', { text: 'قوانین و مقررات' }), h('ul', {}, review.legalAuthorities.map((x) => h('li', { text: (x.law || 'منبع قانونی') + (x.article ? '، ماده ' + x.article : '') + ' — ' + (x.rule || '') + ' ' + (x.application || '') + ' [' + (x.status || 'نیازمند بررسی') + ']' }))));
+  } else nodes.push(h('p', { class: 'muted', text: 'مستند قانونی دقیق در این پاسخ احراز نشده است؛ از درج شماره ماده حدسی خودداری شده.' }));
+  if (review.fiqhPrinciples?.length) nodes.push(h('h5', { text: 'اصول فقهی و قواعد شرعی مرتبط' }), h('ul', {}, review.fiqhPrinciples.map((x) => h('li', { text: x.principle + ' — قلمرو: ' + (x.scope || '—') + '؛ تطبیق: ' + (x.application || '—') + ' [' + (x.status || 'نیازمند بررسی') + ']' }))));
+  if (review.issues?.length) nodes.push(h('h5', { text: 'نکات نیازمند اصلاح' }), h('ul', {}, review.issues.map((x) => h('li', { text: x }))));
+  nodes.push(h('p', { class: 'muted', text: review.verificationNote || 'استنادها را با متن رسمی و آخرین اصلاحات تطبیق دهید.' }));
+  return nodes;
+}
+
 async function submitAssessment(area, course, lessonId, answerIndex, responseText, feedback, done, assessments, summary, user) {
   const form = feedback.closest('form');
   const button = form?.querySelector('button[type="submit"]');
@@ -199,7 +212,8 @@ async function submitAssessment(area, course, lessonId, answerIndex, responseTex
   feedback.replaceChildren(
     h('p', { class: data.passed ? 'form-status success' : 'form-status err', role: 'status', text: data.message }),
     h('p', { text: `امتیاز آزمونک: ${data.score} از ۱۰۰` }),
-    h('p', { class: 'muted', text: data.explanation })
+    h('p', { class: 'muted', text: data.explanation }),
+    ...legalReviewNodes(data.legalReview, data.legalReviewNote)
   );
   const lessonArticle = feedback.closest('.lesson');
   if (data.passed && lessonArticle) lessonArticle.prepend(h('span', { class: 'badge badge-soft', text: 'درس تکمیل شد' }));
@@ -239,7 +253,8 @@ function lessonsList(course, progress) {
       if (saved) {
         feedback.append(
           h('p', { class: saved.passed ? 'form-status success' : 'form-status', text: saved.passed ? `قبول‌شده · ${saved.score} از ۱۰۰` : `آخرین امتیاز: ${saved.score} از ۱۰۰ · برای تلاش دوباره پاسخ را اصلاح کنید.` }),
-          saved.explanation ? h('p', { class: 'muted', text: saved.explanation }) : h('span')
+          saved.explanation ? h('p', { class: 'muted', text: saved.explanation }) : h('span'),
+          ...legalReviewNodes(saved.legalReview)
         );
       }
       const submit = h('button', { class: 'btn', type: 'submit', text: isDone ? 'درس تکمیل شده' : 'ثبت تمرین و ارزیابی' });
