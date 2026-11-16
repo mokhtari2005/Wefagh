@@ -183,6 +183,12 @@ function courseCertificateCard(user, course) {
 function legalReviewNodes(review, note = '') {
   if (!review) return [h('p', { class: 'notice', text: note || 'تحلیل مستندات حقوقی فعلاً در دسترس نیست؛ پاسخ شما ذخیره شده است.' })];
   const nodes = [h('h4', { text: 'تحلیل مستند پاسخ و مستندات حقوقی' })];
+  if (review.essayAssessment) {
+    nodes.push(h('h5', { text: 'نمره پاسخ تشریحی: ' + review.essayAssessment.score + ' از ۱۰۰' }));
+    if (review.essayAssessment.feedback) nodes.push(h('p', { text: review.essayAssessment.feedback }));
+    if (review.essayAssessment.criteria?.length) nodes.push(h('ul', {}, review.essayAssessment.criteria.map((x) => h('li', { text: x.criterion + ': ' + x.score + ' از ۲۵ — ' + (x.feedback || '') }))));
+    if (review.essayAssessment.improvements?.length) nodes.push(h('h5', { text: 'موارد قابل بهبود' }), h('ul', {}, review.essayAssessment.improvements.map((x) => h('li', { text: x }))));
+  }
   if (review.analysis) nodes.push(h('p', { text: review.analysis }));
   if (review.legalAuthorities?.length) {
     nodes.push(h('h5', { text: 'قوانین و مقررات' }), h('ul', {}, review.legalAuthorities.map((x) => h('li', { text: (x.law || 'منبع قانونی') + (x.article ? '، ماده ' + x.article : '') + ' — ' + (x.rule || '') + ' ' + (x.application || '') + ' [' + (x.status || 'نیازمند بررسی') + ']' }))));
