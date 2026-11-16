@@ -305,18 +305,27 @@ function examReportCard(user, attempt, result) {
       h('p', { text: result.sampleAnswer || 'پاسخ پیشنهادی مستقلی برای این سؤال تولید نشد؛ معیارهای ارزیابی و بازخورد زیر مبنای بررسی پاسخ شماست.' }),
       h('h4', { text: 'منطق و مراحل استدلال' }),
       h('ul', {}, (result.reasoning || []).map(x => h('li', { text: x }))),
+      h('h4', { text: 'مستندات قانونی و مقررات' }),
+      (result.legalAuthorities || []).length
+        ? h('ul', {}, result.legalAuthorities.map(a => h('li', { text: [a.source, a.article ? 'ماده/تبصره ' + a.article : '', a.rule, a.application, a.certainty ? 'درجه اطمینان: ' + a.certainty : ''].filter(Boolean).join(' — ') })))
+        : h('p', { class: 'muted', text: 'برای این مسئله مستند شماره‌دار قابل اتکایی ارائه نشده است؛ متن قوانین و اصلاحات باید از منبع رسمی کنترل شود.' }),
+      (result.fiqhPrinciples || []).length ? h('h4', { text: 'اصول فقهی و قواعد شرعی مرتبط' }) : null,
+      (result.fiqhPrinciples || []).length ? h('ul', {}, result.fiqhPrinciples.map(p => h('li', { text: [p.principle, p.scope, p.application].filter(Boolean).join(' — ') }))) : null,
       h('h4', { text: 'ارزیابی پاسخ شما' }),
       h('p', { text: result.overall || '' }),
       h('ul', {}, (result.criteria || []).map(c => h('li', { text: `${c.criterion}: ${c.score} از ۲۰ — ${c.feedback}` }))),
-      h('p', { class: 'muted', text: result.verificationNote || 'این ارزیابی آموزشی است و باید با منابع رسمی حقوقی تطبیق داده شود.' }),
+      h('p', { class: 'muted', text: result.verificationNote || 'استنادها باید با متن رسمی و آخرین اصلاحات قوانین و مقررات تطبیق داده شوند. این ارزیابی آموزشی است.' }),
     ]),
   ]);
   for (const [index, item] of (result.questionReviews || []).entries()) {
+    const legalReview = (result.objectiveLegalReviews || []).find(x => x.questionId === item.questionId) || {};
     const row = h('article', { class: 'academy-review-question' }, [
       h('h3', { text: `سؤال ${index + 1}: ${item.question}` }),
       h('p', { class: item.isCorrect ? 'academy-answer-correct' : 'academy-answer-wrong', text: 'پاسخ شما: ' + (item.selectedAnswer || 'بدون پاسخ') }),
       h('p', { class: 'academy-answer-correct', text: 'پاسخ صحیح: ' + item.correctAnswer }),
-      h('p', { text: 'استدلال: ' + item.explanation }),
+      h('p', { text: 'استدلال: ' + (legalReview.explanation || item.explanation) }),
+      ...(legalReview.legalAuthorities || []).map(a => h('p', { class: 'muted', text: ['مستند: ' + (a.source || ''), a.article ? 'ماده/تبصره ' + a.article : '', a.rule, a.application].filter(Boolean).join(' — ') })),
+      ...(legalReview.fiqhPrinciples || []).map(p => h('p', { class: 'muted', text: ['قاعده فقهی: ' + (p.principle || ''), p.scope, p.application].filter(Boolean).join(' — ') })),
     ]);
     review.append(row);
   }
