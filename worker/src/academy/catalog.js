@@ -2,6 +2,7 @@
 // دوره‌های تازه تا زمان آماده‌سازی و تأیید محتوای کامل، پیش‌نویس می‌مانند.
 
 import { PRACTICAL_COURSES } from './practical-courses.js';
+import { SPECIALTY_COURSES } from './specialty-courses.js';
 
 export const COURSES = Object.freeze([
   {
@@ -53,6 +54,7 @@ export const COURSES = Object.freeze([
     ],
   },
   ...PRACTICAL_COURSES,
+  ...SPECIALTY_COURSES,
 ]);
 
 export function findCourse(id) {
