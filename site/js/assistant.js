@@ -3,6 +3,7 @@
 import { h } from './dom.js';
 import { getJson, postJson, postForm, sendJson } from './api.js';
 import { aiStatus, errorText } from './ai-client.js';
+import { formatShamsi } from './shamsi.js';
 
 export const DOC_TYPES = [
   ['petition', 'پیش‌نویس دادخواست'], ['defense', 'پیش‌نویس لایحه دفاعیه'], ['appeal', 'لایحه تجدیدنظرخواهی'],
@@ -71,12 +72,13 @@ export function summarizeReply(data) {
   return data.text || '';
 }
 
-export function assistantPage() {
+export function assistantPage(params = {}) {
   const wrap = h('div', { class: 'assistant' }, [
-    h('span', { class: 'section-kicker', text: 'آکادمی وکالت شهرام مختاری · ابزار حرفه‌ای' }),
     h('h1', { text: 'دستیار هوشمند وکیل' }),
-    h('p', { class: 'lead', text: 'مشاوره و پاسخ به پرسش‌های حقوقی و قضایی، تنظیم پیش‌نویس اسناد، تحلیل پرونده و بازبینی متن.' }),
-    h('div', { class: 'notice', role: 'note', text: ASSISTANT_NOTICE }),
+    h('details', { class: 'ai-notice' }, [
+      h('summary', { text: 'ابزار آموزشی و پیش‌نویس‌ساز است؛ پیش از استفاده باید وکیل آن را تطبیق دهد (جزئیات)' }),
+      h('p', { class: 'muted', text: ASSISTANT_NOTICE }),
+    ]),
   ]);
   const body = h('div', { role: 'region', 'aria-live': 'polite' }, [h('p', { class: 'muted', text: 'در حال بررسی دسترسی…' })]);
   wrap.append(body);
@@ -94,7 +96,7 @@ export function assistantPage() {
       body.replaceChildren(h('div', { class: 'notice', role: 'note', text: 'سرویس دستیار هنوز روی سرور فعال نشده است. پس از فعال‌سازی، این بخش آماده استفاده می‌شود.' }));
       return;
     }
-    body.replaceChildren(assistantWorkspace());
+    body.replaceChildren(assistantWorkspace(params.thread));
   })();
   return wrap;
 }
@@ -110,55 +112,21 @@ function downloadText(text, name) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function assistantWorkspace() {
+function assistantWorkspace(initialThread) {
   const history = [];
   let busy = false;
   let threadId = null;
   let attachments = []; // [{ file, label }]
 
-  // ---------- فهرست گفت‌وگوها ----------
-  const threadList = h('ul', { class: 'ai-thread-list', 'aria-label': 'گفت‌وگوهای قبلی' });
-  const threadStatus = h('p', { class: 'muted ai-thread-status', role: 'status', 'aria-live': 'polite' });
-
-  async function refreshThreads() {
-    const res = await getJson('/api/ai/threads');
-    if (!res.ok) {
-      threadList.replaceChildren(h('li', { class: 'muted', text: 'فهرست گفت‌وگوها در دسترس نیست.' }));
-      return;
-    }
-    const rows = res.data?.threads || [];
-    if (!rows.length) {
-      threadList.replaceChildren(h('li', { class: 'muted', text: 'هنوز گفت‌وگویی ذخیره نشده است.' }));
-      return;
-    }
-    threadList.replaceChildren(...rows.map((t) => {
-      const open = h('button', { class: 'ai-thread-open', type: 'button', text: t.title || 'گفت‌وگو' });
-      open.setAttribute('aria-current', Number(t.id) === threadId ? 'true' : 'false');
-      open.addEventListener('click', () => loadThread(t.id));
-      const del = h('button', { class: 'ai-thread-del', type: 'button', text: 'حذف', 'aria-label': `حذف گفت‌وگوی ${t.title || ''}` });
-      del.addEventListener('click', () => deleteThread(t.id));
-      return h('li', { class: 'ai-thread-item' }, [open, del]);
-    }));
-  }
-
+  // ---------- بازیابی یک گفت‌وگو (فهرست سوابق در صفحهٔ جدا: #/assistant/history) ----------
   async function loadThread(id) {
     const res = await getJson(`/api/ai/threads/${encodeURIComponent(id)}/messages`);
-    if (!res.ok) { threadStatus.textContent = 'بازیابی گفت‌وگو انجام نشد.'; return; }
+    if (!res.ok) { status.textContent = 'بازیابی گفت‌وگو انجام نشد.'; return; }
     history.length = 0;
     for (const m of res.data?.messages || []) history.push({ role: m.role === 'ai' ? 'ai' : 'user', text: m.content });
     threadId = Number(id);
     renderLog();
-    threadStatus.textContent = 'گفت‌وگو بازیابی شد. ادامه دهید.';
-    refreshThreads();
-  }
-
-  async function deleteThread(id) {
-    if (!window.confirm('این گفت‌وگو حذف شود؟')) return;
-    const res = await sendJson('DELETE', `/api/ai/threads/${encodeURIComponent(id)}`, null);
-    if (!res.ok) { threadStatus.textContent = 'حذف گفت‌وگو انجام نشد.'; return; }
-    if (Number(id) === threadId) newConversation();
-    threadStatus.textContent = 'گفت‌وگو حذف شد.';
-    refreshThreads();
+    status.textContent = 'گفت‌وگو بازیابی شد. ادامه دهید.';
   }
 
   async function persistTurn(userText, aiText) {
@@ -169,7 +137,6 @@ function assistantWorkspace() {
     }
     const a = await postJson(`/api/ai/threads/${threadId}/messages`, { role: 'user', content: userText });
     const b = await postJson(`/api/ai/threads/${threadId}/messages`, { role: 'ai', content: aiText });
-    refreshThreads();
     return a.ok && b.ok;
   }
 
@@ -196,22 +163,26 @@ function assistantWorkspace() {
     modeButtons.forEach((x, i) => x.setAttribute('aria-pressed', MODES[i][0] === mode ? 'true' : 'false'));
     docWrap.hidden = mode === 'consult';
     composerText.placeholder = mode === 'consult' ? PLACEHOLDERS.consult : PLACEHOLDERS.other;
+    renderSuggestions();
   }
 
   // ---------- گفت‌وگو ----------
-  const emptyState = h('div', { class: 'ai-empty' }, [
-    h('p', { class: 'lead', text: 'پرسش حقوقی، شرح پرونده یا متن خود را بنویسید. پاسخ‌ها بر پایهٔ همان اطلاعات تنظیم می‌شوند و در صورت نبود منبع معتبر، صریحاً اعلام می‌شود.' }),
-    h('div', { class: 'ai-suggestions' }, SUGGESTIONS.map(([m, d, text]) => {
+  const suggestionsBox = h('div', { class: 'ai-suggestions' });
+  function renderSuggestions() {
+    // فقط نمونه‌های همین حالت نشان داده می‌شود تا صفحه کوتاه بماند.
+    suggestionsBox.replaceChildren(...SUGGESTIONS.filter(([m]) => m === mode).map(([m, d, text]) => {
       const b = h('button', { class: 'btn secondary ai-suggestion', type: 'button', text });
       b.addEventListener('click', () => {
-        mode = m;
-        syncMode();
         docSelect.value = d;
         composerText.value = text;
         composerText.focus();
       });
       return b;
-    })),
+    }));
+  }
+  const emptyState = h('div', { class: 'ai-empty' }, [
+    h('p', { class: 'muted', text: 'پرسش یا شرح پرونده را بنویسید؛ اگر منبع معتبری نباشد، پاسخ صریحاً همین را می‌گوید.' }),
+    suggestionsBox,
   ]);
   const pendingTitle = h('strong', { class: 'ai-pending-title', text: 'در حال آماده‌سازی پاسخ حقوقی…' });
   const pendingElapsed = h('span', { class: 'ai-progress-elapsed', text: 'زمان سپری‌شده: ۰:۰۰' });
@@ -400,8 +371,6 @@ function assistantWorkspace() {
     renderAttachments();
     renderLog();
     status.textContent = '';
-    threadStatus.textContent = '';
-    refreshThreads();
     composerText.focus();
   }
 
@@ -414,27 +383,63 @@ function assistantWorkspace() {
     }
   });
 
-  refreshThreads();
   renderLog();
+  if (initialThread && /^[1-9][0-9]{0,15}$/.test(initialThread)) loadThread(initialThread);
 
-  const threadsPanel = h('details', { class: 'ai-threads' }, [
-    h('summary', { text: 'تاریخچهٔ گفت‌وگوها (برای بازکردن بزنید)' }),
-    threadList,
-    threadStatus,
-  ]);
   const toolbar = h('div', { class: 'ai-toolbar' }, [modeGroup, docWrap, newBtn]);
   const composer = h('form', { class: 'ai-composer', 'aria-label': 'ارسال پیام' }, [
     attachChip,
     composerText,
     h('div', { class: 'ai-composer-bar' }, [attachBtn, fileInput, counter, sendBtn]),
     status,
+    h('p', { class: 'ai-history-link' }, [h('a', { href: '#/assistant/history', text: 'سوابق گفت‌وگوها ←' })]),
   ]);
   composer.addEventListener('submit', (e) => { e.preventDefault(); send(); });
 
   syncMode();
-  // طرح پرسش و پرونده بالا و در دسترس است؛ تاریخچهٔ گفت‌وگوها پایین صفحه قرار می‌گیرد.
   return h('div', { class: 'ai-shell' }, [
     h('section', { class: 'ai-main', 'aria-label': 'گفت‌وگو با دستیار' }, [toolbar, stream, composer]),
-    h('aside', { class: 'ai-side' }, [threadsPanel]),
   ]);
+}
+
+/** صفحهٔ سوابق گفت‌وگوهای دستیار: فهرست، بازکردن و حذف. */
+export function assistantHistoryPage() {
+  const list = h('ul', { class: 'ai-thread-list ai-history-list', 'aria-label': 'سوابق گفت‌وگوها' });
+  const note = h('p', { class: 'muted', role: 'status', 'aria-live': 'polite', text: 'در حال بارگذاری…' });
+  const wrap = h('div', { class: 'assistant' }, [
+    h('span', { class: 'section-kicker', text: 'دستیار هوشمند وکیل' }),
+    h('h1', { text: 'سوابق گفت‌وگوها' }),
+    h('p', {}, [h('a', { class: 'btn', href: '#/assistant', text: 'پرسش یا گفت‌وگوی تازه' })]),
+    note,
+    list,
+  ]);
+
+  async function load() {
+    const me = await getJson('/api/me');
+    if (!me.ok) {
+      note.replaceChildren(h('a', { href: '#/account', text: 'برای دیدن سوابق ابتدا وارد حساب خود شوید.' }));
+      return;
+    }
+    const res = await getJson('/api/ai/threads');
+    if (!res.ok) { note.textContent = 'فهرست گفت‌وگوها در دسترس نیست.'; return; }
+    const rows = res.data?.threads || [];
+    note.textContent = rows.length ? '' : 'هنوز گفت‌وگویی ذخیره نشده است.';
+    list.replaceChildren(...rows.map((t) => {
+      const when = formatShamsi(t.updated_at || t.created_at);
+      const open = h('a', { class: 'ai-thread-open', href: `#/assistant?thread=${encodeURIComponent(t.id)}` }, [
+        h('span', { text: t.title || 'گفت‌وگو' }),
+        when ? h('small', { class: 'muted', text: when }) : null,
+      ].filter(Boolean));
+      const del = h('button', { class: 'ai-thread-del', type: 'button', text: 'حذف', 'aria-label': `حذف گفت‌وگوی ${t.title || ''}` });
+      del.addEventListener('click', async () => {
+        if (!window.confirm('این گفت‌وگو حذف شود؟')) return;
+        const r = await sendJson('DELETE', `/api/ai/threads/${encodeURIComponent(t.id)}`, null);
+        if (!r.ok) { note.textContent = 'حذف گفت‌وگو انجام نشد.'; return; }
+        load();
+      });
+      return h('li', { class: 'ai-thread-item' }, [open, del]);
+    }));
+  }
+  load();
+  return wrap;
 }

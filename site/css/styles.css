@@ -1056,7 +1056,7 @@ h1, h2, h3 { color: var(--teal-dark); }
 
 /* ---------- دستیار وکیل: چیدمان گفت‌وگو (موبایل تک‌ستونه، دسکتاپ با فهرست گفت‌وگو) ---------- */
 .ai-shell { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); margin-top: 8px; }
-.ai-main { display: flex; flex-direction: column; min-width: 0; min-height: 440px; background: var(--paper); border: 1px solid var(--sand-line); border-radius: var(--radius-sm, 12px); overflow: hidden; }
+.ai-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--paper); border: 1px solid var(--sand-line); border-radius: var(--radius-sm, 12px); overflow: hidden; }
 .ai-side { min-width: 0; }
 .ai-threads { background: var(--paper); border: 1px solid var(--sand-line); border-radius: var(--radius-sm, 12px); padding: 10px 12px; }
 .ai-threads summary { cursor: pointer; font-weight: 600; min-height: 40px; display: flex; align-items: center; }
@@ -1073,7 +1073,7 @@ h1, h2, h3 { color: var(--teal-dark); }
 .ai-doc-picker { display: flex; gap: 6px; align-items: center; font-size: .9rem; min-width: 0; max-width: 100%; }
 .ai-doc-picker select { min-width: 0; max-width: 100%; }
 .ai-doc-picker[hidden] { display: none; }
-.ai-stream { flex: 1 1 auto; overflow-y: auto; padding: 16px; max-height: 58vh; min-height: 240px; }
+.ai-stream { flex: 1 1 auto; overflow-y: auto; padding: 12px 16px; max-height: 50vh; min-height: 120px; }
 .ai-log { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
 .ai-msg { max-width: 94%; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--sand-line); background: var(--paper); min-width: 0; }
 .ai-msg-user { justify-self: end; background: var(--bone); }
@@ -1109,7 +1109,7 @@ h1, h2, h3 { color: var(--teal-dark); }
 @media (max-width: 899px) {
   .ai-threads { position: static; }
   .ai-main { min-height: 0; }
-  .ai-stream { min-height: 220px; max-height: 52vh; }
+  .ai-stream { min-height: 120px; max-height: 46vh; }
 }
 
 /* جلسهٔ شبیه‌سازی دادگاه */
@@ -1373,3 +1373,16 @@ main.container > :not(.home-dashboard) h2 { margin-top: 1.2rem; font-size: clamp
 main.container > :not(.home-dashboard) .card h2,
 main.container > :not(.home-dashboard) .panel h2,
 main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
+
+.ai-notice { margin: 0 0 .6rem; font-size: .88rem; }
+.ai-notice summary { cursor: pointer; color: var(--ink-soft); line-height: 1.7; }
+.ai-notice p { margin: .4rem 0 0; }
+.ai-history-link { margin: 0; text-align: start; font-size: .9rem; }
+.ai-history-list { max-height: none; }
+.ai-history-list .ai-thread-open { display: flex; flex-direction: column; gap: 2px; text-decoration: none; color: var(--ink); white-space: normal; }
+
+.assistant h1 { margin: 0 0 .5rem; }
+.ai-seg-btn { padding: 4px 10px; min-height: 34px; font-size: .9rem; }
+.ai-toolbar { padding: 8px 10px; gap: 6px; }
+.ai-suggestion { min-height: 38px; padding: 6px 12px; font-size: .88rem; }
+.ai-empty { gap: 8px; }
