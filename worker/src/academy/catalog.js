@@ -1,6 +1,8 @@
 // کاتالوگ آموزش: منبع واحد محتوای آکادمی. فعلاً در کد است؛ با پنل مدیریت به D1 منتقل می‌شود.
 // همهٔ متن‌ها پیش‌نویس‌اند و پیش از انتشار باید توسط گروه تأیید شوند.
 
+import { PRACTICAL_COURSES } from './practical-courses.js';
+
 export const COURSES = Object.freeze([
   {
     id: 'civil-basics',
