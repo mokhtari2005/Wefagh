@@ -17,7 +17,26 @@ export async function mediaHome() {
     h('h1', { text: 'رسانه و اندیشه آکادمی' }),
     h('p', { class: 'lead', text: 'یادداشت‌ها، آموزش‌های کوتاه و پادکست‌های آکادمی و مجموعه‌های صوتی همکار.' }),
   ]);
-  const [articles, episodes] = await Promise.all([getJson('/api/media/articles'), getJson('/api/media/episodes')]);
+  const [articles, episodes, news] = await Promise.all([getJson('/api/media/articles'), getJson('/api/media/episodes'), getJson('/api/media/news')]);
+
+  wrap.append(h('h2', { text: 'خبرهای روز حقوقی، قضایی و پارلمانی' }), h('p', { class: 'muted', text: 'گزیده خبرهای مرتبط از خبرگزاری‌ها و منابع داخلی؛ برای جزئیات، متن کامل را در پایگاه منتشرکننده بخوانید.' }));
+  if (!news.ok) {
+    wrap.append(errorBox(news));
+  } else if (!news.data.news.length) {
+    wrap.append(h('p', { class: 'muted', text: 'هنوز خبر تازه‌ای در دسته‌های حقوقی، قضایی و پارلمانی دریافت نشده است.' }));
+  } else {
+    const newsGrid = h('div', { class: 'cards' });
+    for (const item of news.data.news) {
+      newsGrid.append(h('article', { class: 'card' }, [
+        h('span', { class: 'badge', text: item.category }),
+        h('h3', { text: item.title }),
+        h('p', { text: item.summary }),
+        h('p', { class: 'muted', text: `${item.source} · ${shamsi(item.publishedAt.slice(0, 10))}` }),
+        h('a', { href: item.url, target: '_blank', rel: 'noopener noreferrer', text: 'متن کامل در منبع اصلی' }),
+      ]));
+    }
+    wrap.append(newsGrid);
+  }
 
   wrap.append(h('h2', { text: 'یادداشت‌ها' }));
   if (!articles.ok) {
