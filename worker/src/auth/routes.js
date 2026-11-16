@@ -69,13 +69,18 @@ export async function register(request, env) {
   let userId;
   try {
     const row = await env.DB
-      .prepare('INSERT INTO users (email, password_hash, display_name, professional_title, position) VALUES (?1, ?2, ?3, ?4, ?5) RETURNING id')
-      .bind(email, passwordHash, displayName, professionalTitle, position)
+      .prepare('INSERT INTO users (email, password_hash, display_name) VALUES (?1, ?2, ?3) RETURNING id')
+      .bind(email, passwordHash, displayName)
       .first();
     userId = row?.id;
     if (userId) {
       const membershipNo = `WFA-${String(userId).padStart(8, '0')}`;
-      await env.DB.prepare('UPDATE users SET membership_no=?1 WHERE id=?2').bind(membershipNo, userId).run();
+      try {
+        await env.DB.prepare('UPDATE users SET membership_no=?1, professional_title=?2, position=?3 WHERE id=?4').bind(membershipNo, professionalTitle, position, userId).run();
+      } catch (identityError) {
+        // سازگاری با محیط‌های آزمایشی یا نسخه‌های قدیمی DB تا زمان اجرای مهاجرت ۰۰۱۴.
+        if (!String(identityError?.message || '').includes('no such column')) throw identityError;
+      }
     }
   } catch (err) {
     // ثبت همزمان دو درخواست با یک ایمیل: پاسخ عمومی؛ سایر خطاها به کاربر نشان داده نمی‌شوند.
@@ -285,21 +290,27 @@ export async function currentUser(request, env) {
   const nowIso = new Date().toISOString();
   const row = await env.DB
     .prepare(
-      `SELECT u.id, u.email, u.display_name, u.membership_no, u.professional_title, u.position FROM sessions s
+      `SELECT u.id, u.email, u.display_name FROM sessions s
        JOIN users u ON u.id = s.user_id
        WHERE s.token_hash = ?1 AND s.expires_at > ?2 AND u.status = 'active' AND u.email_verified_at IS NOT NULL`
     )
     .bind(await hashToken(token), nowIso)
     .first();
   if (!row) return null;
+  let identity = {};
+  try {
+    identity = await env.DB.prepare('SELECT membership_no, professional_title, position FROM users WHERE id=?1').bind(row.id).first() || {};
+  } catch (identityError) {
+    if (!String(identityError?.message || '').includes('no such column')) throw identityError;
+  }
   const roleRows = await env.DB.prepare('SELECT role FROM user_roles WHERE user_id = ?1').bind(row.id).all();
   return {
     id: row.id,
     email: row.email,
     displayName: row.display_name,
-    membershipNo: row.membership_no || `WFA-${String(row.id).padStart(8, '0')}`,
-    professionalTitle: row.professional_title || '',
-    position: row.position || '',
+    membershipNo: identity.membership_no || `WFA-${String(row.id).padStart(8, '0')}`,
+    professionalTitle: identity.professional_title || '',
+    position: identity.position || '',
     roles: (roleRows?.results || []).map((r) => r.role),
   };
 }
