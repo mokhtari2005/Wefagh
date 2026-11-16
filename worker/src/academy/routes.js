@@ -4,6 +4,7 @@ import { currentUser } from '../auth/routes.js';
 import { COURSES, courseSummaries, findCourse, findLesson, isPublicCourse } from './catalog.js';
 import { lessonLearning } from './learning.js';
 import { handleAcademyExams } from './exam-routes.js';
+import { generateLessonLegalReview } from './legal-review.js';
 
 const MANAGER_ROLES = ['admin', 'super_admin', 'academy_manager'];
 const isManager = (user) => Boolean(user && Array.isArray(user.roles) && user.roles.some((r) => MANAGER_ROLES.includes(r)));
@@ -16,6 +17,16 @@ async function canAccessCourse(request, env, course) {
 
 const ID_RE = /^[a-z0-9-]{1,64}$/;
 const assessmentSchemaPromises = new WeakMap();
+const legalReviewSchemaPromises = new WeakMap();
+
+async function ensureLegalReviewSchema(db) {
+  let ready = legalReviewSchemaPromises.get(db);
+  if (!ready) {
+    ready = db.prepare('CREATE TABLE IF NOT EXISTS lesson_legal_reviews (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, course_id TEXT NOT NULL, lesson_id TEXT NOT NULL, review_json TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (strftime(\'%Y-%m-%dT%H:%M:%fZ\', \'now\')), PRIMARY KEY (user_id, course_id, lesson_id))').run().catch((error) => { legalReviewSchemaPromises.delete(db); throw error; });
+    legalReviewSchemaPromises.set(db, ready);
+  }
+  await ready;
+}
 
 async function ensureAssessmentSchema(db) {
   let ready = assessmentSchemaPromises.get(db);
@@ -181,7 +192,13 @@ export async function handleAcademy(request, env, path) {
     if (passed) {
       await env.DB.prepare('INSERT OR IGNORE INTO lesson_progress (user_id, course_id, lesson_id) VALUES (?1, ?2, ?3)').bind(user.id, course.id, lesson.id).run();
     }
-    return json({ ok: true, score, passed, explanation: learning.quiz.explanation, message: passed ? 'آزمونک با موفقیت گذرانده شد و درس در کارنامه ثبت شد.' : 'پاسخ تمرین ذخیره شد. توضیح را بخوانید و پس از مرور درس دوباره تلاش کنید.' });
+    let legalReview = null;
+    try {
+      await ensureLegalReviewSchema(env.DB);
+      legalReview = await generateLessonLegalReview(env, course, lesson, learning, answerIndex, responseText);
+      if (legalReview) await env.DB.prepare('INSERT INTO lesson_legal_reviews (user_id, course_id, lesson_id, review_json, updated_at) VALUES (?1, ?2, ?3, ?4, strftime(\'%Y-%m-%dT%H:%M:%fZ\',\'now\')) ON CONFLICT(user_id, course_id, lesson_id) DO UPDATE SET review_json=excluded.review_json, updated_at=excluded.updated_at').bind(user.id, course.id, lesson.id, JSON.stringify(legalReview)).run();
+    } catch (error) { console.error('academy legal review unavailable', String(error?.code || error?.name || 'Error').slice(0, 80)); }
+    return json({ ok: true, score, passed, explanation: learning.quiz.explanation, legalReview, legalReviewPending: !legalReview, legalReviewNote: legalReview ? null : 'تحلیل مستندات حقوقی فعلاً آماده نشد؛ پاسخ شما ذخیره شده است.', message: passed ? 'آزمونک با موفقیت گذرانده شد و درس در کارنامه ثبت شد.' : 'پاسخ تمرین ذخیره شد. توضیح را بخوانید و پس از مرور درس دوباره تلاش کنید.' });
   }
 
   if (path === '/api/academy/complete') {
@@ -215,16 +232,18 @@ export async function handleAcademy(request, env, path) {
     const enr = await env.DB.prepare('SELECT 1 AS x FROM enrollments WHERE user_id = ?1 AND course_id = ?2').bind(user.id, course.id).first();
     const rows = await env.DB.prepare('SELECT lesson_id FROM lesson_progress WHERE user_id = ?1 AND course_id = ?2').bind(user.id, course.id).all();
     let assessments = { results: [] };
+    let legalReviews = { results: [] };
     try {
       await ensureAssessmentSchema(env.DB);
       assessments = await env.DB.prepare('SELECT lesson_id, answer_index, response_text, score, passed, submitted_at FROM lesson_assessments WHERE user_id = ?1 AND course_id = ?2').bind(user.id, course.id).all();
-    } catch (error) {
-      console.error('academy assessment history unavailable', String(error?.message || error).slice(0, 120));
-    }
+      await ensureLegalReviewSchema(env.DB);
+      legalReviews = await env.DB.prepare('SELECT lesson_id, review_json FROM lesson_legal_reviews WHERE user_id = ?1 AND course_id = ?2').bind(user.id, course.id).all();
+    } catch (error) { console.error('academy assessment history unavailable', String(error?.message || error).slice(0, 120)); }
+    const reviewByLesson = new Map((legalReviews.results || []).map((r) => { try { return [r.lesson_id, JSON.parse(r.review_json)]; } catch { return [r.lesson_id, null]; } }));
     return json({
       ok: true, enrolled: Boolean(enr),
       completedLessonIds: (rows?.results || []).map((r) => r.lesson_id),
-      assessments: (assessments?.results || []).map((r) => ({ lessonId: r.lesson_id, answerIndex: r.answer_index, responseText: r.response_text, score: r.score, passed: Boolean(r.passed), submittedAt: r.submitted_at, explanation: r.passed ? lessonLearning(course.id, r.lesson_id)?.quiz.explanation || null : null })),
+      assessments: (assessments?.results || []).map((r) => ({ lessonId: r.lesson_id, answerIndex: r.answer_index, responseText: r.response_text, score: r.score, passed: Boolean(r.passed), submittedAt: r.submitted_at, explanation: r.passed ? lessonLearning(course.id, r.lesson_id)?.quiz.explanation || null : null, legalReview: reviewByLesson.get(r.lesson_id) || null })),
       total: course.lessons.length,
     });
   }
