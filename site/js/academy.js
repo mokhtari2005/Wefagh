@@ -243,7 +243,7 @@ export async function academyExamsPage() {
   for(const s of load.data.subjects){
     const card=h('article',{class:'card'},[h('h3',{text:s.title}),h('p',{text:s.description}),h('p',{class:'muted',text:`${s.questionCount} سؤال تستی · ۱ سؤال تشریحی`})]);
     const btn=h('button',{class:'btn',type:'button',text:'شروع آزمون'});
-    btn.addEventListener('click',()=>start(s.id,area));card.append(btn);subjects.append(card);
+    btn.addEventListener('click',()=>start(s.id,area,me.data.user));card.append(btn);subjects.append(card);
   }
   if(load.data.attempts?.length){
     area.append(h('h2',{text:'سوابق آزمون'}));
@@ -253,7 +253,66 @@ export async function academyExamsPage() {
   }
   return wrap;
 }
-async function start(subjectId,area){
+
+function examReportCard(user, attempt, result) {
+  const profile = user?.profile || {};
+  const issued = new Date().toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const reportNo = String(attempt.id || '').replace(/-/g, '').slice(-10).toUpperCase();
+  const card = h('article', { class: 'exam-certificate', dir: 'rtl' });
+  card.append(
+    h('div', { class: 'exam-certificate-topline', text: 'آکادمی وکالت شهرام مختاری' }),
+    h('div', { class: 'exam-certificate-heading' }, [
+      h('span', { class: 'exam-certificate-kicker', text: 'گواهی ارزیابی آموزشی' }),
+      h('h2', { text: 'کارنامه آزمون' }),
+      h('p', { text: attempt.subjectTitle || attempt.subject_title || 'آزمون تخصصی حقوق' }),
+    ]),
+    h('div', { class: 'exam-certificate-person' }, [
+      h('span', { class: 'exam-certificate-label', text: 'این کارنامه صادر می‌شود برای' }),
+      h('strong', { class: 'exam-certificate-name', text: user?.displayName || 'شرکت‌کننده' }),
+    ])
+  );
+  const details = [
+    ['نشانی ایمیل', user?.email],
+    ['شماره تماس', profile.phone],
+    ['شهر', profile.city],
+    ['استان', profile.province],
+    ['وضعیت حرفه‌ای', profile.professionalStatus],
+    ['کانون / مرجع صادرکننده', profile.barAssociation],
+    ['شماره پروانه', profile.licenseNumber],
+  ].filter(([, value]) => value);
+  if (details.length) {
+    const detailGrid = h('div', { class: 'exam-certificate-details' });
+    for (const [label, value] of details) detailGrid.append(h('div', { class: 'exam-certificate-detail' }, [h('span', { text: label }), h('strong', { text: String(value) })]));
+    card.append(detailGrid);
+  }
+  const score = h('div', { class: 'exam-certificate-score' }, [
+    h('span', { text: 'نمره نهایی' }),
+    h('strong', { text: String(result.totalScore ?? result.total_score ?? 0) }),
+    h('small', { text: 'از ۱۰۰' }),
+  ]);
+  const scores = h('div', { class: 'exam-certificate-breakdown' }, [
+    h('div', {}, [h('span', { text: 'بخش تستی' }), h('strong', { text: String(result.objectiveScore ?? result.objective_score ?? 0) + ' از ۱۰۰' })]),
+    h('div', {}, [h('span', { text: 'بخش تشریحی' }), h('strong', { text: String(result.essayScore ?? result.essay_score ?? 0) + ' از ۱۰۰' })]),
+  ]);
+  card.append(score, scores);
+  if (result.overall) card.append(h('div', { class: 'exam-certificate-feedback' }, [h('h3', { text: 'جمع‌بندی ارزیاب' }), h('p', { text: result.overall })]));
+  if (Array.isArray(result.strengths) && result.strengths.length) card.append(h('div', { class: 'exam-certificate-feedback' }, [h('h3', { text: 'نقاط قوت' }), h('ul', {}, result.strengths.map(x => h('li', { text: x })))]));
+  if (Array.isArray(result.improvements) && result.improvements.length) card.append(h('div', { class: 'exam-certificate-feedback' }, [h('h3', { text: 'زمینه‌های قابل بهبود' }), h('ul', {}, result.improvements.map(x => h('li', { text: x })))]));
+  if (result.verificationNote) card.append(h('p', { class: 'exam-certificate-note', text: result.verificationNote }));
+  card.append(h('div', { class: 'exam-certificate-footer' }, [
+    h('span', { text: 'شماره کارنامه: ' + (reportNo || '—') }),
+    h('span', { text: 'تاریخ صدور: ' + issued }),
+  ]));
+  const actions = h('div', { class: 'exam-certificate-actions no-print' }, [
+    h('button', { class: 'btn', type: 'button', text: 'چاپ / ذخیره PDF' }),
+    h('a', { class: 'btn btn-outline', href: '#/academy/exams', text: 'بازگشت به مرکز آزمون' }),
+  ]);
+  actions.querySelector('button').addEventListener('click', () => window.print());
+  const wrap = h('div', { class: 'exam-certificate-wrap' }, [card, actions]);
+  return wrap;
+}
+
+async function start(subjectId,area,user){
   const r=await postJson('/api/academy/exams/start',{subjectId});
   if(!r.ok){area.append(h('p',{class:'form-status err',text:messageFor(r.networkError?'NETWORK':r.data?.error)}));return;}
   const a=r.data.attempt,section=h('section',{class:'panel academy-exam'});
@@ -273,7 +332,8 @@ async function start(subjectId,area){
     submit.disabled=true;submit.textContent='در حال تصحیح پاسخ‌ها…';
     const result=await postJson('/api/academy/exams/submit',{attemptId:a.id,answers,essayResponse:essay.value});
     if(!result.ok){submit.disabled=false;submit.textContent='تلاش دوباره برای تصحیح';feedback.replaceChildren(h('p',{class:'form-status err',text:result.data?.message||messageFor(result.networkError?'NETWORK':result.data?.error)}));return;}
-    const g=result.data.result;form.replaceChildren(h('h2',{text:`نمره نهایی: ${g.totalScore} از ۱۰۰`}),h('p',{text:`تستی: ${g.objectiveScore} از ۱۰۰ · تشریحی: ${g.essayScore} از ۱۰۰`}),h('h3',{text:'بازخورد ارزیاب'}),h('p',{text:g.overall}),h('h3',{text:'ارزیابی معیارها'}),h('ul',{},g.criteria.map(c=>h('li',{text:`${c.criterion}: ${c.score} از ۲۰ — ${c.feedback}` }))),h('h3',{text:'نقاط قوت'}),h('ul',{},g.strengths.map(x=>h('li',{text:x}))),h('h3',{text:'موارد قابل بهبود'}),h('ul',{},g.improvements.map(x=>h('li',{text:x}))),h('p',{class:'notice',text:g.verificationNote}),h('a',{href:'#/academy/exams',text:'بازگشت به مرکز آزمون'}));
+    const g=result.data.result;
+    area.replaceChildren(examReportCard(user,{id:a.id,subjectTitle:a.subjectTitle},g));
   });
   area.replaceChildren(section);section.append(form);
 }
