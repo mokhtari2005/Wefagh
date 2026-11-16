@@ -195,31 +195,69 @@ test('تمرین تشریحی و آزمونک دوره در سرور ارزیا�
   assert.equal(course.course.lessons[0].learning.quiz.options.length, 4);
   assert.ok(course.course.lessons[0].learning.assignment);
 
-  const failed = await worker.fetch(req('/api/academy/assess', {
+  // کپی صورت تمرین نباید نمره تشریحی بگیرد؛ این مسیر بدون فراخوانی مدل قابل آزمون است.
+  const copied = await worker.fetch(req('/api/academy/assess', {
     method: 'POST',
     cookie,
-    body: { courseId: 'civil-litigation-practice', lessonId: 'l1', answerIndex: 0, responseText: 'تحلیل تمرینی کافی برای ثبت و ارزیابی پاسخ کارآموز.' },
+    body: { courseId: 'civil-litigation-practice', lessonId: 'l1', answerIndex: 0, responseText: lessonLearning('civil-litigation-practice', 'l1').assignment },
   }), env);
-  assert.equal(failed.status, 200);
-  assert.equal((await failed.json()).passed, false);
+  assert.equal(copied.status, 200);
+  const copiedResult = await copied.json();
+  assert.equal(copiedResult.essayScore, 0);
+  assert.equal(copiedResult.passed, false);
+  assert.equal(copiedResult.score, 0);
 
-  const passed = await worker.fetch(req('/api/academy/assess', {
-    method: 'POST',
-    cookie,
-    body: { courseId: 'civil-litigation-practice', lessonId: 'l1', answerIndex: 1, responseText: 'در این پرونده باید خواسته، سبب، طرفین، مرجع صالح و ادله اصلی را جداگانه مشخص و ابهام‌ها را ثبت کرد.' },
-  }), env);
-  const result = await passed.json();
-  assert.equal(passed.status, 200);
-  assert.equal(result.passed, true);
-  assert.equal(result.score, 100);
+  // ارزیابی مدل در تست با پاسخ ساخت‌یافتهٔ ثابت شبیه‌سازی می‌شود.
+  env.GEMINI_API_KEY = 'test-key-for-unit-tests';
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    candidates: [{ content: { parts: [{ text: JSON.stringify({
+      criteria: [
+        { criterion: 'ارتباط مستقیم پاسخ با پرسش و تشخیص مسئله', score: 25, feedback: 'کامل' },
+        { criterion: 'تحلیل حقوقی و تطبیق قواعد با فرض مسئله', score: 25, feedback: 'کامل' },
+        { criterion: 'استدلال منظم، بررسی ادله و دفاع‌های مرتبط', score: 25, feedback: 'کامل' },
+        { criterion: 'نتیجه‌گیری روشن و رعایت دقت علمی و استنادی', score: 25, feedback: 'کامل' },
+      ],
+      feedback: 'پاسخ تحلیلی و مستدل است.',
+      analysis: 'تحلیل آزمایشی',
+      legalAuthorities: [],
+      fiqhPrinciples: [],
+      issues: [],
+      verificationNote: 'آزمون واحد',
+    }) }] } }],
+  }), { status: 200, headers: { 'content-type': 'application/json' } });
 
-  const progress = await worker.fetch(req('/api/academy/progress?courseId=civil-litigation-practice', { cookie }), env);
-  const state = await progress.json();
-  assert.deepEqual(state.completedLessonIds, ['l1']);
-  assert.equal(state.assessments[0].passed, true);
-  assert.equal(state.assessments[0].answerIndex, 1);
-  assert.equal(state.assessments[0].responseText.startsWith('در این پرونده'), true);
-  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM lesson_assessments').get().n, 1);
+  try {
+    const failed = await worker.fetch(req('/api/academy/assess', {
+      method: 'POST',
+      cookie,
+      body: { courseId: 'civil-litigation-practice', lessonId: 'l1', answerIndex: 0, responseText: 'تحلیل تمرینی کافی برای ثبت و ارزیابی پاسخ کارآموز.' },
+    }), env);
+    assert.equal(failed.status, 200);
+    assert.equal((await failed.json()).passed, false);
+
+    const passed = await worker.fetch(req('/api/academy/assess', {
+      method: 'POST',
+      cookie,
+      body: { courseId: 'civil-litigation-practice', lessonId: 'l1', answerIndex: 1, responseText: 'در این پرونده باید خواسته، سبب، طرفین، مرجع صالح و ادله اصلی را جداگانه مشخص و ابهام‌ها را ثبت کرد.' },
+    }), env);
+    const result = await passed.json();
+    assert.equal(passed.status, 200);
+    assert.equal(result.passed, true);
+    assert.equal(result.essayScore, 100);
+    assert.equal(result.score, 100);
+
+    const progress = await worker.fetch(req('/api/academy/progress?courseId=civil-litigation-practice', { cookie }), env);
+    const state = await progress.json();
+    assert.deepEqual(state.completedLessonIds, ['l1']);
+    assert.equal(state.assessments[0].passed, true);
+    assert.equal(state.assessments[0].answerIndex, 1);
+    assert.equal(state.assessments[0].responseText.startsWith('در این پرونده'), true);
+    assert.equal(state.assessments[0].legalReview.essayAssessment.score, 100);
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM lesson_assessments').get().n, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test('ارسال تمرین بدون ثبت‌نام یا با پاسخ کوتاه پذیرفته نمی‌شود', { skip }, async () => {

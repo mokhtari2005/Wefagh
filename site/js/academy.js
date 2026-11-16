@@ -99,7 +99,7 @@ export async function academyCourse(courseId) {
     h('h1', { text: course.title }),
     h('p', { class: 'muted', text: course.level }),
     h('p', { class: 'lead', text: course.summary }),
-    h('div', { class: 'notice', text: 'روش کار: درس را بخوانید، پرونده یا مسئله را تحلیل کنید، پاسخ کتبی بدهید و آزمونک را بگذرانید. قبولی در آزمونک، درس را در کارنامه شما ثبت می‌کند. پاسخ تشریحی ذخیره می‌شود و معیارهای خودارزیابی دارد؛ نمره فعلی فقط مربوط به آزمونک است. برای حفظ محرمانگی، در تمرین‌ها فقط از اطلاعات فرضی یا بی‌نام‌سازی‌شده استفاده کنید و مشخصات موکل یا پرونده واقعی را وارد نکنید.' })
+    h('div', { class: 'notice', text: 'روش کار: درس را بخوانید، پرونده یا مسئله را تحلیل کنید، پاسخ کتبی بدهید و آزمونک را بگذرانید. قبولی در آزمونک، درس را در کارنامه شما ثبت می‌کند. پاسخ تشریحی نیز جداگانه با هوش مصنوعی و بر اساس معیارهای اعلام‌شده ارزیابی می‌شود؛ قبولی مستلزم پاسخ تستی صحیح و کسب حداقل ۶۰ از ۱۰۰ در پاسخ تشریحی است. برای حفظ محرمانگی، در تمرین‌ها فقط از اطلاعات فرضی یا بی‌نام‌سازی‌شده استفاده کنید و مشخصات موکل یا پرونده واقعی را وارد نکنید.' })
   );
   if (course.status === 'draft') {
     wrap.append(h('div', { class: 'notice', role: 'note' }, [h('p', { text: 'این دوره پیش‌نویس است. ثبت‌نام و دسترسی کاربران عادی به محتوا غیرفعال است.' })]));
@@ -183,6 +183,12 @@ function courseCertificateCard(user, course) {
 function legalReviewNodes(review, note = '') {
   if (!review) return [h('p', { class: 'notice', text: note || 'تحلیل مستندات حقوقی فعلاً در دسترس نیست؛ پاسخ شما ذخیره شده است.' })];
   const nodes = [h('h4', { text: 'تحلیل مستند پاسخ و مستندات حقوقی' })];
+  if (review.essayAssessment) {
+    nodes.push(h('h5', { text: 'نمره پاسخ تشریحی: ' + review.essayAssessment.score + ' از ۱۰۰' }));
+    if (review.essayAssessment.feedback) nodes.push(h('p', { text: review.essayAssessment.feedback }));
+    if (review.essayAssessment.criteria?.length) nodes.push(h('ul', {}, review.essayAssessment.criteria.map((x) => h('li', { text: x.criterion + ': ' + x.score + ' از ۲۵ — ' + (x.feedback || '') }))));
+    if (review.essayAssessment.improvements?.length) nodes.push(h('h5', { text: 'موارد قابل بهبود' }), h('ul', {}, review.essayAssessment.improvements.map((x) => h('li', { text: x }))));
+  }
   if (review.analysis) nodes.push(h('p', { text: review.analysis }));
   if (review.legalAuthorities?.length) {
     nodes.push(h('h5', { text: 'قوانین و مقررات' }), h('ul', {}, review.legalAuthorities.map((x) => h('li', { text: (x.law || 'منبع قانونی') + (x.article ? '، ماده ' + x.article : '') + ' — ' + (x.rule || '') + ' ' + (x.application || '') + ' [' + (x.status || 'نیازمند بررسی') + ']' }))));
