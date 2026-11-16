@@ -1486,3 +1486,57 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
   .exam-certificate { position: absolute !important; inset: 0 auto auto 0; width: 100%; max-width: none; box-shadow: none; border-radius: 0; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .exam-certificate-actions, .no-print { display: none !important; }
 }
+
+
+/* گواهینامه پایان دوره و کارنامه A5 */
+.academy-print-wrap { margin: 2rem 0; }
+.academy-print-sheet { position: relative; box-sizing: border-box; overflow: hidden; width: 100%; max-width: 900px; min-height: 420px; margin: 1rem auto; padding: 2rem; border: 2px solid #17345f; outline: 1px solid #b69a4d; outline-offset: -9px; color: #101d3c; background: #fff; box-shadow: 0 10px 32px rgba(10,30,65,.1); text-align: center; }
+.academy-course-certificate { background: linear-gradient(150deg,#fff 0%,#fff 72%,#fbf7e9 100%); }
+.academy-cert-brand,.academy-report-brand { font-weight: 900; color: #0a2256; font-size: 1.05rem; }
+.academy-cert-emblem { margin: .25rem auto; color: #b49a50; font-size: 2.4rem; }
+.academy-cert-kicker,.academy-report-kicker { margin: .25rem 0; color: #8c7436; font-weight: 800; }
+.academy-cert-title { margin: .1rem 0 .7rem; color: #a58b48; font: 700 2.1rem Georgia,serif; letter-spacing: .04em; }
+.academy-cert-copy { margin: .45rem 0; }
+.academy-cert-name { display: block; margin: .5rem 0; color: #0a2256; font-size: 1.55rem; }
+.academy-cert-course { margin: .5rem 0 1rem; color: #92783c; font-size: 1.25rem; }
+.academy-cert-meta { display: flex; justify-content: space-around; gap: 1rem; margin-top: 1rem; font-size: .82rem; }
+.academy-cert-signatures { display: flex; justify-content: space-around; gap: 2rem; margin-top: 2rem; padding-top: .8rem; border-top: 1px solid #b9a56c; font-weight: 800; }
+.academy-cert-footnote { margin: 1rem 0 0; color: #6d7481; font-size: .72rem; }
+.academy-print-actions { display: flex; justify-content: center; gap: .7rem; margin: 1rem auto; }
+.academy-exam-results { display: grid; gap: 1.5rem; }
+.academy-exam-review { display: grid; gap: .8rem; }
+.academy-review-question,.academy-review-essay { padding: 1rem; border: 1px solid var(--sand-line); border-radius: 12px; background: var(--paper); line-height: 1.9; }
+.academy-review-question h3,.academy-review-essay h3 { margin-top: 0; }
+.academy-review-question p,.academy-review-essay p { margin: .35rem 0; }
+.academy-answer-correct { color: #176d55; font-weight: 700; }
+.academy-answer-wrong { color: #a13a35; font-weight: 700; }
+.academy-exam-report { max-width: 760px; min-height: 0; padding: 1.4rem 1.8rem; }
+.academy-report-kicker { margin-top: .8rem; }
+.academy-exam-report h2 { margin: .2rem 0; color: #0a2256; font-size: 1.8rem; }
+.academy-report-subject { margin: .2rem 0 .8rem; color: #92783c; }
+.academy-report-person { margin: .6rem auto 1rem; font-size: 1.35rem; font-weight: 900; }
+.academy-report-scores { display: grid; grid-template-columns: repeat(3,1fr); gap: .55rem; }
+.academy-report-scores > div { display: grid; gap: .3rem; padding: .75rem .35rem; border: 1px solid #d9e0e8; border-radius: 9px; background: #f5f7fa; }
+.academy-report-scores span { color: #566477; font-size: .8rem; }
+.academy-report-scores strong { color: #102b57; font-size: 1.1rem; }
+.academy-report-scores .academy-report-total { border-color: #c4ad68; background: #fbf5e5; }
+.academy-report-bottom { display: flex; justify-content: space-between; gap: .7rem; margin-top: 1.2rem; padding-top: .65rem; border-top: 1px solid #d8cba6; font-size: .78rem; }
+.academy-report-signature { display: grid; justify-items: end; gap: .2rem; margin-top: .8rem; font-size: .82rem; }
+@media print {
+  @page { size: A5 landscape; margin: 0; }
+  html, body { width: 210mm !important; height: 148mm !important; margin: 0 !important; padding: 0 !important; background: #fff !important; }
+  body * { visibility: hidden !important; }
+  .academy-print-sheet, .academy-print-sheet * { visibility: visible !important; }
+  .academy-print-sheet { position: fixed !important; inset: 0 !important; width: 210mm !important; height: 148mm !important; max-width: none !important; min-height: 0 !important; margin: 0 !important; padding: 10mm 14mm !important; border-radius: 0 !important; box-shadow: none !important; outline-offset: -4mm !important; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; page-break-after: avoid !important; }
+  .academy-print-actions,.no-print { display: none !important; }
+  .academy-cert-brand,.academy-report-brand { font-size: 11pt !important; }
+  .academy-cert-title { font-size: 24pt !important; }
+  .academy-cert-name { font-size: 18pt !important; }
+  .academy-cert-course { font-size: 15pt !important; }
+  .academy-cert-meta,.academy-cert-footnote,.academy-report-bottom { font-size: 8pt !important; }
+  .academy-cert-signatures { margin-top: 10mm !important; }
+  .academy-exam-report { padding: 8mm 12mm !important; }
+  .academy-exam-report h2 { font-size: 20pt !important; }
+  .academy-report-person { font-size: 16pt !important; }
+  .academy-report-scores strong { font-size: 12pt !important; }
+}
