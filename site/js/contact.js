@@ -2,12 +2,11 @@
 import { postJson } from './api.js';
 
 const TOPIC_LABELS = {
-  general: 'پرسش عمومی',
-  consulting: 'مشاوره حقوقی',
-  academy: 'آکادمی و آموزش',
-  media: 'رسانه و پادکست',
-  cooperative: 'مشارکت صنفی',
-  other: 'سایر',
+  general: 'پیشنهاد عمومی',
+  academy: 'پیشنهاد درباره آکادمی و آموزش',
+  media: 'پیشنهاد درباره رسانه و پادکست',
+  cooperative: 'پیشنهاد همکاری',
+  other: 'گزارش ایراد یا سایر پیشنهادها',
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -36,7 +35,7 @@ export function mountContactForm(container) {
     name: el('input', { id: 'c-name', name: 'name', type: 'text', autocomplete: 'name', required: '', maxlength: '100' }),
     email: el('input', { id: 'c-email', name: 'email', type: 'email', autocomplete: 'email', required: '', maxlength: '254', dir: 'ltr' }),
     topic: el('select', { id: 'c-topic', name: 'topic' }),
-    message: el('textarea', { id: 'c-message', name: 'message', required: '', maxlength: '2000' }),
+    message: el('textarea', { id: 'c-message', name: 'message', required: '', maxlength: '2000', placeholder: 'پیشنهاد، انتقاد یا شرح ایراد فنی و محتوایی خود را بنویسید.' }),
   };
   for (const [value, label] of Object.entries(TOPIC_LABELS)) {
     fields.topic.append(el('option', { value, text: label }));
@@ -52,13 +51,13 @@ export function mountContactForm(container) {
   fields.message.setAttribute('aria-describedby', 'e-message');
 
   const status = el('p', { class: 'form-status', role: 'status', 'aria-live': 'polite' });
-  const submit = el('button', { class: 'btn', type: 'submit', text: 'ارسال پیام' });
+  const submit = el('button', { class: 'btn', type: 'submit', text: 'ارسال پیشنهاد و بازخورد' });
 
   const form = el('form', { class: 'form', novalidate: '', 'aria-label': 'فرم تماس' }, [
     el('div', { class: 'field' }, [el('label', { for: 'c-name', text: 'نام و نام خانوادگی' }), fields.name, errorEls.name]),
     el('div', { class: 'field' }, [el('label', { for: 'c-email', text: 'ایمیل' }), fields.email, errorEls.email]),
     el('div', { class: 'field' }, [el('label', { for: 'c-topic', text: 'موضوع' }), fields.topic]),
-    el('div', { class: 'field' }, [el('label', { for: 'c-message', text: 'پیام' }), fields.message, errorEls.message]),
+    el('div', { class: 'field' }, [el('label', { for: 'c-message', text: 'متن پیشنهاد یا بازخورد' }), fields.message, errorEls.message]),
     submit,
     status,
   ]);
@@ -91,7 +90,7 @@ export function mountContactForm(container) {
 
     if (res.ok) {
       form.reset();
-      status.textContent = 'پیام شما ثبت شد. به‌زودی با شما تماس گرفته می‌شود.';
+      status.textContent = 'پیشنهاد یا بازخورد شما با موفقیت ثبت شد. از همراهی شما سپاسگزاریم.';
       status.classList.add('ok');
       return;
     }
