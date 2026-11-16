@@ -10,6 +10,7 @@ import { lessonLearning } from '../worker/src/academy/learning.js';
 import { EXAM_SUBJECTS } from '../worker/src/academy/exam-bank.js';
 import { getExamSubject, selectExamQuestions, selectEssayQuestion, formatEssayPrompt } from '../worker/src/academy/exam-question-bank.js';
 import { buildQuestionReviews } from '../worker/src/academy/exam-routes.js';
+import { normalizeLegalReview } from '../worker/src/academy/legal-review.js';
 
 let DatabaseSync;
 let sqliteAvailable = true;
@@ -340,4 +341,29 @@ test('سؤال تشریحی از بانک متنوع انتخاب می‌شود 
   assert.notEqual(formatEssayPrompt(first), formatEssayPrompt(second));
   assert.match(formatEssayPrompt(first), /سناریوی تشریحی/);
   assert.match(formatEssayPrompt(first), /نتیجه‌گیری مستدل/);
+});
+
+
+test('ارزیابی مستند دوره‌ها شماره ماده نامطمئن را قطعی جلوه نمی‌دهد و قواعد فقهی نامرتبط را حذف می‌کند', () => {
+  const review = normalizeLegalReview({
+    analysis: 'تحلیل آموزشی',
+    legalAuthorities: [
+      { law: 'قانون مدنی', article: '', rule: 'لزوم قرارداد', application: 'بررسی تعهدات طرفین', status: 'needs_review' },
+      { law: 'قانون آیین دادرسی مدنی', article: '9999', rule: 'ماده ساختگی', application: 'نامرتبط', status: 'verified' },
+    ],
+    fiqhPrinciples: [{ principle: 'اصل صحت', scope: 'در صورت احراز شرایط', application: 'بررسی ظاهر قرارداد', status: 'well-established' }],
+    issues: ['تطبیق با متن رسمی'],
+  });
+  assert.equal(review.legalAuthorities[0].article, '');
+  assert.equal(review.legalAuthorities[0].status, 'needs_review');
+  assert.equal(review.legalAuthorities[1].article, '9999');
+  assert.equal(review.fiqhPrinciples[0].principle, 'اصل صحت');
+  assert.equal(review.issues.length, 1);
+  assert.ok(review.verificationNote.includes('متن رسمی'));
+});
+
+test('ارزیابی مستند در صورت نبود قاعده فقهی آرایه خالی را حفظ می‌کند', () => {
+  const review = normalizeLegalReview({ legalAuthorities: [], fiqhPrinciples: [] });
+  assert.deepEqual(review.legalAuthorities, []);
+  assert.deepEqual(review.fiqhPrinciples, []);
 });
