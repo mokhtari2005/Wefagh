@@ -53,18 +53,23 @@ async function publishedCourses(env) {
 }
 
 async function getCourse(env, id) {
-  const builtIn = findCourse(id);
-  if (builtIn) return builtIn;
-  if (!env.DB) return null;
-  let row;
-  try {
-    row = await env.DB.prepare("SELECT slug, title, summary, payload_json FROM admin_content WHERE kind = 'course' AND status = 'published' AND slug = ?1").bind(id).first();
-  } catch (error) {
-    console.error('managed course content unavailable', String(error?.message || error).slice(0, 120));
-    return null;
+  if (env.DB) {
+    let row;
+    try {
+      row = await env.DB.prepare("SELECT slug, title, summary, payload_json FROM admin_content WHERE kind = 'course' AND status = 'published' AND slug = ?1").bind(id).first();
+    } catch (error) {
+      console.error('managed course content unavailable', String(error?.message || error).slice(0, 120));
+    }
+    if (row) {
+      try {
+        const payload = JSON.parse(row.payload_json);
+        return { id: row.slug, title: row.title, summary: row.summary, level: payload.level, lessons: payload.lessons, status: 'published' };
+      } catch {
+        return null;
+      }
+    }
   }
-  if (!row) return null;
-  try { const payload = JSON.parse(row.payload_json); return { id: row.slug, title: row.title, summary: row.summary, level: payload.level, lessons: payload.lessons, status: 'published' }; } catch { return null; }
+  return findCourse(id);
 }
 
 async function requireUser(request, env) {
@@ -99,7 +104,7 @@ export async function handleAcademy(request, env, path) {
   const detail = path.match(/^\/api\/academy\/courses\/([a-z0-9-]{1,64})$/);
   if (detail) {
     if (request.method !== 'GET') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'GET' });
-    const course = findCourse(detail[1]) || await getCourse(env, detail[1]);
+    const course = await getCourse(env, detail[1]);
     if (!course) return json({ ok: false, error: 'NOT_FOUND' }, 404);
     if (!(await canAccessCourse(request, env, course))) return json({ ok: false, error: 'COURSE_NOT_PUBLISHED' }, 403);
     return json({
@@ -130,10 +135,10 @@ export async function handleAcademy(request, env, path) {
     const parsed = await readJsonBody(request);
     if (parsed.error) return parsed.error;
     const courseId = parsed.body?.courseId;
-    if (typeof courseId !== 'string' || !ID_RE.test(courseId) || !(findCourse(courseId) || await getCourse(env, courseId))) {
+    if (typeof courseId !== 'string' || !ID_RE.test(courseId) || !(await getCourse(env, courseId))) {
       return json({ ok: false, error: 'VALIDATION_FAILED', errors: { courseId: 'دوره نامعتبر است.' } }, 422);
     }
-    const enrollTarget = findCourse(courseId) || await getCourse(env, courseId);
+    const enrollTarget = await getCourse(env, courseId);
     if (!(await canAccessCourse(request, env, enrollTarget))) return json({ ok: false, error: 'COURSE_NOT_PUBLISHED' }, 403);
     await env.DB.prepare('INSERT OR IGNORE INTO enrollments (user_id, course_id) VALUES (?1, ?2)').bind(user.id, courseId).run();
     return json({ ok: true, enrolled: true });
@@ -147,7 +152,7 @@ export async function handleAcademy(request, env, path) {
     const parsed = await readJsonBody(request);
     if (parsed.error) return parsed.error;
     const { courseId, lessonId, answerIndex, responseText } = parsed.body || {};
-    const course = typeof courseId === 'string' && ID_RE.test(courseId) ? (findCourse(courseId) || await getCourse(env, courseId)) : null;
+    const course = typeof courseId === 'string' && ID_RE.test(courseId) ? await getCourse(env, courseId) : null;
     const lesson = course && typeof lessonId === 'string' && ID_RE.test(lessonId) ? findLesson(course, lessonId) : null;
     const learning = lesson && lessonLearning(course.id, lesson.id);
     if (!course || !lesson || !learning || !Number.isInteger(answerIndex) || answerIndex < 0 || answerIndex >= learning.quiz.options.length || typeof responseText !== 'string' || responseText.trim().length < 30 || responseText.length > 12000) {
