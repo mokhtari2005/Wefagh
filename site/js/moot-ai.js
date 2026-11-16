@@ -429,12 +429,45 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
     advance();
   });
 
-  submitBtn.addEventListener('click', () => {
+  submitBtn.addEventListener('click', async () => {
     const v = validAnswer(answer.value);
     if (!v.ok) { audioStatus.textContent = v.error; return; }
+    const step = currentStep();
+    if (!step || !userTurn()) { audioStatus.textContent = 'نوبت پاسخ‌گویی شما نیست.'; return; }
+    clearAutoAdvance();
     player.stop();
-    if (speechOn) player.unlock();
+    setBusy(true);
+    submitBtn.disabled = true;
+    audioStatus.textContent = 'قاضی در حال ارزیابی محتوای دفاعیه است؛ تا پایان ارزیابی مرحله بعد باز نمی‌شود.';
+    const assessed = await postJson('/api/ai/moot/assess', {
+      caseId, role: userSide, stage: step.stage, difficulty,
+      answer: v.text, history: historyForApi(history),
+    }, { timeoutMs: 60000 });
+    if (!assessed.ok || !assessed.data?.assessment) {
+      setBusy(false);
+      submitBtn.disabled = false;
+      audioStatus.textContent = `${errorText(assessed.data?.error || (assessed.networkError ? 'NETWORK' : 'AI_UNAVAILABLE'))} دفاعیه ثبت نشد و جلسه جلو نمی‌رود؛ دوباره تلاش کنید.`;
+      return;
+    }
+    const result = assessed.data.assessment;
+    if (!result.accepted) {
+      setBusy(false);
+      submitBtn.disabled = false;
+      audioStatus.textContent = `دفاعیه پذیرفته نشد — امتیاز ${result.score}/100. ${result.feedback || 'به پرسش قاضی پاسخ مستدل بدهید.'}`;
+      const prior = inputArea.querySelector('.court-assessment-feedback');
+      prior?.remove();
+      inputArea.append(h('div', { class: 'court-assessment-feedback notice', role: 'alert' }, [
+        h('strong', { text: 'ارزیابی قاضی: ' + result.score + ' از ۱۰۰' }),
+        h('p', { text: result.feedback || 'پاسخ با موضوع مرحله تناسب کافی ندارد.' }),
+        ...(Array.isArray(result.missing) && result.missing.length ? [h('ul', {}, result.missing.map((x) => h('li', { text: x })))] : []),
+        h('p', { class: 'muted', text: 'پاسخ را اصلاح کنید و دوباره ارسال کنید. تا آن زمان رسیدگی متوقف است.' }),
+      ]));
+      return;
+    }
+    const prior = inputArea.querySelector('.court-assessment-feedback');
+    prior?.remove();
     addLine(userSide, v.text, true);
+    addLine('judge', `ارزیابی پاسخ شما: ${result.score}/100 — ${result.feedback || 'پاسخ برای ادامه رسیدگی کافی تشخیص داده شد.'}`);
     answer.value = '';
     renderInput(false);
     advance();
