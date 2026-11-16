@@ -190,11 +190,12 @@ export function getExamSubject(id) {
  const subject=EXAM_SUBJECTS.find(x=>x.id===id);
  return subject?{...subject,questions:buildExamQuestionBank(subject)}:null;
 }
-export function selectExamQuestions(subject, random=Math.random) {
+export function selectExamQuestions(subject, random=Math.random, excludedIds=new Set()) {
  const levels=[['easy',3],['medium',4],['hard',3]];
  const selected=[];
  for(const [level,count] of levels){
-  const pool=subject.questions.filter(q=>q.difficulty===level);
+  const fresh=subject.questions.filter(q=>q.difficulty===level&&!excludedIds.has(q.id));
+  const pool=fresh.length>=count?fresh:subject.questions.filter(q=>q.difficulty===level);
   for(let i=pool.length-1;i>0;i--){const j=Math.floor(random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
   selected.push(...pool.slice(0,count));
  }
