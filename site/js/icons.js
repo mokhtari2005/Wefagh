@@ -27,6 +27,16 @@ const SHAPES = {
   news: [['path', { d: 'M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2' }], ['path', { d: 'M18 14h-8' }], ['path', { d: 'M15 18h-5' }], ['path', { d: 'M10 6h8v4h-8z' }]],
   chart: [['path', { d: 'M18 20V10' }], ['path', { d: 'M12 20V4' }], ['path', { d: 'M6 20v-6' }]],
   edit: [['path', { d: 'M12 20h9' }], ['path', { d: 'M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z' }]],
+  gavel: [['path', { d: 'm14 13 7 7' }], ['path', { d: 'm5 4 7 7' }], ['path', { d: 'm8 2 6 6-4 4-6-6z' }], ['path', { d: 'm16 10 6 6-4 4-6-6z' }], ['path', { d: 'M2 22h12' }]],
+  landmark: [['path', { d: 'm3 10 9-7 9 7' }], ['path', { d: 'M4 10h16' }], ['path', { d: 'M5 10v9' }], ['path', { d: 'M9 10v9' }], ['path', { d: 'M15 10v9' }], ['path', { d: 'M19 10v9' }], ['path', { d: 'M3 22h18' }], ['path', { d: 'M2 19h20' }]],
+  users: [['path', { d: 'M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2' }], ['circle', { cx: 10, cy: 7, r: 4 }], ['path', { d: 'M20 21v-2a4 4 0 0 0-3-3.87' }], ['path', { d: 'M16 3.13a4 4 0 0 1 0 7.75' }]],
+  'graduation-cap': [['path', { d: 'm2 10 10-5 10 5-10 5z' }], ['path', { d: 'M6 12v5c4 3 8 3 12 0v-5' }], ['path', { d: 'M22 10v6' }]],
+  'volume-2': [['path', { d: 'M11 5 6 9H2v6h4l5 4z' }], ['path', { d: 'M15.5 8.5a5 5 0 0 1 0 7' }], ['path', { d: 'M19 5a10 10 0 0 1 0 14' }]],
+  'file-text': [['path', { d: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z' }], ['path', { d: 'M14 2v6h6' }], ['path', { d: 'M8 13h8' }], ['path', { d: 'M8 17h8' }], ['path', { d: 'M8 9h1' }]],
+  headphones: [['path', { d: 'M3 14v-3a9 9 0 0 1 18 0v3' }], ['rect', { x: 2, y: 13, width: 5, height: 8, rx: 2 }], ['rect', { x: 17, y: 13, width: 5, height: 8, rx: 2 }]],
+  info: [['circle', { cx: 12, cy: 12, r: 10 }], ['path', { d: 'M12 16v-4' }], ['path', { d: 'M12 8h.01' }]],
+  'clipboard-list': [['rect', { x: 5, y: 4, width: 14, height: 18, rx: 2 }], ['path', { d: 'M9 4V2h6v2' }], ['path', { d: 'M9 10h6' }], ['path', { d: 'M9 14h6' }], ['path', { d: 'M9 18h3' }]],
+  'user-round': [['circle', { cx: 12, cy: 8, r: 5 }], ['path', { d: 'M20 21a8 8 0 0 0-16 0' }]],
 };
 
 export const ICON_NAMES = Object.freeze(Object.keys(SHAPES));
