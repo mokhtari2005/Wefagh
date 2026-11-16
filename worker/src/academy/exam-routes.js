@@ -17,7 +17,8 @@ async function ensureSchema(db) {
 }
 const fail=(error,status,extra={})=>json({ok:false,error,...extra},status);
 const clean=(s,n)=>typeof s==='string'?s.trim().slice(0,n):'';
-function publicQuestions(s){return s.questions.map(({id,q,o})=>({id,question:q,options:o}));}
+function optionShift(q){return q.o.length ? [...q.id].reduce((n,ch)=>n+ch.charCodeAt(0),0)%q.o.length : 0;}
+function publicQuestions(s){return s.questions.map(({id,q,o})=>{const shift=optionShift({id,o});return{id,question:q,options:o.map((_,i)=>o[(i+shift)%o.length])};});}
 function gradeShape(v,rubric){
   if(!v||typeof v!=='object'||!Array.isArray(v.criteria))return null;
   const criteria=rubric.map((name,i)=>{const x=v.criteria.find(y=>y?.criterion===name)||v.criteria[i]||{};return{criterion:name,score:Math.max(0,Math.min(20,Math.round(Number(x.score)||0))),feedback:clean(x.feedback,600)};});
