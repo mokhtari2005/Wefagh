@@ -178,7 +178,7 @@ export async function handleAcademy(request, env, path) {
     if (!(await canAccessCourse(request, env, course))) return json({ ok: false, error: 'COURSE_NOT_PUBLISHED' }, 403);
     const enr = await env.DB.prepare('SELECT 1 AS x FROM enrollments WHERE user_id = ?1 AND course_id = ?2').bind(user.id, course.id).first();
     const rows = await env.DB.prepare('SELECT lesson_id FROM lesson_progress WHERE user_id = ?1 AND course_id = ?2').bind(user.id, course.id).all();
-    const assessments = await env.DB.prepare('SELECT lesson_id, score, passed, submitted_at FROM lesson_assessments WHERE user_id = ?1 AND course_id = ?2').bind(user.id, course.id).all();
+    const assessments = await env.DB.prepare('SELECT lesson_id, answer_index, response_text, score, passed, submitted_at FROM lesson_assessments WHERE user_id = ?1 AND course_id = ?2').bind(user.id, course.id).all();
     return json({
       ok: true, enrolled: Boolean(enr),
       completedLessonIds: (rows?.results || []).map((r) => r.lesson_id),
