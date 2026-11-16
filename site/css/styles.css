@@ -1102,8 +1102,7 @@ h1, h2, h3 { color: var(--teal-dark); }
 .ai-attachment[hidden] { display: none; }
 .ai-status { margin: 0; font-size: .9rem; min-height: 1.2em; }
 @media (min-width: 900px) {
-  .ai-shell { grid-template-columns: 260px minmax(0, 1fr); align-items: start; }
-  .ai-threads { position: sticky; top: 90px; }
+  /* تاریخچه زیر گفت‌وگو قرار می‌گیرد؛ فقط ارتفاع کادر گفت‌وگو محدود می‌شود. */
   .ai-main { height: min(78vh, 760px); min-height: 0; }
   .ai-stream { max-height: none; }
 }

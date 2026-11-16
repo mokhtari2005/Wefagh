@@ -222,3 +222,21 @@ test('سابقهٔ گفت‌وگوی جلسهٔ کامل (تا ۴۰ مورد) پ
   const full = Array.from({ length: 30 }, (_, i) => ({ role: i % 2 ? 'user' : 'ai', speaker: 'judge', text: `جمله ${i}` }));
   assert.equal(cleanHistory(full).length, 30);
 });
+
+test('حالت مشاورهٔ حقوقی بدون نوع سند پاسخ می‌دهد و دستور مشاوره به مدل می‌رسد', async () => {
+  const modelJson = { status: 'ready', questions: [], text: 'مهلت تجدیدنظرخواهی معمولاً بیست روز است.', notes: [] };
+  let system = '';
+  await withFetch(async (url, init) => {
+    system = JSON.parse(init.body).systemInstruction.parts[0].text;
+    return jsonRes(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(modelJson) }] } }] });
+  }, async () => {
+    const env = { DB: fakeDb({ loggedIn: true }), GEMINI_API_KEY: KEY };
+    const res = await worker.fetch(req('/api/ai/assistant', { body: { mode: 'consult', message: 'مهلت تجدیدنظرخواهی چقدر است؟', history: [] }, cookie: 'tok' }), env);
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.status, 'ready');
+    assert.match(data.text, /مهلت/);
+    assert.ok(system.includes('پاسخ مشاوره‌ای'));
+    assert.ok(!system.includes('تهیه کن'));
+  });
+});

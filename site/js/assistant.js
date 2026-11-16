@@ -11,7 +11,7 @@ export const DOC_TYPES = [
   ['contract', 'تنظیم یا بازنویسی قرارداد'], ['judicial_request', 'درخواست قضایی متناسب با موضوع'],
   ['letter', 'نامهٔ رسمی و مکاتبهٔ حقوقی'], ['other', 'سایر اسناد (تحلیل و بررسی)'],
 ];
-export const MODES = [['draft', 'تنظیم سند'], ['analyze', 'تحلیل حقوقی پرونده'], ['review', 'بررسی و اصلاح متن']];
+export const MODES = [['consult', 'مشاوره حقوقی'], ['draft', 'تنظیم سند'], ['analyze', 'تحلیل حقوقی پرونده'], ['review', 'بررسی و اصلاح متن']];
 
 export const ASSISTANT_NOTICE = 'این ابزار آموزشی و پیش‌نویس‌ساز است. خروجی آن پیش از هر استفاده در پرونده واقعی باید توسط وکیل با قوانین و مقررات جاری و رویهٔ معتبر تطبیق داده شود. اطلاعات پرونده در این بخش فقط برای تولید پاسخ به سرویس هوش مصنوعی فرستاده می‌شود.';
 
@@ -51,6 +51,8 @@ export function checkNewFile(file, current = []) {
   return { ok: true, label: ATTACH_TYPES[ext] };
 }
 const SUGGESTIONS = [
+  ['consult', 'other', 'مهلت تجدیدنظرخواهی از رأی دادگاه بدوی چقدر است و از چه تاریخی شروع می‌شود؟'],
+  ['consult', 'other', 'برای مطالبهٔ وجه چک برگشتی، شکایت کیفری بهتر است یا دادخواست حقوقی؟'],
   ['draft', 'petition', 'دادخواست مطالبهٔ وجه چک برگشتی را پیش‌نویس کن.'],
   ['analyze', 'petition', 'نقاط قوت و ضعف این پرونده را تحلیل کن: ...'],
   ['review', 'petition', 'این متن لایحه را از نظر ساختار و استدلال بازبینی کن: ...'],
@@ -73,7 +75,7 @@ export function assistantPage() {
   const wrap = h('div', { class: 'assistant' }, [
     h('span', { class: 'section-kicker', text: 'آکادمی وکالت شهرام مختاری · ابزار حرفه‌ای' }),
     h('h1', { text: 'دستیار هوشمند وکیل' }),
-    h('p', { class: 'lead', text: 'تنظیم پیش‌نویس اسناد، تحلیل پرونده و بازبینی متن حقوقی.' }),
+    h('p', { class: 'lead', text: 'مشاوره و پاسخ به پرسش‌های حقوقی و قضایی، تنظیم پیش‌نویس اسناد، تحلیل پرونده و بازبینی متن.' }),
     h('div', { class: 'notice', role: 'note', text: ASSISTANT_NOTICE }),
   ]);
   const body = h('div', { role: 'region', 'aria-live': 'polite' }, [h('p', { class: 'muted', text: 'در حال بررسی دسترسی…' })]);
@@ -172,29 +174,38 @@ function assistantWorkspace() {
   }
 
   // ---------- حالت و نوع سند ----------
-  let mode = 'draft';
+  let mode = 'consult';
   const modeGroup = h('div', { class: 'ai-seg', role: 'group', 'aria-label': 'نوع کار' });
   const modeButtons = MODES.map(([value, label]) => {
     const b = h('button', { class: 'ai-seg-btn', type: 'button', text: label });
     b.setAttribute('aria-pressed', value === mode ? 'true' : 'false');
     b.addEventListener('click', () => {
       mode = value;
-      modeButtons.forEach((x) => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+      syncMode();
     });
     return b;
   });
   modeGroup.append(...modeButtons.map((b, i) => b));
   const docSelect = h('select', { 'aria-label': 'نوع سند' }, DOC_TYPES.map(([v, t]) => h('option', { value: v, text: t })));
   const docWrap = h('label', { class: 'ai-doc-picker' }, [h('span', { text: 'نوع سند' }), docSelect]);
+  const PLACEHOLDERS = {
+    consult: 'پرسش حقوقی یا قضایی خود را بنویسید؛ هرچه جزئیات (مرجع، مرحله، تاریخ‌ها) دقیق‌تر باشد پاسخ دقیق‌تر است…',
+    other: 'موضوع دعوا، سمت موکل، مرجع رسیدگی، مرحله، خواسته، وقایع و دلایل موجود…',
+  };
+  function syncMode() {
+    modeButtons.forEach((x, i) => x.setAttribute('aria-pressed', MODES[i][0] === mode ? 'true' : 'false'));
+    docWrap.hidden = mode === 'consult';
+    composerText.placeholder = mode === 'consult' ? PLACEHOLDERS.consult : PLACEHOLDERS.other;
+  }
 
   // ---------- گفت‌وگو ----------
   const emptyState = h('div', { class: 'ai-empty' }, [
-    h('p', { class: 'lead', text: 'شرح پرونده یا متن خود را بنویسید. پاسخ‌ها بر پایهٔ همان اطلاعات تنظیم می‌شوند و در صورت نبود منبع معتبر، صریحاً اعلام می‌شود.' }),
+    h('p', { class: 'lead', text: 'پرسش حقوقی، شرح پرونده یا متن خود را بنویسید. پاسخ‌ها بر پایهٔ همان اطلاعات تنظیم می‌شوند و در صورت نبود منبع معتبر، صریحاً اعلام می‌شود.' }),
     h('div', { class: 'ai-suggestions' }, SUGGESTIONS.map(([m, d, text]) => {
       const b = h('button', { class: 'btn secondary ai-suggestion', type: 'button', text });
       b.addEventListener('click', () => {
         mode = m;
-        modeButtons.forEach((x, i) => x.setAttribute('aria-pressed', MODES[i][0] === m ? 'true' : 'false'));
+        syncMode();
         docSelect.value = d;
         composerText.value = text;
         composerText.focus();
@@ -406,8 +417,8 @@ function assistantWorkspace() {
   refreshThreads();
   renderLog();
 
-  const threadsPanel = h('details', { class: 'ai-threads', open: '' }, [
-    h('summary', { text: 'تاریخچهٔ گفت‌وگوها' }),
+  const threadsPanel = h('details', { class: 'ai-threads' }, [
+    h('summary', { text: 'تاریخچهٔ گفت‌وگوها (برای بازکردن بزنید)' }),
     threadList,
     threadStatus,
   ]);
@@ -420,8 +431,10 @@ function assistantWorkspace() {
   ]);
   composer.addEventListener('submit', (e) => { e.preventDefault(); send(); });
 
+  syncMode();
+  // طرح پرسش و پرونده بالا و در دسترس است؛ تاریخچهٔ گفت‌وگوها پایین صفحه قرار می‌گیرد.
   return h('div', { class: 'ai-shell' }, [
-    h('aside', { class: 'ai-side' }, [threadsPanel]),
     h('section', { class: 'ai-main', 'aria-label': 'گفت‌وگو با دستیار' }, [toolbar, stream, composer]),
+    h('aside', { class: 'ai-side' }, [threadsPanel]),
   ]);
 }

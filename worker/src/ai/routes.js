@@ -299,7 +299,7 @@ async function assistant(request, env) {
       system: assistantSystemPrompt({ mode, docType, hasAttachments: attachments.length > 0 }),
       contents,
       // توکن‌های «تفکر» مدل هم از این سقف کم می‌شوند؛ سقف پایین باعث قطع شدن پیش‌نویس‌های فارسی می‌شد.
-      maxOutputTokens: 6000,
+      maxOutputTokens: mode === 'consult' ? 3500 : 6000,
       timeoutMs: 40_000,
       json: true,
       schema: ASSISTANT_SCHEMA,
