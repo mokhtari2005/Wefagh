@@ -175,9 +175,9 @@ function makeQuestion(subject, topic, scenario, index, difficulty) {
   'برای ارزیابی این وضعیت، کدام معیار باید در اولویت قرار گیرد؟',
   'کدام گزینه با اصول و قواعد این حوزه سازگارتر است؟'
  ];
- const options=[topic[4],...topic[5]];
+ const options=[topic[3],...topic[4]];
  const id=subject.id+'-'+topic[0]+'-'+String(index+1).padStart(2,'0');
- return {id,q:stems[index%stems.length]+' '+scenario+'؛ محور بررسی: '+topic[1]+'.',o:options,a:0,e:topic[6],difficulty,topic:topic[1]};
+ return {id,q:stems[index%stems.length]+' '+scenario+'؛ محور بررسی: '+topic[1]+'.',o:options,a:0,e:topic[5],difficulty,topic:topic[1]};
 }
 export function buildExamQuestionBank(subject) {
  const topics=TOPICS[subject.id];
