@@ -1422,3 +1422,29 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
   .admin-dashboard-grid { grid-template-columns: 1fr; }
   .admin-stat-wide { grid-column: auto; }
 }
+
+
+/* ---------- کارگاه آموزشی تعاملی آکادمی ---------- */
+.academy-lessons { display: grid; gap: 1rem; margin-block: 1rem 2rem; }
+.academy-lesson { display: grid; gap: .7rem; }
+.academy-lesson > h2, .academy-lesson > h3, .academy-lesson > p { margin-block: 0; }
+.academy-lesson > h3 { font-size: 1.05rem; color: var(--deep); }
+.academy-lesson .lesson-body { line-height: 2; }
+.academy-assessment { display: grid; gap: .8rem; padding: .9rem; border: 1px solid var(--sand-line); border-radius: 14px; background: color-mix(in srgb, var(--paper) 88%, var(--sand)); }
+.academy-quiz-options { display: grid; gap: .55rem; border: 0; padding: 0; margin: 0; }
+.academy-quiz-options legend { font-weight: 800; margin-bottom: .35rem; }
+.academy-quiz-option { display: flex; align-items: flex-start; gap: .6rem; padding: .65rem .75rem; border: 1px solid var(--sand-line); border-radius: 10px; background: var(--paper); cursor: pointer; line-height: 1.8; }
+.academy-quiz-option input { margin-top: .45rem; flex: 0 0 auto; accent-color: var(--teal); }
+.academy-answer-label { display: grid; gap: .4rem; font-weight: 700; }
+.academy-answer-label textarea { width: 100%; min-height: 130px; resize: vertical; }
+.academy-rubric { margin: 0; padding-inline-start: 1.4rem; color: var(--ink-soft); line-height: 1.9; font-size: .9rem; }
+.academy-feedback { display: grid; gap: .35rem; line-height: 1.8; }
+.academy-feedback p { margin: 0; }
+.academy-progress { display: grid; gap: .5rem; }
+.academy-progress h2, .academy-progress p { margin: 0; }
+.academy-progress progress { width: 100%; height: 12px; accent-color: var(--teal); }
+.academy-lesson > .badge { justify-self: start; }
+@media (max-width: 560px) {
+  .academy-assessment { padding: .65rem; }
+  .academy-quiz-option { padding: .55rem; }
+}

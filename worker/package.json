@@ -1,0 +1,8 @@
+{
+  "name": "wefagh-worker",
+  "private": true,
+  "scripts": {
+    "deploy": "npx wrangler deploy"
+  },
+  "type": "module"
+}

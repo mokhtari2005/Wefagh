@@ -6,6 +6,7 @@ import { join, dirname } from 'node:path';
 import worker from '../worker/src/index.js';
 import { hashToken } from '../worker/src/auth/token.js';
 import { COURSES } from '../worker/src/academy/catalog.js';
+import { lessonLearning } from '../worker/src/academy/learning.js';
 
 let DatabaseSync;
 let sqliteAvailable = true;
@@ -44,6 +45,7 @@ async function setup() {
   db.exec(migration('0002_auth.sql'));
   db.exec(migration('0003_academy.sql'));
   db.exec(migration('0006_admin_content.sql'));
+  db.exec(migration('0013_academy_assessments.sql'));
   const env = { DB: d1Like(db) };
   // کاربر تأییدشده و نشست معتبر را مستقیم می‌سازیم (بدون وابستگی به ایمیل).
   const u = db
@@ -175,4 +177,89 @@ test('فهرست دوره‌ها وضعیت ثبت‌نام کاربر وارد�
   assert.equal(mine.enrolled, true);
   assert.equal(list.courses.filter((c) => c.enrolled).length, 1);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM enrollments').get().n, 1);
+});
+
+
+test('تمرین تشریحی و آزمونک دوره در سرور ارزیابی و در کارنامه ذخیره می‌شود', { skip }, async () => {
+  const { db, env, cookie } = await setup();
+  const enrolled = await worker.fetch(req('/api/academy/enroll', { method: 'POST', body: { courseId: 'civil-litigation-practice' }, cookie }), env);
+  assert.equal(enrolled.status, 200);
+
+  const detail = await worker.fetch(req('/api/academy/courses/civil-litigation-practice'), env);
+  const course = await detail.json();
+  assert.equal(course.course.lessons[0].learning.quiz.options.length, 4);
+  assert.ok(course.course.lessons[0].learning.assignment);
+
+  const failed = await worker.fetch(req('/api/academy/assess', {
+    method: 'POST',
+    cookie,
+    body: { courseId: 'civil-litigation-practice', lessonId: 'l1', answerIndex: 0, responseText: 'تحلیل تمرینی کافی برای ثبت و ارزیابی پاسخ کارآموز.' },
+  }), env);
+  assert.equal(failed.status, 200);
+  assert.equal((await failed.json()).passed, false);
+
+  const passed = await worker.fetch(req('/api/academy/assess', {
+    method: 'POST',
+    cookie,
+    body: { courseId: 'civil-litigation-practice', lessonId: 'l1', answerIndex: 1, responseText: 'در این پرونده باید خواسته، سبب، طرفین، مرجع صالح و ادله اصلی را جداگانه مشخص و ابهام‌ها را ثبت کرد.' },
+  }), env);
+  const result = await passed.json();
+  assert.equal(passed.status, 200);
+  assert.equal(result.passed, true);
+  assert.equal(result.score, 100);
+
+  const progress = await worker.fetch(req('/api/academy/progress?courseId=civil-litigation-practice', { cookie }), env);
+  const state = await progress.json();
+  assert.deepEqual(state.completedLessonIds, ['l1']);
+  assert.equal(state.assessments[0].passed, true);
+  assert.equal(state.assessments[0].answerIndex, 1);
+  assert.equal(state.assessments[0].responseText.startsWith('در این پرونده'), true);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM lesson_assessments').get().n, 1);
+});
+
+test('ارسال تمرین بدون ثبت‌نام یا با پاسخ کوتاه پذیرفته نمی‌شود', { skip }, async () => {
+  const { env, cookie } = await setup();
+  const notEnrolled = await worker.fetch(req('/api/academy/assess', {
+    method: 'POST', cookie,
+    body: { courseId: 'civil-litigation-practice', lessonId: 'l1', answerIndex: 1, responseText: 'پاسخ تشریحی کامل و قابل ارزیابی برای تمرین آموزشی.' },
+  }), env);
+  assert.equal(notEnrolled.status, 403);
+  const enrolled = await worker.fetch(req('/api/academy/enroll', { method: 'POST', body: { courseId: 'civil-litigation-practice' }, cookie }), env);
+  assert.equal(enrolled.status, 200);
+  const short = await worker.fetch(req('/api/academy/assess', {
+    method: 'POST', cookie,
+    body: { courseId: 'civil-litigation-practice', lessonId: 'l1', answerIndex: 1, responseText: 'کوتاه' },
+  }), env);
+  assert.equal(short.status, 422);
+});
+
+
+test('برای همه دوره‌های منتشرشده درس تعاملی و تمرین اختصاصی تعریف شده است', () => {
+  const courseIds = [...COURSES.filter((course) => course.status === 'published').map((course) => course.id), 'advocacy-writing', 'civil-basics'];
+  let total = 0;
+  for (const courseId of courseIds) {
+    const lessonCount = courseId === 'advocacy-writing' || courseId === 'civil-basics' ? 3 : 5;
+    for (let i = 1; i <= lessonCount; i++) {
+      const activity = lessonLearning(courseId, `l${i}`);
+      assert.ok(activity, `فعالیت درس ${courseId}/l${i} تعریف نشده است`);
+      assert.equal(activity.quiz.options.length, 4);
+      assert.ok(activity.assignment.length >= 30);
+      total++;
+    }
+  }
+  assert.equal(total, 41);
+});
+
+test('نسخه منتشرشده پنل مدیریت بر نسخه پیش‌نویس داخلی همان دوره اولویت دارد', { skip }, async () => {
+  const { db, env } = await setup();
+  db.prepare(`INSERT INTO admin_content (kind, slug, title, summary, status, payload_json, created_by)
+    VALUES ('course', 'civil-basics', 'مبانی دادرسی مدنی منتشرشده', 'نسخه مدیریت‌شده', 'published', ?1, 1)`).run(JSON.stringify({
+      level: 'مقدماتی',
+      lessons: [{ id: 'l1', title: 'درس مدیریت‌شده', body: 'محتوای منتشرشده از پنل مدیریت برای آزمون اولویت نسخه.' }],
+    }));
+  const response = await worker.fetch(req('/api/academy/courses/civil-basics'), env);
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.equal(data.course.title, 'مبانی دادرسی مدنی منتشرشده');
+  assert.equal(data.course.lessons[0].title, 'درس مدیریت‌شده');
 });

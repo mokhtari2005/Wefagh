@@ -1,4 +1,4 @@
-// صفحه‌های آکادمی: فهرست دوره‌ها، جزئیات، ثبت‌نام و علامت‌زدن درس‌ها. DOM امن.
+// صفحه‌های آکادمی: فهرست دوره‌ها، آموزش پرونده‌محور، آزمونک و ثبت پیشرفت. DOM امن.
 import { getJson, postJson } from './api.js';
 import { icon } from './icons.js';
 import { messageFor } from './auth-messages.js';
@@ -16,12 +16,11 @@ function h(tag, attrs = {}, children = []) {
 
 function loginHint() {
   return h('div', { class: 'notice', role: 'note' }, [
-    h('p', { text: 'برای ثبت‌نام در دوره و ذخیرهٔ پیشرفت، ابتدا وارد حساب خود شوید.' }),
+    h('p', { text: 'برای ثبت‌نام در دوره، ذخیره پاسخ تمرین‌ها و ثبت پیشرفت، ابتدا وارد حساب خود شوید.' }),
     h('p', {}, [h('a', { href: '#/account', text: 'ورود یا ثبت‌نام' })]),
   ]);
 }
 
-// فقط مقصدهای واقعی و فعال سایت. هر مورد باید به یک مسیر موجود در app.js اشاره کند.
 export const ACADEMY_TOOLS = [
   { icon: 'cap', title: 'دوره‌های آموزشی', href: '#/courses' },
   { icon: 'mic', title: 'تمرین دادرسی و موت‌کورت', href: '#/moot-court' },
@@ -45,19 +44,18 @@ export function academyToolCards(items = ACADEMY_TOOLS) {
 }
 
 export function academyList() {
-  const wrap = h('div', {}, [
+  return h('div', {}, [
     h('h1', { text: 'آکادمی وکالت شهرام مختاری' }),
     h('p', { class: 'lead', text: 'آموزش، تمرین دادرسی و ابزارهای حرفه‌ای وکالت در یک مسیر یکپارچه.' }),
     academyToolCards(),
   ]);
-  return wrap;
 }
 
 export async function academyCoursesPage() {
   const wrap = h('div', {}, [
     h('p', {}, [h('a', { href: '#/academy', text: '← بازگشت به آکادمی' })]),
     h('h1', { text: 'دوره‌های آموزشی' }),
-    h('p', { class: 'lead', text: 'دوره‌های کاربردی برای دانشجویان حقوق، کارآموزان و وکلای دادگستری.' }),
+    h('p', { class: 'lead', text: 'هر درس با مطالعه، تحلیل پرونده، تمرین کتبی و آزمونک پیش می‌رود؛ نتیجه و پیشرفت در حساب کارآموز ثبت می‌شود.' }),
   ]);
   const grid = h('div', { class: 'cards' });
   wrap.append(grid);
@@ -71,15 +69,13 @@ export async function academyCoursesPage() {
     return wrap;
   }
   for (const c of res.data.courses) {
-    grid.append(
-      h('a', { class: 'card', href: `#/academy/${c.id}` }, [
-        h('span', { class: 'badge', text: `${c.level} · ${c.lessonCount} درس` }),
-        c.status === 'draft' ? h('span', { class: 'badge badge-draft', text: 'پیش‌نویس ـ در دست تهیه' }) : h('span'),
-        c.enrolled ? h('span', { class: 'badge badge-soft', text: 'ثبت‌نام شده‌اید' }) : h('span'),
-        h('h3', { text: c.title }),
-        h('p', { text: c.summary }),
-      ])
-    );
+    grid.append(h('a', { class: 'card', href: `#/academy/${c.id}` }, [
+      h('span', { class: 'badge', text: `${c.level} · ${c.lessonCount} درس` }),
+      c.status === 'draft' ? h('span', { class: 'badge badge-draft', text: 'پیش‌نویس ـ در دست تهیه' }) : h('span'),
+      c.enrolled ? h('span', { class: 'badge badge-soft', text: 'ثبت‌نام شده‌اید' }) : h('span'),
+      h('h3', { text: c.title }), h('p', { text: c.summary }),
+      h('span', { class: 'muted', text: 'مشاهده سرفصل‌ها و شروع یادگیری ←' }),
+    ]));
   }
   return wrap;
 }
@@ -92,91 +88,142 @@ export async function academyCourse(courseId) {
     wrap.append(
       h('h1', { text: notPublished ? 'این دوره هنوز منتشر نشده است' : 'دوره پیدا نشد' }),
       h('p', { class: 'lead', text: notPublished ? 'محتوای این دوره در حال تهیه و بررسی است؛ پس از تأیید گروه، در این بخش فعال می‌شود.' : '' }),
-      h('p', {}, [h('a', { href: '#/academy', text: 'بازگشت به آکادمی' })]),
+      h('p', {}, [h('a', { href: '#/courses', text: 'بازگشت به دوره‌های آموزشی' })]),
     );
     return wrap;
   }
   const course = res.data.course;
-  wrap.append(h('h1', { text: course.title }), h('p', { class: 'muted', text: course.level }), h('p', { class: 'lead', text: course.summary }));
+  wrap.append(
+    h('p', {}, [h('a', { href: '#/courses', text: '← همه دوره‌ها' })]),
+    h('h1', { text: course.title }),
+    h('p', { class: 'muted', text: course.level }),
+    h('p', { class: 'lead', text: course.summary }),
+    h('div', { class: 'notice', text: 'روش کار: درس را بخوانید، پرونده یا مسئله را تحلیل کنید، پاسخ کتبی بدهید و آزمونک را بگذرانید. قبولی در آزمونک، درس را در کارنامه شما ثبت می‌کند. پاسخ تشریحی ذخیره می‌شود و معیارهای خودارزیابی دارد؛ نمره فعلی فقط مربوط به آزمونک است. برای حفظ محرمانگی، در تمرین‌ها فقط از اطلاعات فرضی یا بی‌نام‌سازی‌شده استفاده کنید و مشخصات موکل یا پرونده واقعی را وارد نکنید.' })
+  );
   if (course.status === 'draft') {
-    wrap.append(h('div', { class: 'notice', role: 'note' }, [h('p', { text: 'این دوره پیش‌نویس است. ثبت‌نام و دسترسی کاربران عادی به محتوا غیرفعال است و محتوا پیش از تأیید گروه منتشر نمی‌شود.' })]));
+    wrap.append(h('div', { class: 'notice', role: 'note' }, [h('p', { text: 'این دوره پیش‌نویس است. ثبت‌نام و دسترسی کاربران عادی به محتوا غیرفعال است.' })]));
   }
-
   const area = h('div', { role: 'region', 'aria-live': 'polite' });
   wrap.append(area);
-
   const me = await getJson('/api/me');
   if (!me.ok) {
     area.append(loginHint(), lessonsList(course, null));
     return wrap;
   }
-  await renderProgress(area, course, null);
+  await renderProgress(area, course);
   return wrap;
 }
 
 async function renderProgress(area, course) {
   const prog = await getJson(`/api/academy/progress?courseId=${encodeURIComponent(course.id)}`);
-  const state = prog.ok ? prog.data : { enrolled: false, completedLessonIds: [] };
+  const state = prog.ok ? prog.data : { enrolled: false, completedLessonIds: [], assessments: [] };
   area.replaceChildren();
-
   if (course.status === 'draft' && !state.enrolled) {
-    // دوره‌های پیش‌نویس فقط برای مدیر آکادمی باز می‌شوند؛ دکمهٔ ثبت‌نام نمایش داده نمی‌شود.
     area.append(h('p', { class: 'muted', text: 'ثبت‌نام در این دوره هنوز فعال نشده است.' }), lessonsList(course, null));
     return;
   }
-
   if (!state.enrolled) {
     const status = h('p', { class: 'form-status', role: 'status' });
-    const btn = h('button', { class: 'btn', type: 'button', text: 'ثبت‌نام در دوره' });
+    const btn = h('button', { class: 'btn', type: 'button', text: 'ثبت‌نام و شروع دوره' });
     btn.addEventListener('click', async () => {
       btn.disabled = true;
       const r = await postJson('/api/academy/enroll', { courseId: course.id });
-      if (r.ok) {
-        await renderProgress(area, course);
-      } else {
-        btn.disabled = false;
-        status.className = 'form-status err';
-        status.textContent = messageFor(r.networkError ? 'NETWORK' : r.data?.error);
-      }
+      if (r.ok) await renderProgress(area, course);
+      else { btn.disabled = false; status.className = 'form-status err'; status.textContent = messageFor(r.networkError ? 'NETWORK' : r.data?.error); }
     });
-    area.append(h('p', {}, [btn]), status, lessonsList(course, null));
+    area.append(h('div', { class: 'notice' }, [h('p', { text: 'برای ذخیره تمرین‌ها و مشاهده کارنامه، ابتدا در این دوره ثبت‌نام کنید.' }), btn, status]), lessonsList(course, null));
     return;
   }
-
-  const done = new Set(state.completedLessonIds);
-  area.append(
-    h('p', { class: 'muted', text: `پیشرفت: ${done.size} از ${course.lessons.length} درس` }),
-    lessonsList(course, { done, onComplete: (lessonId) => completeLesson(area, course, lessonId) })
-  );
+  const done = new Set(state.completedLessonIds || []);
+  const assessments = new Map((state.assessments || []).map((a) => [a.lessonId, a]));
+  const summary = h('section', { class: 'academy-progress panel' }, [
+    h('h2', { text: 'کارنامه این دوره' }),
+    h('p', { class: 'muted', text: `${done.size} از ${course.lessons.length} درس با موفقیت تکمیل شده است.` }),
+    h('progress', { max: String(course.lessons.length), value: String(done.size), 'aria-label': 'پیشرفت دوره' }),
+    h('p', { class: 'muted', text: `${assessments.size} تمرین ثبت‌شده · قبولی هر آزمونک با پاسخ صحیح و ارائه تمرین کتبی ثبت می‌شود.` }),
+  ]);
+  area.append(summary, lessonsList(course, {
+    done, assessments,
+    onAssess: (lessonId, answerIndex, responseText, feedback) => submitAssessment(area, course, lessonId, answerIndex, responseText, feedback, done, assessments, summary),
+  }));
 }
 
-async function completeLesson(area, course, lessonId) {
-  const r = await postJson('/api/academy/complete', { courseId: course.id, lessonId });
-  if (r.ok) {
-    await renderProgress(area, course);
-  } else {
-    const note = h('p', { class: 'form-status err', role: 'alert', text: messageFor(r.networkError ? 'NETWORK' : r.data?.error) });
-    area.prepend(note);
+async function submitAssessment(area, course, lessonId, answerIndex, responseText, feedback, done, assessments, summary) {
+  const form = feedback.closest('form');
+  const button = form?.querySelector('button[type="submit"]');
+  if (button) button.disabled = true;
+  const result = await postJson('/api/academy/assess', { courseId: course.id, lessonId, answerIndex, responseText });
+  if (!result.ok) {
+    if (button) button.disabled = false;
+    feedback.replaceChildren(h('p', { class: 'form-status err', role: 'alert', text: result.data?.message || messageFor(result.networkError ? 'NETWORK' : result.data?.error) }));
+    return;
   }
+  const data = result.data;
+  assessments.set(lessonId, { lessonId, score: data.score, passed: data.passed, explanation: data.explanation, responseText });
+  if (data.passed) done.add(lessonId);
+  summary.querySelector('p').textContent = `${done.size} از ${course.lessons.length} درس با موفقیت تکمیل شده است.`;
+  summary.querySelector('progress').value = String(done.size);
+  summary.lastChild.textContent = `${assessments.size} تمرین ثبت‌شده · آخرین نتیجه: ${data.score} از ۱۰۰`;
+  feedback.replaceChildren(
+    h('p', { class: data.passed ? 'form-status success' : 'form-status err', role: 'status', text: data.message }),
+    h('p', { text: `امتیاز آزمونک: ${data.score} از ۱۰۰` }),
+    h('p', { class: 'muted', text: data.explanation })
+  );
+  const lessonArticle = feedback.closest('.lesson');
+  if (data.passed && lessonArticle) lessonArticle.prepend(h('span', { class: 'badge badge-soft', text: 'درس تکمیل شد' }));
 }
 
 function lessonsList(course, progress) {
-  const list = h('div', { class: 'lessons' });
+  const list = h('div', { class: 'lessons academy-lessons' });
   course.lessons.forEach((lesson, i) => {
+    const saved = progress?.assessments.get(lesson.id);
     const isDone = progress?.done.has(lesson.id);
-    const article = h('article', { class: 'lesson' }, [
-      h('h2', { text: `${i + 1}. ${lesson.title}` }),
-      h('p', { text: lesson.body }),
+    const article = h('article', { class: 'lesson academy-lesson' }, [
+      h('h2', { text: `درس ${i + 1}: ${lesson.title}` }),
+      h('p', { class: 'lesson-body pre-wrap', text: lesson.body }),
     ]);
-    if (progress) {
-      if (isDone) {
-        article.append(h('p', { class: 'muted', text: '✓ تکمیل شد' }));
-      } else {
-        const btn = h('button', { class: 'btn', type: 'button', text: 'علامت‌گذاری به‌عنوان تکمیل‌شده' });
-        btn.addEventListener('click', () => progress.onComplete(lesson.id));
-        article.append(btn);
+    if (lesson.learning) {
+      article.append(
+        h('h3', { text: 'تمرین پرونده‌محور' }),
+        h('p', { text: lesson.learning.assignment }),
+        h('ul', { class: 'academy-rubric' }, lesson.learning.rubric.map((item) => h('li', { text: item }))),
+        h('h3', { text: 'آزمونک پایان درس' }),
+        h('p', { text: lesson.learning.quiz.question })
+      );
+      const form = h('form', { class: 'academy-assessment' });
+      const options = h('fieldset', { class: 'academy-quiz-options' }, [h('legend', { text: 'یک گزینه را انتخاب کنید' })]);
+      lesson.learning.quiz.options.forEach((option, index) => {
+        const id = `quiz-${lesson.id}-${index}`;
+        const input = h('input', { type: 'radio', name: `answer-${lesson.id}`, id, value: String(index), required: 'required' });
+        if (saved && saved.passed && saved.answerIndex === index) input.checked = true;
+        if (isDone) input.disabled = true;
+        options.append(h('label', { class: 'academy-quiz-option', for: id }, [input, h('span', { text: option })]));
+      });
+      const response = h('textarea', { name: 'responseText', rows: '6', maxlength: '12000', required: 'required', placeholder: 'تحلیل خود را بنویسید؛ پاسخ باید دست‌کم ۳۰ نویسه داشته باشد.' });
+      response.value = saved?.responseText || '';
+      if (isDone) response.readOnly = true;
+      const feedback = h('div', { class: 'academy-feedback', 'aria-live': 'polite' });
+      if (saved) {
+        feedback.append(
+          h('p', { class: saved.passed ? 'form-status success' : 'form-status', text: saved.passed ? `قبول‌شده · ${saved.score} از ۱۰۰` : `آخرین امتیاز: ${saved.score} از ۱۰۰ · برای تلاش دوباره پاسخ را اصلاح کنید.` }),
+          saved.explanation ? h('p', { class: 'muted', text: saved.explanation }) : h('span')
+        );
       }
+      const submit = h('button', { class: 'btn', type: 'submit', text: isDone ? 'درس تکمیل شده' : 'ثبت تمرین و ارزیابی' });
+      submit.disabled = Boolean(isDone) || !progress;
+      form.append(options, h('label', { class: 'academy-answer-label' }, [h('span', { text: 'پاسخ تشریحی تمرین' }), response]), submit, feedback);
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const selected = form.querySelector(`input[name="answer-${lesson.id}"]:checked`);
+        if (!selected) { feedback.textContent = 'یک گزینه از آزمونک انتخاب کنید.'; return; }
+        if (response.value.trim().length < 30) { feedback.textContent = 'پاسخ تشریحی باید دست‌کم ۳۰ نویسه داشته باشد.'; response.focus(); return; }
+        progress.onAssess(lesson.id, Number(selected.value), response.value, feedback);
+      });
+      article.append(form);
+    } else {
+      article.append(h('div', { class: 'notice', text: 'برای این درس هنوز تمرین تعاملی تعریف نشده است.' }));
     }
+    if (isDone) article.prepend(h('span', { class: 'badge badge-soft', text: 'تکمیل‌شده' }));
     list.append(article);
   });
   return list;
