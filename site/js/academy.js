@@ -23,7 +23,7 @@ function loginHint() {
 
 // فقط مقصدهای واقعی و فعال سایت. هر مورد باید به یک مسیر موجود در app.js اشاره کند.
 export const ACADEMY_TOOLS = [
-  { icon: 'cap', title: 'دوره‌های آموزشی', href: '#courses' },
+  { icon: 'cap', title: 'دوره‌های آموزشی', href: '#/academy/courses' },
   { icon: 'mic', title: 'تمرین دادرسی و موت‌کورت', href: '#/moot-court' },
   { icon: 'scale', title: 'دستیار هوشمند وکیل', href: '#/assistant' },
   { icon: 'folder', title: 'بانک پرونده‌ها', href: '#/cases' },
@@ -44,25 +44,30 @@ export function academyToolCards(items = ACADEMY_TOOLS) {
     ])));
 }
 
-export async function academyList() {
-  const courseHeading = h('h2', { id: 'courses', text: 'دوره‌ها' });
-  const tools = academyToolCards();
-  const coursesShortcut = tools.querySelector('a[href="#courses"]');
-  coursesShortcut?.addEventListener('click', (event) => {
-    event.preventDefault();
-    courseHeading.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
+export function academyList() {
   const wrap = h('div', {}, [
     h('h1', { text: 'آکادمی وکالت شهرام مختاری' }),
-    h('p', { class: 'lead', text: 'دوره‌های کوتاه برای دانشجویان حقوق، کارآموزان و وکلا.' }),
-    tools,
-    courseHeading,
+    h('p', { class: 'lead', text: 'آموزش، تمرین دادرسی و ابزارهای حرفه‌ای وکالت در یک مسیر یکپارچه.' }),
+    academyToolCards(),
+  ]);
+  return wrap;
+}
+
+export async function academyCoursesPage() {
+  const wrap = h('div', {}, [
+    h('p', {}, [h('a', { href: '#/academy', text: '← بازگشت به آکادمی' })]),
+    h('h1', { text: 'دوره‌های آموزشی' }),
+    h('p', { class: 'lead', text: 'دوره‌های کاربردی برای دانشجویان حقوق، کارآموزان و وکلای دادگستری.' }),
   ]);
   const grid = h('div', { class: 'cards' });
   wrap.append(grid);
   const res = await getJson('/api/academy/courses');
   if (!res.ok) {
     wrap.append(h('p', { class: 'form-status err', role: 'alert', text: messageFor(res.networkError ? 'NETWORK' : res.data?.error) }));
+    return wrap;
+  }
+  if (!res.data.courses?.length) {
+    wrap.append(h('p', { class: 'notice', role: 'status', text: 'در حال حاضر دوره‌ای برای نمایش وجود ندارد.' }));
     return wrap;
   }
   for (const c of res.data.courses) {
