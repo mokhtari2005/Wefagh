@@ -252,10 +252,18 @@ export async function handleAcademy(request, env, path) {
       legalReviews = await env.DB.prepare('SELECT lesson_id, review_json FROM lesson_legal_reviews WHERE user_id = ?1 AND course_id = ?2').bind(user.id, course.id).all();
     } catch (error) { console.error('academy assessment history unavailable', String(error?.message || error).slice(0, 120)); }
     const reviewByLesson = new Map((legalReviews.results || []).map((r) => { try { return [r.lesson_id, JSON.parse(r.review_json)]; } catch { return [r.lesson_id, null]; } }));
+    const assessmentByLesson = new Map((assessments.results || []).map((r) => [r.lesson_id, r]));
+    // سوابق قبلی که فقط بر اساس پاسخ تستی قبول شده‌اند، تا ارزیابی تشریحی مجدد تکمیل‌شده محسوب نمی‌شوند.
+    const validPassed = new Set((rows?.results || []).map((r) => r.lesson_id).filter((lessonId) => {
+      if (!lessonLearning(course.id, lessonId)) return true;
+      const assessment = assessmentByLesson.get(lessonId);
+      const essayGrade = reviewByLesson.get(lessonId)?.essayAssessment;
+      return Boolean(assessment?.passed && Number(assessment.score) >= 76 && essayGrade && Number(essayGrade.score) >= 60);
+    }));
     return json({
       ok: true, enrolled: Boolean(enr),
-      completedLessonIds: (rows?.results || []).map((r) => r.lesson_id),
-      assessments: (assessments?.results || []).map((r) => ({ lessonId: r.lesson_id, answerIndex: r.answer_index, responseText: r.response_text, score: r.score, passed: Boolean(r.passed), submittedAt: r.submitted_at, explanation: r.passed ? lessonLearning(course.id, r.lesson_id)?.quiz.explanation || null : null, legalReview: reviewByLesson.get(r.lesson_id) || null })),
+      completedLessonIds: [...validPassed],
+      assessments: (assessments?.results || []).map((r) => ({ lessonId: r.lesson_id, answerIndex: r.answer_index, responseText: r.response_text, score: r.score, passed: validPassed.has(r.lesson_id), submittedAt: r.submitted_at, explanation: r.passed ? lessonLearning(course.id, r.lesson_id)?.quiz.explanation || null : null, legalReview: reviewByLesson.get(r.lesson_id) || null })),
       total: course.lessons.length,
     });
   }
