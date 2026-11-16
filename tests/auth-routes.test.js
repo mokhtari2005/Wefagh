@@ -111,14 +111,14 @@ test('ثبت‌نام: ایمیل با حروف کوچک ذخیره، رمز ه�
   const { db, env, sent } = setup();
   const res = await call(env, '/api/auth/register', { body: validUser });
   assert.equal(res.status, 202);
-  const row = db.prepare('SELECT email, password_hash, email_verified_at FROM users').get();
+  const row = db.prepare('SELECT email, password_hash, email_verified_at, professional_title, position, membership_no FROM users').get();
   assert.equal(row.email, 'shahram@example.com');
   assert.ok(row.password_hash.startsWith('pbkdf2$'));
   assert.ok(!row.password_hash.includes(validUser.password));
   assert.equal(row.email_verified_at, null);
   assert.equal(row.professional_title, 'وکیل دادگستری');
   assert.equal(row.position, 'عضو');
-  assert.match(row.membership_no, /^WFA-\\d{8}$/);
+  assert.match(row.membership_no, /^WFA-\d{8}$/);
   assert.equal(sent.length, 1);
   assert.equal(sent[0].to, 'shahram@example.com');
   assert.ok(tokenFromMail(sent));
