@@ -162,10 +162,10 @@ test('Gemini provider 503 falls back once to Flash-Lite', async () => {
   }
 });
 
-test('Gemini model-unavailable (404) and quota (429) also fall back, key rejection does not', async () => {
+test('Gemini model-unavailable (404)، quota (429) و دسترسی رد‌شده (403) هم به مدل جایگزین می‌روند', async () => {
   const original = globalThis.fetch;
   try {
-    for (const status of [404, 429]) {
+    for (const status of [403, 404, 429]) {
       let calls = 0;
       globalThis.fetch = async () => {
         calls += 1;
@@ -176,13 +176,13 @@ test('Gemini model-unavailable (404) and quota (429) also fall back, key rejecti
       assert.equal(result.text, 'ok');
       assert.equal(calls, 2, `status ${status}`);
     }
-    let calls = 0;
-    globalThis.fetch = async () => { calls += 1; return new Response('{}', { status: 403 }); };
+    let both = 0;
+    globalThis.fetch = async () => { both += 1; return new Response('{}', { status: 403 }); };
     await assert.rejects(
       generateText(env, { system: 'x', contents: [{ role: 'user', parts: [{ text: 'x' }] }] }),
       (e) => e.code === 'AI_KEY_REJECTED',
     );
-    assert.equal(calls, 1);
+    assert.equal(both, 2, 'یک بار مدل اصلی و یک بار جایگزین');
   } finally {
     globalThis.fetch = original;
   }

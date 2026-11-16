@@ -39,7 +39,7 @@ function failure(err) {
   };
 }
 
-async function requireMailAdmin(request, env) {
+export async function requireMailAdmin(request, env) {
   const user = await currentUser(request, env);
   if (!user) return { response: json({ ok: false, error: 'UNAUTHENTICATED' }, 401) };
   if (!user.roles.some((r) => r === 'admin' || r === 'super_admin')) return { response: json({ ok: false, error: 'FORBIDDEN' }, 403) };

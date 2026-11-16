@@ -121,11 +121,26 @@ export async function adminPage() {
     mailNotice.className = `form-status${r.ok ? ' ok' : ' err'}`;
     mailNotice.textContent = r.ok ? 'ایمیل آزمایشی ارسال شد؛ صندوق ورودی و Spam را ببینید.' : `ارسال ناموفق: ${r.data?.hint || errorText(r.data, r.status)}`;
   });
+  const aiNotice = el('p', { class: 'form-status', role: 'status' });
+  const aiCheck = el('button', { class: 'btn secondary', type: 'button', text: 'بررسی سرویس هوش مصنوعی' });
+  aiCheck.addEventListener('click', async () => {
+    aiNotice.className = 'form-status';
+    aiNotice.textContent = 'در حال بررسی مدل‌ها…';
+    const r = await getJson('/api/admin/ai/status');
+    if (!r.ok) { aiNotice.className = 'form-status err'; aiNotice.textContent = errorText(r.data, r.status); return; }
+    const lines = (r.data.models || []).map((m) => `${m.role} (${m.model}): ${m.hint}${m.httpStatus ? ` [HTTP ${m.httpStatus}${m.reason ? ` ${m.reason}` : ''}]` : ''}${m.ms ? ` · ${m.ms}ms` : ''}`);
+    const bad = !r.data.configured || (r.data.models || []).every((m) => !m.ok);
+    aiNotice.className = `form-status${bad ? ' err' : ' ok'}`;
+    aiNotice.textContent = r.data.configured ? lines.join(' | ') : 'GEMINI_API_KEY در Worker تعریف نشده است.';
+  });
   const mailPanel = el('section', { class: 'admin-mail card' }, [
     el('h2', { text: 'تشخیص ارسال ایمیل' }),
     el('p', { class: 'muted', text: 'اگر ایمیل تأیید ثبت‌نام نمی‌رسد، از این‌جا علت را ببینید. مقدار Secretها هرگز نمایش داده نمی‌شود.' }),
     el('div', { class: 'row' }, [mailCheck, mailTest]),
     mailNotice,
+    el('h2', { text: 'تشخیص هوش مصنوعی' }),
+    el('div', { class: 'row' }, [aiCheck]),
+    aiNotice,
   ]);
   // جست‌وجو در فهرست محتوا (عنوان، شناسه، وضعیت)
   const search = el('input', { type: 'search', placeholder: 'جست‌وجو در عنوان، شناسه یا وضعیت', 'aria-label': 'جست‌وجو در محتوا' });
