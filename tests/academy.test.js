@@ -264,3 +264,24 @@ test('نسخه منتشرشده پنل مدیریت بر نسخه پیش‌نو�
   assert.equal(data.course.title, 'مبانی دادرسی مدنی منتشرشده');
   assert.equal(data.course.lessons[0].title, 'درس مدیریت‌شده');
 });
+
+
+test('مرکز آزمون برای کاربر واردشده حوزه‌های اصلی را نمایش می‌دهد و کلید پاسخ را افشا نمی‌کند', { skip }, async () => {
+  const { env, cookie } = await setup();
+  const list = await worker.fetch(req('/api/academy/exams', { cookie }), env);
+  assert.equal(list.status, 200);
+  const data = await list.json();
+  assert.ok(data.subjects.length >= 9);
+  assert.ok(data.subjects.some((s) => s.id === 'civil'));
+  const start = await worker.fetch(req('/api/academy/exams/start', { method: 'POST', cookie, body: { subjectId: 'civil' } }), env);
+  assert.equal(start.status, 201);
+  const attempt = (await start.json()).attempt;
+  assert.equal(attempt.questions.length, 2);
+  assert.ok(attempt.questions.every((q) => !('correctIndex' in q) && !('a' in q)));
+  assert.ok(attempt.essay.prompt.length > 50);
+});
+
+test('مرکز آزمون بدون ورود در دسترس نیست', async () => {
+  const response = await worker.fetch(req('/api/academy/exams'), { DB: { prepare(){ throw new Error('DB should not be reached'); } } });
+  assert.equal(response.status, 401);
+});
