@@ -15,7 +15,7 @@ function errorBox(res) {
 export async function mediaHome() {
   const wrap = h('div', {}, [
     h('h1', { text: 'رسانه و اندیشه آکادمی' }),
-    h('p', { class: 'lead', text: 'یادداشت‌ها، آموزش‌های کوتاه و پادکست «شنبه‌ها با وِفاق» (نام سری پادکست بدون تغییر).' }),
+    h('p', { class: 'lead', text: 'یادداشت‌ها، آموزش‌های کوتاه و پادکست‌های آکادمی و مجموعه‌های صوتی همکار.' }),
   ]);
   const [articles, episodes] = await Promise.all([getJson('/api/media/articles'), getJson('/api/media/episodes')]);
 
@@ -36,7 +36,31 @@ export async function mediaHome() {
     wrap.append(grid);
   }
 
-  wrap.append(h('h2', { text: 'شنبه‌ها با وِفاق' }));
+  wrap.append(
+    h('h2', { text: 'پادکست‌های گروه حقوقی وفاق' }),
+    h('p', { class: 'muted', text: 'فهرست قسمت‌ها و پخش مستقیم مجموعهٔ منتشرشده در Spotify.' }),
+    h('div', { class: 'spotify-embed' }, [
+      h('iframe', {
+        title: 'پادکست‌های گروه حقوقی وفاق در Spotify',
+        src: 'https://open.spotify.com/embed/show/0n717NWBhlcn6MJLBNnEbN?utm_source=generator',
+        width: '100%',
+        height: '352',
+        frameborder: '0',
+        allow: 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture',
+        loading: 'lazy',
+        allowfullscreen: '',
+      }),
+    ]),
+    h('p', {}, [
+      h('a', {
+        href: 'https://open.spotify.com/show/0n717NWBhlcn6MJLBNnEbN',
+        target: '_blank',
+        rel: 'noopener noreferrer',
+        text: 'مشاهدهٔ همهٔ قسمت‌ها در Spotify',
+      }),
+    ]),
+    h('h2', { text: 'قسمت‌های ثبت‌شده در آکادمی' })
+  );
   if (!episodes.ok) {
     wrap.append(errorBox(episodes));
   } else {
