@@ -163,7 +163,7 @@ async function moot(request, env, path) {
       const stage = Object.hasOwn(HEARING_STAGES, body.stage) ? body.stage : null;
       const answer = cleanText(body.answer, LIMITS.turnChars);
       if (!role || !stage || !answer) return fail('VALIDATION_FAILED', 422, { field: 'answer_or_stage' });
-      const normalize = (value) => String(value || '').normalize('NFKC').replace(/[يى]/g, 'ی').replace(/ك/g, 'ک').replace(/[\\u064B-\\u065F\\u0670]/g, '').replace(/[\\s\\p{P}\\p{S}]+/gu, '').toLowerCase();
+      const normalize = (value) => String(value || '').normalize('NFKC').replace(/[يى]/g, 'ی').replace(/ك/g, 'ک').replace(/[\u064B-\u065F\u0670]/g, '').replace(/[\s\p{P}\p{S}]+/gu, '').toLowerCase();
       const normalized = normalize(answer);
       const copied = history.some((item) => item.role === 'ai' && normalize(item.text).length >= 24 && (normalized === normalize(item.text) || (normalized.length <= normalize(item.text).length * 1.25 && normalize(item.text).includes(normalized))));
       if (normalized.length < 35 || copied) {
