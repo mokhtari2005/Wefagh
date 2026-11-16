@@ -6,8 +6,9 @@ import { splitForSpeech, concatWav, SPEECH_CHUNK_CHARS } from './speech.js';
 export const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta';
 export const AI_TIMEOUT_MS = 40_000;
 
-// خطاهای گذرا که یک تلاش جایگزین با مدل سبک‌تر برایشان منطقی است.
-const FALLBACK_CODES = new Set(['AI_NETWORK_ERROR', 'AI_PROVIDER_ERROR', 'AI_PROVIDER_BAD_RESPONSE', 'AI_MODEL_UNAVAILABLE', 'AI_QUOTA']);
+// خطاهایی که یک تلاش جایگزین با مدل سبک‌تر برایشان منطقی است. ۴۰۳ هم شامل است چون دسترسی به یک مدل خاص
+// (مثل مدل‌های قدیمی برای پروژه‌های جدید) ممکن است رد شود ولی مدل دیگر مجاز باشد.
+const FALLBACK_CODES = new Set(['AI_NETWORK_ERROR', 'AI_PROVIDER_ERROR', 'AI_PROVIDER_BAD_RESPONSE', 'AI_MODEL_UNAVAILABLE', 'AI_QUOTA', 'AI_KEY_REJECTED']);
 
 // شناسه‌های مدل از متغیرهای [vars] خوانده می‌شوند تا بدون تغییر کد قابل تعویض باشند.
 export function modelIds(env) {
@@ -224,4 +225,44 @@ export async function synthesizeLongSpeech(env, text, voice = 'Kore') {
     throw new AiError('AI_EMPTY', 502);
   }
   return { bytes, mimeType: 'audio/wav' };
+}
+
+/**
+ * بررسی یک مدل با درخواست بسیار کوچک، فقط برای تشخیص مدیر. هیچ متن یا کلیدی برنمی‌گرداند؛
+ * فقط وضعیت HTTP، مقدار شمارشی خطا و زمان پاسخ.
+ */
+export async function probeModel(env, model) {
+  if (!aiConfigured(env)) return { model, ok: false, reason: 'AI_NOT_CONFIGURED' };
+  const started = Date.now();
+  try {
+    const res = await fetch(`${GEMINI_API}/models/${encodeURIComponent(model)}:generateContent`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY.trim() },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: 'سلام' }] }],
+        generationConfig: { maxOutputTokens: 8, ...(model.startsWith('gemini-2.5-flash') && !model.includes('lite') ? { thinkingConfig: { thinkingBudget: 0 } } : {}) },
+      }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    const ms = Date.now() - started;
+    if (res.ok) return { model, ok: true, httpStatus: res.status, ms };
+    let reason;
+    try { reason = safeEnum((await res.json())?.error?.status); } catch { reason = undefined; }
+    return { model, ok: false, httpStatus: res.status, ...(reason ? { reason } : {}), ms };
+  } catch (err) {
+    return { model, ok: false, reason: safeEnum(String(err?.name || '').toUpperCase()) || 'FETCH_ERROR', ms: Date.now() - started };
+  }
+}
+
+/** راهنمای فارسی برای نتیجهٔ probeModel. */
+export function probeHint(result) {
+  if (result.ok) return 'سالم';
+  if (result.reason === 'AI_NOT_CONFIGURED') return 'GEMINI_API_KEY در Worker تعریف نشده است.';
+  if (result.httpStatus === 404) return 'این مدل برای این کلید در دسترس نیست یا نام آن اشتباه است.';
+  if (result.httpStatus === 403) return 'دسترسی رد شد: کلید برای این مدل مجاز نیست یا Generative Language API در پروژه فعال نیست.';
+  if (result.httpStatus === 400) return 'درخواست یا کلید نامعتبر است (کلید API را در Cloudflare بررسی کنید).';
+  if (result.httpStatus === 429) return 'سهمیهٔ این مدل پر شده است (Billing یا سقف رایگان).';
+  if (result.httpStatus >= 500) return 'خطای موقت از سمت Google؛ چند دقیقه بعد دوباره بررسی کنید.';
+  if (result.reason === 'TIMEOUTERROR' || result.reason === 'ABORTERROR') return 'پاسخی در ۲۰ ثانیه نیامد.';
+  return 'علت نامشخص؛ لاگ Worker را ببینید.';
 }
