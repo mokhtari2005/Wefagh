@@ -46,6 +46,7 @@ function setup({ adminEmail } = {}) {
   db.exec(migration('0001_init.sql'));
   db.exec(migration('0002_auth.sql'));
   db.exec(migration('0008_registration_profile.sql'));
+  db.exec(migration('0014_member_identity.sql'));
   const sent = [];
   const env = {
     DB: d1Like(db),
@@ -90,6 +91,8 @@ const validUser = {
   email: 'Shahram@Example.com',
   password: 'رمز-امن-۱۴۰۵',
   displayName: 'شهرام مختاری',
+  professionalTitle: 'وکیل دادگستری',
+  position: 'عضو',
   profile: validProfile,
 };
 
@@ -113,6 +116,9 @@ test('ثبت‌نام: ایمیل با حروف کوچک ذخیره، رمز ه�
   assert.ok(row.password_hash.startsWith('pbkdf2$'));
   assert.ok(!row.password_hash.includes(validUser.password));
   assert.equal(row.email_verified_at, null);
+  assert.equal(row.professional_title, 'وکیل دادگستری');
+  assert.equal(row.position, 'عضو');
+  assert.match(row.membership_no, /^WFA-\\d{8}$/);
   assert.equal(sent.length, 1);
   assert.equal(sent[0].to, 'shahram@example.com');
   assert.ok(tokenFromMail(sent));
