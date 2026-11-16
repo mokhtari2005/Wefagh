@@ -1,5 +1,7 @@
-// کاتالوگ آموزش: منبع واحد محتوای آکادمی. فعلاً در کد است؛ با پنل مدیریت به D1 منتقل می‌شود.
-// همهٔ متن‌ها پیش‌نویس‌اند و پیش از انتشار باید توسط گروه تأیید شوند.
+// کاتالوگ آموزش: منبع واحد محتوای آکادمی. دوره‌های دارای status=published عمومی‌اند؛ draft فقط برای مدیر قابل مشاهده است.
+// دوره‌های تازه تا زمان آماده‌سازی و تأیید محتوای کامل، پیش‌نویس می‌مانند.
+
+import { PRACTICAL_COURSES } from './practical-courses.js';
 
 export const COURSES = Object.freeze([
   {
@@ -50,6 +52,7 @@ export const COURSES = Object.freeze([
       },
     ],
   },
+  ...PRACTICAL_COURSES,
 ]);
 
 export function findCourse(id) {

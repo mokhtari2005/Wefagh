@@ -82,7 +82,11 @@ export function validateCase(c, { status = c?.status || 'draft' } = {}) {
 
   if (status === 'published') {
     const open = (c.legal_refs || []).filter((r) => r && !PUBLISHABLE_REF.includes(r.status));
-    need(open.length === 0, `پرونده منتشرشده نمی‌تواند استناد بررسی‌نشده داشته باشد (${open.length} مورد).`);
+    const hypothetical = c.training_only === true
+      && c.scenario_type === 'hypothetical'
+      && text(c.publication_note, 30, 300);
+    // سناریوی فرضی فقط برای تمرین منتشر می‌شود؛ استنادهای تأییدنشده بدون شماره ماده و با هشدار نمایش داده می‌شوند.
+    need(open.length === 0 || hypothetical, `پرونده واقعی/عادی نمی‌تواند استناد بررسی‌نشده داشته باشد (${open.length} مورد).`);
   }
   return errors.length ? { ok: false, errors } : { ok: true };
 }
