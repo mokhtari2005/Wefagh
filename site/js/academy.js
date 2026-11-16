@@ -349,8 +349,8 @@ function examReportCard(user, attempt, result) {
   const actions = h('div', { class: 'academy-print-actions no-print' }, [printButton, backButton]);
   printButton.addEventListener('click', () => window.print());
   backButton.addEventListener('click', () => {
-    window.location.hash = '#/academy/exams';
-    window.dispatchEvent(new Event('hashchange'));
+    if (window.location.hash === '#/academy/exams') window.dispatchEvent(new Event('hashchange'));
+    else window.location.hash = '#/academy/exams';
   });
   return h('div', { class: 'academy-exam-results' }, [report, actions, review]);
 }
