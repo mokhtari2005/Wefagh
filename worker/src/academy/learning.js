@@ -65,7 +65,7 @@ const COURSE_ACTIVITIES = {
 export function lessonLearning(courseId, lessonId) {
   const match = /^l([1-5])$/.exec(lessonId || '');
   const item = match && COURSE_ACTIVITIES[courseId]?.[Number(match[1]) - 1];
-  if (!item && /^specialty-\\d{3}$/.test(courseId || '') && match) {
+  if (!item && /^specialty-\d{3}$/.test(courseId || '') && match) {
     const lessonNo = Number(match[1]);
     const prompts = [
       'در تحلیل موضوع تخصصی، نقطه شروع حرفه‌ای کدام است؟',
