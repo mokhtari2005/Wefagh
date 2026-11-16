@@ -5,10 +5,10 @@ import { postJson } from './api.js';
 import { messageFor, REGISTER_SENT } from './auth-messages.js';
 
 const STEP_TITLES = ['حساب کاربری', 'بررسی و تأیید'];
-const STEP_KEYS = [['displayName', 'email', 'password', 'passwordConfirm']];
+const STEP_KEYS = [['displayName', 'professionalTitle', 'position', 'email', 'password', 'passwordConfirm']];
 /** نام فارسی هر فیلد برای پیام خطای سرور. */
 const FIELD_LABELS = {
-  displayName: 'نام', email: 'ایمیل', password: 'رمز عبور', passwordConfirm: 'تکرار رمز عبور',
+  displayName: 'نام و نام خانوادگی', professionalTitle: 'عنوان حرفه‌ای', position: 'سمت', email: 'ایمیل', password: 'رمز عبور', passwordConfirm: 'تکرار رمز عبور',
 };
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -47,6 +47,8 @@ export function registerForm() {
   // ---------- کنترل‌ها ----------
   const C = {
     displayName: h('input', { type: 'text', name: 'displayName', autocomplete: 'name', maxlength: '100' }),
+    professionalTitle: h('input', { type: 'text', name: 'professionalTitle', maxlength: '100', placeholder: 'مثلاً وکیل دادگستری، کارآموز وکالت، دانشجوی حقوق' }),
+    position: h('input', { type: 'text', name: 'position', maxlength: '100', placeholder: 'مثلاً عضو، مدیر، پژوهشگر، کارشناس' }),
     email: h('input', { type: 'email', name: 'email', autocomplete: 'email', dir: 'ltr', maxlength: '254' }),
     password: h('input', { type: 'password', name: 'password', autocomplete: 'new-password', maxlength: '128' }),
     passwordConfirm: h('input', { type: 'password', name: 'passwordConfirm', autocomplete: 'new-password', maxlength: '128' }),
@@ -66,6 +68,8 @@ export function registerForm() {
   const panels = [
     h('section', { class: 'reg-step-body', 'aria-label': STEP_TITLES[0] }, [
       field('reg-displayname', 'نام و نام خانوادگی', C.displayName, { required: true }), E.displayName,
+      field('reg-professionaltitle', 'عنوان حرفه‌ای', C.professionalTitle, { required: true, hint: 'عنوان حرفه‌ای یا تحصیلی خود را وارد کنید.' }), E.professionalTitle,
+      field('reg-position', 'سمت', C.position, { required: true, hint: 'سمت یا مسئولیت سازمانی خود را وارد کنید.' }), E.position,
       field('reg-email', 'نشانی ایمیل', C.email, { required: true, hint: 'لینک تأیید حساب به این نشانی ارسال می‌شود.' }), E.email,
       field('reg-password', 'رمز عبور (حداقل ۱۰ نویسه)', C.password, { required: true }), E.password,
       field('reg-passwordconfirm', 'تکرار رمز عبور', C.passwordConfirm, { required: true }), E.passwordConfirm,
@@ -121,6 +125,8 @@ export function registerForm() {
   // ---------- منطق ----------
   const val = () => ({
     displayName: C.displayName.value.trim(),
+    professionalTitle: C.professionalTitle.value.trim(),
+    position: C.position.value.trim(),
     email: C.email.value.trim(),
     password: C.password.value,
     passwordConfirm: C.passwordConfirm.value,
@@ -130,7 +136,9 @@ export function registerForm() {
     const v = val();
     const e = {};
     if (index === 0) {
-      if (v.displayName.length < 2 || v.displayName.length > 100) e.displayName = 'نام باید بین ۲ و ۱۰۰ نویسه باشد.';
+      if (v.displayName.length < 2 || v.displayName.length > 100) e.displayName = 'نام و نام خانوادگی باید بین ۲ و ۱۰۰ نویسه باشد.';
+      if (v.professionalTitle.length < 2 || v.professionalTitle.length > 100) e.professionalTitle = 'عنوان حرفه‌ای باید بین ۲ و ۱۰۰ نویسه باشد.';
+      if (v.position.length < 2 || v.position.length > 100) e.position = 'سمت باید بین ۲ و ۱۰۰ نویسه باشد.';
       if (!EMAIL_RE.test(v.email) || v.email.length > 254) e.email = 'نشانی ایمیل معتبر نیست.';
       if (v.password.length < 10 || v.password.length > 128) e.password = 'رمز عبور باید بین ۱۰ و ۱۲۸ نویسه باشد.';
       else if (v.password !== v.passwordConfirm) e.passwordConfirm = 'تکرار رمز با رمز عبور یکی نیست.';
@@ -162,6 +170,8 @@ export function registerForm() {
     const v = val();
     const rows = [
       ['نام و نام خانوادگی', v.displayName],
+      ['عنوان حرفه‌ای', v.professionalTitle],
+      ['سمت', v.position],
       ['ایمیل', v.email],
     ];
     summary.replaceChildren(...rows.map(([k, val2]) => h('div', { class: 'review-row' }, [
@@ -222,7 +232,7 @@ export function registerForm() {
       return;
     }
     const v = val();
-    const payload = { displayName: v.displayName, email: v.email, password: v.password };
+    const payload = { displayName: v.displayName, professionalTitle: v.professionalTitle, position: v.position, email: v.email, password: v.password };
     submitBtn.disabled = true;
     backBtn.disabled = true;
     status.className = 'form-status';
