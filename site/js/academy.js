@@ -145,7 +145,7 @@ async function renderProgress(area, course, user) {
   ]);
   area.append(summary, lessonsList(course, {
     done, assessments,
-    onAssess: (lessonId, answerIndex, responseText, feedback) => submitAssessment(area, course, lessonId, answerIndex, responseText, feedback, done, assessments, summary),
+    onAssess: (lessonId, answerIndex, responseText, feedback) => submitAssessment(area, course, lessonId, answerIndex, responseText, feedback, done, assessments, summary, user),
   }));
   if (course.lessons.length && done.size === course.lessons.length) area.append(courseCertificateCard(user, course));
 }
@@ -180,7 +180,7 @@ function courseCertificateCard(user, course) {
   return h('section', { class: 'academy-print-wrap' }, [h('h2', { text: 'گواهینامه پایان دوره' }), certificate, actions]);
 }
 
-async function submitAssessment(area, course, lessonId, answerIndex, responseText, feedback, done, assessments, summary) {
+async function submitAssessment(area, course, lessonId, answerIndex, responseText, feedback, done, assessments, summary, user) {
   const form = feedback.closest('form');
   const button = form?.querySelector('button[type="submit"]');
   if (button) button.disabled = true;
@@ -203,6 +203,7 @@ async function submitAssessment(area, course, lessonId, answerIndex, responseTex
   );
   const lessonArticle = feedback.closest('.lesson');
   if (data.passed && lessonArticle) lessonArticle.prepend(h('span', { class: 'badge badge-soft', text: 'درس تکمیل شد' }));
+  if (data.passed && done.size === course.lessons.length && !area.querySelector('.academy-course-certificate')) area.append(courseCertificateCard(user, course));
 }
 
 function lessonsList(course, progress) {
