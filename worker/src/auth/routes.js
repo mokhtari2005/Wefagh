@@ -59,8 +59,8 @@ export async function register(request, env) {
   const pol = validatePasswordPolicy(body.password);
   if (!pol.ok) errors.password = pol.error;
   if (displayName.length < 2 || displayName.length > 100) errors.displayName = 'نام و نام خانوادگی باید بین ۲ و ۱۰۰ نویسه باشد.';
-  if (professionalTitle.length < 2 || professionalTitle.length > 100) errors.professionalTitle = 'عنوان حرفه‌ای باید بین ۲ و ۱۰۰ نویسه باشد.';
-  if (position.length < 2 || position.length > 100) errors.position = 'سمت باید بین ۲ و ۱۰۰ نویسه باشد.';
+  if (professionalTitle && (professionalTitle.length < 2 || professionalTitle.length > 100)) errors.professionalTitle = 'عنوان حرفه‌ای باید بین ۲ و ۱۰۰ نویسه باشد.';
+  if (position && (position.length < 2 || position.length > 100)) errors.position = 'سمت باید بین ۲ و ۱۰۰ نویسه باشد.';
   if (Object.keys(errors).length > 0) return json({ ok: false, error: 'VALIDATION_FAILED', errors }, 422);
 
   const existing = await env.DB.prepare('SELECT id FROM users WHERE email = ?1').bind(email).first();
