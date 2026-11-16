@@ -1605,3 +1605,82 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
   .academy-report-identity { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 1mm 3mm !important; }
   .academy-report-identity > div { padding: 1mm 2mm !important; }
 }
+
+
+/* ---------- موت‌کورت: رابط کاربری دادگاه حرفه‌ای و واکنش‌گرا ---------- */
+.court-page { min-height: 100dvh; background: linear-gradient(145deg, #f4f1e9 0%, #ebe5d8 52%, #f7f5ef 100%); }
+.court-topbar { min-height: 68px; padding: .75rem clamp(.8rem, 2vw, 1.5rem); }
+.court-title { grid-template-columns: auto auto; align-items: center; justify-content: center; column-gap: .5rem; }
+.court-title-icon { grid-row: span 2; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 13px; color: var(--gold); background: var(--deep); }
+.court-title strong { text-align: start; letter-spacing: -.02em; }
+.court-title small { text-align: start; }
+.court { max-width: 1600px; margin-inline: auto; gap: 1.15rem; padding: clamp(.75rem, 2vw, 1.5rem); }
+.court-side-card, .court-panel, .court-input { border-radius: 20px; box-shadow: 0 8px 26px rgb(35 31 24 / .055); }
+.court-side-card { padding: 1.1rem 1.15rem; }
+.court-side-card h2 { display: flex; align-items: center; gap: .45rem; }
+.court-main { gap: 1rem; }
+.court-banner { min-height: 54px; display: flex; align-items: center; padding: .85rem 1.15rem; border: 1px solid rgb(255 255 255 / .12); box-shadow: 0 8px 22px rgb(20 31 38 / .12); }
+.court-seats { grid-template-columns: minmax(150px, .8fr) minmax(0, 1.7fr) minmax(150px, .8fr); align-items: stretch; padding: 1rem; gap: .8rem; background: linear-gradient(135deg, #e7dfcf, #f4eee2 52%, #e5dbc8); box-shadow: inset 0 1px rgb(255 255 255 / .8), 0 8px 24px rgb(35 31 24 / .06); }
+.court-seat-row { display: contents; }
+.court-seat { align-content: center; min-height: 132px; padding: 1rem .65rem; border-radius: 18px; box-shadow: 0 4px 14px rgb(35 31 24 / .06); }
+.court-seat strong { margin-top: .2rem; }
+.court-avatar { width: 52px; height: 52px; display: grid; place-items: center; }
+.court-seat.speaking { transform: translateY(-2px); }
+.court-tabs { gap: .6rem; border-bottom-color: #d9d0bf; }
+.court-tab { min-height: 48px; padding-inline: 1.2rem; }
+.court-panel { padding: clamp(.8rem, 2vw, 1.2rem); }
+.court-log { max-height: min(58vh, 680px); gap: .75rem; padding: .2rem; }
+.court-line { padding: .85rem 1rem; border-radius: 16px; box-shadow: 0 2px 8px rgb(35 31 24 / .035); }
+.court-line-head { min-height: 34px; }
+.court-line-play { width: 38px; height: 38px; }
+.court-input { padding: 1rem; }
+.court-input textarea { min-height: 110px; padding: .85rem 1rem; border-radius: 14px; }
+.court-input-row .btn, .court-input-row .court-mic { min-height: 48px; padding-inline: 1.1rem; }
+.court-audio { gap: .75rem 1.25rem; padding: .8rem clamp(.8rem, 2vw, 1.5rem); border-top: 1px solid rgb(255 255 255 / .14); }
+.court-audio-controls { gap: .65rem; }
+.court-audio .court-next { min-height: 56px; min-width: 190px; padding: .75rem 1.5rem; border-radius: 15px; font-size: 1rem; font-weight: 850; box-shadow: 0 4px 14px rgb(0 0 0 / .2); }
+.court-audio .court-next:focus-visible, .hearing-start:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+.court-mode-label { color: #e7ddc9; font-size: .78rem; }
+.court-toggle { min-height: 42px; padding: .35rem .6rem; border: 1px solid rgb(255 255 255 / .22); border-radius: 10px; }
+.court-toggle input { width: 18px; height: 18px; accent-color: var(--gold); }
+.hearing-setup { max-width: 760px; margin: 1.5rem auto; padding: clamp(1rem, 3vw, 2rem); border: 1px solid var(--sand-line); border-radius: 24px; background: var(--paper); box-shadow: 0 18px 50px rgb(35 31 24 / .1); display: grid; gap: 1.1rem; }
+.hearing-setup-heading { display: flex; align-items: center; gap: .9rem; padding-bottom: .9rem; border-bottom: 1px solid var(--sand-line); color: var(--deep); }
+.hearing-setup-heading > svg { flex: 0 0 auto; color: var(--gold); }
+.hearing-setup-heading h2 { margin: 0; font-size: 1.2rem; }
+.hearing-setup-heading p { margin: .2rem 0 0; }
+.hearing-setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+.hearing-field { display: grid; gap: .5rem; font-weight: 750; }
+.hearing-field > span { display: flex; align-items: center; gap: .4rem; color: var(--deep); }
+.hearing-field select, .hearing-voice-settings select { width: 100%; min-height: 48px; padding: .5rem .75rem; border: 1px solid var(--sand-line); border-radius: 12px; background: #fff; font: inherit; }
+.hearing-audio-choice { display: grid; gap: .7rem; margin: 0; padding: 1rem; border: 1px solid var(--sand-line); border-radius: 18px; background: #faf8f2; }
+.hearing-audio-choice legend { display: flex; align-items: center; gap: .45rem; padding-inline: .35rem; font-weight: 850; color: var(--deep); }
+.hearing-mode-card { display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: .8rem; min-height: 84px; padding: .85rem 1rem; border: 1px solid var(--sand-line); border-radius: 15px; background: #fff; cursor: pointer; transition: border-color .18s ease, background .18s ease, box-shadow .18s ease; }
+.hearing-mode-card:has(input:checked) { border-color: var(--teal); background: #edf5f1; box-shadow: 0 0 0 2px rgb(33 105 91 / .12); }
+.hearing-mode-card input { width: 19px; height: 19px; accent-color: var(--teal); }
+.hearing-mode-card > svg { color: var(--teal); }
+.hearing-mode-card span { display: grid; gap: .2rem; }
+.hearing-mode-card strong { color: var(--deep); }
+.hearing-mode-card small { color: var(--ink-soft); line-height: 1.7; }
+.hearing-voice-settings { display: grid; gap: .55rem; padding: .8rem 1rem; border-radius: 14px; background: #f3f0e8; }
+.hearing-voice-settings[hidden] { display: none; }
+.hearing-quota-note { display: flex; align-items: flex-start; gap: .5rem; margin: 0; padding: .75rem .9rem; border-radius: 12px; background: #f8f1df; color: #6d5421; font-size: .85rem; line-height: 1.8; }
+.hearing-quota-note svg { flex: 0 0 auto; margin-top: .2rem; }
+.hearing-start { min-height: 54px; min-width: 220px; justify-content: center; gap: .5rem; border-radius: 14px; font-size: 1rem; }
+@media (max-width: 860px) {
+  .court { padding: .55rem; gap: .7rem; }
+  .court-main { padding-bottom: 12rem; gap: .7rem; }
+  .court-seats { grid-template-columns: 1fr 1fr; gap: .5rem; padding: .6rem; }
+  .court-seat-row { display: contents; }
+  .court-seat { min-height: 112px; padding: .65rem .35rem; }
+  .court-seat:first-child { grid-column: 1 / -1; }
+  .court-audio { display: grid; grid-template-columns: 1fr; gap: .4rem; padding: .55rem .7rem calc(.55rem + env(safe-area-inset-bottom)); }
+  .court-audio-info { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .7rem; font-size: .78rem; }
+  .court-audio-controls { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: .45rem; }
+  .court-audio .court-next { grid-column: 1 / -1; width: 100%; min-height: 54px; }
+  .court-mode-label { justify-self: end; }
+  .court-volume { width: 85px; }
+  .hearing-setup { margin: .75rem auto; padding: 1rem; border-radius: 18px; }
+  .hearing-setup-grid { grid-template-columns: 1fr; }
+  .hearing-mode-card { min-height: 78px; padding: .7rem; gap: .55rem; }
+  .hearing-start { width: 100%; }
+}
