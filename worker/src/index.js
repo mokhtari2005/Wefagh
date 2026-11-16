@@ -18,6 +18,7 @@ import { handleAdminAi } from './admin-ai.js';
 import { handleAi } from './ai/routes.js';
 import { handleTelegram } from './telegram/routes.js';
 import { sendDueReminders } from './telegram/reminders.js';
+import { collectLegalNews } from './media/news.js';
 
 // برای سازگاری با تست‌های قبلی، json را از اینجا هم صادر می‌کنیم.
 export { json };
@@ -169,6 +170,11 @@ export default {
 
   // Cron: یادآوری مواعد در تلگرام (هر ۳۰ دقیقه؛ فقط از ساعت ۸ صبح تهران می‌فرستد).
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(sendDueReminders(env).catch((err) => console.error(JSON.stringify({ where: 'telegram.cron', error: err?.name || 'Error' }))));
+    if (event.cron === '30 1 * * *') {
+      ctx.waitUntil(collectLegalNews(env).catch((err) => console.error(JSON.stringify({ where: 'media.news.cron', error: err?.name || 'Error' }))));
+    }
+    if (event.cron === '*/30 * * * *') {
+      ctx.waitUntil(sendDueReminders(env).catch((err) => console.error(JSON.stringify({ where: 'telegram.cron', error: err?.name || 'Error' }))));
+    }
   },
 };
