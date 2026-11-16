@@ -123,7 +123,7 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
   player.setRate(initialRate);
   player.setVolume(initialVolume);
   // این تابع هنوز در همان لمس «ورود به اتاق دادگاه» اجرا می‌شود؛ بدون آن iOS اولین صدای منشی را مسدود می‌کند.
-  player.unlock();
+  if (speechOn) player.unlock();
 
   // ---- عناصر ----
   const banner = h('p', { class: 'court-banner', role: 'status', 'aria-live': 'polite' });
@@ -424,7 +424,7 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
     clearAutoAdvance();
     if (nextBtn.textContent === 'تلاش دوباره') { nextBtn.textContent = 'ادامه'; player.unlock(); runCurrent(); return; }
     player.stop();
-    player.unlock();
+    if (speechOn) player.unlock();
     activeSpeaker = null;
     advance();
   });
@@ -433,7 +433,7 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
     const v = validAnswer(answer.value);
     if (!v.ok) { audioStatus.textContent = v.error; return; }
     player.stop();
-    player.unlock();
+    if (speechOn) player.unlock();
     addLine(userSide, v.text, true);
     answer.value = '';
     renderInput(false);
