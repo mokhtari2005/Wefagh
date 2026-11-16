@@ -111,11 +111,11 @@ export async function academyCourse(courseId) {
     area.append(loginHint(), lessonsList(course, null));
     return wrap;
   }
-  await renderProgress(area, course);
+  await renderProgress(area, course, me.data.user);
   return wrap;
 }
 
-async function renderProgress(area, course) {
+async function renderProgress(area, course, user) {
   const prog = await getJson(`/api/academy/progress?courseId=${encodeURIComponent(course.id)}`);
   const state = prog.ok ? prog.data : { enrolled: false, completedLessonIds: [], assessments: [] };
   area.replaceChildren();
@@ -145,11 +145,42 @@ async function renderProgress(area, course) {
   ]);
   area.append(summary, lessonsList(course, {
     done, assessments,
-    onAssess: (lessonId, answerIndex, responseText, feedback) => submitAssessment(area, course, lessonId, answerIndex, responseText, feedback, done, assessments, summary),
+    onAssess: (lessonId, answerIndex, responseText, feedback) => submitAssessment(area, course, lessonId, answerIndex, responseText, feedback, done, assessments, summary, user),
   }));
+  if (course.lessons.length && done.size === course.lessons.length) area.append(courseCertificateCard(user, course));
 }
 
-async function submitAssessment(area, course, lessonId, answerIndex, responseText, feedback, done, assessments, summary) {
+
+function courseCertificateCard(user, course) {
+  const issued = new Date().toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const serial = (course.id + '-' + (user?.id || '0')).toUpperCase();
+  const certificate = h('article', { class: 'academy-print-sheet academy-course-certificate', dir: 'rtl' }, [
+    h('div', { class: 'academy-cert-brand', text: 'آکادمی وکالت شهرام مختاری' }),
+    h('div', { class: 'academy-cert-emblem', text: '⚖' }),
+    h('p', { class: 'academy-cert-kicker', text: 'گواهینامه پایان دوره آموزشی' }),
+    h('h2', { class: 'academy-cert-title', text: 'گواهینامه' }),
+    h('p', { class: 'academy-cert-copy', text: 'بدین‌وسیله گواهی می‌شود' }),
+    h('strong', { class: 'academy-cert-name', text: user?.displayName || 'شرکت‌کننده' }),
+    h('p', { class: 'academy-cert-copy', text: 'دوره آموزشی زیر را با موفقیت به پایان رسانده است:' }),
+    h('h3', { class: 'academy-cert-course', text: course.title }),
+    h('div', { class: 'academy-cert-meta' }, [
+      h('span', { text: 'تاریخ صدور: ' + issued }),
+      h('span', { text: 'شماره گواهینامه: ' + serial }),
+    ]),
+    h('div', { class: 'academy-cert-signatures' }, [
+      h('div', { class: 'academy-cert-signature' }, [h('span', { text: '' }), h('strong', { text: 'استاد دوره' })]),
+      h('div', { class: 'academy-cert-signature' }, [h('span', { text: '' }), h('strong', { text: 'شهرام مختاری' }), h('small', { text: 'مدیر آکادمی وکالت' })]),
+    ]),
+    h('p', { class: 'academy-cert-footnote', text: 'این گواهینامه ناظر بر اتمام دوره آموزشی در آکادمی است.' }),
+  ]);
+  const actions = h('div', { class: 'academy-print-actions no-print' }, [
+    h('button', { class: 'btn', type: 'button', text: 'چاپ گواهینامه / ذخیره PDF' }),
+  ]);
+  actions.querySelector('button').addEventListener('click', () => window.print());
+  return h('section', { class: 'academy-print-wrap' }, [h('h2', { text: 'گواهینامه پایان دوره' }), certificate, actions]);
+}
+
+async function submitAssessment(area, course, lessonId, answerIndex, responseText, feedback, done, assessments, summary, user) {
   const form = feedback.closest('form');
   const button = form?.querySelector('button[type="submit"]');
   if (button) button.disabled = true;
@@ -172,6 +203,7 @@ async function submitAssessment(area, course, lessonId, answerIndex, responseTex
   );
   const lessonArticle = feedback.closest('.lesson');
   if (data.passed && lessonArticle) lessonArticle.prepend(h('span', { class: 'badge badge-soft', text: 'درس تکمیل شد' }));
+  if (data.passed && done.size === course.lessons.length && !area.querySelector('.academy-course-certificate')) area.append(courseCertificateCard(user, course));
 }
 
 function lessonsList(course, progress) {
@@ -255,61 +287,54 @@ export async function academyExamsPage() {
 }
 
 function examReportCard(user, attempt, result) {
-  const profile = user?.profile || {};
   const issued = new Date().toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' });
   const reportNo = String(attempt.id || '').replace(/-/g, '').slice(-10).toUpperCase();
-  const card = h('article', { class: 'exam-certificate', dir: 'rtl' });
-  card.append(
-    h('div', { class: 'exam-certificate-topline', text: 'آکادمی وکالت شهرام مختاری' }),
-    h('div', { class: 'exam-certificate-heading' }, [
-      h('span', { class: 'exam-certificate-kicker', text: 'گواهی ارزیابی آموزشی' }),
-      h('h2', { text: 'کارنامه آزمون' }),
-      h('p', { text: attempt.subjectTitle || attempt.subject_title || 'آزمون تخصصی حقوق' }),
-    ]),
-    h('div', { class: 'exam-certificate-person' }, [
-      h('span', { class: 'exam-certificate-label', text: 'این کارنامه صادر می‌شود برای' }),
-      h('strong', { class: 'exam-certificate-name', text: user?.displayName || 'شرکت‌کننده' }),
-    ])
-  );
-  const details = [
-    ['نشانی ایمیل', user?.email],
-    ['شماره تماس', profile.phone],
-    ['شهر', profile.city],
-    ['استان', profile.province],
-    ['وضعیت حرفه‌ای', profile.professionalStatus],
-    ['کانون / مرجع صادرکننده', profile.barAssociation],
-    ['شماره پروانه', profile.licenseNumber],
-  ].filter(([, value]) => value);
-  if (details.length) {
-    const detailGrid = h('div', { class: 'exam-certificate-details' });
-    for (const [label, value] of details) detailGrid.append(h('div', { class: 'exam-certificate-detail' }, [h('span', { text: label }), h('strong', { text: String(value) })]));
-    card.append(detailGrid);
+  const review = h('section', { class: 'academy-exam-review' }, [
+    h('h2', { text: 'پاسخ‌نامه و تحلیل آزمون' }),
+    h('p', { class: 'muted', text: 'پاسخ درست هر سؤال، توضیح آن و پاسخ پیشنهادی سؤال تشریحی در این بخش آمده است.' }),
+  ]);
+  for (const [index, item] of (result.questionReviews || []).entries()) {
+    const row = h('article', { class: 'academy-review-question' }, [
+      h('h3', { text: `سؤال ${index + 1}: ${item.question}` }),
+      h('p', { class: item.isCorrect ? 'academy-answer-correct' : 'academy-answer-wrong', text: 'پاسخ شما: ' + (item.selectedAnswer || 'بدون پاسخ') }),
+      h('p', { class: 'academy-answer-correct', text: 'پاسخ صحیح: ' + item.correctAnswer }),
+      h('p', { text: 'استدلال: ' + item.explanation }),
+    ]);
+    review.append(row);
   }
-  const score = h('div', { class: 'exam-certificate-score' }, [
-    h('span', { text: 'نمره نهایی' }),
-    h('strong', { text: String(result.totalScore ?? result.total_score ?? 0) }),
-    h('small', { text: 'از ۱۰۰' }),
-  ]);
-  const scores = h('div', { class: 'exam-certificate-breakdown' }, [
-    h('div', {}, [h('span', { text: 'بخش تستی' }), h('strong', { text: String(result.objectiveScore ?? result.objective_score ?? 0) + ' از ۱۰۰' })]),
-    h('div', {}, [h('span', { text: 'بخش تشریحی' }), h('strong', { text: String(result.essayScore ?? result.essay_score ?? 0) + ' از ۱۰۰' })]),
-  ]);
-  card.append(score, scores);
-  if (result.overall) card.append(h('div', { class: 'exam-certificate-feedback' }, [h('h3', { text: 'جمع‌بندی ارزیاب' }), h('p', { text: result.overall })]));
-  if (Array.isArray(result.strengths) && result.strengths.length) card.append(h('div', { class: 'exam-certificate-feedback' }, [h('h3', { text: 'نقاط قوت' }), h('ul', {}, result.strengths.map(x => h('li', { text: x })))]));
-  if (Array.isArray(result.improvements) && result.improvements.length) card.append(h('div', { class: 'exam-certificate-feedback' }, [h('h3', { text: 'زمینه‌های قابل بهبود' }), h('ul', {}, result.improvements.map(x => h('li', { text: x })))]));
-  if (result.verificationNote) card.append(h('p', { class: 'exam-certificate-note', text: result.verificationNote }));
-  card.append(h('div', { class: 'exam-certificate-footer' }, [
-    h('span', { text: 'شماره کارنامه: ' + (reportNo || '—') }),
-    h('span', { text: 'تاریخ صدور: ' + issued }),
+  review.append(h('article', { class: 'academy-review-essay' }, [
+    h('h3', { text: 'پاسخ تشریحی؛ پاسخ پیشنهادی و استدلال' }),
+    h('p', { text: result.sampleAnswer || 'پاسخ پیشنهادی مستقلی برای این سؤال تولید نشد؛ معیارهای ارزیابی و بازخورد زیر مبنای بررسی پاسخ شماست.' }),
+    h('h4', { text: 'منطق و مراحل استدلال' }),
+    h('ul', {}, (result.reasoning || []).map(x => h('li', { text: x }))),
+    h('h4', { text: 'ارزیابی پاسخ شما' }),
+    h('p', { text: result.overall || '' }),
+    h('ul', {}, (result.criteria || []).map(c => h('li', { text: `${c.criterion}: ${c.score} از ۲۰ — ${c.feedback}` }))),
+    h('p', { class: 'muted', text: result.verificationNote || 'این ارزیابی آموزشی است و باید با منابع رسمی حقوقی تطبیق داده شود.' }),
   ]));
-  const actions = h('div', { class: 'exam-certificate-actions no-print' }, [
-    h('button', { class: 'btn', type: 'button', text: 'چاپ / ذخیره PDF' }),
+  const report = h('article', { class: 'academy-print-sheet academy-exam-report', dir: 'rtl' }, [
+    h('div', { class: 'academy-report-brand', text: 'آکادمی وکالت شهرام مختاری' }),
+    h('p', { class: 'academy-report-kicker', text: 'کارنامه ارزیابی آموزشی' }),
+    h('h2', { text: 'کارنامه آزمون' }),
+    h('h3', { class: 'academy-report-subject', text: attempt.subjectTitle || 'آزمون تخصصی حقوق' }),
+    h('p', { class: 'academy-report-person', text: user?.displayName || 'شرکت‌کننده' }),
+    h('div', { class: 'academy-report-scores' }, [
+      h('div', {}, [h('span', { text: 'نمره تستی' }), h('strong', { text: String(result.objectiveScore ?? 0) + ' از ۱۰۰' })]),
+      h('div', {}, [h('span', { text: 'نمره تشریحی' }), h('strong', { text: String(result.essayScore ?? 0) + ' از ۱۰۰' })]),
+      h('div', { class: 'academy-report-total' }, [h('span', { text: 'نمره نهایی' }), h('strong', { text: String(result.totalScore ?? 0) + ' از ۱۰۰' })]),
+    ]),
+    h('div', { class: 'academy-report-bottom' }, [
+      h('span', { text: 'شماره کارنامه: ' + (reportNo || '—') }),
+      h('span', { text: 'تاریخ صدور: ' + issued }),
+    ]),
+    h('div', { class: 'academy-report-signature' }, [h('span', { text: 'مدیر آکادمی وکالت' }), h('strong', { text: 'شهرام مختاری' })]),
+  ]);
+  const actions = h('div', { class: 'academy-print-actions no-print' }, [
+    h('button', { class: 'btn', type: 'button', text: 'چاپ کارنامه A5 / ذخیره PDF' }),
     h('a', { class: 'btn btn-outline', href: '#/academy/exams', text: 'بازگشت به مرکز آزمون' }),
   ]);
   actions.querySelector('button').addEventListener('click', () => window.print());
-  const wrap = h('div', { class: 'exam-certificate-wrap' }, [card, actions]);
-  return wrap;
+  return h('div', { class: 'academy-exam-results' }, [review, report, actions]);
 }
 
 async function start(subjectId,area,user){
