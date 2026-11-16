@@ -16,7 +16,7 @@ import b14 from './batch-14.js';
 import b15 from './batch-15.js';
 import b16 from './batch-16.js';
 
-export const BANK_REVIEW_LABEL = 'پیش‌نویس ـ در انتظار بررسی حقوقی';
+export const BANK_REVIEW_LABEL = 'سناریوی فرضی آموزشی ـ استنادها نیازمند بررسی';
 export const BANK_CASES = Object.freeze([
   ...b01, ...b02, ...b03, ...b04, ...b05, ...b06, ...b08,
   ...b09, ...b10, ...b11, ...b12, ...b13, ...b14, ...b15, ...b16,
