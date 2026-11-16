@@ -190,7 +190,7 @@ export async function handleAcademy(request, env, path) {
     const parsed = await readJsonBody(request);
     if (parsed.error) return parsed.error;
     const { courseId, lessonId } = parsed.body || {};
-    const course = typeof courseId === 'string' && ID_RE.test(courseId) ? (findCourse(courseId) || await getCourse(env, courseId)) : null;
+    const course = typeof courseId === 'string' && ID_RE.test(courseId) ? await getCourse(env, courseId) : null;
     const lesson = course && typeof lessonId === 'string' && ID_RE.test(lessonId) ? findLesson(course, lessonId) : null;
     if (!course || !lesson) return json({ ok: false, error: 'VALIDATION_FAILED', errors: { lessonId: 'درس نامعتبر است.' } }, 422);
     if (!(await canAccessCourse(request, env, course))) return json({ ok: false, error: 'COURSE_NOT_PUBLISHED' }, 403);
@@ -207,7 +207,7 @@ export async function handleAcademy(request, env, path) {
     if (!user) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
     const url = new URL(request.url);
     const courseId = url.searchParams.get('courseId') || '';
-    const course = ID_RE.test(courseId) ? (findCourse(courseId) || await getCourse(env, courseId)) : null;
+    const course = ID_RE.test(courseId) ? await getCourse(env, courseId) : null;
     if (!course) return json({ ok: false, error: 'VALIDATION_FAILED' }, 422);
     if (!(await canAccessCourse(request, env, course))) return json({ ok: false, error: 'COURSE_NOT_PUBLISHED' }, 403);
     const enr = await env.DB.prepare('SELECT 1 AS x FROM enrollments WHERE user_id = ?1 AND course_id = ?2').bind(user.id, course.id).first();
