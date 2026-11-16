@@ -143,3 +143,76 @@ test('Gemini response-body timeout retries once on Flash-Lite', async () => {
     globalThis.fetch = original;
   }
 });
+
+test('Gemini provider 503 falls back once to Flash-Lite', async () => {
+  const original = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (url, init) => {
+    requests.push(String(url));
+    if (requests.length === 1) return new Response(JSON.stringify({ error: { status: 'UNAVAILABLE' } }), { status: 503 });
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'پاسخ' }] } }] }), { status: 200 });
+  };
+  try {
+    const result = await generateText(env, { system: 'x', contents: [{ role: 'user', parts: [{ text: 'x' }] }] });
+    assert.deepEqual(result, { text: 'پاسخ' });
+    assert.equal(requests.length, 2);
+    assert.ok(requests[1].endsWith('/models/gemini-3.5-flash-lite:generateContent'));
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test('Gemini model-unavailable (404) and quota (429) also fall back, key rejection does not', async () => {
+  const original = globalThis.fetch;
+  try {
+    for (const status of [404, 429]) {
+      let calls = 0;
+      globalThis.fetch = async () => {
+        calls += 1;
+        if (calls === 1) return new Response('{}', { status });
+        return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }), { status: 200 });
+      };
+      const result = await generateText(env, { system: 'x', contents: [{ role: 'user', parts: [{ text: 'x' }] }] });
+      assert.equal(result.text, 'ok');
+      assert.equal(calls, 2, `status ${status}`);
+    }
+    let calls = 0;
+    globalThis.fetch = async () => { calls += 1; return new Response('{}', { status: 403 }); };
+    await assert.rejects(
+      generateText(env, { system: 'x', contents: [{ role: 'user', parts: [{ text: 'x' }] }] }),
+      (e) => e.code === 'AI_KEY_REJECTED',
+    );
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test('JSON قطع‌شده با MAX_TOKENS ترمیم می‌شود و truncated=true برمی‌گردد', async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ text: '{"status":"ready","questions":[],"text":"دادخواست\\nخواهان در' }] } }],
+  }), { status: 200 });
+  try {
+    const result = await generateText(env, { system: 'x', contents: [{ role: 'user', parts: [{ text: 'x' }] }], json: true });
+    assert.equal(result.truncated, true);
+    assert.equal(result.data.text, 'دادخواست\nخواهان در');
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test('JSON خراب بدون MAX_TOKENS ترمیم نمی‌شود و AI_EMPTY می‌دهد', async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    candidates: [{ finishReason: 'STOP', content: { parts: [{ text: '{"status":"ready","text":"ab' }] } }],
+  }), { status: 200 });
+  try {
+    await assert.rejects(
+      generateText(env, { system: 'x', contents: [{ role: 'user', parts: [{ text: 'x' }] }], json: true }),
+      (e) => e.code === 'AI_EMPTY',
+    );
+  } finally {
+    globalThis.fetch = original;
+  }
+});

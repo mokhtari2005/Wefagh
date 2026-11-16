@@ -6,6 +6,9 @@ import { splitForSpeech, concatWav, SPEECH_CHUNK_CHARS } from './speech.js';
 export const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta';
 export const AI_TIMEOUT_MS = 40_000;
 
+// خطاهای گذرا که یک تلاش جایگزین با مدل سبک‌تر برایشان منطقی است.
+const FALLBACK_CODES = new Set(['AI_NETWORK_ERROR', 'AI_PROVIDER_ERROR', 'AI_PROVIDER_BAD_RESPONSE', 'AI_MODEL_UNAVAILABLE', 'AI_QUOTA']);
+
 // شناسه‌های مدل از متغیرهای [vars] خوانده می‌شوند تا بدون تغییر کد قابل تعویض باشند.
 export function modelIds(env) {
   return {
@@ -121,12 +124,10 @@ export async function generateText(env, { system, contents, maxOutputTokens = 10
   try {
     data = await post(env, 'text', model, `${GEMINI_API}/models/${encodeURIComponent(model)}:generateContent`, makePayload(model), timeoutMs);
   } catch (err) {
-    // If the configured model times out while connecting or reading its response, make one bounded fallback attempt.
-    // Never retry quota, key, validation, or provider HTTP errors.
-    const timedOut = err?.details?.reason === 'TIMEOUTERROR'
-      || (err?.details?.stage === 'body' && err?.details?.reason === 'TIMEOUT');
-    if (model === fallbackModel || err?.code !== 'AI_NETWORK_ERROR' || !timedOut) throw err;
-    logGeminiFailure('text', model, { stage: 'fallback', reason: 'TIMEOUT', fallbackModel });
+    // یک تلاش جایگزین با مدل سبک برای خطاهای گذرا (timeout، شبکه، 5xx، سهمیه یا نبودن مدل).
+    // خطای کلید، بلاک‌شدن محتوا و رد درخواست هرگز دوباره تلاش نمی‌شود.
+    if (model === fallbackModel || !FALLBACK_CODES.has(err?.code)) throw err;
+    logGeminiFailure('text', model, { stage: 'fallback', reason: err.code, fallbackModel });
     model = fallbackModel;
     data = await post(env, 'text', model, `${GEMINI_API}/models/${encodeURIComponent(model)}:generateContent`, makePayload(model), 25_000);
   }
@@ -135,9 +136,32 @@ export async function generateText(env, { system, contents, maxOutputTokens = 10
   try {
     return { data: JSON.parse(text) };
   } catch {
-    logGeminiFailure('text', model, { stage: 'content', reason: 'BAD_JSON_OUTPUT', finishReason: safeEnum(data?.candidates?.[0]?.finishReason) });
+    // پاسخ طولانی ممکن است وسط JSON قطع شود (MAX_TOKENS)؛ بخش سالم متن را نگه می‌داریم به‌جای خطا.
+    const finishReason = safeEnum(data?.candidates?.[0]?.finishReason);
+    const repaired = finishReason === 'MAX_TOKENS' ? repairTruncatedJson(text) : null;
+    if (repaired) {
+      logGeminiFailure('text', model, { stage: 'content', reason: 'JSON_REPAIRED', finishReason });
+      return { data: repaired, truncated: true };
+    }
+    logGeminiFailure('text', model, { stage: 'content', reason: 'BAD_JSON_OUTPUT', finishReason });
     throw new AiError('AI_EMPTY', 502);
   }
+}
+
+/** JSON قطع‌شده در میان رشتهٔ text را با بستن رشته و آبجکت ترمیم می‌کند؛ در صورت ناموفق بودن null. */
+export function repairTruncatedJson(raw) {
+  if (typeof raw !== 'string') return null;
+  let s = raw.trimEnd();
+  const trailingBackslashes = (s.match(/\\*$/) || [''])[0].length;
+  if (trailingBackslashes % 2 === 1) s = s.slice(0, -1);
+  s = s.replace(/\\u[0-9a-fA-F]{0,3}$/, '');
+  for (const suffix of ['"}', '"]}', '"],"notes":[]}', '"],"questions":[],"notes":[]}']) {
+    try {
+      const value = JSON.parse(s + suffix);
+      if (value && typeof value === 'object' && typeof value.text === 'string' && value.text.trim()) return value;
+    } catch { /* ادامه با پسوند بعدی */ }
+  }
+  return null;
 }
 
 /** تبدیل گفتار به متن از یک فایل صوتی (base64). */
