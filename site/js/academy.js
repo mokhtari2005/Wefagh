@@ -273,7 +273,7 @@ export async function academyExamsPage() {
   const subjects=h('div',{class:'cards'});
   area.append(h('h2',{text:'انتخاب درس'}),subjects);
   for(const s of load.data.subjects){
-    const card=h('article',{class:'card'},[h('h3',{text:s.title}),h('p',{text:s.description}),h('p',{class:'muted',text:`${s.questionCount} سؤال تستی · ۱ سؤال تشریحی`})]);
+    const card=h('article',{class:'card'},[h('h3',{text:s.title}),h('p',{text:s.description}),h('p',{class:'muted',text:`${s.questionCount} سؤال در بانک · هر آزمون ۱۰ تست (۳ آسان، ۴ متوسط، ۳ سخت) و ۱ سؤال تشریحی`})]);
     const btn=h('button',{class:'btn',type:'button',text:'شروع آزمون'});
     btn.addEventListener('click',()=>start(s.id,area,me.data.user));card.append(btn);subjects.append(card);
   }
@@ -341,10 +341,10 @@ async function start(subjectId,area,user){
   const r=await postJson('/api/academy/exams/start',{subjectId});
   if(!r.ok){area.append(h('p',{class:'form-status err',text:messageFor(r.networkError?'NETWORK':r.data?.error)}));return;}
   const a=r.data.attempt,section=h('section',{class:'panel academy-exam'});
-  section.append(h('h2',{text:a.subjectTitle}),h('p',{class:'muted',text:'به هر پرسش یک پاسخ بدهید؛ سپس پاسخ تشریحی را کامل کنید.'}));
+  section.append(h('h2',{text:a.subjectTitle}),h('p',{class:'muted',text:'۱۰ پرسش تستی از بانک ۴۰۰ سؤالی: ۳ آسان، ۴ متوسط و ۳ سخت؛ سپس یک پرسش تشریحی را کامل کنید.'}));
   const form=h('form',{class:'academy-assessment'});
   for(const q of a.questions){
-    const field=h('fieldset',{class:'academy-quiz-options'});field.append(h('legend',{text:q.question}));
+    const field=h('fieldset',{class:'academy-quiz-options'});const levelLabel={easy:'آسان',medium:'متوسط',hard:'سخت'}[q.difficulty]||'متوسط';field.append(h('legend',{},[h('span',{class:'academy-question-level '+q.difficulty,text:levelLabel+' · '}),h('span',{text:q.question})]));
     q.options.forEach((option,i)=>{const id=`exam-${q.id}-${i}`;const input=h('input',{type:'radio',name:q.id,id,value:String(i),required:'required'});field.append(h('label',{class:'academy-quiz-option',for:id},[input,h('span',{text:option})]));});
     form.append(field);
   }
