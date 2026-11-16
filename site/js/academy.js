@@ -23,7 +23,7 @@ function loginHint() {
 
 // فقط مقصدهای واقعی و فعال سایت. هر مورد باید به یک مسیر موجود در app.js اشاره کند.
 export const ACADEMY_TOOLS = [
-  { icon: 'cap', title: 'دوره‌های آموزشی', href: '#courses' },
+  { icon: 'cap', title: 'دوره‌های آموزشی', href: '#/academy/courses' },
   { icon: 'mic', title: 'تمرین دادرسی و موت‌کورت', href: '#/moot-court' },
   { icon: 'scale', title: 'دستیار هوشمند وکیل', href: '#/assistant' },
   { icon: 'folder', title: 'بانک پرونده‌ها', href: '#/cases' },
