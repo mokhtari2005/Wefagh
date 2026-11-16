@@ -136,7 +136,7 @@ function pageHome() {
   const quick = h('section', { class: 'quick-section', 'aria-labelledby': 'quick-title' }, [
     h('h2', { id: 'quick-title', class: 'block-title', text: 'دسترسی سریع' }),
     h('div', { class: 'quick-grid' }, ACADEMY_TOOLS.map((item) =>
-      h('a', { class: 'quick-tile', href: item.href }, [h('span', { class: 'quick-icon', 'aria-hidden': 'true', text: item.icon }), h('span', { text: item.title })]))),
+      h('a', { class: 'quick-tile', href: item.href }, [h('span', { class: 'quick-icon', 'aria-hidden': 'true' }, [icon(item.icon, { size: 24 })]), h('span', { text: item.title })]))),
   ]);
 
   const lower = h('section', { class: 'dashboard-lower' }, [
