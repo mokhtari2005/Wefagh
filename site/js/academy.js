@@ -318,11 +318,14 @@ function examReportCard(user, attempt, result) {
     ]),
   ]);
   for (const [index, item] of (result.questionReviews || []).entries()) {
+    const legalReview = (result.objectiveLegalReviews || []).find(x => x.questionId === item.questionId) || {};
     const row = h('article', { class: 'academy-review-question' }, [
       h('h3', { text: `سؤال ${index + 1}: ${item.question}` }),
       h('p', { class: item.isCorrect ? 'academy-answer-correct' : 'academy-answer-wrong', text: 'پاسخ شما: ' + (item.selectedAnswer || 'بدون پاسخ') }),
       h('p', { class: 'academy-answer-correct', text: 'پاسخ صحیح: ' + item.correctAnswer }),
-      h('p', { text: 'استدلال: ' + item.explanation }),
+      h('p', { text: 'استدلال: ' + (legalReview.explanation || item.explanation) }),
+      ...(legalReview.legalAuthorities || []).map(a => h('p', { class: 'muted', text: ['مستند: ' + (a.source || ''), a.article ? 'ماده/تبصره ' + a.article : '', a.rule, a.application].filter(Boolean).join(' — ') })),
+      ...(legalReview.fiqhPrinciples || []).map(p => h('p', { class: 'muted', text: ['قاعده فقهی: ' + (p.principle || ''), p.scope, p.application].filter(Boolean).join(' — ') })),
     ]);
     review.append(row);
   }
