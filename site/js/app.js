@@ -4,7 +4,7 @@ import { mountContactForm } from './contact.js';
 import { formatShamsi } from './shamsi.js';
 import { parseHash } from './route.js';
 import { loginForm, registerForm, verifyPanel, accountPanel } from './account.js';
-import { academyList, academyCourse, ACADEMY_TOOLS } from './academy.js';
+import { academyList, academyCoursesPage, academyCourse, ACADEMY_TOOLS } from './academy.js';
 import { shamsiCalendar } from './calendar.js';
 import { assistantPage, assistantHistoryPage } from './assistant.js';
 import { icon, mountIcons } from './icons.js';
@@ -100,7 +100,7 @@ function pageHome() {
       h('h1', { id: 'hero-title' }, [document.createTextNode('به '), h('span', { class: 'accent', text: 'آکادمی وکالت شهرام مختاری' }), document.createTextNode(' خوش آمدید')]),
       h('p', { class: 'hero-sub', text: 'مسیر حرفه‌ای شدن در وکالت؛ از آموزش تا تجربه' }),
       h('p', { class: 'hero-desc', text: 'با دوره‌های تخصصی، پرونده‌های شبیه‌سازی‌شده و تمرین‌های عملی، مهارت‌های خود را تقویت کنید و با اطمینان در مسیر حرفه‌ای وکالت گام بردارید.' }),
-      h('a', { class: 'btn-gold', href: '#/academy', text: 'مشاهدهٔ دوره‌ها ‹' }),
+      h('a', { class: 'btn-gold', href: '#/academy/courses', text: 'مشاهدهٔ دوره‌ها ‹' }),
     ]),
   ]);
 
@@ -119,7 +119,7 @@ function pageHome() {
       h('strong', { text: 'در مسیر یادگیری' }),
       h('a', { class: 'btn-outline-light', href: '#/dashboard', text: 'گزارش عملکرد' }),
     ]),
-    h('a', { class: 'stat-card course-card', href: '#/academy' }, [
+    h('a', { class: 'stat-card course-card', href: '#/academy/courses' }, [
       h('span', { class: 'mini-label', text: 'دوره‌های آموزشی' }),
       h('h2', { text: 'آموزش کاربردی حقوقی' }),
       h('p', { class: 'muted', text: 'آموزش مرحله‌به‌مرحله با تمرین‌های عملی' }),
@@ -268,6 +268,7 @@ const ROUTES = {
   '/account': (params) => pageAccount(params),
   '/verify': (params) => pageVerify(params),
   '/academy': () => lazy(academyList),
+  '/academy/courses': () => lazy(academyCoursesPage),
   '/dashboard': () => lazy(dashboardPage),
   '/admin': () => lazy(adminPage),
   '/cases': () => lazy(() => casesPage()),
@@ -301,7 +302,7 @@ function render() {
 
   document.body.classList.toggle('immersive', path === '/moot-court/hearing');
   main.replaceChildren(content);
-  const EXTRA_TITLES = { '/admin': 'مدیریت محتوا', '/dashboard': 'داشبورد من', '/verify': 'تأیید ایمیل', '/moot-court': 'موت کورت', '/cases': 'بانک پرونده‌ها', '/assistant': 'دستیار هوشمند وکیل', '/assistant/history': 'سوابق گفت‌وگوهای دستیار', '/moot-court/hearing': 'اتاق دادگاه', '/moot-court/cases': 'انتخاب پرونده' };
+  const EXTRA_TITLES = { '/admin': 'مدیریت محتوا', '/dashboard': 'داشبورد من', '/verify': 'تأیید ایمیل', '/moot-court': 'موت کورت', '/cases': 'بانک پرونده‌ها', '/assistant': 'دستیار هوشمند وکیل', '/assistant/history': 'سوابق گفت‌وگوهای دستیار', '/academy/courses': 'دوره‌های آموزشی', '/moot-court/hearing': 'اتاق دادگاه', '/moot-court/cases': 'انتخاب پرونده' };
   const navTitle = NAV.find((n) => n.path === path)?.title;
   const title = navTitle ?? EXTRA_TITLES[path] ?? (path.startsWith('/academy/') ? 'آکادمی' : 'صفحه پیدا نشد');
   document.title = `${title} | آکادمی وکالت شهرام مختاری`;
