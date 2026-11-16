@@ -8,6 +8,7 @@ import { hashToken } from '../worker/src/auth/token.js';
 import { COURSES } from '../worker/src/academy/catalog.js';
 import { lessonLearning } from '../worker/src/academy/learning.js';
 import { EXAM_SUBJECTS } from '../worker/src/academy/exam-bank.js';
+import { getExamSubject, selectExamQuestions } from '../worker/src/academy/exam-question-bank.js';
 import { buildQuestionReviews } from '../worker/src/academy/exam-routes.js';
 
 let DatabaseSync;
@@ -278,7 +279,8 @@ test('مرکز آزمون برای کاربر واردشده حوزه‌های �
   const start = await worker.fetch(req('/api/academy/exams/start', { method: 'POST', cookie, body: { subjectId: 'civil' } }), env);
   assert.equal(start.status, 201);
   const attempt = (await start.json()).attempt;
-  assert.equal(attempt.questions.length, 2);
+  assert.equal(attempt.questions.length, 10);
+  assert.deepEqual(attempt.questions.reduce((counts,q)=>{counts[q.difficulty]=(counts[q.difficulty]||0)+1;return counts;},{}),{easy:3,medium:4,hard:3});
   assert.ok(attempt.questions.every((q) => !('correctIndex' in q) && !('a' in q)));
   assert.ok(attempt.essay.prompt.length > 50);
 });
@@ -300,4 +302,29 @@ test('پاسخ‌نامه آزمون، گزینه درست را با ترتیب 
   const right = buildQuestionReviews(subject, [question.id], { [question.id]: review.correctIndex })[0];
   assert.equal(right.isCorrect, true);
   assert.equal(right.correctAnswer, question.o[question.a]);
+});
+
+
+test('بانک هر یک از ده حوزه مرکز آزمون دست‌کم ۴۰۰ سؤال با سه سطح دشواری دارد', () => {
+  for (const item of EXAM_SUBJECTS) {
+    const subject = getExamSubject(item.id);
+    assert.equal(subject.questions.length, 400, item.id);
+    assert.equal(new Set(subject.questions.map(q => q.id)).size, 400, item.id);
+    assert.equal(subject.questions.filter(q => q.difficulty === 'easy').length, 120, item.id);
+    assert.equal(subject.questions.filter(q => q.difficulty === 'medium').length, 160, item.id);
+    assert.equal(subject.questions.filter(q => q.difficulty === 'hard').length, 120, item.id);
+    assert.ok(subject.questions.every(q => q.o.length === 4 && Number.isInteger(q.a) && q.e.length > 20));
+  }
+});
+
+test('هر آزمون ده سؤال یکتا و با توزیع ۳ آسان، ۴ متوسط و ۳ سخت انتخاب می‌کند', () => {
+  const subject = getExamSubject('civil');
+  const selected = selectExamQuestions(subject, () => 0.37);
+  assert.equal(selected.length, 10);
+  assert.equal(new Set(selected.map(q => q.id)).size, 10);
+  assert.deepEqual(selected.reduce((counts,q)=>{counts[q.difficulty]=(counts[q.difficulty]||0)+1;return counts;},{}),{easy:3,medium:4,hard:3});
+  const excluded = new Set(selected.map(q=>q.id));
+  const next = selectExamQuestions(subject, () => 0.71, excluded);
+  assert.equal(next.length, 10);
+  assert.ok(next.every(q=>!excluded.has(q.id)));
 });

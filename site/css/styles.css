@@ -1544,3 +1544,8 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
 .academy-cert-signature { display: grid; justify-items: center; gap: .25rem; min-width: 32%; }
 .academy-cert-signature > span { display: block; width: 78%; min-height: 1.2rem; border-bottom: 1px solid #9e8b58; }
 .academy-cert-signature > small { color: #6d7481; font-size: .72rem; }
+
+.academy-question-level { display: inline-block; margin-inline-end: .25rem; padding: .12rem .45rem; border-radius: 999px; font-size: .72rem; font-weight: 800; }
+.academy-question-level.easy { background: #e8f4ed; color: #236447; }
+.academy-question-level.medium { background: #fff3d9; color: #76531a; }
+.academy-question-level.hard { background: #f8e8e8; color: #8b3434; }

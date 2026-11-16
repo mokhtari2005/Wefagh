@@ -1,7 +1,8 @@
 import { json, readJsonBody } from '../http.js';
 import { currentUser } from '../auth/routes.js';
 import { generateText, AiError } from '../ai/gemini.js';
-import { EXAM_SUBJECTS, examSubject } from './exam-bank.js';
+import { EXAM_SUBJECTS } from './exam-bank.js';
+import { getExamSubject, selectExamQuestions } from './exam-question-bank.js';
 
 const ready = new WeakMap();
 async function ensureSchema(db) {
@@ -18,10 +19,10 @@ async function ensureSchema(db) {
 const fail=(error,status,extra={})=>json({ok:false,error,...extra},status);
 const clean=(s,n)=>typeof s==='string'?s.trim().slice(0,n):'';
 function optionShift(q){return q.o.length ? [...q.id].reduce((n,ch)=>n+ch.charCodeAt(0),0)%q.o.length : 0;}
-function publicQuestions(s){return s.questions.map(({id,q,o})=>{const shift=optionShift({id,o});return{id,question:q,options:o.map((_,i)=>o[(i+shift)%o.length])};});}
+function publicQuestions(questions){return questions.map(({id,q,o,difficulty,topic})=>{const shift=optionShift({id,o});return{id,question:q,options:o.map((_,i)=>o[(i+shift)%o.length]),difficulty,topic};});}
 export function buildQuestionReviews(s,ids,answers){
  return ids.map((id)=>{
-  const q=s.questions.find((item)=>item.id===id);if(!q)return null;
+  const q=s.questions.find((item)=>item.id===id)||EXAM_SUBJECTS.find(item=>item.id===s.id)?.questions.find(item=>item.id===id);if(!q)return null;
   const shift=optionShift(q),correctIndex=(q.a-shift+q.o.length)%q.o.length,selectedIndex=answers[id];
   const options=q.o.map((_,i)=>q.o[(i+shift)%q.o.length]);
   return {id,question:q.q,selectedIndex,correctIndex,selectedAnswer:options[selectedIndex]||'',correctAnswer:options[correctIndex],isCorrect:selectedIndex===correctIndex,explanation:q.e||'پاسخ صحیح بر اساس مبانی آموزشی این پرسش انتخاب شده است.'};
@@ -40,15 +41,19 @@ export async function handleAcademyExams(request,env,path){
  if(path==='/api/academy/exams'){
   if(request.method!=='GET')return fail('METHOD_NOT_ALLOWED',405);
   const rows=await env.DB.prepare('SELECT id,subject_id,subject_title,objective_score,essay_score,total_score,grading_status,created_at,submitted_at FROM academy_exam_attempts WHERE user_id=?1 ORDER BY created_at DESC LIMIT 30').bind(user.id).all();
-  return json({ok:true,subjects:EXAM_SUBJECTS.map(({id,title,description,questions})=>({id,title,description,questionCount:questions.length,essayCount:1})),attempts:rows.results||[]});
+  return json({ok:true,subjects:EXAM_SUBJECTS.map(({id,title,description})=>({id,title,description,questionCount:400,essayCount:1,difficultyDistribution:{easy:3,medium:4,hard:3}})),attempts:rows.results||[]});
  }
  if(path==='/api/academy/exams/start'){
   if(request.method!=='POST')return fail('METHOD_NOT_ALLOWED',405);
   const p=await readJsonBody(request);if(p.error)return p.error;
-  const s=examSubject(p.body?.subjectId);if(!s)return fail('INVALID_SUBJECT',422);
-  const id=crypto.randomUUID(),ids=s.questions.map(q=>q.id);
+  const s=getExamSubject(p.body?.subjectId);if(!s)return fail('INVALID_SUBJECT',422);
+  const id=crypto.randomUUID();
+  const recent=await env.DB.prepare('SELECT question_ids_json FROM academy_exam_attempts WHERE user_id=?1 AND subject_id=?2 ORDER BY created_at DESC LIMIT 12').bind(user.id,s.id).all();
+  const excluded=new Set((recent.results||[]).flatMap(row=>{try{return JSON.parse(row.question_ids_json||'[]');}catch{return[];}}));
+  const selected=selectExamQuestions(s,Math.random,excluded);
+  const ids=selected.map(q=>q.id);
   await env.DB.prepare("INSERT INTO academy_exam_attempts (id,user_id,subject_id,subject_title,question_ids_json,grading_status) VALUES (?1,?2,?3,?4,?5,'started')").bind(id,user.id,s.id,s.title,JSON.stringify(ids)).run();
-  return json({ok:true,attempt:{id,subjectId:s.id,subjectTitle:s.title,questions:publicQuestions(s),essay:{prompt:s.essay},notice:'پاسخ‌ها را با بیان خود بنویسید و از درج اطلاعات واقعی موکل یا پرونده محرمانه خودداری کنید.'}},201);
+  return json({ok:true,attempt:{id,subjectId:s.id,subjectTitle:s.title,questions:publicQuestions(selected),essay:{prompt:s.essay},difficultyDistribution:{easy:3,medium:4,hard:3},notice:'پاسخ‌ها را با بیان خود بنویسید و از درج اطلاعات واقعی موکل یا پرونده محرمانه خودداری کنید.'}},201);
  }
  if(path==='/api/academy/exams/submit'){
   if(request.method!=='POST')return fail('METHOD_NOT_ALLOWED',405);
@@ -58,7 +63,7 @@ export async function handleAcademyExams(request,env,path){
   const row=await env.DB.prepare('SELECT * FROM academy_exam_attempts WHERE id=?1 AND user_id=?2').bind(attemptId,user.id).first();
   if(!row)return fail('ATTEMPT_NOT_FOUND',404);
   if(row.grading_status==='graded'){
-   const saved=JSON.parse(row.feedback_json||'{}'),s=examSubject(row.subject_id);
+   const saved=JSON.parse(row.feedback_json||'{}'),s=getExamSubject(row.subject_id);
    if(s&&!saved.questionReviews)saved.questionReviews=buildQuestionReviews(s,JSON.parse(row.question_ids_json),JSON.parse(row.answers_json||'{}'));
    if(s&&!saved.sampleAnswer){
     try{
@@ -72,9 +77,9 @@ export async function handleAcademyExams(request,env,path){
    await env.DB.prepare('UPDATE academy_exam_attempts SET feedback_json=?1 WHERE id=?2 AND user_id=?3').bind(JSON.stringify(saved),attemptId,user.id).run();
    return json({ok:true,result:saved,objectiveScore:row.objective_score,essayScore:row.essay_score,totalScore:row.total_score,alreadyGraded:true});
   }
-  const s=examSubject(row.subject_id);if(!s)return fail('EXAM_VERSION_UNAVAILABLE',409);
+  const s=getExamSubject(row.subject_id);if(!s)return fail('EXAM_VERSION_UNAVAILABLE',409);
   const ids=JSON.parse(row.question_ids_json),cleanAnswers={};let correct=0;
-  for(const qid of ids){const q=s.questions.find(x=>x.id===qid),v=answers[qid];if(!q||!Number.isInteger(v)||v<0||v>=q.o.length)return fail('INVALID_ANSWERS',422);cleanAnswers[qid]=v;const correctIndex=(q.a-optionShift(q)+q.o.length)%q.o.length;if(v===correctIndex)correct++;}
+  for(const qid of ids){const q=s.questions.find(x=>x.id===qid)||EXAM_SUBJECTS.find(item=>item.id===s.id)?.questions.find(x=>x.id===qid),v=answers[qid];if(!q||!Number.isInteger(v)||v<0||v>=q.o.length)return fail('INVALID_ANSWERS',422);cleanAnswers[qid]=v;const correctIndex=(q.a-optionShift(q)+q.o.length)%q.o.length;if(v===correctIndex)correct++;}
   const objectiveScore=Math.round(correct/ids.length*100);
   await env.DB.prepare("UPDATE academy_exam_attempts SET answers_json=?1,essay_response=?2,objective_score=?3,grading_status='pending',submitted_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?4 AND user_id=?5").bind(JSON.stringify(cleanAnswers),essayResponse.trim(),objectiveScore,attemptId,user.id).run();
   try{
