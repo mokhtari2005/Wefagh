@@ -10,6 +10,8 @@ export function publicCase(c) {
   return {
     id: c.id,
     title: c.title,
+    trainingOnly: c.training_only === true && c.scenario_type === 'hypothetical',
+    publicationNote: c.training_only === true ? c.publication_note : null,
     area: c.area,
     difficulty: c.difficulty,
     level: LEVEL_LABEL[c.difficulty] || c.difficulty,
@@ -46,6 +48,7 @@ function summaryOf(row) {
   return {
     id: row.slug,
     title: row.title,
+    trainingOnly: c.training_only === true && c.scenario_type === 'hypothetical',
     summary: row.summary,
     area: c.area,
     difficulty: c.difficulty,
