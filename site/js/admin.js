@@ -83,7 +83,7 @@ export async function adminPage() {
     importNotice.textContent = r.ok ? `دوره‌ها: ${r.data.inserted} افزوده، ${r.data.skippedExisting} موجود (بدون بازنویسی).` : errorText(r.data, r.status);
     if (r.ok) await refresh();
   });
-  const importCases = el('button', { class: 'btn secondary', type: 'button', text: 'تکمیل بانک سناریوهای تمرین (پیش‌نویس)' });
+  const importCases = el('button', { class: 'btn secondary', type: 'button', text: 'بارگذاری سناریوهای فرضی بانک تمرین' });
   importCases.addEventListener('click', async () => {
     
     const r = await postJson('/api/admin/cases/import', {});
@@ -93,7 +93,7 @@ export async function adminPage() {
   });
   const importPanel = el('section', { class: 'admin-import card' }, [
     el('h2', { text: 'بارگذاری محتوای داخلی' }),
-    el('p', { class: 'muted', text: 'بانک شامل سناریوهای فرضی تمرین دادرسی است، نه متن رأی واقعی. پرونده‌ها به‌صورت پیش‌نویس وارد می‌شوند و انتشار آن‌ها منوط به بازبینی حقوقی و تأیید استنادهاست. شش دورهٔ تکمیلی آکادمی در فهرست عمومی فعال‌اند.' }),
+    el('p', { class: 'muted', text: 'بانک شامل سناریوهای فرضی تمرین دادرسی است، نه متن رأی واقعی. این سناریوها با برچسب آموزشی منتشر می‌شوند؛ استنادهای بررسی‌نشده بدون شماره ماده نمایش داده می‌شوند. هفت دورهٔ تکمیلی آکادمی نیز در فهرست عمومی فعال‌اند.' }),
     el('div', { class: 'row' }, [importCourses, importCases]),
     importStatus,
     importNotice,
@@ -322,7 +322,7 @@ export async function adminPage() {
   // ورود اولیهٔ محتوای مجاز به‌صورت خودکار و تکرارپذیر؛ فقط مدیر واردشده به این صفحه دسترسی دارد.
   // پرونده‌ها draft می‌مانند؛ دوره‌های منتشرشده در کاتالوگ عمومی از این مسیر دوباره وارد نمی‌شوند.
   importNotice.className = 'form-status';
-  importNotice.textContent = 'در حال تکمیل بانک پرونده‌ها و پیش‌نویس‌های آموزشی…';
+  importNotice.textContent = 'در حال بارگذاری سناریوهای فرضی بانک و پیش‌نویس‌های آموزشی…';
   const [caseSeed, courseSeed] = await Promise.all([
     postJson('/api/admin/cases/import', {}),
     postJson('/api/admin/courses/import-builtin', {}),
@@ -333,7 +333,7 @@ export async function adminPage() {
   importNotice.className = `form-status${seedErrors.length ? ' err' : ''}`;
   importNotice.textContent = seedErrors.length
     ? seedErrors.join(' | ')
-    : `تکمیل انجام شد؛ پرونده‌ها: ${caseSeed.data.inserted} جدید و ${caseSeed.data.skippedExisting} قبلی؛ دوره‌های پیش‌نویس: ${courseSeed.data.inserted} جدید و ${courseSeed.data.skippedExisting} قبلی. هیچ محتوای موجودی بازنویسی نشد.`;
+    : `بارگذاری انجام شد؛ سناریوهای منتشرشده: ${caseSeed.data.inserted} جدید و ${caseSeed.data.skippedExisting} قبلی؛ دوره‌های پیش‌نویس: ${courseSeed.data.inserted} جدید و ${courseSeed.data.skippedExisting} قبلی. هیچ محتوای موجودی بازنویسی نشد.`;
   await refresh();
   await refreshImportStatus();
   return wrap;
