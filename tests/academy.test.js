@@ -357,6 +357,7 @@ test('ارزیابی مستند دوره‌ها شماره ماده نامطمئ
   assert.equal(review.legalAuthorities[0].article, '');
   assert.equal(review.legalAuthorities[0].status, 'needs_review');
   assert.equal(review.legalAuthorities[1].article, '9999');
+  assert.equal(review.legalAuthorities[1].status, 'needs_review');
   assert.equal(review.fiqhPrinciples[0].principle, 'اصل صحت');
   assert.equal(review.issues.length, 1);
   assert.ok(review.verificationNote.includes('متن رسمی'));
