@@ -14,6 +14,29 @@ async function canAccessCourse(request, env, course) {
 }
 
 const ID_RE = /^[a-z0-9-]{1,64}$/;
+const assessmentSchemaPromises = new WeakMap();
+
+async function ensureAssessmentSchema(db) {
+  let ready = assessmentSchemaPromises.get(db);
+  if (!ready) {
+    ready = db.prepare(`CREATE TABLE IF NOT EXISTS lesson_assessments (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      course_id TEXT NOT NULL CHECK (length(course_id) BETWEEN 1 AND 64),
+      lesson_id TEXT NOT NULL CHECK (length(lesson_id) BETWEEN 1 AND 64),
+      answer_index INTEGER NOT NULL CHECK (answer_index BETWEEN 0 AND 10),
+      response_text TEXT NOT NULL CHECK (length(response_text) BETWEEN 30 AND 12000),
+      score INTEGER NOT NULL CHECK (score BETWEEN 0 AND 100),
+      passed INTEGER NOT NULL CHECK (passed IN (0, 1)),
+      submitted_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      PRIMARY KEY (user_id, course_id, lesson_id)
+    )`).run().catch((error) => {
+      assessmentSchemaPromises.delete(db);
+      throw error;
+    });
+    assessmentSchemaPromises.set(db, ready);
+  }
+  await ready;
+}
 
 async function publishedCourses(env) {
   if (!env.DB) return [];
@@ -136,6 +159,7 @@ export async function handleAcademy(request, env, path) {
     const passed = answerIndex === learning.quiz.correctIndex;
     const score = passed ? 100 : 0;
     try {
+      await ensureAssessmentSchema(env.DB);
       await env.DB.prepare(`INSERT INTO lesson_assessments (user_id, course_id, lesson_id, answer_index, response_text, score, passed)
       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
       ON CONFLICT(user_id, course_id, lesson_id) DO UPDATE SET
@@ -185,6 +209,7 @@ export async function handleAcademy(request, env, path) {
     const rows = await env.DB.prepare('SELECT lesson_id FROM lesson_progress WHERE user_id = ?1 AND course_id = ?2').bind(user.id, course.id).all();
     let assessments = { results: [] };
     try {
+      await ensureAssessmentSchema(env.DB);
       assessments = await env.DB.prepare('SELECT lesson_id, answer_index, response_text, score, passed, submitted_at FROM lesson_assessments WHERE user_id = ?1 AND course_id = ?2').bind(user.id, course.id).all();
     } catch (error) {
       console.error('academy assessment history unavailable', String(error?.message || error).slice(0, 120));
