@@ -30,5 +30,5 @@ head_sampling_rate = 1
 
 [vars]
 GEMINI_TEXT_MODEL = "gemini-3.5-flash-lite"
-GEMINI_TTS_MODEL = "gemini-3.8-flash-tts"
+GEMINI_TTS_MODEL = "gemini-3.8-flash-lite-tts"
 BASE_URL = "https://mokhtari.ir"

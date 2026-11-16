@@ -57,3 +57,25 @@ test('does not retry rejected API keys or access errors', async () => {
     globalThis.fetch = originalFetch;
   }
 });
+
+
+test('uses a distinct fallback when Gemini 3.5 Flash-Lite is primary', async () => {
+  const originalFetch = globalThis.fetch;
+  const urls = [];
+  const envPrimary = { ...env, GEMINI_TEXT_MODEL: 'gemini-3.5-flash-lite' };
+  globalThis.fetch = async (url) => {
+    urls.push(String(url));
+    return urls.length === 1
+      ? new Response(JSON.stringify({ error: { status: 'INTERNAL' } }), { status: 503 })
+      : success();
+  };
+  try {
+    const result = await generateText(envPrimary, input);
+    assert.equal(result.text, 'پاسخ آزمایشی');
+    assert.equal(urls.length, 2);
+    assert.ok(urls[0].includes('gemini-3.5-flash-lite'));
+    assert.ok(urls[1].includes('gemini-3.8-flash'));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
