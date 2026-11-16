@@ -33,6 +33,7 @@ function caseCard(c, { loggedIn, reason = '' }) {
     h('div', { class: 'case-card-meta' }, [
       h('span', { class: 'badge', text: c.area || '' }),
       h('span', { class: 'badge', text: c.level || BANK_DIFFICULTY_LABEL[c.difficulty] || '' }),
+      c.trainingOnly ? h('span', { class: 'badge badge-soft', text: 'سناریوی فرضی آموزشی' }) : null,
       reason ? h('span', { class: 'badge badge-soft', text: reason }) : null,
     ].filter(Boolean)),
     h('h3', { text: c.title }),
@@ -55,7 +56,7 @@ function selectField(label, options, value) {
 /** صفحهٔ انتخاب پرونده؛ بدون ورود هم قابل مشاهده است، اما شروع جلسه و سوابق نیاز به ورود دارد. */
 export function casePickerPage() {
   const body = h('section', { class: 'container moot-cases-page' });
-  body.append(h('h1', { text: 'انتخاب پرونده' }), h('p', { class: 'muted', text: 'پرونده‌ها پس از تأیید استنادهای حقوقی منتشر می‌شوند. فقط پرونده‌های منتشرشده نمایش داده می‌شوند.' }), h('p', { class: 'ai-privacy', role: 'note', text: 'این پرونده‌ها سناریوهای آموزشی و فرضی‌اند و رأی دادگاه منتشرشده یا واقعی نیستند؛ «رأی آموزشی» فقط برای تمرین است.' }));
+  body.append(h('h1', { text: 'انتخاب پرونده' }), h('p', { class: 'muted', text: 'بانک شامل سناریوهای فرضی آموزشی است. برای هر پرونده، یک تمرین تازه انتخاب کنید یا با فیلتر حوزه و سطح دشواری جست‌وجو کنید.' }), h('p', { class: 'ai-privacy', role: 'note', text: 'این سناریوها رأی دادگاه واقعی نیستند. استنادهای نیازمند بررسی بدون شماره ماده و با برچسب روشن نمایش داده می‌شوند؛ برای استناد در پرونده واقعی، منبع قانونی را مستقلاً بررسی کنید.' }));
 
   const suggestionsBox = h('div', { class: 'moot-suggestions' }, [h('p', { class: 'muted', text: 'در حال تهیهٔ پیشنهادها…' })]);
   const listBox = h('div', { class: 'moot-case-list', 'aria-live': 'polite' }, [h('p', { class: 'muted', text: 'در حال بارگذاری…' })]);
