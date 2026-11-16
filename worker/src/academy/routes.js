@@ -135,13 +135,18 @@ export async function handleAcademy(request, env, path) {
     if (!enrolled) return json({ ok: false, error: 'NOT_ENROLLED' }, 403);
     const passed = answerIndex === learning.quiz.correctIndex;
     const score = passed ? 100 : 0;
-    await env.DB.prepare(`INSERT INTO lesson_assessments (user_id, course_id, lesson_id, answer_index, response_text, score, passed)
+    try {
+      await env.DB.prepare(`INSERT INTO lesson_assessments (user_id, course_id, lesson_id, answer_index, response_text, score, passed)
       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
       ON CONFLICT(user_id, course_id, lesson_id) DO UPDATE SET
         answer_index = excluded.answer_index, response_text = excluded.response_text,
         score = excluded.score, passed = excluded.passed,
         submitted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`)
-      .bind(user.id, course.id, lesson.id, answerIndex, responseText.trim(), score, passed ? 1 : 0).run();
+        .bind(user.id, course.id, lesson.id, answerIndex, responseText.trim(), score, passed ? 1 : 0).run();
+    } catch (error) {
+      console.error('academy assessment storage unavailable', String(error?.message || error).slice(0, 120));
+      return json({ ok: false, error: 'ASSESSMENTS_NOT_CONFIGURED', message: 'ذخیره ارزیابی هنوز روی سرور فعال نشده است.' }, 503);
+    }
     if (passed) {
       await env.DB.prepare('INSERT OR IGNORE INTO lesson_progress (user_id, course_id, lesson_id) VALUES (?1, ?2, ?3)').bind(user.id, course.id, lesson.id).run();
     }
@@ -178,7 +183,12 @@ export async function handleAcademy(request, env, path) {
     if (!(await canAccessCourse(request, env, course))) return json({ ok: false, error: 'COURSE_NOT_PUBLISHED' }, 403);
     const enr = await env.DB.prepare('SELECT 1 AS x FROM enrollments WHERE user_id = ?1 AND course_id = ?2').bind(user.id, course.id).first();
     const rows = await env.DB.prepare('SELECT lesson_id FROM lesson_progress WHERE user_id = ?1 AND course_id = ?2').bind(user.id, course.id).all();
-    const assessments = await env.DB.prepare('SELECT lesson_id, answer_index, response_text, score, passed, submitted_at FROM lesson_assessments WHERE user_id = ?1 AND course_id = ?2').bind(user.id, course.id).all();
+    let assessments = { results: [] };
+    try {
+      assessments = await env.DB.prepare('SELECT lesson_id, answer_index, response_text, score, passed, submitted_at FROM lesson_assessments WHERE user_id = ?1 AND course_id = ?2').bind(user.id, course.id).all();
+    } catch (error) {
+      console.error('academy assessment history unavailable', String(error?.message || error).slice(0, 120));
+    }
     return json({
       ok: true, enrolled: Boolean(enr),
       completedLessonIds: (rows?.results || []).map((r) => r.lesson_id),
