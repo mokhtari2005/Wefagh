@@ -248,3 +248,49 @@ test('Gemini 499 (CANCELLED) is treated as a transient provider error', async ()
     globalThis.fetch = original;
   }
 });
+
+test('خطای 5xx در هر دو مدل: مرحلهٔ ساده بدون schema و بدون حالت JSON پاسخ می‌گیرد', async () => {
+  const original = globalThis.fetch;
+  const bodies = [];
+  globalThis.fetch = async (url, init) => {
+    bodies.push(JSON.parse(init.body));
+    if (bodies.length < 3) return new Response(JSON.stringify({ error: { status: 'INTERNAL' } }), { status: 500 });
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'پاسخ ساده بدون JSON' }] } }] }), { status: 200 });
+  };
+  try {
+    const result = await generateText(env, {
+      system: 'x', contents: [{ role: 'user', parts: [{ text: 'x' }] }],
+      json: true, schema: { type: 'OBJECT', properties: {} }, plainFallback: true,
+    });
+    assert.equal(bodies.length, 3);
+    assert.ok(bodies[0].generationConfig.responseSchema && bodies[1].generationConfig.responseSchema);
+    assert.equal(bodies[2].generationConfig.responseSchema, undefined);
+    assert.equal(bodies[2].generationConfig.responseMimeType, undefined);
+    assert.deepEqual(result.data, { status: 'ready', questions: [], notes: [], text: 'پاسخ ساده بدون JSON' });
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test('مرحلهٔ ساده بدون plainFallback اجرا نمی‌شود و JSON داخل ``` پذیرفته می‌شود', async () => {
+  const original = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => { calls += 1; return new Response(JSON.stringify({ error: { status: 'INTERNAL' } }), { status: 500 }); };
+  try {
+    await assert.rejects(
+      generateText(env, { system: 'x', contents: [{ role: 'user', parts: [{ text: 'x' }] }], json: true, schema: { type: 'OBJECT' } }),
+      (e) => e.code === 'AI_PROVIDER_ERROR',
+    );
+    assert.equal(calls, 2);
+    let n = 0;
+    globalThis.fetch = async () => {
+      n += 1;
+      if (n < 3) return new Response('{}', { status: 503 });
+      return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '```json\n{"status":"ready","questions":[],"text":"سلام","notes":[]}\n```' }] } }] }), { status: 200 });
+    };
+    const r = await generateText(env, { system: 'x', contents: [{ role: 'user', parts: [{ text: 'x' }] }], json: true, schema: { type: 'OBJECT' }, plainFallback: true });
+    assert.equal(r.data.text, 'سلام');
+  } finally {
+    globalThis.fetch = original;
+  }
+});

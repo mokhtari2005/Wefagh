@@ -103,18 +103,18 @@ function textOrLog(op, model, data) {
 }
 
 /** تولید متن (و JSON ساخت‌یافته در صورت تعیین schema). */
-export async function generateText(env, { system, contents, maxOutputTokens = 1024, json = false, schema = null, timeoutMs = AI_TIMEOUT_MS }) {
+export async function generateText(env, { system, contents, maxOutputTokens = 1024, json = false, schema = null, timeoutMs = AI_TIMEOUT_MS, plainFallback = false }) {
   const configuredModel = modelIds(env).text;
   const fallbackModel = 'gemini-3.5-flash-lite';
-  const makePayload = (model) => {
+  const makePayload = (model, { useSchema, useMime }) => {
     // Gemini 3 defaults to medium reasoning; low keeps interactive latency predictable.
     const generationConfig = { maxOutputTokens };
     if (model.startsWith('gemini-3.') && model !== fallbackModel) generationConfig.thinkingConfig = { thinkingLevel: 'low' };
     // Gemini 2.5 Flash به‌طور پیش‌فرض «تفکر پویا» دارد که پاسخ را کند می‌کند؛ برای دستیار تعاملی خاموش می‌شود.
     else if (model.startsWith('gemini-2.5-flash') && !model.includes('lite')) generationConfig.thinkingConfig = { thinkingBudget: 0 };
-    if (json) {
+    if (json && useMime) {
       generationConfig.responseMimeType = 'application/json';
-      if (schema) generationConfig.responseSchema = schema;
+      if (schema && useSchema) generationConfig.responseSchema = schema;
     }
     return {
       systemInstruction: { parts: [{ text: system }] },
@@ -122,29 +122,44 @@ export async function generateText(env, { system, contents, maxOutputTokens = 10
       generationConfig,
     };
   };
+  // برنامهٔ تلاش‌ها: مدل اصلی، مدل جایگزین، و (فقط اگر خواسته شود) یک درخواست ساده بدون schema و بدون حالت JSON
+  // برای وقتی که Google به‌خاطر شکل درخواست ساخت‌یافته خطای 5xx می‌دهد.
+  const plan = [{ model: configuredModel, useSchema: true, useMime: true, timeout: timeoutMs }];
+  if (configuredModel !== fallbackModel) plan.push({ model: fallbackModel, useSchema: true, useMime: true, timeout: 25_000 });
+  if (plainFallback && json) plan.push({ model: fallbackModel, useSchema: false, useMime: false, timeout: 25_000, plain: true });
   let model = configuredModel;
   let data;
-  try {
-    data = await post(env, 'text', model, `${GEMINI_API}/models/${encodeURIComponent(model)}:generateContent`, makePayload(model), timeoutMs);
-  } catch (err) {
-    // برای خطای گذرای مدل اصلی فقط یک بار مدل سبک‌تر را امتحان می‌کنیم.
-    // سهمیه، کلید نامعتبر و خطاهای دسترسی هرگز retry نمی‌شوند.
-    if (model === fallbackModel || !FALLBACK_CODES.has(err?.code)) throw err;
-    logGeminiFailure('text', model, { stage: 'fallback', reason: err.code, fallbackModel });
-    model = fallbackModel;
+  let used = plan[0];
+  let lastErr;
+  for (let i = 0; i < plan.length; i += 1) {
+    const step = plan[i];
+    if (i > 0) {
+      // خطای کلید معتبر، بلاک‌شدن محتوا و رد درخواست هرگز دوباره تلاش نمی‌شود. مرحلهٔ ساده فقط برای 5xx است.
+      const retryable = step.plain ? lastErr?.code === 'AI_PROVIDER_ERROR' : FALLBACK_CODES.has(lastErr?.code);
+      if (!retryable) throw lastErr;
+      logGeminiFailure('text', plan[i - 1].model, { stage: 'fallback', reason: step.plain ? 'PLAIN_TEXT' : lastErr.code, fallbackModel });
+    }
     try {
-      data = await post(env, 'text', model, `${GEMINI_API}/models/${encodeURIComponent(model)}:generateContent`, makePayload(model), 25_000);
-    } catch (fallbackError) {
-      logGeminiFailure('text', model, {
-        stage: 'fallback_failed',
-        reason: fallbackError?.code || 'UNKNOWN',
-        ...(Number.isInteger(fallbackError?.details?.providerStatus) ? { httpStatus: fallbackError.details.providerStatus } : {}),
-      });
-      throw fallbackError;
+      data = await post(env, 'text', step.model, `${GEMINI_API}/models/${encodeURIComponent(step.model)}:generateContent`, makePayload(step.model, step), step.timeout);
+      model = step.model;
+      used = step;
+      break;
+    } catch (err) {
+      lastErr = err;
+      if (i === plan.length - 1) throw err;
     }
   }
   const text = textOrLog('text', model, data);
   if (!json) return { text };
+  if (used.plain) {
+    // پاسخ ساده: اگر مدل JSON داد همان را می‌پذیریم، وگرنه کل متن را پاسخ نهایی می‌گیریم.
+    const stripped = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+    try {
+      const value = JSON.parse(stripped);
+      if (value && typeof value === 'object' && typeof value.text === 'string') return { data: value };
+    } catch { /* متن عادی است */ }
+    return { data: { status: 'ready', questions: [], notes: [], text } };
+  }
   try {
     return { data: JSON.parse(text) };
   } catch {

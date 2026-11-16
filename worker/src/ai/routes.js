@@ -303,6 +303,7 @@ async function assistant(request, env) {
       timeoutMs: 40_000,
       json: true,
       schema: ASSISTANT_SCHEMA,
+      plainFallback: true,
     });
     const questions = Array.isArray(data.questions) ? data.questions.filter((q) => typeof q === 'string').slice(0, 5) : [];
     const notes = Array.isArray(data.notes) ? data.notes.filter((n) => typeof n === 'string').slice(0, 10) : [];
