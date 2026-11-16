@@ -6,9 +6,9 @@ import { splitForSpeech, concatWav, SPEECH_CHUNK_CHARS } from './speech.js';
 export const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta';
 export const AI_TIMEOUT_MS = 40_000;
 
-// خطاهایی که یک تلاش جایگزین با مدل سبک‌تر برایشان منطقی است. ۴۰۳ هم شامل است چون دسترسی به یک مدل خاص
-// (مثل مدل‌های قدیمی برای پروژه‌های جدید) ممکن است رد شود ولی مدل دیگر مجاز باشد.
-const FALLBACK_CODES = new Set(['AI_NETWORK_ERROR', 'AI_PROVIDER_ERROR', 'AI_PROVIDER_BAD_RESPONSE', 'AI_MODEL_UNAVAILABLE', 'AI_QUOTA', 'AI_KEY_REJECTED']);
+// فقط خطاهای گذرا یا در دسترس نبودن یک مدل، یک بار با مدل جایگزین امتحان می‌شوند.
+// سهمیهٔ تمام‌شده و خطای کلید/دسترسی با تکرار درخواست حل نمی‌شوند و نباید مصرف بیشتری ایجاد کنند.
+const FALLBACK_CODES = new Set(['AI_NETWORK_ERROR', 'AI_PROVIDER_ERROR', 'AI_PROVIDER_BAD_RESPONSE', 'AI_MODEL_UNAVAILABLE']);
 
 // شناسه‌های مدل از متغیرهای [vars] خوانده می‌شوند تا بدون تغییر کد قابل تعویض باشند.
 export function modelIds(env) {
@@ -127,12 +127,21 @@ export async function generateText(env, { system, contents, maxOutputTokens = 10
   try {
     data = await post(env, 'text', model, `${GEMINI_API}/models/${encodeURIComponent(model)}:generateContent`, makePayload(model), timeoutMs);
   } catch (err) {
-    // یک تلاش جایگزین با مدل سبک برای خطاهای گذرا (timeout، شبکه، 5xx، سهمیه یا نبودن مدل).
-    // خطای کلید، بلاک‌شدن محتوا و رد درخواست هرگز دوباره تلاش نمی‌شود.
+    // برای خطای گذرای مدل اصلی فقط یک بار مدل سبک‌تر را امتحان می‌کنیم.
+    // سهمیه، کلید نامعتبر و خطاهای دسترسی هرگز retry نمی‌شوند.
     if (model === fallbackModel || !FALLBACK_CODES.has(err?.code)) throw err;
     logGeminiFailure('text', model, { stage: 'fallback', reason: err.code, fallbackModel });
     model = fallbackModel;
-    data = await post(env, 'text', model, `${GEMINI_API}/models/${encodeURIComponent(model)}:generateContent`, makePayload(model), 25_000);
+    try {
+      data = await post(env, 'text', model, `${GEMINI_API}/models/${encodeURIComponent(model)}:generateContent`, makePayload(model), 25_000);
+    } catch (fallbackError) {
+      logGeminiFailure('text', model, {
+        stage: 'fallback_failed',
+        reason: fallbackError?.code || 'UNKNOWN',
+        ...(Number.isInteger(fallbackError?.details?.providerStatus) ? { httpStatus: fallbackError.details.providerStatus } : {}),
+      });
+      throw fallbackError;
+    }
   }
   const text = textOrLog('text', model, data);
   if (!json) return { text };
