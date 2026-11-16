@@ -338,7 +338,6 @@ function examReportCard(user, attempt, result) {
     ]),
     h('p', { class: 'academy-report-correct-count', text: `پاسخ صحیح تستی: ${Number(result.correctAnswers ?? 0)} از ${Number(result.totalQuestions ?? 10)} سؤال` }),
     h('div', { class: 'academy-report-bottom' }, [
-      h('span', { text: 'شماره عضویت: ' + membershipNo }),
       h('span', { text: 'تاریخ صدور: ' + issued }),
     ]),
     h('div', { class: 'academy-report-signature' }, [h('span', { text: 'مدیر آکادمی وکالت' }), h('strong', { text: 'شهرام مختاری' })]),
