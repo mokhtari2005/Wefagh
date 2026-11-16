@@ -57,7 +57,21 @@ export async function handleAcademyExams(request,env,path){
   if(typeof attemptId!=='string'||!/^[-a-f0-9]{36}$/i.test(attemptId)||!answers||typeof answers!=='object'||Array.isArray(answers)||typeof essayResponse!=='string'||essayResponse.trim().length<80||essayResponse.length>12000)return fail('VALIDATION_FAILED',422,{message:'پاسخ تشریحی باید دست‌کم ۸۰ نویسه داشته باشد.'});
   const row=await env.DB.prepare('SELECT * FROM academy_exam_attempts WHERE id=?1 AND user_id=?2').bind(attemptId,user.id).first();
   if(!row)return fail('ATTEMPT_NOT_FOUND',404);
-  if(row.grading_status==='graded')return json({ok:true,result:JSON.parse(row.feedback_json),objectiveScore:row.objective_score,essayScore:row.essay_score,totalScore:row.total_score,alreadyGraded:true});
+  if(row.grading_status==='graded'){
+   const saved=JSON.parse(row.feedback_json||'{}'),s=examSubject(row.subject_id);
+   if(s&&!saved.questionReviews)saved.questionReviews=buildQuestionReviews(s,JSON.parse(row.question_ids_json),JSON.parse(row.answers_json||'{}'));
+   if(s&&!saved.sampleAnswer){
+    try{
+     const system='شما مدرس حقوق و ارزیاب آموزشی فارسی هستید. یک پاسخ نمونه آموزشی دقیق و مرحله‌مند به پرسش ارائه کنید. هیچ شماره ماده، رأی یا منبعی را جعل نکنید؛ اگر منبع در صورت سؤال نیامده، بدون شماره‌گذاری قانونی تحلیل کنید و لزوم کنترل منابع رسمی را یادآور شوید. خروجی فقط JSON با sampleAnswer و reasoning[] باشد.';
+     const prompt='عنوان درس: '+s.title+'\\nپرسش تشریحی: '+s.essay+'\\nمعیارهای ارزیابی: '+JSON.stringify(s.rubric);
+     const {data}=await generateText(env,{system,contents:[{role:'user',parts:[{text:prompt}]}],maxOutputTokens:1100,json:true,timeoutMs:25000});
+     saved.sampleAnswer=clean(data.sampleAnswer,3500);
+     saved.reasoning=Array.isArray(data.reasoning)?data.reasoning.slice(0,8).map(x=>clean(x,500)).filter(Boolean):[];
+    }catch(e){console.error(JSON.stringify({where:'academy.exam.answer-guide',error:e?.code||e?.name||'Error'}));}
+   }
+   await env.DB.prepare('UPDATE academy_exam_attempts SET feedback_json=?1 WHERE id=?2 AND user_id=?3').bind(JSON.stringify(saved),attemptId,user.id).run();
+   return json({ok:true,result:saved,objectiveScore:row.objective_score,essayScore:row.essay_score,totalScore:row.total_score,alreadyGraded:true});
+  }
   const s=examSubject(row.subject_id);if(!s)return fail('EXAM_VERSION_UNAVAILABLE',409);
   const ids=JSON.parse(row.question_ids_json),cleanAnswers={};let correct=0;
   for(const qid of ids){const q=s.questions.find(x=>x.id===qid),v=answers[qid];if(!q||!Number.isInteger(v)||v<0||v>=q.o.length)return fail('INVALID_ANSWERS',422);cleanAnswers[qid]=v;if(v===q.a)correct++;}
