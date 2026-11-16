@@ -297,4 +297,7 @@ test('پاسخ‌نامه آزمون، گزینه درست را با ترتیب 
   assert.equal(review.correctAnswer, question.o[question.a]);
   assert.equal(review.explanation, question.e);
   assert.equal(typeof review.isCorrect, 'boolean');
+  const right = buildQuestionReviews(subject, [question.id], { [question.id]: review.correctIndex })[0];
+  assert.equal(right.isCorrect, true);
+  assert.equal(right.correctAnswer, question.o[question.a]);
 });
