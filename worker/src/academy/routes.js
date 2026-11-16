@@ -3,6 +3,7 @@ import { json, readJsonBody } from '../http.js';
 import { currentUser } from '../auth/routes.js';
 import { COURSES, courseSummaries, findCourse, findLesson, isPublicCourse } from './catalog.js';
 import { lessonLearning } from './learning.js';
+import { handleAcademyExams } from './exam-routes.js';
 
 const MANAGER_ROLES = ['admin', 'super_admin', 'academy_manager'];
 const isManager = (user) => Boolean(user && Array.isArray(user.roles) && user.roles.some((r) => MANAGER_ROLES.includes(r)));
@@ -91,6 +92,7 @@ async function enrolledCourseIds(request, env) {
 }
 
 export async function handleAcademy(request, env, path) {
+  if (path.startsWith('/api/academy/exams')) return handleAcademyExams(request, env, path);
   if (path === '/api/academy/courses') {
     if (request.method !== 'GET') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'GET' });
     const managed = await publishedCourses(env);
