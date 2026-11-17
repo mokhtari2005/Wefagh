@@ -247,6 +247,12 @@ function assistantWorkspace(initialThread) {
     actions.append(copy, dl);
     const children = [h('span', { class: 'ai-role', text: 'دستیار' }), h('div', { class: 'ai-text pre-wrap', text: m.text })];
     if (m.notes?.length) children.push(h('ul', { class: 'ai-notes', 'aria-label': 'یادداشت‌های بررسی' }, m.notes.map((n) => h('li', { text: n }))));
+    if (m.reviewDetails?.length) {
+      children.push(h('details', { class: 'ai-review-details' }, [
+        h('summary', { text: 'جزئیات بازبینی مستقل' }),
+        h('ul', { class: 'ai-notes' }, m.reviewDetails.map((n) => h('li', { text: n }))),
+      ]));
+    }
     if (m.disclaimer) children.push(h('p', { class: 'ai-disclaimer muted', text: m.disclaimer }));
     if (m.text) children.push(actions);
     return h('li', { class: 'ai-msg ai-msg-ai' }, children);
@@ -350,7 +356,7 @@ function assistantWorkspace(initialThread) {
     const userText = [typed, names.length ? `[پیوست: ${names.join('، ')}]` : ''].filter(Boolean).join('\n');
     history.push({ role: 'user', text: userText });
     const reply = summarizeReply(res.data);
-    history.push({ role: 'ai', text: reply, notes: res.data.notes || [], disclaimer: res.data.status === 'ready' ? res.data.disclaimer : '' });
+    history.push({ role: 'ai', text: reply, notes: res.data.notes || [], reviewDetails: res.data.reviewDetails || [], disclaimer: res.data.status === 'ready' ? res.data.disclaimer : '' });
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
     attachments = [];

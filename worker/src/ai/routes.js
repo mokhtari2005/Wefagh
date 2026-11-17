@@ -6,7 +6,7 @@ import { currentUser } from '../auth/routes.js';
 import { handleThreads } from './threads.js';
 import { AiError, aiConfigured, generateText, transcribeAudio, synthesizeLongSpeech } from './gemini.js';
 import { clampReply } from './speech.js';
-import { reviewLegalDraft, groqReviewNotes } from './groq.js';
+import { reviewLegalDraft, groqReviewNotes, groqReviewShortNote } from './groq.js';
 import { AttachmentError, ATTACHMENT_LIMITS, processAttachments, buildUserParts, summarizeAttachments } from './attachments.js';
 import {
   LEGAL_DISCLAIMER, ASSISTANT_DOC_TYPES, ASSISTANT_MODES, ASSISTANT_SCHEMA, MOOT_EVAL_SCHEMA,
@@ -369,11 +369,14 @@ async function assistant(request, env) {
     if (truncated) notes.push('پاسخ به‌دلیل طول زیاد کامل نشد. برای ادامه بنویسید «ادامه بده».');
     for (const warning of citationWarnings(text)) if (!notes.includes(warning)) notes.push(warning);
     // برای حفظ محرمانگی، در صورت وجود پیوست، پیش‌نویس حاوی محتوای استخراج‌شده به ارائه‌دهندهٔ سوم ارسال نمی‌شود.
+    let reviewDetails = [];
     if (attachments.length) {
-      notes.push('به‌دلیل وجود پیوست، بازبینی مستقل Groq اجرا نشد تا محتوای سند به سرویس دیگری منتقل نشود.');
+      notes.push('هشدار: بازبینی مستقل انجام نشد.');
+      reviewDetails = ['به‌دلیل وجود پیوست، بازبینی مستقل Groq اجرا نشد تا محتوای سند به سرویس دیگری منتقل نشود.'];
     } else {
       const review = await reviewLegalDraft(env, { mode, docType, question: message, draft: text });
-      notes.push(...groqReviewNotes(review));
+      notes.push(groqReviewShortNote(review));
+      reviewDetails = groqReviewNotes(review);
     }
     for (const a of attachments) {
       if (a.truncated) notes.push(`فقط بخش ابتدایی «${a.name}» (حداکثر ${ATTACHMENT_LIMITS.extractedChars.toLocaleString('fa-IR')} نویسه) بررسی شد.`);
@@ -384,6 +387,7 @@ async function assistant(request, env) {
       questions,
       text,
       notes,
+      reviewDetails,
       attachments: summarizeAttachments(attachments),
       disclaimer: LEGAL_DISCLAIMER,
     });

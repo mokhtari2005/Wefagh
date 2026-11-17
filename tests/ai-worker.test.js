@@ -288,9 +288,11 @@ test('Groq پیش‌نویس را مستقل بررسی می‌کند و خرو�
     const data = await res.json();
     assert.equal(res.status, 200);
     assert.equal(data.ok, true);
-    assert.ok(data.notes.some((note) => note.includes('بازبینی ماشینی مستقل') && note.includes('Groq')));
-    assert.ok(data.notes.some((note) => note.includes('مرجع صالح در متن روشن نیست')));
-    assert.ok(data.notes.some((note) => note.includes('ماده ۱۲۳')));
+    assert.ok(data.notes.includes('بازبینی ماشینی مستقل انجام شد.'));
+    assert.ok(!data.notes.some((note) => note.includes('مرجع صالح در متن روشن نیست')));
+    assert.ok(data.reviewDetails.some((note) => note.includes('Groq')));
+    assert.ok(data.reviewDetails.some((note) => note.includes('مرجع صالح در متن روشن نیست')));
+    assert.ok(data.reviewDetails.some((note) => note.includes('ماده ۱۲۳')));
     assert.equal(calls.length, 2);
     assert.ok(!JSON.stringify(data).includes(groqKey));
   });

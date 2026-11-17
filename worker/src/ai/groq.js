@@ -216,3 +216,8 @@ export function groqReviewNotes(result) {
   }
   return notes.slice(0, 12);
 }
+
+/** یادداشت کوتاه برای نمایش پیش‌فرض زیر متن؛ جزئیات در groqReviewNotes و فقط در بخش جمع‌شونده می‌آید. */
+export function groqReviewShortNote(result) {
+  return result?.status === 'reviewed' ? 'بازبینی ماشینی مستقل انجام شد.' : 'هشدار: بازبینی مستقل انجام نشد.';
+}
