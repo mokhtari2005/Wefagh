@@ -33,7 +33,7 @@
 
 فهرست مواد برای مدیر: `GET /api/admin/legal-bank/articles?lawId=1`. تغییر وضعیت مستقل ماده: `PATCH /api/admin/legal-bank/article-status` با بدنه‌ای مانند `{"articleId":12,"status":"repealed","statusNote":"نسخ صریح به موجب ماده ۲۹ قانون نحوه اجرای محکومیت‌های مالی","statusSourceName":"قانون نحوه اجرای محکومیت‌های مالی","statusSourceUrl":"https://...","statusEffectiveDate":"1394-03-23"}`. برای وضعیت `amended` یا `repealed`، توضیح و دست‌کم نام یا نشانی منبع الزامی است؛ نشانی منبع باید HTTPS باشد.
 
-ثبت رابطه بین مواد: `POST /api/admin/legal-bank/relations` با `affectedArticleId` (ماده متأثر)، `authorityArticleId` (ماده مستند/ایجادکننده اثر)، `relationType` از میان `amends`, `repeals`, `replaces`, `interprets`، و فیلدهای اختیاری `effectiveDate` و `sourceNote`. رابطه‌ها متن قبلی را حذف نمی‌کنند و در سابقه قابل مشاهده‌اند.
+ثبت رابطه بین مواد: `POST /api/admin/legal-bank/relations` با `affectedArticleId` (ماده متأثر)، `authorityArticleId` (ماده مستند/ایجادکننده اثر)، `relationType` از میان `amends`, `repeals`, `replaces`, `interprets`، و فیلد اختیاری `effectiveDate` و فیلد الزامی `sourceNote`. رابطه‌ها متن قبلی را حذف نمی‌کنند و در سابقه قابل مشاهده‌اند.
 
 ## جست‌وجو
 `GET /api/legal-bank/search?q=...` برای کاربران واردشده؛ فقط مواد و قوانین تأییدشده را نمایش می‌دهد.
