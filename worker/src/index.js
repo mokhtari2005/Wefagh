@@ -15,6 +15,7 @@ import { handleAdmin } from './admin.js';
 import { handleAdminMedia } from './admin-media.js';
 import { handleAdminMail } from './admin-mail.js';
 import { handleAdminAi } from './admin-ai.js';
+import { handleLegalBank } from './legal-bank.js';
 import { handleAi } from './ai/routes.js';
 import { handleTelegram } from './telegram/routes.js';
 import { sendDueReminders } from './telegram/reminders.js';
@@ -113,6 +114,11 @@ export default {
         console.error(JSON.stringify({ where: `route:${path}`, error: err?.name || 'Error' }));
         return json({ ok: false, error: 'INTERNAL_ERROR' }, 500);
       }
+    }
+
+    if (path.startsWith('/api/admin/legal-bank/') || path === '/api/legal-bank/search') {
+      const res = await handleLegalBank(request, env, path);
+      if (res) return res;
     }
 
     if (path === '/api/admin/content' || path.startsWith('/api/admin/content/')) {
