@@ -1,6 +1,14 @@
 name: Import public Iranian legal corpus
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/import_ekhtebar_corpus.py'
+      - '.github/workflows/import-legal-corpus.yml'
+      - 'worker/migrations/0016_legal_reference_bank.sql'
+      - 'worker/migrations/0017_legal_article_status_and_relations.sql'
+      - 'worker/src/legal-bank.js'
   workflow_dispatch:
     inputs:
       confirm:
@@ -17,7 +25,7 @@ concurrency:
 
 jobs:
   import:
-    if: ${{ inputs.confirm == 'IMPORT_TO_D1' }}
+    if: github.event_name == 'push' || inputs.confirm == 'IMPORT_TO_D1'
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
