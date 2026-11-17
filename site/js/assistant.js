@@ -328,9 +328,9 @@ function assistantWorkspace(initialThread) {
       form.append('message', typed);
       form.append('history', JSON.stringify(trimHistory(history)));
       for (const a of sent) form.append('files', a.file, a.file.name);
-      res = await postForm('/api/ai/assistant', form, { timeoutMs: 80000 });
+      res = await postForm('/api/ai/assistant', form, { timeoutMs: 100000 });
     } else {
-      res = await postJson('/api/ai/assistant', { mode, docType: docSelect.value, message: typed, history: trimHistory(history) }, { timeoutMs: 80000 });
+      res = await postJson('/api/ai/assistant', { mode, docType: docSelect.value, message: typed, history: trimHistory(history) }, { timeoutMs: 100000 });
     }
     stopPendingProgress();
     busy = false;
@@ -341,7 +341,7 @@ function assistantWorkspace(initialThread) {
     if (!res.ok || !res.data?.ok) {
       const code = res.data?.error || (res.timeoutError ? 'AI_REQUEST_TIMEOUT' : res.networkError ? 'NETWORK' : 'AI_UNAVAILABLE');
       const which = res.data?.file ? ` (فایل: ${res.data.file})` : '';
-      status.textContent = `${errorText(code)}${which} (کد: ${code}${res.data?.providerStatus ? ` · HTTP ${res.data.providerStatus}` : ''}${res.data?.providerReason ? ` ${res.data.providerReason}` : ''}) متن و پیوست‌های شما حفظ شد.`;
+      status.textContent = `${errorText(code)}${which} (کد: ${code}${res.data?.providerStatus ? ` · HTTP ${res.data.providerStatus}` : ''}${res.data?.providerReason ? ` ${res.data.providerReason}` : ''}${res.data?.reason ? ` · ${res.data.reason}` : ''}) متن و پیوست‌های شما حفظ شد.`;
       renderLog();
       return;
     }

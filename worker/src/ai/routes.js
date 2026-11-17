@@ -358,7 +358,7 @@ async function assistant(request, env) {
       contents,
       // توکن‌های «تفکر» مدل هم از این سقف کم می‌شوند؛ سقف پایین باعث قطع شدن پیش‌نویس‌های فارسی می‌شد.
       maxOutputTokens: mode === 'consult' ? 3500 : 6000,
-      timeoutMs: 30_000,
+      timeoutMs: 45_000,
       json: true,
       schema: ASSISTANT_SCHEMA,
       plainFallback: true,
