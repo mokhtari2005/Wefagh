@@ -4,6 +4,7 @@ import { getPublishedCase, SLUG_RE } from '../moot/caseStore.js';
 import { findVerifiedLegalArticles } from '../legal-bank.js';
 import { json, readJsonBody } from '../http.js';
 import { currentUser } from '../auth/routes.js';
+import { registrationRequired } from '../access.js';
 import { handleThreads } from './threads.js';
 import { AiError, aiConfigured, generateText, transcribeAudio, synthesizeLongSpeech } from './gemini.js';
 import { clampReply } from './speech.js';
@@ -122,8 +123,10 @@ function toContents(history, { prefixIfEmpty = null } = {}) {
 async function authorized(request, env) {
   if (!env.DB) return { error: fail('DB_NOT_CONFIGURED', 503) };
   const user = await currentUser(request, env);
-  if (!user) return { error: fail('UNAUTHENTICATED', 401) };
-  if (rateLimited(user.id)) return { error: fail('AI_RATE_LIMITED', 429) };
+  if (!user && await registrationRequired(env)) return { error: fail('UNAUTHENTICATED', 401) };
+  // مهمان‌ها با IP محدود می‌شوند؛ اطلاعات شخصی یا سابقهٔ حساب برایشان ایجاد نمی‌شود.
+  const identity = user ? `user:${user.id}` : `guest:${request.headers.get('cf-connecting-ip') || 'unknown'}`;
+  if (rateLimited(identity)) return { error: fail('AI_RATE_LIMITED', 429) };
   return { user };
 }
 

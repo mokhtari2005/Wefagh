@@ -162,6 +162,27 @@ export async function adminPage() {
   const importView = el('section', { class: 'admin-view', 'data-admin-view': 'imports', hidden: 'hidden' }, [importPanel]);
   const mediaView = el('section', { class: 'admin-view', 'data-admin-view': 'media', hidden: 'hidden' });
   const servicesView = el('section', { class: 'admin-view', 'data-admin-view': 'services', hidden: 'hidden' }, [mailPanel]);
+  const accessNotice = el('p', { class: 'form-status', role: 'status' });
+  const accessDescription = el('p', { class: 'muted', text: 'با غیرفعال‌کردن الزام ثبت‌نام، دستیار وکیل و ابزارهای عمومی هوش مصنوعی بدون ورود در دسترس قرار می‌گیرند. اطلاعات شخصی، مواعد، سوابق و پیشرفت آموزشی همچنان نیازمند ورود هستند.' });
+  const registrationToggle = el('input', { type: 'checkbox', id: 'registration-required' });
+  const registrationLabel = el('label', { class: 'admin-field' }, [el('span', { text: 'الزام ثبت‌نام برای استفاده از خدمات عمومی' }), registrationToggle]);
+  const saveAccess = el('button', { class: 'btn', type: 'button', text: 'ذخیره تنظیم دسترسی' });
+  const accessPanel = el('section', { class: 'card admin-import' }, [el('h2', { text: 'تنظیم دسترسی کاربران' }), accessDescription, registrationLabel, saveAccess, accessNotice]);
+  servicesView.append(accessPanel);
+  const loadAccess = async () => {
+    const result = await getJson('/api/admin/settings/access');
+    if (!result.ok) { accessNotice.className = 'form-status err'; accessNotice.textContent = errorText(result.data, result.status); saveAccess.disabled = true; return; }
+    registrationToggle.checked = result.data.registrationRequired;
+    saveAccess.disabled = false;
+  };
+  saveAccess.addEventListener('click', async () => {
+    saveAccess.disabled = true;
+    const result = await sendJson('PUT', '/api/admin/settings/access', { registrationRequired: registrationToggle.checked });
+    accessNotice.className = `form-status${result.ok ? ' ok' : ' err'}`;
+    accessNotice.textContent = result.ok ? (result.data.registrationRequired ? 'الزام ثبت‌نام فعال شد.' : 'دسترسی مهمان فعال شد.') : errorText(result.data, result.status);
+    saveAccess.disabled = false;
+  });
+  loadAccess();
 
   function showKindFields() {
     const isCourse = select.value === 'course';

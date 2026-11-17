@@ -17,6 +17,7 @@ import { handleAdminMail } from './admin-mail.js';
 import { handleAdminAi } from './admin-ai.js';
 import { handleLegalBank } from './legal-bank.js';
 import { handleAi } from './ai/routes.js';
+import { handleAccess } from './access.js';
 import { handleTelegram } from './telegram/routes.js';
 import { sendDueReminders } from './telegram/reminders.js';
 import { collectLegalNews } from './media/news.js';
@@ -67,6 +68,11 @@ export default {
         return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'GET, HEAD' });
       }
       return json({ ok: true, service: 'wefagh-api' });
+    }
+
+    if (path === '/api/access-settings' || path === '/api/admin/settings/access') {
+      const res = await handleAccess(request, env, path);
+      if (res) return res;
     }
 
     if (path === '/api/contact') {
