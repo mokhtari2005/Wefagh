@@ -1,0 +1,67 @@
+name: Import public Iranian legal corpus
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type IMPORT_TO_D1 to import parsed public corpus documents as needs_review
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: legal-bank-bulk-import
+  cancel-in-progress: false
+
+jobs:
+  import:
+    if: \${{ inputs.confirm == 'IMPORT_TO_D1' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          npm install --global wrangler
+          python -m pip install --upgrade pip requests
+      - name: Validate Cloudflare credentials
+        env:
+          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || (echo "Missing CLOUDFLARE_API_TOKEN secret" && exit 1)
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || (echo "Missing CLOUDFLARE_ACCOUNT_ID secret" && exit 1)
+      - name: Apply remote D1 migrations
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: wrangler d1 migrations apply wefagh-db --remote --config wrangler.toml
+      - name: Deploy Worker
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: wrangler deploy --config wrangler.toml
+      - name: Import corpus into D1
+        env:
+          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GITHUB_TOKEN: \${{ github.token }}
+        run: python scripts/import_ekhtebar_corpus.py
+      - name: Upload import report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: legal-bank-import-report
+          path: artifacts/legal-bank-import-report.json
+          if-no-files-found: ignore
+          retention-days: 30
