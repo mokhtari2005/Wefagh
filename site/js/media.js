@@ -17,7 +17,7 @@ export async function mediaHome() {
     h('h1', { text: 'رسانه و اندیشه آکادمی' }),
     h('p', { class: 'lead', text: 'یادداشت‌ها، آموزش‌های کوتاه و پادکست‌های آکادمی و مجموعه‌های صوتی همکار.' }),
   ]);
-  const [articles, episodes, news] = await Promise.all([getJson('/api/media/articles'), getJson('/api/media/episodes'), getJson('/api/media/news')]);
+  const [articles, news] = await Promise.all([getJson('/api/media/articles'), getJson('/api/media/news')]);
 
   wrap.append(h('h2', { text: 'خبرهای روز حقوقی، قضایی و پارلمانی' }), h('p', { class: 'muted', text: 'گزیده خبرهای مرتبط از خبرگزاری‌ها و منابع داخلی؛ برای جزئیات، متن کامل را در پایگاه منتشرکننده بخوانید.' }));
   if (!news.ok) {
@@ -77,31 +77,9 @@ export async function mediaHome() {
         rel: 'noopener noreferrer',
         text: 'مشاهدهٔ همهٔ قسمت‌ها در Spotify',
       }),
-    ]),
-    h('h2', { text: 'قسمت‌های ثبت‌شده در آکادمی' })
+    ])
   );
-  if (!episodes.ok) {
-    wrap.append(errorBox(episodes));
-  } else {
-    for (const ep of episodes.data.episodes) {
-      wrap.append(episodeCard(ep));
-    }
-  }
   return wrap;
-}
-
-function episodeCard(ep) {
-  const body = [
-    h('h3', { text: ep.title }),
-    h('p', { class: 'muted', text: `${shamsi(ep.publishedAt)}${ep.durationMinutes ? ` · ${ep.durationMinutes} دقیقه` : ''}` }),
-    h('p', { text: ep.description }),
-  ];
-  if (ep.audioUrl) {
-    body.push(h('audio', { controls: '', preload: 'none', src: ep.audioUrl, class: 'player' }));
-  } else {
-    body.push(h('div', { class: 'notice', role: 'note', text: 'فایل صوتی این قسمت هنوز منتشر نشده است.' }));
-  }
-  return h('article', { class: 'lesson' }, body);
 }
 
 export async function articlePage(slug) {
