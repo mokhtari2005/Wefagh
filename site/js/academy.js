@@ -151,14 +151,49 @@ async function renderProgress(area, course, user) {
 }
 
 
+function academyCertificateSeal() {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 64 64');
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', 'نشان ترازوی عدالت');
+  svg.setAttribute('focusable', 'false');
+  const paths = [
+    'M32 8v42 M20 17h24 M24 17 14 34 M40 17 50 34 M14 34c0 6 20 6 20 0 M50 34c0 6-20 6-20 0 M22 52h20 M26 57h12',
+    'M32 8l-4 5h8z'
+  ];
+  for (const d of paths) {
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', 'currentColor');
+    path.setAttribute('stroke-width', '2.5');
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
+    svg.append(path);
+  }
+  return h('div', { class: 'academy-cert-seal', 'aria-label': 'مهر آکادمی وکالت شهرام مختاری — Shahram Mokhtari Law Academy Seal' }, [
+    h('span', { class: 'academy-cert-seal-fa', text: 'مهر آکادمی' }),
+    svg,
+    h('small', { class: 'academy-cert-seal-en', text: 'ACADEMY SEAL' }),
+  ]);
+}
+
 function courseCertificateCard(user, course) {
   const issued = new Date().toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' });
   const serial = (course.id + '-' + (user?.id || '0')).toUpperCase();
   const certificate = h('article', { class: 'academy-print-sheet academy-course-certificate', dir: 'rtl' }, [
-    h('div', { class: 'academy-cert-brand', text: 'آکادمی وکالت شهرام مختاری' }),
-    h('div', { class: 'academy-cert-emblem', text: '⚖' }),
+    h('header', { class: 'academy-cert-header' }, [
+      academyCertificateSeal(),
+      h('div', { class: 'academy-cert-brand-lockup' }, [
+        h('div', { class: 'academy-cert-brand', text: 'آکادمی وکالت شهرام مختاری' }),
+        h('div', { class: 'academy-cert-brand-en', text: 'SHAHRAM MOKHTARI LAW ACADEMY' }),
+      ]),
+      h('div', { class: 'academy-cert-header-mark', text: '⚖' }),
+    ]),
     h('p', { class: 'academy-cert-kicker', text: 'گواهینامه پایان دوره آموزشی' }),
     h('h2', { class: 'academy-cert-title', text: 'گواهینامه' }),
+    h('p', { class: 'academy-cert-title-en', text: 'CERTIFICATE OF COMPLETION' }),
     h('p', { class: 'academy-cert-copy', text: 'بدین‌وسیله گواهی می‌شود' }),
     h('strong', { class: 'academy-cert-name', text: user?.displayName || 'شرکت‌کننده' }),
     h('p', { class: 'academy-cert-copy', text: 'دوره آموزشی زیر را با موفقیت به پایان رسانده است:' }),

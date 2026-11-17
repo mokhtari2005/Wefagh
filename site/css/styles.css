@@ -1831,3 +1831,38 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
   .moot-body > * { animation: moot-enter .28s ease both; }
   @keyframes moot-enter { from { opacity: .65; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 }
+
+
+/* گواهینامه دوزبانه آکادمی؛ نشان و مهر اختصاصی */
+.academy-course-certificate { padding: 1.35rem 2rem 1.1rem; }
+.academy-cert-header { display: grid; grid-template-columns: 92px 1fr 92px; align-items: center; gap: 1rem; padding-bottom: .75rem; border-bottom: 1px solid #c6ad6b; }
+.academy-cert-seal { width: 82px; height: 82px; display: grid; place-items: center; align-content: center; gap: 0; border: 2px solid #a88b45; outline: 1px solid #a88b45; outline-offset: 3px; border-radius: 50%; color: #a88b45; background: #fffdf7; }
+.academy-cert-seal svg { width: 34px; height: 34px; }
+.academy-cert-seal-fa { font-size: .66rem; font-weight: 900; }
+.academy-cert-seal-en { font-size: .46rem; font-weight: 800; letter-spacing: .08em; }
+.academy-cert-brand-lockup { text-align: center; }
+.academy-cert-brand { font-size: 1.12rem; font-weight: 900; color: #0a2256; }
+.academy-cert-brand-en { margin-top: .2rem; color: #8c7436; font: 700 .72rem Georgia,serif; letter-spacing: .12em; }
+.academy-cert-header-mark { display: grid; place-items: center; width: 64px; height: 64px; justify-self: end; border: 1px solid #b69a4d; border-radius: 18px 18px 5px 5px; color: #b49a50; font-size: 2.5rem; }
+.academy-cert-title-en { margin: -.55rem 0 .55rem; color: #8c7436; font: 700 .82rem Georgia,serif; letter-spacing: .18em; }
+.academy-cert-kicker { margin-top: .8rem; }
+@media print {
+  .academy-course-certificate { padding: 7mm 12mm 6mm !important; }
+  .academy-cert-header { grid-template-columns: 22mm 1fr 22mm; gap: 4mm; padding-bottom: 3mm; }
+  .academy-cert-seal { width: 19mm; height: 19mm; }
+  .academy-cert-seal svg { width: 8mm; height: 8mm; }
+  .academy-cert-seal-fa { font-size: 6pt; }
+  .academy-cert-seal-en { font-size: 4.5pt; }
+  .academy-cert-brand { font-size: 12pt !important; }
+  .academy-cert-brand-en { font-size: 7pt; }
+  .academy-cert-header-mark { width: 15mm; height: 15mm; font-size: 22pt; }
+  .academy-cert-title-en { font-size: 8pt !important; }
+}
+@media (max-width: 560px) {
+  .academy-cert-header { grid-template-columns: 62px 1fr; gap: .6rem; }
+  .academy-cert-seal { width: 58px; height: 58px; }
+  .academy-cert-seal svg { width: 25px; height: 25px; }
+  .academy-cert-header-mark { display: none; }
+  .academy-cert-brand { font-size: .9rem; }
+  .academy-cert-brand-en { font-size: .55rem; }
+}
