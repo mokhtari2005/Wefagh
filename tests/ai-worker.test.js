@@ -296,7 +296,7 @@ test('Groq پیش‌نویس را مستقل بررسی می‌کند و خرو�
   });
 });
 
-test('با وجود پیوست، پیش‌نویس برای بازبینی به Groq ارسال نمی‌شود', async () => {
+test('بدون Secret کلید Groq، بازبینی مستقل فعال نمی‌شود', async () => {
   const result = await reviewLegalDraft({}, { mode: 'draft', docType: 'petition', question: 'سؤال', draft: 'پیش‌نویس' });
   assert.equal(result.status, 'not_configured');
   assert.match(groqReviewNotes({ status: 'not_configured' })[0], /فعال نشده است/);
