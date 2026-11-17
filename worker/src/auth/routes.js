@@ -12,7 +12,7 @@ export function logError(where, err) {
   if (Number.isInteger(err?.status)) entry.status = err.status;
   if (typeof err?.reason === 'string' && /^[A-Za-z_]{1,40}$/.test(err.reason)) entry.reason = err.reason;
   if (Array.isArray(err?.missing)) {
-    entry.missing = err.missing.filter((n) => typeof n === 'string' && /^RESEND_[A-Z_]{1,40}$/.test(n));
+    entry.missing = err.missing.filter((n) => typeof n === 'string' && /^(?:RESEND|GMAIL)_[A-Z_]{1,40}$/.test(n));
   }
   console.error(JSON.stringify(entry));
 }
