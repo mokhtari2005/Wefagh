@@ -4,7 +4,7 @@ import { json, readJsonBody, readCookie, sessionCookie, SESSION_COOKIE } from '.
 import { cleanText, normalizeEmail } from '../validate.js';
 import { hashPassword, verifyPassword, validatePasswordPolicy } from './password.js';
 import { generateToken, hashToken, addMs, SESSION_TTL_MS, EMAIL_TOKEN_TTL_MS } from './token.js';
-import { sendMail } from '../email/gmail.js';
+import { sendMail } from '../email/resend.js';
 
 /** گزارش فنی بدون داده‌های کاربر: فقط نام خطا و محل آن (هرگز ایمیل، رمز یا پروفایل). */
 export function logError(where, err) {
@@ -12,7 +12,7 @@ export function logError(where, err) {
   if (Number.isInteger(err?.status)) entry.status = err.status;
   if (typeof err?.reason === 'string' && /^[A-Za-z_]{1,40}$/.test(err.reason)) entry.reason = err.reason;
   if (Array.isArray(err?.missing)) {
-    entry.missing = err.missing.filter((n) => typeof n === 'string' && /^GMAIL_[A-Z_]{1,40}$/.test(n));
+    entry.missing = err.missing.filter((n) => typeof n === 'string' && /^(?:RESEND|GMAIL)_[A-Z_]{1,40}$/.test(n));
   }
   console.error(JSON.stringify(entry));
 }
