@@ -30,10 +30,10 @@ function selectOf(id, options, value, placeholder) {
 }
 
 function checkGroup(name, options, values) {
-  const wrap = h('div', { class: 'chips', role: 'group', 'aria-label': name });
+  const wrap = h('div', { class: 'profile-choice-grid', role: 'group', 'aria-label': name });
   for (const [key, label] of Object.entries(options)) {
     const box = h('input', { type: 'checkbox', name, value: key, checked: values.includes(key) });
-    wrap.append(h('label', { class: 'chip' }, [box, h('span', { text: label })]));
+    wrap.append(h('label', { class: 'chip profile-choice-chip' }, [box, h('span', { text: label })]));
   }
   return wrap;
 }
@@ -136,9 +136,9 @@ export function profileEditForm(profile, onSaved) {
     fieldWrap('pe-professional', 'وضعیت حرفه‌ای', professional, errs.professionalStatus),
     barBlock,
     fieldWrap('pe-experience', 'میزان سابقه', experience, errs.experienceBand),
-    h('div', { class: 'field' }, [h('span', { text: 'حوزه‌های فعالیت یا علاقه' }), practice, errs.practiceAreas]),
+    h('section', { class: 'field profile-choice-field', 'aria-labelledby': 'pe-practice-title' }, [h('h3', { id: 'pe-practice-title', class: 'profile-choice-title', text: 'حوزه‌های فعالیت یا علاقه' }), h('p', { class: 'field-hint muted', text: 'می‌توانید چند حوزه را هم‌زمان انتخاب کنید.' }), practice, errs.practiceAreas]),
     fieldWrap('pe-goal', 'هدف اصلی', goal, errs.learningGoal),
-    h('div', { class: 'field' }, [h('span', { text: 'مهارت‌های مورد نظر' }), skills, errs.skillAreas]),
+    h('section', { class: 'field profile-choice-field', 'aria-labelledby': 'pe-skills-title' }, [h('h3', { id: 'pe-skills-title', class: 'profile-choice-title', text: 'مهارت‌های مورد نظر' }), h('p', { class: 'field-hint muted', text: 'مهارت‌هایی را که می‌خواهید تقویت کنید انتخاب کنید.' }), skills, errs.skillAreas]),
     fieldWrap('pe-level', 'سطح فعلی مهارت', level, errs.skillLevel),
     fieldWrap('pe-format', 'روش آموزشی ترجیحی', format, errs.learningFormat),
     fieldWrap('pe-notes', 'یادداشت (اختیاری)', notes, errs.notes),

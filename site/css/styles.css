@@ -2275,3 +2275,56 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
   .account-profile-grid { grid-template-columns: 1fr; gap: .5rem; }
   .account-profile-item { padding: .7rem .8rem; }
 }
+
+
+/* انتخاب حوزه‌های فعالیت و مهارت در پروفایل */
+.profile-choice-field {
+  min-width: 0;
+  margin-block: .9rem;
+  padding: 1rem;
+  border: 1px solid var(--sand-line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--teal) 3%, var(--paper));
+}
+.profile-choice-title {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--ink);
+}
+.profile-choice-field > .field-hint {
+  margin: -.15rem 0 .45rem;
+  font-size: .84rem;
+  line-height: 1.8;
+}
+.profile-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .55rem;
+  min-width: 0;
+}
+.profile-choice-chip {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 0;
+  min-height: 48px;
+  margin: 0;
+  padding: .65rem .8rem;
+  border-radius: 12px;
+  font-size: .88rem;
+  line-height: 1.65;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.profile-choice-chip input {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+}
+.profile-choice-chip span { min-width: 0; }
+.profile-choice-field > .error { margin-top: .2rem; }
+@media (max-width: 560px) {
+  .profile-choice-field { padding: .8rem; }
+  .profile-choice-grid { grid-template-columns: minmax(0, 1fr); gap: .45rem; }
+  .profile-choice-chip { min-height: 46px; padding: .65rem .75rem; font-size: .9rem; }
+}
