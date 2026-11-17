@@ -1,6 +1,6 @@
 // ارسال ایمیل تراکنشی از طریق Resend API؛ بدون SMTP و بدون وابستگی خارجی.
 const SEND_URL = 'https://api.resend.com/emails';
-const DEFAULT_FROM = 'Vefagh Law Society <noreply@mokhtari.ir>';
+const DEFAULT_FROM = 'Mokhtari Law Academy <noreply@mokhtari.ir>';
 const SAFE_CODE = /^[A-Za-z_]{1,60}$/;
 
 /**
@@ -14,7 +14,7 @@ export async function sendMail({ env, to, subject, text, fetchImpl = fetch }) {
     throw err;
   }
   const from = env.RESEND_FROM || DEFAULT_FROM;
-  if (/[\r\n]/.test(from) || /[\r\n]/.test(to) || /[\r\n]/.test(subject)) {
+  if (/[\\r\\n]/.test(from) || /[\\r\\n]/.test(to) || /[\\r\\n]/.test(subject)) {
     throw new Error('INVALID_MAIL_HEADER');
   }
   const res = await fetchImpl(SEND_URL, {
