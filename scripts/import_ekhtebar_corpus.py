@@ -140,13 +140,14 @@ def main():
     print(f"Parsed {len(docs)} documents; skipped {skipped}.")
     batch=[]; size=0; done=0
     for d in docs:
-        statements=sql_for(d)
-        n=sum(len(q.encode()) for q in statements)
-        if batch and (len(batch)+len(statements)>90 or size+n>3_500_000):
-            send(batch); done+=len(batch)//2; print(f"D1 submitted: {done}/{len(docs)}"); batch=[]; size=0
-        batch.extend(statements); size+=n
-    if batch:
-        send(batch); done+=len(batch)//2
+        for statement in sql_for(d):
+            n=len(statement.encode("utf-8"))
+            if batch and (len(batch)>=90 or size+n>3_500_000):
+                send(batch); batch=[]; size=0
+            batch.append(statement); size+=n
+        done+=1
+        if done%25==0: print(f"Prepared: {done}/{len(docs)} documents")
+    if batch: send(batch)
     os.makedirs("artifacts",exist_ok=True)
     report={"source":"https://github.com/SaeedAqamiri/laws-mcp","index_source":"https://www.ekhtebar.ir/قوانین/","files_found":len(files),"documents_parsed":len(docs),"documents_submitted":done,"documents_skipped":skipped,"status":"needs_review","skip_sample":errors[:100]}
     with open("artifacts/legal-bank-import-report.json","w",encoding="utf-8") as f: json.dump(report,f,ensure_ascii=False,indent=2)
