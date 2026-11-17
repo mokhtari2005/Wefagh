@@ -87,7 +87,7 @@ export async function handleLegalBank(request, env, path) {
     if (request.method !== 'GET') return json({ok:false,error:'METHOD_NOT_ALLOWED'},405,{Allow:'GET'});
     const lawId = Number(new URL(request.url).searchParams.get('lawId'));
     if (!Number.isInteger(lawId) || lawId < 1) return json({ok:false,error:'VALIDATION_FAILED'},422);
-    const result = await env.DB.prepare(`SELECT id,article_number AS number,heading,body,status,status_note AS statusNote,status_source_name AS statusSourceName,status_source_url AS statusSourceUrl,status_effective_date AS statusEffectiveDate FROM legal_articles WHERE law_id=?1 ORDER BY id`).bind(lawId).all();
+    const result = await env.DB.prepare(`SELECT id,article_number AS number,heading,substr(body,1,420) AS bodyPreview,status,status_note AS statusNote,status_source_name AS statusSourceName,status_source_url AS statusSourceUrl,status_effective_date AS statusEffectiveDate FROM legal_articles WHERE law_id=?1 ORDER BY id`).bind(lawId).all();
     const relations = await env.DB.prepare(`SELECT r.affected_article_id AS affectedArticleId,r.authority_article_id AS authorityArticleId,r.relation_type AS relationType,r.effective_date AS effectiveDate,r.source_note AS sourceNote,aa.article_number AS affectedArticleNumber,ba.article_number AS authorityArticleNumber FROM legal_article_relations r JOIN legal_articles aa ON aa.id=r.affected_article_id JOIN legal_articles ba ON ba.id=r.authority_article_id WHERE aa.law_id=?1 OR ba.law_id=?1 ORDER BY r.id`).bind(lawId).all();
     return json({ok:true,items:result.results||[],relations:relations.results||[]});
   }
