@@ -387,7 +387,7 @@ export async function adminPage() {
             legalBankNotice.textContent = saved.ok ? 'رابطه حقوقی ثبت شد.' : errorText(saved.data, saved.status);
           });
           articlePanel.append(el('article', { class: 'admin-content-row card' }, [
-            heading, el('p', { class: 'muted', text: article.body.slice(0, 420) + (article.body.length > 420 ? '…' : '') }),
+            heading, el('p', { class: 'muted', text: article.bodyPreview || '' }),
             ...(relationSummary.length ? [el('p', { class: 'muted', text: relationSummary.join(' | ') })] : []),
             statusSelect, note, sourceName, sourceUrl, effectiveDate, save, relationTitle, targetId, relationType, relationNote, relationDate, relationSave,
           ]));
