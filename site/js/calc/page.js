@@ -1,5 +1,5 @@
 // صفحهٔ محاسبه‌گرها. فرم‌ها با DOM امن ساخته می‌شوند؛ خروجی فقط متن است. تاریخ‌ها شمسی وارد می‌شوند.
-import { delayInterest, strictNumber } from './core.js';
+import { delayInterest } from './core.js';
 import { applyRule } from './engine.js';
 import { findRule, rulesFor } from './rates.js';
 import { formatShamsi } from '../shamsi.js';
@@ -97,9 +97,32 @@ function field(id, label, input) {
   return h('div', { class: 'field' }, [h('label', { for: id, text: label }), input]);
 }
 
+/** ورودی عددی با جداکنندهٔ سه‌رقمی؛ مقدار محاسباتی بدون جداکننده خوانده می‌شود. */
+function numericInput(attrs = {}) {
+  const input = h('input', { type: 'text', autocomplete: 'off', ...attrs });
+  input.addEventListener('input', () => {
+    const raw = normalizeDigits(input.value).replace(/[٬,\s]/g, '').replace(/٫/g, '.');
+    const cleaned = raw.replace(/[^\d.]/g, '');
+    const dot = cleaned.indexOf('.');
+    const normalized = dot < 0 ? cleaned : cleaned.slice(0, dot + 1) + cleaned.slice(dot + 1).replace(/\./g, '');
+    if (!normalized) { input.value = ''; return; }
+    const hasDecimal = normalized.endsWith('.');
+    const [whole, fraction] = normalized.split('.');
+    const grouped = whole ? Number(whole).toLocaleString('fa-IR') : '۰';
+    input.value = grouped + (normalized.includes('.') ? '٫' + (fraction || '') : '');
+    if (hasDecimal && !input.value.endsWith('٫')) input.value += '٫';
+  });
+  return input;
+}
+
+function numericValue(text) {
+  const normalized = normalizeDigits(String(text ?? '')).replace(/[٬,\s]/g, '').replace(/٫/g, '.');
+  return normalized.trim() === '' ? NaN : Number(normalized);
+}
+
 function delayTool() {
-  const principal = h('input', { type: 'number', min: '1', step: '1', required: '', inputmode: 'numeric' });
-  const rate = h('input', { type: 'number', min: '0', max: '100', step: '0.01', required: '', inputmode: 'decimal' });
+  const principal = numericInput({ min: '1', step: '1', required: '', inputmode: 'numeric' });
+  const rate = numericInput({ min: '0', max: '100', step: '0.01', required: '', inputmode: 'decimal' });
   const start = shamsiField('di-start', 'تاریخ سررسید (شمسی)', { required: true });
   const end = shamsiField('di-end', 'تاریخ محاسبه (شمسی)', { required: true });
   const out = h('div', { class: 'tool-out' });
@@ -114,8 +137,8 @@ function delayTool() {
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const result = delayInterest({
-      principal: strictNumber(principal.value),
-      ratePercent: strictNumber(rate.value),
+      principal: numericValue(principal.value),
+      ratePercent: numericValue(rate.value),
       startDate: parseShamsiInput(start.input.value) ?? '',
       endDate: parseShamsiInput(end.input.value) ?? '',
     });
@@ -355,9 +378,9 @@ function ruleTool({ title, amountLabel, group, submitLabel, note, withRanges = f
   const usable = rulesFor(RATE_YEAR, group).filter((r) => r.status !== 'text_read' && r.kind !== 'range' && r.kind !== 'discretionary');
   const select = h('select', { id: `${title}-kind` }, usable.map((r) => h('option', { value: r.id, text: r.title })));
   const amountCaption = h('label', { for: `${title}-amount`, text: amountLabel });
-  const amount = h('input', { id: `${title}-amount`, type: 'number', min: '0', step: '1', required: '', inputmode: 'numeric' });
+  const amount = numericInput({ id: `${title}-amount`, min: '0', step: '1', required: '', inputmode: 'numeric' });
   const countCaption = h('label', { for: `${title}-count`, text: '' });
-  const count = h('input', { id: `${title}-count`, type: 'number', min: '1', step: '1', inputmode: 'numeric' });
+  const count = numericInput({ id: `${title}-count`, min: '1', step: '1', inputmode: 'numeric' });
   const countWrap = h('div', { class: 'field', hidden: '' }, [countCaption, count]);
   const out = h('div', { class: 'tool-out' });
 
@@ -384,8 +407,8 @@ function ruleTool({ title, amountLabel, group, submitLabel, note, withRanges = f
     const rule = findRule(RATE_YEAR, select.value);
     if (!rule) return out.replaceChildren(resultBox({ ok: false }, form));
     const r = applyRule(rule, {
-      amount: strictNumber(amount.value),
-      count: rule.extraInput ? strictNumber(count.value) : undefined,
+      amount: numericValue(amount.value),
+      count: rule.extraInput ? numericValue(count.value) : undefined,
     });
     if (!r.ok && r.error === 'RULE_UNVERIFIED') return out.replaceChildren(unverifiedBox(rule));
     if (!r.ok) return out.replaceChildren(resultBox({ ok: false, error: r.error }, form));
@@ -458,8 +481,8 @@ function attorneyTool(id) {
     h('option', { value: 'no', text: 'وکیل گواهی وکالت تخصصی ندارد.' }),
     h('option', { value: 'yes', text: 'وکیل گواهی وکالت تخصصی از کانون یا مرکز وکلا دارد.' }),
   ]);
-  const inDays = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'مثال: 5' });
-  const outDays = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'مثال: 3' });
+  const inDays = numericInput({ inputmode: 'numeric', placeholder: 'مثال: ۵' });
+  const outDays = numericInput({ inputmode: 'numeric', placeholder: 'مثال: ۳' });
   const afterReversal = h('input', { type: 'checkbox', id: 'att-reversal' });
   const temporary = h('input', { type: 'checkbox', id: 'att-temporary' });
   const amount = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: '۱٬۰۰۰٬۰۰۰ معادل ۱۰۰ هزار تومان' });
@@ -497,7 +520,7 @@ function attorneyTool(id) {
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const days = (text) => {
-      const t = normalizeDigits(text).trim();
+      const t = normalizeDigits(text).replace(/[٬,\s]/g, '').trim();
       if (t === '') return 0;
       return /^\d+$/.test(t) ? Number(t) : NaN;
     };
