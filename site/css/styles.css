@@ -2179,3 +2179,99 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
 @media (prefers-reduced-motion: reduce) {
   .ai-seg-btn, .ai-suggestion, .ai-input { transition: none; }
 }
+
+
+/* پروفایل آموزشی حساب کاربری */
+.account-profile {
+  margin: 1.25rem 0;
+  padding: clamp(1rem, 2.5vw, 1.6rem);
+  border: 1px solid color-mix(in srgb, var(--teal, #287568) 20%, var(--sand-line, #e6e0d4));
+  border-radius: 22px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--teal, #287568) 5%, var(--surface, #fff)), var(--surface, #fff) 62%);
+  box-shadow: 0 12px 32px rgb(25 45 60 / .055);
+}
+.account-profile-heading {
+  display: flex;
+  align-items: center;
+  gap: .9rem;
+  margin-bottom: 1.1rem;
+}
+.account-profile-mark {
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--gold, #b69a58) 48%, transparent);
+  border-radius: 15px;
+  color: var(--teal-dark, #174f48);
+  background: color-mix(in srgb, var(--gold, #b69a58) 12%, white);
+  font-size: 1.65rem;
+}
+.account-profile-heading h2 { margin: 0 0 .2rem; font-size: 1.12rem; }
+.account-profile-heading p { margin: 0; font-size: .86rem; }
+.account-profile-status {
+  margin-inline-start: auto;
+  padding: .35rem .65rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--teal, #287568) 9%, white);
+  color: var(--teal-dark, #174f48);
+  font-size: .76rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.account-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .65rem;
+  margin: 0;
+}
+.account-profile-item {
+  min-width: 0;
+  margin: 0;
+  padding: .8rem .9rem;
+  border: 1px solid color-mix(in srgb, var(--sand-line, #e6e0d4) 80%, transparent);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--surface, #fff) 92%, transparent);
+}
+.account-profile-item dt {
+  margin-bottom: .32rem;
+  color: var(--muted, #687477);
+  font-size: .78rem;
+  font-weight: 650;
+}
+.account-profile-item dd {
+  margin: 0;
+  color: var(--ink, #263238);
+  font-size: .91rem;
+  font-weight: 750;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.account-edit {
+  margin-block: .8rem;
+  border: 1px solid var(--sand-line, #e6e0d4);
+  border-radius: 15px;
+  background: var(--surface, #fff);
+}
+.account-edit > summary {
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  padding: .7rem 1rem;
+  color: var(--teal-dark, #174f48);
+  font-weight: 800;
+  cursor: pointer;
+}
+.account-edit[open] > summary { border-bottom: 1px solid var(--sand-line, #e6e0d4); }
+.account-edit > .form { padding: 1rem; }
+@media (max-width: 560px) {
+  .account-profile { padding: .9rem; border-radius: 17px; }
+  .account-profile-heading { align-items: flex-start; gap: .65rem; }
+  .account-profile-mark { flex-basis: 42px; width: 42px; height: 42px; border-radius: 13px; }
+  .account-profile-heading h2 { font-size: 1rem; }
+  .account-profile-heading p { font-size: .78rem; line-height: 1.7; }
+  .account-profile-status { padding: .28rem .48rem; font-size: .68rem; }
+  .account-profile-grid { grid-template-columns: 1fr; gap: .5rem; }
+  .account-profile-item { padding: .7rem .8rem; }
+}
