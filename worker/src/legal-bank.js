@@ -7,7 +7,7 @@ const clean = (v, max = 500) => typeof v === 'string' ? v.trim().slice(0, max) :
 const STATUSES = new Set(['needs_review', 'verified', 'amended', 'repealed']);
 const TYPES = new Set(['law', 'regulation', 'bylaw', 'circular', 'unified_precedent', 'advisory_opinion', 'other']);
 
-async function readLargeJson(request, maxBytes = 1024 * 1024) {
+async function readLargeJson(request, maxBytes = 4 * 1024 * 1024) {
   if (!(request.headers.get('content-type') || '').toLowerCase().includes('application/json')) return { error: json({ ok:false, error:'UNSUPPORTED_MEDIA_TYPE' },415) };
   const declared = Number(request.headers.get('content-length') || 0);
   if (declared > maxBytes) return { error: json({ ok:false, error:'PAYLOAD_TOO_LARGE' },413) };
@@ -18,6 +18,15 @@ async function readLargeJson(request, maxBytes = 1024 * 1024) {
 
 export async function handleLegalBank(request, env, path) {
   if (!env.DB) return json({ ok:false, error:'DB_NOT_CONFIGURED' },503);
+  if (path === '/api/admin/legal-bank/list') {
+    const access = await requireAdmin(request, env);
+    if (access.response) return access.response;
+    if (request.method !== 'GET') return json({ok:false,error:'METHOD_NOT_ALLOWED'},405,{Allow:'GET'});
+    const result = await env.DB.prepare(`SELECT l.id,l.slug,l.title,l.law_type AS lawType,l.status,l.source_name AS sourceName,l.source_url AS sourceUrl,l.approved_date AS approvedDate,l.publication_date AS publicationDate,l.effective_date AS effectiveDate,COUNT(a.id) AS articleCount,SUM(CASE WHEN a.status='verified' THEN 1 ELSE 0 END) AS verifiedArticles
+      FROM legal_laws l LEFT JOIN legal_articles a ON a.law_id=l.id
+      GROUP BY l.id ORDER BY l.updated_at DESC,l.id DESC LIMIT 200`).all();
+    return json({ok:true,items:result.results||[]});
+  }
   if (path === '/api/admin/legal-bank/import' || path === '/api/admin/legal-bank/status') {
     const access = await requireAdmin(request, env);
     if (access.response) return access.response;
@@ -29,11 +38,20 @@ export async function handleLegalBank(request, env, path) {
       const slug = clean(b.slug,100);
       const title = clean(b.title,240);
       const type = clean(b.lawType,40) || 'law';
-      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || !title || !TYPES.has(type) || !Array.isArray(b.articles) || !b.articles.length || b.articles.length > 500) {
-        return json({ok:false,error:'VALIDATION_FAILED',message:'شناسه، عنوان، نوع سند یا فهرست مواد معتبر نیست.'},422);
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || !title || !TYPES.has(type) || !Array.isArray(b.articles) || !b.articles.length || b.articles.length > 2500) {
+        return json({ok:false,error:'VALIDATION_FAILED',message:'شناسه، عنوان، نوع سند یا فهرست مواد معتبر نیست؛ سقف هر سند ۲۵۰۰ ماده است.'},422);
       }
-      if (b.articles.some(a => !a || !clean(a.number,40) || !clean(a.body,30000) || typeof a.body !== 'string')) {
-        return json({ok:false,error:'VALIDATION_FAILED',message:'هر ماده باید شماره و متن داشته باشد.'},422);
+      const articleNumbers = new Set();
+      for (const article of b.articles) {
+        const number = clean(article?.number,40);
+        const body = article?.body;
+        if (!number || typeof body !== 'string' || !body.trim() || body.length > 100000 || (article.heading != null && typeof article.heading !== 'string')) {
+          return json({ok:false,error:'VALIDATION_FAILED',message:'هر ماده باید شماره و متن معتبر داشته باشد؛ سقف متن هر ماده ۱۰۰ هزار نویسه است.'},422);
+        }
+        if (articleNumbers.has(number)) {
+          return json({ok:false,error:'DUPLICATE_ARTICLE_NUMBER',message:`شماره ماده تکراری است: ${number}`},422);
+        }
+        articleNumbers.add(number);
       }
       try {
         const result = await env.DB.prepare(`INSERT INTO legal_laws

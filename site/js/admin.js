@@ -23,6 +23,7 @@ function parseLines(value) { return value.split('\n').map((x) => x.trim()).filte
 function errorText(data, status) {
   if (status === 401) return 'برای مدیریت محتوا ابتدا وارد حساب کاربری شوید.';
   if (status === 403) return 'این حساب نقش مدیر ندارد. دسترسی مدیریت فقط از طریق نقش مدیر مجاز است.';
+  if (data?.error === 'DUPLICATE_LAW') return 'این شناسه قبلاً برای یک قانون ثبت شده است.';
   if (data?.error === 'DUPLICATE_SLUG') return 'این شناسه قبلاً برای همین نوع محتوا استفاده شده است.';
   if (data?.error === 'UNPUBLISH_BEFORE_DELETE') return 'ابتدا محتوا را از انتشار خارج کنید و سپس آن را حذف کنید.';
   if (data?.errors) return Object.values(data.errors).flat().join(' ');
@@ -252,6 +253,71 @@ export async function adminPage() {
     notice.textContent = result.ok ? (editingId ? 'محتوا به‌روزرسانی شد.' : 'محتوا ثبت شد.') : errorText(result.data, result.status);
     if (result.ok) { resetForm(); await refresh(); }
   });
+  // بانک قوانین: ورود گروهی متن و بازبینی وضعیت هر سند.
+  const legalBankNotice = el('p', { class: 'form-status', role: 'status' });
+  const legalBankJson = field('اطلاعات قانون و مواد به قالب JSON (متن کامل هر ماده)', 'legalBankJson', '', 'textarea');
+  legalBankJson.querySelector('textarea').rows = 20;
+  legalBankJson.querySelector('textarea').spellcheck = false;
+  const legalBankSubmit = el('button', { class: 'btn', type: 'submit', text: 'ثبت قانون در وضعیت نیازمند بررسی' });
+  const legalBankForm = el('form', { class: 'admin-form card' }, [
+    el('p', { class: 'muted', text: 'هر سند ابتدا در وضعیت «نیازمند بررسی» ثبت می‌شود و تا تأیید مدیر در پاسخ دستیار استفاده نخواهد شد. متن را از منبع رسمی و همراه با اصلاحات وارد کنید.' }),
+    legalBankJson, legalBankSubmit,
+  ]);
+  const legalBankList = el('div', { class: 'admin-content-list' });
+  async function refreshLegalBank() {
+    const r = await getJson('/api/admin/legal-bank/list');
+    if (!r.ok) { legalBankNotice.className = 'form-status err'; legalBankNotice.textContent = errorText(r.data, r.status); legalBankList.replaceChildren(); return; }
+    legalBankNotice.className = 'form-status'; legalBankNotice.textContent = `${r.data.items.length} سند در بانک ثبت شده است.`;
+    legalBankList.replaceChildren();
+    if (!r.data.items.length) legalBankList.append(el('p', { class: 'muted', text: 'هنوز قانونی ثبت نشده است.' }));
+    for (const item of r.data.items) {
+      const statusLabels = { needs_review: 'نیازمند بررسی', verified: 'تأییدشده', amended: 'اصلاح‌شده', repealed: 'منسوخ' };
+      const row = el('article', { class: 'admin-content-row card' }, [
+        el('div', {}, [
+          el('span', { class: 'badge', text: statusLabels[item.status] || item.status }),
+          el('h3', { text: item.title }),
+          el('p', { class: 'muted', text: `${item.articleCount} ماده · ${item.verifiedArticles || 0} ماده تأییدشده · ${item.slug}` }),
+          el('p', { class: 'muted', text: item.sourceName || 'منبع ثبت نشده' }),
+        ]),
+      ]);
+      const status = el('select', { 'aria-label': `وضعیت ${item.title}` }, [
+        el('option', { value: 'needs_review', text: 'نیازمند بررسی' }),
+        el('option', { value: 'verified', text: 'تأییدشده' }),
+        el('option', { value: 'amended', text: 'اصلاح‌شده' }),
+        el('option', { value: 'repealed', text: 'منسوخ' }),
+      ]);
+      status.value = item.status;
+      status.addEventListener('change', async () => {
+        const r = await sendJson('PATCH', '/api/admin/legal-bank/status', { lawId: item.id, status: status.value });
+        legalBankNotice.className = `form-status${r.ok ? '' : ' err'}`;
+        legalBankNotice.textContent = r.ok ? 'وضعیت قانون و مواد آن تغییر کرد.' : errorText(r.data, r.status);
+        if (r.ok) await refreshLegalBank();
+      });
+      row.append(el('div', { class: 'row admin-actions' }, [status]));
+      legalBankList.append(row);
+    }
+  }
+  legalBankForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    let payload;
+    try { payload = JSON.parse(legalBankJson.querySelector('textarea').value); }
+    catch { legalBankNotice.className = 'form-status err'; legalBankNotice.textContent = 'ساختار JSON معتبر نیست.'; return; }
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      legalBankNotice.className = 'form-status err'; legalBankNotice.textContent = 'اطلاعات قانون باید یک شیء JSON باشد.'; return;
+    }
+    legalBankSubmit.disabled = true;
+    const r = await postJson('/api/admin/legal-bank/import', payload);
+    legalBankSubmit.disabled = false;
+    legalBankNotice.className = `form-status${r.ok ? '' : ' err'}`;
+    legalBankNotice.textContent = r.ok ? `قانون با ${r.data.articles} ماده در وضعیت نیازمند بررسی ثبت شد.` : errorText(r.data, r.status);
+    if (r.ok) { legalBankJson.querySelector('textarea').value = ''; await refreshLegalBank(); }
+  });
+  const legalBankView = el('section', { class: 'admin-view card', 'data-admin-view': 'legal-bank', hidden: 'hidden' }, [
+    el('h2', { text: 'بانک قوانین و مقررات' }),
+    el('p', { class: 'muted', text: 'ورود متن کامل قوانین، ثبت منبع و مدیریت وضعیت اعتبار. فقط قوانین و موادی که تأیید شده‌اند در پاسخ‌های دستیار بازیابی می‌شوند.' }),
+    legalBankNotice, legalBankForm,
+    el('h3', { text: 'اسناد ثبت‌شده' }), legalBankList,
+  ]);
   // مدیریت رسانه از جدول مستقل انجام می‌شود تا ساختار دوره‌ها/پرونده‌ها دست‌نخورده بماند.
   const mediaSection = el('section', { class: 'admin-media-section' }, [
     el('h2', { text: 'مدیریت رسانه و اندیشه' }),
@@ -353,13 +419,15 @@ export async function adminPage() {
     ['dashboard', 'نمای کلی', '▦'],
     ['content', 'دوره‌ها و پرونده‌ها', '▤'],
     ['imports', 'بانک پرونده و بارگذاری', '⇧'],
+    ['legal-bank', 'بانک قوانین', '§'],
     ['media', 'رسانه و اندیشه', '▧'],
     ['services', 'سلامت سرویس‌ها', '⚙'],
   ];
   const menuToggle = el('button', { class: 'admin-menu-toggle btn secondary', type: 'button', 'aria-expanded': 'false', 'aria-controls': 'admin-sidebar' }, [el('span', { text: '☰' }), el('span', { text: ' منوی مدیریت' })]);
-  const views = { dashboard: dashboardView, content: contentView, imports: importView, media: mediaView, services: servicesView };
+  const views = { dashboard: dashboardView, content: contentView, imports: importView, 'legal-bank': legalBankView, media: mediaView, services: servicesView };
   function selectView(key) {
     if (key === 'dashboard') updateDashboard();
+    if (key === 'legal-bank') refreshLegalBank();
     for (const [name, view] of Object.entries(views)) view.hidden = name !== key;
     for (const button of nav.querySelectorAll('[data-admin-target]')) {
       const active = button.dataset.adminTarget === key;
@@ -381,7 +449,7 @@ export async function adminPage() {
     const open = nav.classList.toggle('open');
     menuToggle.setAttribute('aria-expanded', String(open));
   });
-  const workspace = el('div', { class: 'admin-workspace' }, [nav, el('div', { class: 'admin-main-column' }, [menuToggle, dashboardView, contentView, importView, mediaView, servicesView])]);
+  const workspace = el('div', { class: 'admin-workspace' }, [nav, el('div', { class: 'admin-main-column' }, [menuToggle, dashboardView, contentView, importView, legalBankView, mediaView, servicesView])]);
   wrap.append(workspace);
   return wrap;
 }
