@@ -123,6 +123,32 @@ def sql_for(d):
         )
     return [law_sql,*article_sqls]
 
+
+def send(sqls):
+    """Submit a bounded batch of idempotent statements to Cloudflare D1."""
+    if not sqls:
+        return
+    response = requests.post(
+        D1,
+        headers={
+            "Authorization": f"Bearer {TOKEN}",
+            "Content-Type": "application/json",
+        },
+        json={"batch": [{"sql": statement, "params": []} for statement in sqls]},
+        timeout=240,
+    )
+    if response.status_code != 200:
+        raise RuntimeError(f"D1 HTTP {response.status_code}: {response.text[:1000]}")
+    result = response.json()
+    if not result.get("success") or any(
+        not item.get("success", True) for item in result.get("result", [])
+    ):
+        details = result.get("errors", result.get("result", []))
+        raise RuntimeError(
+            "D1 import batch failed: "
+            + json.dumps(details, ensure_ascii=False)[:1200]
+        )
+
 def main():
     index=get_index(); files=get_files()
     print(f"Source mirror: {len(files)} Markdown files; parsing...")
