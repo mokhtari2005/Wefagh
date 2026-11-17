@@ -77,11 +77,56 @@ export async function handleLegalBank(request, env, path) {
     if (!Number.isInteger(id) || id < 1 || !STATUSES.has(status)) return json({ok:false,error:'VALIDATION_FAILED'},422);
     const exists = await env.DB.prepare('SELECT id FROM legal_laws WHERE id=?1').bind(id).first();
     if (!exists) return json({ok:false,error:'NOT_FOUND'},404);
-    await env.DB.batch([
-      env.DB.prepare("UPDATE legal_laws SET status=?1, updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?2").bind(status,id),
-      env.DB.prepare("UPDATE legal_articles SET status=?1, updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE law_id=?2").bind(status,id),
-    ]);
-    return json({ok:true,lawId:id,status});
+    await env.DB.prepare("UPDATE legal_laws SET status=?1, updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?2").bind(status,id).run();
+    return json({ok:true,lawId:id,status,articlesUnchanged:true});
+  }
+
+  if (path === '/api/admin/legal-bank/articles') {
+    const access = await requireAdmin(request, env);
+    if (access.response) return access.response;
+    if (request.method !== 'GET') return json({ok:false,error:'METHOD_NOT_ALLOWED'},405,{Allow:'GET'});
+    const lawId = Number(new URL(request.url).searchParams.get('lawId'));
+    if (!Number.isInteger(lawId) || lawId < 1) return json({ok:false,error:'VALIDATION_FAILED'},422);
+    const result = await env.DB.prepare(`SELECT id,article_number AS number,heading,substr(body,1,420) AS bodyPreview,status,status_note AS statusNote,status_source_name AS statusSourceName,status_source_url AS statusSourceUrl,status_effective_date AS statusEffectiveDate FROM legal_articles WHERE law_id=?1 ORDER BY id`).bind(lawId).all();
+    const relations = await env.DB.prepare(`SELECT r.affected_article_id AS affectedArticleId,r.authority_article_id AS authorityArticleId,r.relation_type AS relationType,r.effective_date AS effectiveDate,r.source_note AS sourceNote,aa.article_number AS affectedArticleNumber,ba.article_number AS authorityArticleNumber FROM legal_article_relations r JOIN legal_articles aa ON aa.id=r.affected_article_id JOIN legal_articles ba ON ba.id=r.authority_article_id WHERE aa.law_id=?1 OR ba.law_id=?1 ORDER BY r.id`).bind(lawId).all();
+    return json({ok:true,items:result.results||[],relations:relations.results||[]});
+  }
+  if (path === '/api/admin/legal-bank/article-status') {
+    const access = await requireAdmin(request, env);
+    if (access.response) return access.response;
+    if (request.method !== 'PATCH') return json({ok:false,error:'METHOD_NOT_ALLOWED'},405,{Allow:'PATCH'});
+    const parsed = await readLargeJson(request,32*1024);
+    if (parsed.error) return parsed.error;
+    const b=parsed.body||{}, id=Number(b.articleId), status=clean(b.status,30);
+    if (!Number.isInteger(id)||id<1||!STATUSES.has(status)) return json({ok:false,error:'VALIDATION_FAILED'},422);
+    const exists=await env.DB.prepare('SELECT id FROM legal_articles WHERE id=?1').bind(id).first();
+    if(!exists) return json({ok:false,error:'NOT_FOUND'},404);
+    const statusNote=clean(b.statusNote,2000), statusSourceName=clean(b.statusSourceName,200), statusSourceUrl=clean(b.statusSourceUrl,1000);
+    if (['amended','repealed'].includes(status) && (!statusNote || (!statusSourceName && !statusSourceUrl))) return json({ok:false,error:'STATUS_EVIDENCE_REQUIRED',message:'برای اصلاح یا نسخ، توضیح و مشخصات منبع الزامی است.'},422);
+    if (statusSourceUrl && !/^https:\/\//i.test(statusSourceUrl)) return json({ok:false,error:'INVALID_SOURCE_URL'},422);
+    await env.DB.prepare(`UPDATE legal_articles SET status=?1,status_note=?2,status_source_name=?3,status_source_url=?4,status_effective_date=?5,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?6`)
+      .bind(status,statusNote||null,statusSourceName||null,statusSourceUrl||null,clean(b.statusEffectiveDate,30)||null,id).run();
+    return json({ok:true,articleId:id,status});
+  }
+  if (path === '/api/admin/legal-bank/relations') {
+    const access = await requireAdmin(request, env);
+    if (access.response) return access.response;
+    if (request.method !== 'POST') return json({ok:false,error:'METHOD_NOT_ALLOWED'},405,{Allow:'POST'});
+    const parsed=await readLargeJson(request,16*1024);
+    if(parsed.error) return parsed.error;
+    const b=parsed.body||{}, affected=Number(b.affectedArticleId), authority=Number(b.authorityArticleId);
+    const relationType=clean(b.relationType,30);
+    if(!Number.isInteger(affected)||affected<1||!Number.isInteger(authority)||authority<1||affected===authority||!['amends','repeals','replaces','interprets'].includes(relationType)||!clean(b.sourceNote,2000)) return json({ok:false,error:'VALIDATION_FAILED'},422);
+    const rows=await env.DB.prepare('SELECT id FROM legal_articles WHERE id IN (?1,?2)').bind(affected,authority).all();
+    if((rows.results||[]).length!==2) return json({ok:false,error:'ARTICLE_NOT_FOUND'},404);
+    try {
+      await env.DB.prepare(`INSERT INTO legal_article_relations (affected_article_id,authority_article_id,relation_type,effective_date,source_note,created_by) VALUES (?1,?2,?3,?4,?5,?6)`)
+        .bind(affected,authority,relationType,clean(b.effectiveDate,30)||null,clean(b.sourceNote,2000)||null,access.user.id).run();
+      return json({ok:true});
+    } catch(error) {
+      if(String(error?.message||'').includes('UNIQUE')) return json({ok:false,error:'DUPLICATE_RELATION'},409);
+      throw error;
+    }
   }
 
   if (path === '/api/legal-bank/search') {
