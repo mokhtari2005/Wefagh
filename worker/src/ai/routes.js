@@ -50,13 +50,13 @@ function fail(code, status, extra = {}) {
   return json({ ok: false, error: code, ...extra }, status);
 }
 
-function aiFailure(err) {
+function aiFailure(err, stage = 'unknown') {
   // فقط کد و نوع خطا ثبت می‌شود؛ متن پرونده، prompt، فایل و جزئیات کلید هرگز لاگ نمی‌شوند.
   if (err instanceof AiError) {
-    console.error(JSON.stringify({ where: 'ai', error: err.name, code: err.code, status: err.status }));
+    console.error(JSON.stringify({ where: 'ai', stage, error: err.name, code: err.code, status: err.status }));
     return fail(err.code, err.status, err.details || {});
   }
-  console.error(JSON.stringify({ where: 'ai', error: err?.name || 'Error' }));
+  console.error(JSON.stringify({ where: 'ai', stage, error: err?.name || 'Error' }));
   return fail('AI_UNAVAILABLE', 503);
 }
 
@@ -349,13 +349,23 @@ async function assistant(request, env) {
     throw err;
   }
 
+  let stage = 'legal_bank_query';
   try {
     const contents = [
       ...toContents(history),
       { role: 'user', parts: buildUserParts(message, attachments) },
     ];
-    const legalArticles = await findVerifiedLegalArticles(env.DB, message);
+    let legalArticles = [];
+    let legalBankUnavailable = false;
+    try {
+      legalArticles = await findVerifiedLegalArticles(env.DB, message);
+    } catch (err) {
+      // خرابی بانک نباید پاسخ اصلی را از کار بیندازد؛ فقط زمینهٔ مستند حذف و هشدار داده می‌شود.
+      legalBankUnavailable = true;
+      console.error(JSON.stringify({ where: 'ai', stage: 'legal_bank_query', error: err?.name || 'Error' }));
+    }
     const legalContext = legalArticles.length ? legalArticles.map((a) => `قانون: ${a.lawTitle}\nماده ${a.articleNumber}${a.heading ? ` ـ ${a.heading}` : ''}\n${a.body}\nمنبع ثبت‌شده: ${a.sourceName || 'ثبت نشده'}${a.sourceUrl ? ` (${a.sourceUrl})` : ''}`).join('\n\n---\n\n') : '';
+    stage = 'gemini_generation';
     const { data, truncated } = await generateText(env, {
       system: assistantSystemPrompt({ mode, docType, hasAttachments: attachments.length > 0, legalContext }),
       contents,
@@ -368,6 +378,7 @@ async function assistant(request, env) {
     });
     const questions = Array.isArray(data.questions) ? data.questions.filter((q) => typeof q === 'string').slice(0, 5) : [];
     const notes = Array.isArray(data.notes) ? data.notes.filter((n) => typeof n === 'string').slice(0, 10) : [];
+    if (legalBankUnavailable) notes.push('بانک قوانین در این درخواست پاسخ نداد؛ پاسخ بدون استناد به مواد ثبت‌شده در بانک تهیه شد و استنادها باید جداگانه بررسی شوند.');
     const text = typeof data.text === 'string' ? data.text : '';
     if (truncated) notes.push('پاسخ به‌دلیل طول زیاد کامل نشد. برای ادامه بنویسید «ادامه بده».');
     for (const warning of citationWarnings(text)) if (!notes.includes(warning)) notes.push(warning);
@@ -377,6 +388,7 @@ async function assistant(request, env) {
       notes.push('هشدار: بازبینی مستقل انجام نشد.');
       reviewDetails = ['به‌دلیل وجود پیوست، بازبینی مستقل Groq اجرا نشد تا محتوای سند به سرویس دیگری منتقل نشود.'];
     } else {
+      stage = 'groq_review';
       const review = await reviewLegalDraft(env, { mode, docType, question: message, draft: text });
       notes.push(groqReviewShortNote(review));
       reviewDetails = groqReviewNotes(review);
@@ -395,7 +407,7 @@ async function assistant(request, env) {
       disclaimer: LEGAL_DISCLAIMER,
     });
   } catch (err) {
-    return aiFailure(err);
+    return aiFailure(err, stage);
   }
 }
 
