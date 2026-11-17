@@ -75,7 +75,7 @@ function normalizeLegalReference(value) {
   return String(value || '').normalize('NFKC')
     .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')
     .replace(/[۰-۹]/g, (digit) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
-    .replace(/[\\s\\u200c]+/g, ' ').trim().toLowerCase();
+    .replace(/[\s\u200c]+/g, ' ').trim().toLowerCase();
 }
 
 // لایهٔ قطعی سمت سرور: مدل حق ندارد شماره ماده/بند یا مهلت عددی تازه‌ای وارد گزارش کند.
@@ -83,9 +83,9 @@ function guardUnsupportedReferences(value, sourceText) {
   if (typeof value !== 'string' || !value) return '';
   const source = normalizeLegalReference(sourceText);
   return value
-    .replace(/(?:ماده|تبصره|بند|جزء)\\s*[۰-۹0-9]+(?:\\s*(?:قانون|آیین‌نامه|تصویب‌نامه)\\s*[^،؛,.\\n]{1,55})?/gu, (match) =>
+    .replace(/(?:ماده|تبصره|بند|جزء)\s*[۰-۹0-9]+(?:\s*(?:قانون|آیین‌نامه|تصویب‌نامه)\s*[^،؛,.\n]{1,55})?/gu, (match) =>
       source.includes(normalizeLegalReference(match)) ? match : 'مستند قانونی مشخص‌نشده (نیازمند راستی‌آزمایی)')
-    .replace(/[۰-۹0-9]+\\s*(?:سال|ماه|روز)\\b/gu, (match) =>
+    .replace(/[۰-۹0-9]+\s*(?:سال|ماه|روز)\b/gu, (match) =>
       source.includes(normalizeLegalReference(match)) ? match : 'مهلت قانونی مشخص‌نشده');
 }
 
