@@ -116,7 +116,7 @@ export async function handleLegalBank(request, env, path) {
     if(parsed.error) return parsed.error;
     const b=parsed.body||{}, affected=Number(b.affectedArticleId), authority=Number(b.authorityArticleId);
     const relationType=clean(b.relationType,30);
-    if(!Number.isInteger(affected)||affected<1||!Number.isInteger(authority)||authority<1||affected===authority||!['amends','repeals','replaces','interprets'].includes(relationType)) return json({ok:false,error:'VALIDATION_FAILED'},422);
+    if(!Number.isInteger(affected)||affected<1||!Number.isInteger(authority)||authority<1||affected===authority||!['amends','repeals','replaces','interprets'].includes(relationType)||!clean(b.sourceNote,2000)) return json({ok:false,error:'VALIDATION_FAILED'},422);
     const rows=await env.DB.prepare('SELECT id FROM legal_articles WHERE id IN (?1,?2)').bind(affected,authority).all();
     if((rows.results||[]).length!==2) return json({ok:false,error:'ARTICLE_NOT_FOUND'},404);
     try {
