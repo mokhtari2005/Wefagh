@@ -23,7 +23,7 @@ function parseLines(value) { return value.split('\n').map((x) => x.trim()).filte
 function errorText(data, status) {
   if (status === 401) return 'برای مدیریت محتوا ابتدا وارد حساب کاربری شوید.';
   if (status === 403) return 'این حساب نقش مدیر ندارد. دسترسی مدیریت فقط از طریق نقش مدیر مجاز است.';
-  if (data?.error === 'DUPLICATE_LAW') return 'این شناسه قبلاً برای یک قانون ثبت شده است.';
+  if (data?.error === 'DUPLICATE_LAW') return 'این شناسه قبلاً برای یک قانون ثبت شده است.';\n  if (data?.error === 'DUPLICATE_RELATION') return 'این رابطه حقوقی قبلاً ثبت شده است.';
   if (data?.error === 'DUPLICATE_SLUG') return 'این شناسه قبلاً برای همین نوع محتوا استفاده شده است.';
   if (data?.error === 'UNPUBLISH_BEFORE_DELETE') return 'ابتدا محتوا را از انتشار خارج کنید و سپس آن را حذف کنید.';
   if (data?.errors) return Object.values(data.errors).flat().join(' ');
@@ -316,7 +316,7 @@ export async function adminPage() {
       status.addEventListener('change', async () => {
         const r = await sendJson('PATCH', '/api/admin/legal-bank/status', { lawId: item.id, status: status.value });
         legalBankNotice.className = `form-status${r.ok ? '' : ' err'}`;
-        legalBankNotice.textContent = r.ok ? 'وضعیت قانون و مواد آن تغییر کرد.' : errorText(r.data, r.status);
+        legalBankNotice.textContent = r.ok ? 'وضعیت سند تغییر کرد؛ وضعیت مواد بدون تغییر باقی ماند.' : errorText(r.data, r.status);
         if (r.ok) await refreshLegalBank();
       });
       const manage = el('button', { class: 'btn secondary', type: 'button', text: 'مدیریت مواد' });
@@ -328,7 +328,11 @@ export async function adminPage() {
         manage.disabled = false;
         if (!result.ok) { legalBankNotice.className = 'form-status err'; legalBankNotice.textContent = errorText(result.data, result.status); return; }
         articlePanel.replaceChildren();
+        const relationLabels = { amends: 'اصلاح می‌کند', repeals: 'نسخ می‌کند', replaces: 'جایگزین می‌کند', interprets: 'تفسیر می‌کند' };
         for (const article of result.data.items) {
+          const articleRelations = (result.data.relations || []).filter((r) => r.authorityArticleId === article.id || r.affectedArticleId === article.id);
+          const relationSummary = articleRelations.map((r) => `ماده ${r.authorityArticleNumber} ${relationLabels[r.relationType]} ماده ${r.affectedArticleNumber}${r.effectiveDate ? ' از ' + r.effectiveDate : ''}${r.sourceNote ? ' — ' + r.sourceNote : ''}`);
+
           const heading = el('h4', { text: `ماده ${article.number}${article.heading ? ' ـ ' + article.heading : ''}` });
           const statusSelect = el('select', { 'aria-label': `وضعیت ماده ${article.number}` }, [
             el('option', { value: 'needs_review', text: 'نیازمند بررسی' }),
@@ -381,6 +385,7 @@ export async function adminPage() {
           });
           articlePanel.append(el('article', { class: 'admin-content-row card' }, [
             heading, el('p', { class: 'muted', text: article.body.slice(0, 420) + (article.body.length > 420 ? '…' : '') }),
+            ...(relationSummary.length ? [el('p', { class: 'muted', text: relationSummary.join(' | ') })] : []),
             statusSelect, note, sourceName, sourceUrl, effectiveDate, save, relationTitle, targetId, relationType, relationNote, relationSave,
           ]));
         }
