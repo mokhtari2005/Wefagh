@@ -77,8 +77,7 @@ export async function mediaHome() {
         rel: 'noopener noreferrer',
         text: 'مشاهدهٔ همهٔ قسمت‌ها در Spotify',
       }),
-    ]),
-    )
+    ])
   );
   return wrap;
 }
