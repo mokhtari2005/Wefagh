@@ -93,20 +93,35 @@ def lit(v): return "'"+str(v).replace("'","''")+"'"
 def sql_for(d):
     slug=lit(d["slug"])
     vals=[lit(d["slug"]),lit(d["title"]),lit(d["lawType"]),"NULL","NULL","NULL","NULL","'needs_review'",lit(d["sourceName"]),lit(d["sourceUrl"]),lit(d["notes"]),"NULL"]
-    a=("INSERT OR IGNORE INTO legal_laws (slug,title,law_type,issuing_authority,approved_date,publication_date,effective_date,status,source_name,source_url,notes,created_by) VALUES ("+",".join(vals)+");")
-    payload=lit(json.dumps(d["articles"],ensure_ascii=False,separators=(",",":")))
-    b=("INSERT OR IGNORE INTO legal_articles (law_id,article_number,heading,body,status) "
-       "SELECT l.id,json_extract(j.value,'$.number'),json_extract(j.value,'$.heading'),json_extract(j.value,'$.body'),'needs_review' "
-       f"FROM legal_laws l,json_each({payload}) j WHERE l.slug={slug};")
-    return [a,b]
+    law_sql=("INSERT OR IGNORE INTO legal_laws (slug,title,law_type,issuing_authority,approved_date,publication_date,effective_date,status,source_name,source_url,notes,created_by) VALUES ("+",".join(vals)+");")
 
-def send(sqls):
-    r=requests.post(D1,headers={"Authorization":f"Bearer {TOKEN}","Content-Type":"application/json"},
-                    json={"batch":[{"sql":s,"params":[]} for s in sqls]},timeout=240)
-    if r.status_code!=200: raise RuntimeError(f"D1 HTTP {r.status_code}: {r.text[:1000]}")
-    d=r.json()
-    if not d.get("success") or any(not x.get("success",True) for x in d.get("result",[])):
-        raise RuntimeError("D1 import batch failed: "+json.dumps(d.get("errors",d.get("result",[])),ensure_ascii=False)[:1200])
+    # Keep each SQL statement comfortably below SQLite/D1's statement-size limit.
+    # Large laws are split into multiple idempotent article inserts.
+    article_sqls=[]
+    chunk=[]
+    chunk_bytes=0
+    for article in d["articles"]:
+        encoded=json.dumps(article,ensure_ascii=False,separators=(",",":"))
+        encoded_bytes=len(encoded.encode("utf-8"))
+        if chunk and (len(chunk)>=40 or chunk_bytes+encoded_bytes>180_000):
+            payload=lit(json.dumps(chunk,ensure_ascii=False,separators=(",",":")))
+            article_sqls.append(
+                "INSERT OR IGNORE INTO legal_articles (law_id,article_number,heading,body,status) "
+                "SELECT l.id,json_extract(j.value,'$.number'),json_extract(j.value,'$.heading'),json_extract(j.value,'$.body'),'needs_review' "
+                f"FROM legal_laws l,json_each({payload}) j WHERE l.slug={slug};"
+            )
+            chunk=[]
+            chunk_bytes=0
+        chunk.append(article)
+        chunk_bytes+=encoded_bytes
+    if chunk:
+        payload=lit(json.dumps(chunk,ensure_ascii=False,separators=(",",":")))
+        article_sqls.append(
+            "INSERT OR IGNORE INTO legal_articles (law_id,article_number,heading,body,status) "
+            "SELECT l.id,json_extract(j.value,'$.number'),json_extract(j.value,'$.heading'),json_extract(j.value,'$.body'),'needs_review' "
+            f"FROM legal_laws l,json_each({payload}) j WHERE l.slug={slug};"
+        )
+    return [law_sql,*article_sqls]
 
 def main():
     index=get_index(); files=get_files()
