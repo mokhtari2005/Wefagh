@@ -1,4 +1,4 @@
-// گردآوری روزانه خبرهای مرتبط با وکالت از RSS منابع داخلیِ از پیش تأییدشده.
+// گردآوری روزانه خبرهای مرتبط با وکالت از RSS و Atom منابع داخلیِ از پیش تأییدشده.
 const SOURCES = [
   { name: 'ایسنا', host: 'www.isna.ir', url: 'https://www.isna.ir/rss' },
   { name: 'خبرگزاری مهر', host: 'www.mehrnews.com', url: 'https://www.mehrnews.com/rss' },
@@ -27,8 +27,10 @@ function decodeXml(value = '') {
     .replace(/\s+/g, ' ').trim();
 }
 function tag(item, name) {
-  const re = new RegExp('<' + name + '(?:\\s[^>]*)?>([\\s\\S]*?)<\\/' + name + '\\s*>', 'i');
-  return decodeXml(item.match(re)?.[1] || '');
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp('(?:<' + escaped + '(?:\\s[^>]*)?>([\\s\\S]*?)<\\/' + escaped + '\\s*>|<[^:>]+:' + escaped + '(?:\\s[^>]*)?>([\\s\\S]*?)<\\/[^:>]+:' + escaped + '\\s*>)', 'i');
+  const match = item.match(re);
+  return decodeXml(match?.[1] || match?.[2] || '');
 }
 function classify(text) {
   const normalized = text.replace(/[يى]/g, 'ی').replace(/ك/g, 'ک');
@@ -36,18 +38,22 @@ function classify(text) {
   return null;
 }
 function itemUrl(item) {
-  const raw = tag(item, 'link') || item.match(/<link[^>]*href=["']([^"']+)["'][^>]*\/?\s*>/i)?.[1] || '';
+  const atom = item.match(/<link\b(?=[^>]*\bhref=["']([^"']+)["'])(?=[^>]*\brel=["'](?:alternate|self)["']|[^>]*\/?\s*>)[^>]*>/i)?.[1];
+  const raw = tag(item, 'link') || atom || item.match(/<link[^>]*href=["']([^"']+)["'][^>]*\/?\s*>/i)?.[1] || '';
   try { const u = new URL(raw); return u.protocol === 'https:' ? u.href : null; } catch { return null; }
 }
 export function parseNewsFeed(xml, source, now = Date.now()) {
-  const items = xml.match(/<item(?:\s[^>]*)?>[\s\S]*?<\/item\s*>/gi) || [];
+  const items = [
+    ...(xml.match(/<item(?:\s[^>]*)?>[\s\S]*?<\/item\s*>/gi) || []),
+    ...(xml.match(/<entry(?:\s[^>]*)?>[\s\S]*?<\/entry\s*>/gi) || []),
+  ];
   const cutoff = now - 36 * 60 * 60 * 1000;
   return items.map((item) => {
     const title = tag(item, 'title');
     const url = itemUrl(item);
     const dateText = tag(item, 'pubDate') || tag(item, 'published') || tag(item, 'updated');
     const published = Date.parse(dateText);
-    const summary = tag(item, 'description') || tag(item, 'summary') || title;
+    const summary = tag(item, 'description') || tag(item, 'summary') || tag(item, 'content') || title;
     const category = classify(title + ' ' + summary);
     if (!title || !url || !category || !Number.isFinite(published) || published < cutoff || published > now + 60 * 60 * 1000) return null;
     try { if (new URL(url).hostname !== source.host) return null; } catch { return null; }
@@ -57,14 +63,14 @@ export function parseNewsFeed(xml, source, now = Date.now()) {
 export async function collectLegalNews(env, now = Date.now()) {
   if (!env?.DB) throw new Error('DB_NOT_CONFIGURED');
   const results = await Promise.allSettled(SOURCES.map(async (source) => {
-    const response = await fetch(source.url, { headers: { Accept: 'application/rss+xml, application/xml, text/xml' }, signal: AbortSignal.timeout(12000) });
+    const response = await fetch(source.url, { headers: { Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml' }, signal: AbortSignal.timeout(12000) });
     if (!response.ok) throw new Error('FEED_HTTP_' + response.status);
-    return parseNewsFeed(await response.text(), source, now);
+    return { source, items: parseNewsFeed(await response.text(), source, now) };
   }));
   let inserted = 0;
   const statements = [];
   for (const result of results) if (result.status === 'fulfilled') {
-    for (const item of result.value) statements.push(env.DB.prepare(
+    for (const item of result.value.items) statements.push(env.DB.prepare(
       'INSERT OR IGNORE INTO media_news (title,summary,source,source_url,category,published_at) VALUES (?1,?2,?3,?4,?5,?6)'
     ).bind(item.title, item.summary, item.source, item.url, item.category, item.publishedAt));
   }
@@ -72,8 +78,10 @@ export async function collectLegalNews(env, now = Date.now()) {
     const batch = await env.DB.batch(statements.slice(i, i + 50));
     inserted += batch.filter((r) => (r.meta?.changes || 0) > 0).length;
   }
-  console.log(JSON.stringify({ where: 'media.news.cron', feeds: results.filter((r) => r.status === 'fulfilled').length, failedFeeds: results.filter((r) => r.status === 'rejected').length, candidates: statements.length, inserted }));
-  return { inserted, feeds: results.filter((r) => r.status === 'fulfilled').length };
+  const failedSources = results.filter((r) => r.status === 'rejected').length;
+  const feeds = results.filter((r) => r.status === 'fulfilled').length;
+  console.log(JSON.stringify({ where: 'media.news.cron', feeds, failedFeeds: failedSources, candidates: statements.length, inserted }));
+  return { inserted, feeds, failedFeeds: failedSources };
 }
 export async function listLegalNews(env) {
   if (!env?.DB) return [];
