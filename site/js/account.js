@@ -131,7 +131,18 @@ function profileSummary(p) {
     ['مهارت‌های موردنظر', list(p.skillAreas, SKILL_AREAS)],
     ['روش آموزشی', LEARNING_FORMATS[p.learningFormat]],
   ];
-  return h('dl', { class: 'review-summary' }, rows.map(([k, v]) => h('div', { class: 'review-row' }, [h('dt', { text: k }), h('dd', { text: v || '—' })])));
+  const summary = h('dl', { class: 'review-summary account-profile-grid' }, rows.map(([k, v]) => h('div', { class: 'review-row account-profile-item' }, [h('dt', { text: k }), h('dd', { text: v || '—' })])));
+  return h('section', { class: 'account-profile', 'aria-labelledby': 'account-profile-title' }, [
+    h('header', { class: 'account-profile-heading' }, [
+      h('div', { class: 'account-profile-mark', 'aria-hidden': 'true', text: '⚖' }),
+      h('div', {}, [
+        h('h2', { id: 'account-profile-title', text: 'پروفایل آموزشی' }),
+        h('p', { class: 'muted', text: 'اطلاعات حرفه‌ای و ترجیحات یادگیری شما' }),
+      ]),
+      h('span', { class: 'account-profile-status', text: 'اطلاعات حساب' }),
+    ]),
+    summary,
+  ]);
 }
 
 export async function accountPanel({ onLogout }) {
