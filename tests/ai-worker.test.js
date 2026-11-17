@@ -236,7 +236,7 @@ test('حالت مشاورهٔ حقوقی بدون نوع سند پاسخ می‌
     assert.equal(res.status, 200);
     assert.equal(data.status, 'ready');
     assert.match(data.text, /مهلت/);
-    assert.ok(system.includes('پاسخ مشاوره‌ای'));
+    assert.ok(system.includes('پاسخ تحلیلی و مستند'));
     assert.ok(!system.includes('تهیه کن'));
   });
 });
