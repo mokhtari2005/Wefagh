@@ -896,6 +896,8 @@ h1, h2, h3 { color: var(--teal-dark); }
 .rec-wave { display: flex; align-items: center; justify-content: center; gap: 4px; height: 64px; width: 100%; max-width: 420px; direction: ltr; }
 .rec-wave span { display: block; width: 4px; height: 6px; border-radius: 2px; background: var(--accent, #7a1f2b); opacity: .85; transition: height .08s linear; }
 .rec-controls { display: grid; place-items: center; }
+.rec-card .rec-controls { width: 100%; justify-items: center; }
+.rec-card .rec-button { display: grid; place-self: center; margin-inline: auto; }
 .rec-button { width: 84px; height: 84px; border-radius: 50%; border: 6px solid #fff; background: #d62828; box-shadow: 0 0 0 2px #d62828; display: grid; place-items: center; cursor: pointer; padding: 0; }
 .rec-button:hover { background: #b71c1c; }
 .rec-button:focus-visible { outline: 3px solid var(--focus, #1a73e8); outline-offset: 3px; }
