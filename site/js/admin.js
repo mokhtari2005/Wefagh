@@ -319,7 +319,76 @@ export async function adminPage() {
         legalBankNotice.textContent = r.ok ? 'وضعیت قانون و مواد آن تغییر کرد.' : errorText(r.data, r.status);
         if (r.ok) await refreshLegalBank();
       });
-      row.append(el('div', { class: 'row admin-actions' }, [status]));
+      const manage = el('button', { class: 'btn secondary', type: 'button', text: 'مدیریت مواد' });
+      const articlePanel = el('div', { class: 'admin-content-list', hidden: 'hidden' });
+      manage.addEventListener('click', async () => {
+        if (!articlePanel.hidden) { articlePanel.hidden = true; manage.textContent = 'مدیریت مواد'; return; }
+        manage.disabled = true;
+        const result = await getJson(`/api/admin/legal-bank/articles?lawId=${item.id}`);
+        manage.disabled = false;
+        if (!result.ok) { legalBankNotice.className = 'form-status err'; legalBankNotice.textContent = errorText(result.data, result.status); return; }
+        articlePanel.replaceChildren();
+        for (const article of result.data.items) {
+          const heading = el('h4', { text: `ماده ${article.number}${article.heading ? ' ـ ' + article.heading : ''}` });
+          const statusSelect = el('select', { 'aria-label': `وضعیت ماده ${article.number}` }, [
+            el('option', { value: 'needs_review', text: 'نیازمند بررسی' }),
+            el('option', { value: 'verified', text: 'تأییدشده' }),
+            el('option', { value: 'amended', text: 'اصلاح‌شده' }),
+            el('option', { value: 'repealed', text: 'منسوخ' }),
+          ]);
+          statusSelect.value = article.status;
+          const note = el('textarea', { rows: '2', placeholder: 'توضیح وضعیت یا مستند اصلاح/نسخ' });
+          note.value = article.statusNote || '';
+          const sourceName = el('input', { type: 'text', placeholder: 'نام منبع اصلاح یا نسخ' });
+          sourceName.value = article.statusSourceName || '';
+          const sourceUrl = el('input', { type: 'url', placeholder: 'نشانی منبع (HTTPS)' });
+          sourceUrl.value = article.statusSourceUrl || '';
+          const effectiveDate = el('input', { type: 'text', placeholder: 'تاریخ اثر YYYY-MM-DD' });
+          effectiveDate.value = article.statusEffectiveDate || '';
+          const save = el('button', { class: 'btn', type: 'button', text: 'ذخیره وضعیت ماده' });
+          save.addEventListener('click', async () => {
+            save.disabled = true;
+            const saved = await sendJson('PATCH', '/api/admin/legal-bank/article-status', {
+              articleId: article.id, status: statusSelect.value, statusNote: note.value,
+              statusSourceName: sourceName.value, statusSourceUrl: sourceUrl.value, statusEffectiveDate: effectiveDate.value,
+            });
+            save.disabled = false;
+            legalBankNotice.className = `form-status${saved.ok ? '' : ' err'}`;
+            legalBankNotice.textContent = saved.ok ? `وضعیت ماده ${article.number} ذخیره شد.` : errorText(saved.data, saved.status);
+          });
+          const relationTitle = el('p', { class: 'muted', text: 'ثبت رابطه با ماده‌ای دیگر (شناسه داخلی ماده را وارد کنید)' });
+          const targetId = el('input', { type: 'number', min: '1', placeholder: 'شناسه داخلی ماده مرتبط' });
+          const relationType = el('select', { 'aria-label': 'نوع رابطه' }, [
+            el('option', { value: 'amends', text: 'اصلاح می‌کند' }),
+            el('option', { value: 'repeals', text: 'نسخ می‌کند' }),
+            el('option', { value: 'replaces', text: 'جایگزین می‌کند' }),
+            el('option', { value: 'interprets', text: 'تفسیر می‌کند' }),
+          ]);
+          const relationNote = el('input', { type: 'text', placeholder: 'مستند و توضیح رابطه' });
+          const relationSave = el('button', { class: 'btn secondary', type: 'button', text: 'ثبت رابطه' });
+          relationSave.addEventListener('click', async () => {
+            const relatedId = Number(targetId.value);
+            if (!Number.isInteger(relatedId) || relatedId < 1) { legalBankNotice.className = 'form-status err'; legalBankNotice.textContent = 'شناسه داخلی ماده مرتبط را وارد کنید.'; return; }
+            relationSave.disabled = true;
+            const saved = await postJson('/api/admin/legal-bank/relations', {
+              affectedArticleId: relationType.value === 'interprets' ? relatedId : article.id,
+              authorityArticleId: relationType.value === 'interprets' ? article.id : relatedId,
+              relationType: relationType.value, sourceNote: relationNote.value,
+            });
+            relationSave.disabled = false;
+            legalBankNotice.className = `form-status${saved.ok ? '' : ' err'}`;
+            legalBankNotice.textContent = saved.ok ? 'رابطه حقوقی ثبت شد.' : errorText(saved.data, saved.status);
+          });
+          articlePanel.append(el('article', { class: 'admin-content-row card' }, [
+            heading, el('p', { class: 'muted', text: article.body.slice(0, 420) + (article.body.length > 420 ? '…' : '') }),
+            statusSelect, note, sourceName, sourceUrl, effectiveDate, save, relationTitle, targetId, relationType, relationNote, relationSave,
+          ]));
+        }
+        articlePanel.hidden = false;
+        manage.textContent = 'بستن مواد';
+      });
+      row.append(el('div', { class: 'row admin-actions' }, [status, manage]));
+      row.append(articlePanel);
       legalBankList.append(row);
     }
   }
