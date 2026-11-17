@@ -35,6 +35,13 @@ curl -sS https://mokhtari.ir/api/health
 # انتظار: {"ok":true,"service":"wefagh-api"}
 ```
 
+### استقرار خودکار با Workers Builds (مهاجرت پیش از Deploy)
+در Cloudflare: Workers & Pages ← wefagh ← Settings ← Builds ← **Deploy command** را برابر مقدار زیر بگذارید:
+```bash
+npm run deploy:worker
+```
+این دستور ابتدا `wrangler d1 migrations apply wefagh-db --remote` را اجرا می‌کند و فقط اگر موفق بود Worker را deploy می‌کند؛ پس کد جدید هرگز با ساختار قدیمی دیتابیس اجرا نمی‌شود. اگر مهاجرتی خطا بدهد، build شکست می‌خورد و نسخهٔ قبلی Worker فعال می‌ماند. مهاجرت‌ها باید قابل‌تکرار و سازگار با نسخهٔ قبلی کد باشند. `npm run check:migrations` شماره‌گذاری فایل‌ها را در CI بررسی می‌کند. مهاجرت‌های اجراشده در جدول `d1_migrations` ثبت می‌شوند.
+
 ## مرحله ۴: استقرار رابط کاربری (Pages)
 راه ساده (بدون Git):
 ```bash
