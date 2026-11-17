@@ -427,6 +427,7 @@ export async function adminPage() {
   const views = { dashboard: dashboardView, content: contentView, imports: importView, 'legal-bank': legalBankView, media: mediaView, services: servicesView };
   function selectView(key) {
     if (key === 'dashboard') updateDashboard();
+    if (key === 'legal-bank') refreshLegalBank();
     for (const [name, view] of Object.entries(views)) view.hidden = name !== key;
     for (const button of nav.querySelectorAll('[data-admin-target]')) {
       const active = button.dataset.adminTarget === key;
