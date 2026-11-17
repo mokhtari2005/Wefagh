@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Import structured legal texts mirrored from the public ekhtebar corpus into D1.
-Every imported record remains needs_review until human verification.
+"""Import the complete parseable public Iranian legal corpus into Wefagh D1.
+All records remain needs_review until source-by-source human verification.
+The workflow applies pending D1 migrations before importing and writes an audit artifact.
 """
 import concurrent.futures, hashlib, json, os, re, time
 from urllib.parse import parse_qs, urlparse
