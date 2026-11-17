@@ -336,7 +336,7 @@ export async function adminPage() {
           const articleRelations = (result.data.relations || []).filter((r) => r.authorityArticleId === article.id || r.affectedArticleId === article.id);
           const relationSummary = articleRelations.map((r) => `ماده ${r.authorityArticleNumber} ${relationLabels[r.relationType]} ماده ${r.affectedArticleNumber}${r.effectiveDate ? ' از ' + r.effectiveDate : ''}${r.sourceNote ? ' — ' + r.sourceNote : ''}`);
 
-          const heading = el('h4', { text: `ماده ${article.number}${article.heading ? ' ـ ' + article.heading : ''}` });
+          const heading = el('h4', { text: `ماده ${article.number} · شناسه ${article.id}${article.heading ? ' ـ ' + article.heading : ''}` });
           const statusSelect = el('select', { 'aria-label': `وضعیت ماده ${article.number}` }, [
             el('option', { value: 'needs_review', text: 'نیازمند بررسی' }),
             el('option', { value: 'verified', text: 'تأییدشده' }),
