@@ -18,6 +18,15 @@ async function readLargeJson(request, maxBytes = 1024 * 1024) {
 
 export async function handleLegalBank(request, env, path) {
   if (!env.DB) return json({ ok:false, error:'DB_NOT_CONFIGURED' },503);
+  if (path === '/api/admin/legal-bank/list') {
+    const access = await requireAdmin(request, env);
+    if (access.response) return access.response;
+    if (request.method !== 'GET') return json({ok:false,error:'METHOD_NOT_ALLOWED'},405,{Allow:'GET'});
+    const result = await env.DB.prepare(`SELECT l.id,l.slug,l.title,l.law_type AS lawType,l.status,l.source_name AS sourceName,l.source_url AS sourceUrl,l.approved_date AS approvedDate,l.publication_date AS publicationDate,l.effective_date AS effectiveDate,COUNT(a.id) AS articleCount,SUM(CASE WHEN a.status='verified' THEN 1 ELSE 0 END) AS verifiedArticles
+      FROM legal_laws l LEFT JOIN legal_articles a ON a.law_id=l.id
+      GROUP BY l.id ORDER BY l.updated_at DESC,l.id DESC LIMIT 200`).all();
+    return json({ok:true,items:result.results||[]});
+  }
   if (path === '/api/admin/legal-bank/import' || path === '/api/admin/legal-bank/status') {
     const access = await requireAdmin(request, env);
     if (access.response) return access.response;
