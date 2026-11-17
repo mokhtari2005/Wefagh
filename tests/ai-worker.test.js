@@ -4,6 +4,7 @@ import worker from '../worker/src/index.js';
 import { AiError, extractText, generateText, synthesizeSpeech, aiConfigured, modelIds } from '../worker/src/ai/gemini.js';
 import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES } from '../worker/src/ai/routes.js';
 import { mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt, LEGAL_DISCLAIMER } from '../worker/src/ai/prompts.js';
+import { groqConfigured, reviewLegalDraft, groqReviewNotes, GROQ_API, GROQ_REVIEW_MODEL } from '../worker/src/ai/groq.js';
 import batch01 from '../worker/src/moot/bank/batch-01.js';
 
 // پروندهٔ نمونه از بانک (پیش‌نویس)؛ فقط برای آزمون ساخت دستور سیستمی از داده‌های پرونده.
@@ -253,4 +254,50 @@ test('تاریخچهٔ دستیار: پیام بلند کوتاه و پیام خ
   assert.equal(out[1].text.length, 4000);
   assert.equal(lenientHistory(undefined).length, 0);
   assert.equal(lenientHistory('bad'), null);
+});
+
+
+test('Groq بازبین مستقل فقط با Secret فعال می‌شود و کلید را افشا نمی‌کند', () => {
+  assert.equal(groqConfigured({}), false);
+  assert.equal(groqConfigured({ GROQ_API_KEY: 'short' }), false);
+  assert.equal(groqConfigured({ GROQ_API_KEY: 'groq-test-key-0123456789' }), true);
+  assert.match(GROQ_API, /api\.groq\.com/);
+  assert.equal(GROQ_REVIEW_MODEL, 'openai/gpt-oss-120b');
+  assert.match(groqReviewNotes({ status: 'quota_exceeded' })[0], /سهمیه رایگان/);
+  assert.match(groqReviewNotes({ status: 'not_configured' })[0], /GROQ_API_KEY/);
+});
+
+test('Groq پیش‌نویس را مستقل بررسی می‌کند و خروجی را فقط به‌صورت هشدار نمایش می‌دهد', async () => {
+  const groqKey = 'groq-test-key-0123456789';
+  const geminiJson = { status: 'ready', questions: [], text: 'پیش‌نویس لایحه با استناد به ماده ۱۲۳', notes: [] };
+  const reviewJson = { risk: 'high', summary: 'صلاحیت مرجع باید بررسی شود.', issues: [{ severity: 'high', category: 'صلاحیت', observation: 'مرجع صالح در متن روشن نیست.', recommendation: 'مرجع رسیدگی و مبنای صلاحیت را مشخص کنید.' }], citations: [{ citation: 'ماده ۱۲۳', concern: 'وضعیت اعتبار و انطباق آن با موضوع باید از منبع رسمی بررسی شود.' }] };
+  await withFetch(async (url, init) => {
+    if (url.includes('generativelanguage.googleapis.com')) {
+      return jsonRes(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(geminiJson) }] } }] });
+    }
+    assert.equal(url, GROQ_API);
+    assert.equal(init.headers.authorization, `Bearer ${groqKey}`);
+    const sent = JSON.parse(init.body);
+    assert.equal(sent.model, GROQ_REVIEW_MODEL);
+    assert.equal(sent.response_format.type, 'json_object');
+    assert.ok(sent.messages[1].content.includes(geminiJson.text));
+    return jsonRes(200, { choices: [{ message: { content: JSON.stringify(reviewJson) } }] });
+  }, async (calls) => {
+    const env = { DB: fakeDb({ loggedIn: true }), GEMINI_API_KEY: KEY, GROQ_API_KEY: groqKey };
+    const res = await worker.fetch(req('/api/ai/assistant', { body: { mode: 'draft', docType: 'defense', message: 'برای خوانده لایحه دفاعیه تنظیم کن.', history: [] }, cookie: 'tok' }), env);
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.ok, true);
+    assert.ok(data.notes.some((note) => note.includes('بازبینی ماشینی مستقل Groq')));
+    assert.ok(data.notes.some((note) => note.includes('مرجع صالح در متن روشن نیست')));
+    assert.ok(data.notes.some((note) => note.includes('ماده ۱۲۳')));
+    assert.equal(calls.length, 2);
+    assert.ok(!JSON.stringify(data).includes(groqKey));
+  });
+});
+
+test('با وجود پیوست، پیش‌نویس برای بازبینی به Groq ارسال نمی‌شود', async () => {
+  const result = await reviewLegalDraft({}, { mode: 'draft', docType: 'petition', question: 'سؤال', draft: 'پیش‌نویس' });
+  assert.equal(result.status, 'not_configured');
+  assert.match(groqReviewNotes({ status: 'not_configured' })[0], /فعال نشده است/);
 });
