@@ -1082,6 +1082,8 @@ h1, h2, h3 { color: var(--teal-dark); }
 .ai-text { line-height: 1.9; overflow-wrap: anywhere; margin: 0; }
 .ai-msg-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
 .ai-mini { padding: 4px 10px; font-size: .82rem; min-height: 34px; }
+.ai-review-details { margin-top: 6px; font-size: .88rem; color: var(--ink-soft); }
+.ai-review-details summary { cursor: pointer; }
 .ai-notes { margin: 8px 0 0; padding-inline-start: 1.2rem; font-size: .9rem; color: var(--ink-soft); }
 .ai-disclaimer { font-size: .85rem; margin: 8px 0 0; }
 .ai-pending { justify-self: start; color: var(--ink-soft); font-size: .95rem; }
