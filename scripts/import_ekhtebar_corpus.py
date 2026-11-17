@@ -97,7 +97,7 @@ def sql_for(d):
     b=("INSERT OR IGNORE INTO legal_articles (law_id,article_number,heading,body,status) "
        "SELECT l.id,json_extract(j.value,'$.number'),json_extract(j.value,'$.heading'),json_extract(j.value,'$.body'),'needs_review' "
        f"FROM legal_laws l,json_each({payload}) j WHERE l.slug={slug};")
-    return a+"\n"+b
+    return [a,b]
 
 def send(sqls):
     r=requests.post(D1,headers={"Authorization":f"Bearer {TOKEN}","Content-Type":"application/json"},
@@ -124,11 +124,13 @@ def main():
     print(f"Parsed {len(docs)} documents; skipped {skipped}.")
     batch=[]; size=0; done=0
     for d in docs:
-        q=sql_for(d); n=len(q.encode())
-        if batch and (len(batch)>=5 or size+n>3_500_000):
-            send(batch); done+=len(batch); print(f"D1 submitted: {done}/{len(docs)}"); batch=[]; size=0
-        batch.append(q); size+=n
-    if batch: send(batch); done+=len(batch)
+        statements=sql_for(d)
+        n=sum(len(q.encode()) for q in statements)
+        if batch and (len(batch)+len(statements)>90 or size+n>3_500_000):
+            send(batch); done+=len(batch)//2; print(f"D1 submitted: {done}/{len(docs)}"); batch=[]; size=0
+        batch.extend(statements); size+=n
+    if batch:
+        send(batch); done+=len(batch)//2
     os.makedirs("artifacts",exist_ok=True)
     report={"source":"https://github.com/SaeedAqamiri/laws-mcp","index_source":"https://www.ekhtebar.ir/قوانین/","files_found":len(files),"documents_parsed":len(docs),"documents_submitted":done,"documents_skipped":skipped,"status":"needs_review","skip_sample":errors[:100]}
     with open("artifacts/legal-bank-import-report.json","w",encoding="utf-8") as f: json.dump(report,f,ensure_ascii=False,indent=2)
