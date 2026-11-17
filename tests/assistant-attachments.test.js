@@ -170,7 +170,7 @@ const BASE = 'https://mokhtari.ir';
 async function setup() {
   const db = createTestDb();
   // این مجموعه آزمون رفتار حالت ثبت‌نام اجباری را می‌سنجد.
-  db.raw.prepare("UPDATE app_settings SET setting_value = 'true' WHERE setting_key = 'registration_required'").run();
+  await db.prepare("UPDATE app_settings SET setting_value = 'true' WHERE setting_key = 'registration_required'").run();
   const u = db.raw.prepare("INSERT INTO users (email, password_hash, display_name, email_verified_at) VALUES ('a@example.com', 'h', 'کاربر', '2026-01-01T00:00:00Z') RETURNING id").get();
   db.raw.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?,?,?)').run(await hashToken('tok-0123456789-abcdefghij'), u.id, '2099-01-01T00:00:00.000Z');
   return { env: { DB: db, GEMINI_API_KEY: KEY }, cookie: 'wefagh_session=tok-0123456789-abcdefghij' };
