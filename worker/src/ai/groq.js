@@ -9,6 +9,51 @@ export function groqConfigured(env) {
   return typeof env?.GROQ_API_KEY === 'string' && env.GROQ_API_KEY.trim().length >= 20;
 }
 
+/** وضعیت کلید بدون افشای مقدار: missing = Worker متغیر را در زمان اجرا نمی‌بیند؛ too_short = مقدار ناقص/اشتباه. */
+export function groqKeyState(env) {
+  const v = env?.GROQ_API_KEY;
+  if (typeof v !== 'string' || !v.trim()) return 'missing';
+  return v.trim().length >= 20 ? 'ok' : 'too_short';
+}
+
+/** بررسی رایگان اتصال و اعتبار کلید با فهرست مدل‌ها (بدون مصرف توکن)؛ فقط کد وضعیت برمی‌گردد. */
+export async function probeGroq(env) {
+  const keyState = groqKeyState(env);
+  if (keyState !== 'ok') return { keyState, ok: false };
+  const started = Date.now();
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/models', {
+      headers: { authorization: `Bearer ${env.GROQ_API_KEY.trim()}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+    let available = [];
+    if (res.ok) {
+      try { available = (await res.json())?.data?.map((m) => m?.id).filter(Boolean) || []; } catch { available = []; }
+    }
+    return {
+      keyState,
+      ok: res.ok,
+      httpStatus: res.status,
+      ms: Date.now() - started,
+      models: [GROQ_REVIEW_MODEL, GROQ_REVIEW_FALLBACK_MODEL].map((id) => ({ id, available: available.includes(id) })),
+    };
+  } catch (err) {
+    const name = String(err?.name || '').toUpperCase();
+    return { keyState, ok: false, reason: name === 'TIMEOUTERROR' || name === 'ABORTERROR' ? 'TIMEOUT' : 'NETWORK' };
+  }
+}
+
+export function groqProbeHint(r) {
+  if (r.keyState === 'missing') return 'Worker مقدار GROQ_API_KEY را در زمان اجرا نمی‌بیند: Secret باید در همین Worker (Settings ← Variables and Secrets، نه Build variables) تعریف و Worker دوباره Deploy شود.';
+  if (r.keyState === 'too_short') return 'مقدار GROQ_API_KEY ناقص یا اشتباه است (کلید Groq با gsk_ شروع می‌شود).';
+  if (r.ok) return 'سالم';
+  if (r.httpStatus === 401 || r.httpStatus === 403) return 'کلید Groq معتبر یا مجاز نیست.';
+  if (r.httpStatus === 429) return 'سهمیهٔ رایگان Groq تمام شده است.';
+  if (r.httpStatus >= 500) return 'سرویس Groq موقتاً در دسترس نیست.';
+  if (r.reason) return 'ارتباط Worker با Groq برقرار نشد.';
+  return 'علت نامشخص.';
+}
+
 const REVIEW_SYSTEM = [
   'تو بازبین مستقل و سخت‌گیر پیش‌نویس حقوقی در نظام حقوقی ایران هستی. زبان پاسخ فارسی رسمی و روشن باشد.',
   'وظیفه تو فقط کنترل کیفیت است، نه بازنویسی سند و نه ارائه نظر قطعی.',
@@ -51,7 +96,7 @@ function parseReview(raw) {
 
 /** یک بار بازبینی مستقل؛ در خطا پاسخ اصلی حفظ می‌شود اما هرگز تأییدشده تلقی نمی‌شود. */
 export async function reviewLegalDraft(env, { mode, docType, question, draft }) {
-  if (!groqConfigured(env)) return { status: 'not_configured' };
+  if (!groqConfigured(env)) return { status: 'not_configured', keyState: groqKeyState(env) };
   const userText = clean(question, 3_000);
   const draftText = clean(draft, 7_000);
   if (!draftText) return { status: 'invalid_input' };
@@ -120,7 +165,9 @@ export async function reviewLegalDraft(env, { mode, docType, question, draft }) 
 export function groqReviewNotes(result) {
   if (!result || result.status !== 'reviewed') {
     const messages = {
-      not_configured: 'بازبینی مستقل هنوز فعال نشده است؛ پس از افزودن Secret با نام GROQ_API_KEY در Cloudflare فعال می‌شود.',
+      not_configured: result?.keyState === 'too_short'
+        ? 'بازبینی مستقل فعال نشده است: مقدار GROQ_API_KEY در Worker ناقص یا اشتباه است.'
+        : 'بازبینی مستقل فعال نشده است: Worker مقدار GROQ_API_KEY را در زمان اجرا دریافت نمی‌کند. Secret باید در همین Worker تعریف و Worker دوباره Deploy شود (مدیر: بخش تشخیص هوش مصنوعی).',
       invalid_input: 'بازبینی مستقل انجام نشد؛ متن پیش‌نویس برای بررسی کافی نبود.',
       quota_exceeded: 'سهمیه رایگان بازبین مستقل Groq تمام شده است؛ این پیش‌نویس بازبینی مستقل نشده است.',
       key_rejected: 'کلید Groq معتبر یا مجاز نیست؛ این پیش‌نویس بازبینی مستقل نشده است.',

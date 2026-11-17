@@ -129,9 +129,11 @@ export async function adminPage() {
     const r = await getJson('/api/admin/ai/status');
     if (!r.ok) { aiNotice.className = 'form-status err'; aiNotice.textContent = errorText(r.data, r.status); return; }
     const lines = (r.data.models || []).map((m) => `${m.role} (${m.model}): ${m.hint}${m.httpStatus ? ` [HTTP ${m.httpStatus}${m.reason ? ` ${m.reason}` : ''}]` : ''}${m.ms ? ` · ${m.ms}ms` : ''}`);
+    const g = r.data.groq;
+    if (g) lines.push(`بازبین Groq: ${g.hint}${g.httpStatus ? ` [HTTP ${g.httpStatus}]` : ''}${g.ms ? ` · ${g.ms}ms` : ''}${g.models ? ` · ${g.models.map((m) => `${m.id}: ${m.available ? 'موجود' : 'نامشخص'}`).join('، ')}` : ''}`);
     const bad = !r.data.configured || (r.data.models || []).every((m) => !m.ok);
     aiNotice.className = `form-status${bad ? ' err' : ' ok'}`;
-    aiNotice.textContent = r.data.configured ? lines.join(' | ') : 'GEMINI_API_KEY در Worker تعریف نشده است.';
+    aiNotice.textContent = r.data.configured ? lines.join(' | ') : `GEMINI_API_KEY در Worker تعریف نشده است.${g ? ` | بازبین Groq: ${g.hint}` : ''}`;
   });
   const mailPanel = el('section', { class: 'admin-mail card' }, [
     el('h2', { text: 'تشخیص ارسال ایمیل' }),
