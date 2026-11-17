@@ -23,7 +23,7 @@ function parseLines(value) { return value.split('\n').map((x) => x.trim()).filte
 function errorText(data, status) {
   if (status === 401) return 'برای مدیریت محتوا ابتدا وارد حساب کاربری شوید.';
   if (status === 403) return 'این حساب نقش مدیر ندارد. دسترسی مدیریت فقط از طریق نقش مدیر مجاز است.';
-  if (data?.error === 'DUPLICATE_LAW') return 'این شناسه قبلاً برای یک قانون ثبت شده است.';\n  if (data?.error === 'DUPLICATE_RELATION') return 'این رابطه حقوقی قبلاً ثبت شده است.';
+  if (data?.error === 'DUPLICATE_LAW') return 'این شناسه قبلاً برای یک قانون ثبت شده است.';\n  if (data?.error === 'DUPLICATE_RELATION') return 'این رابطه حقوقی قبلاً ثبت شده است.';\n  if (data?.error === 'STATUS_EVIDENCE_REQUIRED') return 'برای ثبت اصلاح یا نسخ، توضیح و مشخصات منبع را وارد کنید.';\n  if (data?.error === 'INVALID_SOURCE_URL') return 'نشانی منبع باید با https شروع شود.';
   if (data?.error === 'DUPLICATE_SLUG') return 'این شناسه قبلاً برای همین نوع محتوا استفاده شده است.';
   if (data?.error === 'UNPUBLISH_BEFORE_DELETE') return 'ابتدا محتوا را از انتشار خارج کنید و سپس آن را حذف کنید.';
   if (data?.errors) return Object.values(data.errors).flat().join(' ');
