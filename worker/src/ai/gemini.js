@@ -130,7 +130,8 @@ export async function generateText(env, { system, contents, maxOutputTokens = 10
   // برای وقتی که Google به‌خاطر شکل درخواست ساخت‌یافته خطای 5xx می‌دهد.
   const plan = [{ model: configuredModel, useSchema: true, useMime: true, timeout: Math.min(timeoutMs, 45_000) }];
   plan.push({ model: fallbackModel, useSchema: true, useMime: true, timeout: 25_000 });
-  if (plainFallback && json) plan.push({ model: fallbackModel, useSchema: false, useMime: false, timeout: 15_000, plain: true });
+  // مرحلهٔ ساده با مدل اصلی اجرا می‌شود تا اثر «شکل درخواست» از «اختلال مدل جایگزین» جدا شود.
+  if (plainFallback && json) plan.push({ model: configuredModel, useSchema: false, useMime: false, timeout: 15_000, plain: true });
   let model = configuredModel;
   let data;
   let used = plan[0];
@@ -164,9 +165,22 @@ export async function generateText(env, { system, contents, maxOutputTokens = 10
     } catch { /* متن عادی است */ }
     return { data: { status: 'ready', questions: [], notes: [], text } };
   }
+  let parsed;
+  let parseFailed = false;
   try {
-    return { data: JSON.parse(text) };
+    parsed = JSON.parse(text);
   } catch {
+    parseFailed = true;
+  }
+  if (!parseFailed) {
+    // JSON معتبر ولی غیرشیء (null، عدد، رشته یا آرایه) نباید به مسیرهای بعدی برسد و استثنای عمومی بسازد.
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      logGeminiFailure('text', model, { stage: 'content', reason: 'BAD_JSON_SHAPE', finishReason: safeEnum(data?.candidates?.[0]?.finishReason) });
+      throw new AiError('AI_EMPTY', 502);
+    }
+    return { data: parsed };
+  }
+  {
     // پاسخ طولانی ممکن است وسط JSON قطع شود (MAX_TOKENS)؛ بخش سالم متن را نگه می‌داریم به‌جای خطا.
     const finishReason = safeEnum(data?.candidates?.[0]?.finishReason);
     const repaired = finishReason === 'MAX_TOKENS' ? repairTruncatedJson(text) : null;
