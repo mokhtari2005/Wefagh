@@ -1,6 +1,7 @@
 // تشخیص هوش مصنوعی برای مدیر: مدل‌های تنظیم‌شده را با یک درخواست کوچک می‌سنجد. مقدار کلید یا متن پاسخ هرگز برنمی‌گردد.
 import { json } from './http.js';
 import { requireMailAdmin } from './admin-mail.js';
+import { probeGroq, groqProbeHint } from './ai/groq.js';
 import { aiConfigured, modelIds, fallbackTextModel, probeModel, probeHint } from './ai/gemini.js';
 
 /** GET /api/admin/ai/status ← وضعیت کلید و نتیجهٔ بررسی مدل اصلی و جایگزین */
@@ -11,10 +12,11 @@ export async function handleAdminAi(request, env, path) {
   if (access.response) return access.response;
   const primary = modelIds(env).text;
   const models = [...new Set([primary, fallbackTextModel(primary)])];
-  const results = await Promise.all(models.map((m) => probeModel(env, m)));
+  const [results, groq] = await Promise.all([Promise.all(models.map((m) => probeModel(env, m))), probeGroq(env)]);
   return json({
     ok: true,
     configured: aiConfigured(env),
+    groq: { ...groq, hint: groqProbeHint(groq) },
     models: results.map((r) => ({ ...r, role: r.model === primary ? 'اصلی' : 'جایگزین', hint: probeHint(r) })),
   });
 }

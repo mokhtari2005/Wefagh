@@ -288,7 +288,7 @@ test('Groq پیش‌نویس را مستقل بررسی می‌کند و خرو�
     const data = await res.json();
     assert.equal(res.status, 200);
     assert.equal(data.ok, true);
-    assert.ok(data.notes.some((note) => note.includes('بازبینی ماشینی مستقل Groq')));
+    assert.ok(data.notes.some((note) => note.includes('بازبینی ماشینی مستقل') && note.includes('Groq')));
     assert.ok(data.notes.some((note) => note.includes('مرجع صالح در متن روشن نیست')));
     assert.ok(data.notes.some((note) => note.includes('ماده ۱۲۳')));
     assert.equal(calls.length, 2);
@@ -300,4 +300,23 @@ test('بدون Secret کلید Groq، بازبینی مستقل فعال نمی�
   const result = await reviewLegalDraft({}, { mode: 'draft', docType: 'petition', question: 'سؤال', draft: 'پیش‌نویس' });
   assert.equal(result.status, 'not_configured');
   assert.match(groqReviewNotes({ status: 'not_configured' })[0], /فعال نشده است/);
+});
+
+test('تشخیص Groq: وضعیت کلید بدون افشا و بررسی رایگان فهرست مدل‌ها', async () => {
+  const { groqKeyState, probeGroq, groqProbeHint } = await import('../worker/src/ai/groq.js');
+  assert.equal(groqKeyState({}), 'missing');
+  assert.equal(groqKeyState({ GROQ_API_KEY: 'gsk_short' }), 'too_short');
+  assert.match(groqProbeHint(await probeGroq({})), /در زمان اجرا/);
+  assert.match(groqReviewNotes({ status: 'not_configured', keyState: 'missing' })[0], /در زمان اجرا/);
+  const key = 'gsk_test_key_0123456789abcdef';
+  await withFetch(async (url, init) => {
+    assert.equal(url, 'https://api.groq.com/openai/v1/models');
+    assert.equal(init.headers.authorization, `Bearer ${key}`);
+    return jsonRes(200, { data: [{ id: 'openai/gpt-oss-120b' }] });
+  }, async () => {
+    const r = await probeGroq({ GROQ_API_KEY: key });
+    assert.equal(r.ok, true);
+    assert.deepEqual(r.models.map((m) => m.available), [true, false]);
+    assert.ok(!JSON.stringify(r).includes(key));
+  });
 });
