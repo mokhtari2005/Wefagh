@@ -144,6 +144,12 @@ function buildWorksheet(CASE, persistable) {
   const playButton = h('button', { class: 'btn secondary', type: 'button', hidden: '', text: 'پخش' });
   const downloadButton = h('button', { class: 'btn secondary', type: 'button', hidden: '', text: 'دریافت فایل' });
   const resetButton = h('button', { class: 'btn secondary', type: 'button', hidden: '', text: 'ضبط دوباره' });
+  const transcribeTarget = h('select', { 'aria-label': 'انتخاب کادر پاسخ برای درج متن گفتار' },
+    CASE.issues.map((issue) => h('option', { value: issue.id, text: issue.text }))
+  );
+  const transcribeButton = h('button', { class: 'btn', type: 'button', hidden: '', text: 'تبدیل صدا به متن و درج در پاسخ' });
+  const transcribeStatus = h('p', { class: 'muted rec-status', role: 'status', 'aria-live': 'polite', text: 'پس از ضبط، می‌توانید گفتار را به متن فارسی تبدیل کنید.' });
+
   playButton.addEventListener('click', () => {
     if (!audioUrl) return;
     audioPlayer.hidden = false;
@@ -163,6 +169,59 @@ function buildWorksheet(CASE, persistable) {
     link.click();
     link.remove();
   });
+  transcribeButton.addEventListener('click', async () => {
+    if (!audioUrl || !recordedBytes) {
+      transcribeStatus.textContent = 'ابتدا پاسخ خود را ضبط کنید.';
+      return;
+    }
+    if (recordedBytes > 1.5 * 1024 * 1024) {
+      transcribeStatus.textContent = 'حجم فایل برای ارسال امن بیش از ۱٫۵ مگابایت است. لطفاً پاسخ را در چند بخش کوتاه‌تر ضبط کنید.';
+      return;
+    }
+    const target = answers[transcribeTarget.value];
+    if (!target) {
+      transcribeStatus.textContent = 'کادر پاسخ انتخاب‌شده پیدا نشد.';
+      return;
+    }
+    transcribeButton.disabled = true;
+    transcribeStatus.textContent = 'در حال تبدیل گفتار فارسی به متن…';
+    try {
+      const response = await fetch(audioUrl);
+      const blob = await response.blob();
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('FILE_READ_FAILED'));
+        reader.readAsDataURL(blob);
+      });
+      const base64 = String(dataUrl).split(',')[1] || '';
+      const mimeType = recordedType.includes('mp4') ? 'audio/mp4'
+        : recordedType.includes('ogg') ? 'audio/ogg'
+          : recordedType.includes('wav') ? 'audio/wav' : 'audio/webm';
+      const result = await postJson('/api/ai/transcribe', { mimeType, data: base64 }, { timeoutMs: 60000 });
+      if (!result.ok || typeof result.data?.text !== 'string' || !result.data.text.trim()) {
+        const code = result.data?.error;
+        transcribeStatus.textContent = result.status === 401
+          ? 'برای تبدیل گفتار به متن، ابتدا وارد حساب کاربری شوید.'
+          : result.status === 413 || result.status === 422
+            ? 'فایل صوتی قابل پردازش نیست؛ لطفاً ضبط کوتاه‌تر و با فرمت پشتیبانی‌شده انجام دهید.'
+            : code === 'AI_RATE_LIMITED'
+              ? 'تعداد درخواست‌ها زیاد شده است. کمی بعد دوباره تلاش کنید.'
+              : 'تبدیل گفتار انجام نشد. اتصال اینترنت و وضعیت سرویس هوش مصنوعی را بررسی و دوباره تلاش کنید.';
+        return;
+      }
+      const spoken = result.data.text.trim();
+      target.value = target.value.trim() ? target.value.trimEnd() + '\n\n' + spoken : spoken;
+      target.dispatchEvent(new Event('input', { bubbles: true }));
+      target.focus();
+      transcribeStatus.textContent = 'متن گفتار به کادر پاسخ انتخاب‌شده اضافه شد؛ آن را بازبینی و سپس ثبت کنید.';
+      target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    } catch {
+      transcribeStatus.textContent = 'ارتباط با سرویس تبدیل گفتار برقرار نشد. دوباره تلاش کنید.';
+    } finally {
+      transcribeButton.disabled = false;
+    }
+  });
   resetButton.addEventListener('click', () => {
     clearAudioUrl();
     audioPlayer.removeAttribute('src');
@@ -170,6 +229,8 @@ function buildWorksheet(CASE, persistable) {
     playButton.hidden = true;
     downloadButton.hidden = true;
     resetButton.hidden = true;
+    transcribeButton.hidden = true;
+    transcribeStatus.textContent = 'پس از ضبط، می‌توانید گفتار را به متن فارسی تبدیل کنید.';
     recTimer.textContent = '00:00';
     recHint.textContent = 'برای شروع، دکمهٔ قرمز را بزنید.';
     audioStatus.textContent = 'هنوز صدایی ضبط نشده است.';
@@ -182,6 +243,8 @@ function buildWorksheet(CASE, persistable) {
     audioStatus,
     audioPlayer,
     h('div', { class: 'row oral-controls' }, [playButton, downloadButton, resetButton]),
+    h('div', { class: 'row oral-controls' }, [transcribeTarget, transcribeButton]),
+    transcribeStatus,
   );
   let mediaRecorder = null;
   let mediaStream = null;
@@ -317,6 +380,7 @@ function buildWorksheet(CASE, persistable) {
         downloadButton.dataset.filename = `wefagh-moot-court${extensionFor(type)}`;
         downloadButton.hidden = false;
         resetButton.hidden = false;
+        transcribeButton.hidden = false;
         recHint.textContent = 'ضبط تمام شد. در حال بررسی قابلیت پخش…';
         audioStatus.textContent = `فایل ساخته شد: ${formatTime(recordedMs)} · ${(recordedBytes / 1024).toFixed(0)} کیلوبایت. در حال بررسی پخش…`;
         audioPlayer.scrollIntoView({ block: 'center', behavior: 'smooth' });
