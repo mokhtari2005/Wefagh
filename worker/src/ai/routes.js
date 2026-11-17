@@ -1,6 +1,7 @@
 // مسیرهای هوش مصنوعی: موت‌کورت (پرسش، ارزیابی، صدا، تبدیل گفتار) و دستیار وکیل.
 // همه مسیرها (به‌جز وضعیت) نیاز به ورود دارند. کلید API هرگز در پاسخ یا لاگ نمی‌آید.
 import { getPublishedCase, SLUG_RE } from '../moot/caseStore.js';
+import { findVerifiedLegalArticles } from '../legal-bank.js';
 import { json, readJsonBody } from '../http.js';
 import { currentUser } from '../auth/routes.js';
 import { handleThreads } from './threads.js';
@@ -353,8 +354,10 @@ async function assistant(request, env) {
       ...toContents(history),
       { role: 'user', parts: buildUserParts(message, attachments) },
     ];
+    const legalArticles = await findVerifiedLegalArticles(env.DB, message);
+    const legalContext = legalArticles.length ? legalArticles.map((a) => `قانون: ${a.lawTitle}\nماده ${a.articleNumber}${a.heading ? ` ـ ${a.heading}` : ''}\n${a.body}\nمنبع ثبت‌شده: ${a.sourceName || 'ثبت نشده'}${a.sourceUrl ? ` (${a.sourceUrl})` : ''}`).join('\n\n---\n\n') : '';
     const { data, truncated } = await generateText(env, {
-      system: assistantSystemPrompt({ mode, docType, hasAttachments: attachments.length > 0 }),
+      system: assistantSystemPrompt({ mode, docType, hasAttachments: attachments.length > 0, legalContext }),
       contents,
       // توکن‌های «تفکر» مدل هم از این سقف کم می‌شوند؛ سقف پایین باعث قطع شدن پیش‌نویس‌های فارسی می‌شد.
       maxOutputTokens: mode === 'consult' ? 3500 : 6000,
