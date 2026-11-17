@@ -258,10 +258,36 @@ export async function adminPage() {
   const legalBankJson = field('اطلاعات قانون و مواد به قالب JSON (متن کامل هر ماده)', 'legalBankJson', '', 'textarea');
   legalBankJson.querySelector('textarea').rows = 20;
   legalBankJson.querySelector('textarea').spellcheck = false;
+  const legalBankFile = el('input', { type: 'file', accept: '.json,application/json', 'aria-label': 'انتخاب فایل JSON قانون' });
+  const legalBankFileField = el('label', { class: 'admin-field' }, [
+    el('span', { text: 'یا فایل JSON قانون را انتخاب کن' }),
+    legalBankFile,
+    el('small', { class: 'muted', text: 'حداکثر ۴ مگابایت؛ فایل فقط در مرورگر خوانده می‌شود و پس از بارگذاری، محتوایش برای بررسی در کادر بالا قرار می‌گیرد.' }),
+  ]);
+  legalBankFile.addEventListener('change', async () => {
+    const file = legalBankFile.files?.[0];
+    if (!file) return;
+    if (file.size > 4 * 1024 * 1024) {
+      legalBankNotice.className = 'form-status err';
+      legalBankNotice.textContent = 'حجم فایل بیش از ۴ مگابایت است.';
+      legalBankFile.value = '';
+      return;
+    }
+    try {
+      const raw = await file.text();
+      JSON.parse(raw);
+      legalBankJson.querySelector('textarea').value = raw;
+      legalBankNotice.className = 'form-status';
+      legalBankNotice.textContent = 'فایل خوانده شد؛ اطلاعات را بررسی کن و سپس ثبت قانون را بزن.';
+    } catch {
+      legalBankNotice.className = 'form-status err';
+      legalBankNotice.textContent = 'فایل انتخاب‌شده JSON معتبر نیست.';
+    }
+  });
   const legalBankSubmit = el('button', { class: 'btn', type: 'submit', text: 'ثبت قانون در وضعیت نیازمند بررسی' });
   const legalBankForm = el('form', { class: 'admin-form card' }, [
     el('p', { class: 'muted', text: 'هر سند ابتدا در وضعیت «نیازمند بررسی» ثبت می‌شود و تا تأیید مدیر در پاسخ دستیار استفاده نخواهد شد. متن را از منبع رسمی و همراه با اصلاحات وارد کنید.' }),
-    legalBankJson, legalBankSubmit,
+    legalBankFileField, legalBankJson, legalBankSubmit,
   ]);
   const legalBankList = el('div', { class: 'admin-content-list' });
   async function refreshLegalBank() {
