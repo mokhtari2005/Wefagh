@@ -31,17 +31,60 @@ jobs:
       - name: Install Wrangler
         run: npm install --global wrangler
 
+      - name: Sanitize and verify Cloudflare credentials
+        env:
+          RAW_CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          RAW_CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, re, sys, unicodedata
+
+          def report(name, raw, allowed):
+              clean = "".join(ch for ch in raw if re.fullmatch(allowed, ch))
+              removed = [ch for ch in raw if not re.fullmatch(allowed, ch)]
+              cats = {}
+              for ch in removed:
+                  key = unicodedata.category(ch)
+                  cats[key] = cats.get(key, 0) + 1
+              # فقط تعداد چاپ می‌شود؛ هیچ کاراکتری از مقدار Secret نمایش داده نمی‌شود.
+              print(f"{name}: raw_length={len(raw)} lines={raw.count(chr(10)) + 1} "
+                    f"non_ascii={sum(1 for ch in raw if ord(ch) > 127)} removed={len(removed)} "
+                    f"removed_by_unicode_category={cats} clean_length={len(clean)}")
+              return clean
+
+          token = report("CLOUDFLARE_API_TOKEN", os.environ["RAW_CLOUDFLARE_API_TOKEN"], r"[A-Za-z0-9_\-]")
+          account = report("CLOUDFLARE_ACCOUNT_ID", os.environ["RAW_CLOUDFLARE_ACCOUNT_ID"], r"[0-9A-Fa-f]")
+          if not token or not account:
+              sys.exit("Credential is empty after sanitizing")
+          if len(account) != 32:
+              print(f"WARNING: account id clean_length={len(account)} (expected 32)")
+          if len(token) != 40:
+              print(f"WARNING: token clean_length={len(token)} (Cloudflare API tokens are normally 40 characters)")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as f:
+              f.write(f"CLOUDFLARE_API_TOKEN={token}\nCLOUDFLARE_ACCOUNT_ID={account}\n")
+          print(f"::add-mask::{token}")
+          print(f"::add-mask::{account}")
+          PY
+
+          # بررسی اعتبار با API کلودفلر؛ فقط پیام وضعیت چاپ می‌شود.
+          for url in "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/tokens/verify" "https://api.cloudflare.com/client/v4/user/tokens/verify"; do
+            body="$(curl --silent --show-error --retry 2 --header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$url" || true)"
+            if printf '%s' "$body" | python3 -c 'import json,sys; d=json.load(sys.stdin); sys.exit(0 if d.get("success") and (d.get("result") or {}).get("status")=="active" else 1)' 2>/dev/null; then
+              echo "Cloudflare token verified and active via ${url##*/client/v4/}"
+              exit 0
+            fi
+            echo "verify via ${url##*/client/v4/}: $(printf '%s' "$body" | python3 -c 'import json,sys; d=json.load(sys.stdin); print("; ".join(str(e.get("message")) for e in d.get("errors", [])) or "not active")' 2>/dev/null || echo unreadable-response)"
+          done
+          echo "Cloudflare token could not be verified"
+          exit 1
+
       - name: Apply remote D1 migrations
         if: inputs.apply_migrations
         working-directory: worker
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: wrangler d1 migrations apply wefagh-db --remote --config wrangler.toml
 
       - name: Deploy Worker
         working-directory: worker
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: wrangler deploy --config wrangler.toml
