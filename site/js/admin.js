@@ -369,6 +369,7 @@ export async function adminPage() {
             el('option', { value: 'interprets', text: 'تفسیر می‌کند' }),
           ]);
           const relationNote = el('input', { type: 'text', placeholder: 'مستند و توضیح رابطه' });
+          const relationDate = el('input', { type: 'text', placeholder: 'تاریخ اثر YYYY-MM-DD (اختیاری)' });
           const relationSave = el('button', { class: 'btn secondary', type: 'button', text: 'ثبت رابطه' });
           relationSave.addEventListener('click', async () => {
             const relatedId = Number(targetId.value);
@@ -377,7 +378,7 @@ export async function adminPage() {
             const saved = await postJson('/api/admin/legal-bank/relations', {
               affectedArticleId: relationType.value === 'interprets' ? relatedId : article.id,
               authorityArticleId: relationType.value === 'interprets' ? article.id : relatedId,
-              relationType: relationType.value, sourceNote: relationNote.value,
+              relationType: relationType.value, sourceNote: relationNote.value, effectiveDate: relationDate.value,
             });
             relationSave.disabled = false;
             legalBankNotice.className = `form-status${saved.ok ? '' : ' err'}`;
@@ -386,7 +387,7 @@ export async function adminPage() {
           articlePanel.append(el('article', { class: 'admin-content-row card' }, [
             heading, el('p', { class: 'muted', text: article.body.slice(0, 420) + (article.body.length > 420 ? '…' : '') }),
             ...(relationSummary.length ? [el('p', { class: 'muted', text: relationSummary.join(' | ') })] : []),
-            statusSelect, note, sourceName, sourceUrl, effectiveDate, save, relationTitle, targetId, relationType, relationNote, relationSave,
+            statusSelect, note, sourceName, sourceUrl, effectiveDate, save, relationTitle, targetId, relationType, relationNote, relationDate, relationSave,
           ]));
         }
         articlePanel.hidden = false;
