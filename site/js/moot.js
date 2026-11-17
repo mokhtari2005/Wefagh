@@ -174,8 +174,8 @@ function buildWorksheet(CASE, persistable) {
       transcribeStatus.textContent = 'ابتدا پاسخ خود را ضبط کنید.';
       return;
     }
-    if (recordedBytes > 2 * 1024 * 1024) {
-      transcribeStatus.textContent = 'حجم فایل از سقف ۲ مگابایت بیشتر است. لطفاً پاسخ را در چند بخش کوتاه‌تر ضبط کنید.';
+    if (recordedBytes > 1.5 * 1024 * 1024) {
+      transcribeStatus.textContent = 'حجم فایل برای ارسال امن بیش از ۱٫۵ مگابایت است. لطفاً پاسخ را در چند بخش کوتاه‌تر ضبط کنید.';
       return;
     }
     const target = answers[transcribeTarget.value];
