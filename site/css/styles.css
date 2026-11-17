@@ -1684,3 +1684,150 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
   .hearing-mode-card { min-height: 78px; padding: .7rem; gap: .55rem; }
   .hearing-start { width: 100%; }
 }
+
+
+/* ---------- بازطراحی تجربهٔ موت‌کورت ---------- */
+.moot {
+  --moot-ink: var(--deep, #173b38);
+  --moot-accent: var(--gold, #b89a5a);
+  max-width: 1040px;
+  margin-inline: auto;
+  padding-bottom: clamp(2rem, 5vw, 4rem);
+}
+.moot > .section-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  padding: .38rem .85rem;
+  border: 1px solid color-mix(in srgb, var(--moot-accent) 48%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--moot-accent) 10%, var(--paper));
+  color: var(--moot-ink);
+  font-size: .82rem;
+  font-weight: 800;
+}
+.moot > h1 {
+  margin: .9rem 0 .45rem;
+  color: var(--moot-ink);
+  font-size: clamp(2rem, 5vw, 3.1rem);
+  line-height: 1.25;
+  letter-spacing: -.04em;
+}
+.moot > .lead {
+  max-width: 760px;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: clamp(.98rem, 2vw, 1.08rem);
+  line-height: 2;
+}
+.moot > .case-panel:first-of-type {
+  margin-top: 1.5rem;
+  padding: clamp(1rem, 2.5vw, 1.4rem);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .6rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--teal) 24%, var(--sand-line));
+  border-radius: 20px;
+  background: linear-gradient(125deg, var(--paper), color-mix(in srgb, var(--teal) 7%, var(--paper)));
+  box-shadow: 0 10px 30px rgba(20, 45, 40, .06);
+}
+.moot > .case-panel:first-of-type h2 { grid-column: 1 / -1; margin: 0; font-size: 1.05rem; color: var(--moot-ink); }
+.moot > .case-panel:first-of-type .muted { margin: 0; line-height: 1.8; }
+.moot > .case-panel:first-of-type .row { margin: 0; justify-content: flex-end; }
+.moot > .case-panel:first-of-type select { min-width: min(100%, 260px); }
+.moot > .notice {
+  margin-top: .85rem;
+  padding: .8rem 1rem;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--moot-accent) 28%, var(--sand-line));
+  background: color-mix(in srgb, var(--moot-accent) 8%, var(--paper));
+  color: var(--ink-soft);
+  line-height: 1.9;
+}
+.moot > .stepper {
+  margin: 1.25rem 0 1rem;
+  gap: .65rem;
+}
+.moot > .stepper li {
+  min-height: 58px;
+  padding: .7rem .85rem;
+  border-radius: 15px;
+  background: var(--paper);
+  box-shadow: 0 3px 12px rgba(20, 45, 40, .035);
+  font-weight: 700;
+}
+.moot > .stepper li[aria-current="step"] {
+  background: color-mix(in srgb, var(--teal) 8%, var(--paper));
+  border: 1px solid var(--teal);
+  box-shadow: 0 5px 18px color-mix(in srgb, var(--teal) 12%, transparent);
+}
+.moot > .stepper li .num { width: 30px; height: 30px; }
+.moot-body { margin-top: 1rem; }
+.moot-body > .case-panel,
+.moot-body > .form {
+  padding: clamp(1rem, 3vw, 1.65rem);
+  border-radius: 20px;
+  border: 1px solid var(--sand-line);
+  background: var(--paper);
+  box-shadow: 0 8px 26px rgba(20, 45, 40, .045);
+}
+.moot-body > .case-panel h2,
+.moot-body > .form > h2 {
+  margin-top: 0;
+  color: var(--moot-ink);
+  font-size: clamp(1.15rem, 2.5vw, 1.4rem);
+}
+.moot-body > .case-panel h3 { margin-top: 1.35rem; color: var(--moot-ink); }
+.moot-body > .case-panel ol:not(.stepper) { padding-inline-start: 1.35rem; line-height: 2; }
+.moot-body > .case-panel ol:not(.stepper) li { padding-inline-start: .25rem; margin-bottom: .65rem; }
+.moot .field { margin-top: 1.1rem; padding: 1rem; border: 1px solid var(--sand-line); border-radius: 16px; background: color-mix(in srgb, var(--bone) 45%, var(--paper)); }
+.moot .field label { display: block; margin-bottom: .7rem; color: var(--moot-ink); font-weight: 800; line-height: 1.9; }
+.moot .field textarea,
+.moot textarea { width: 100%; min-height: 130px; padding: .9rem 1rem; border: 1px solid var(--sand-line); border-radius: 13px; background: var(--paper); line-height: 2; resize: vertical; }
+.moot textarea:focus,
+.moot select:focus { outline: 3px solid color-mix(in srgb, var(--teal) 20%, transparent); border-color: var(--teal); }
+.moot .moot-coach,
+.moot .oral-practice { margin-bottom: 1rem; background: linear-gradient(145deg, var(--paper), color-mix(in srgb, var(--teal) 5%, var(--paper))); }
+.moot .moot-coach > p,
+.moot .oral-practice > p { line-height: 1.9; }
+.moot .moot-nav {
+  position: sticky;
+  bottom: calc(76px + env(safe-area-inset-bottom));
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .75rem;
+  margin-top: 1rem;
+  border: 1px solid var(--sand-line);
+  border-radius: 17px;
+  background: color-mix(in srgb, var(--paper) 92%, transparent);
+  box-shadow: 0 8px 28px rgba(20, 35, 30, .12);
+  backdrop-filter: blur(12px);
+}
+.moot .moot-nav .btn { min-width: 150px; min-height: 46px; }
+.moot .moot-nav .btn:not(.secondary) { margin-inline-start: auto; }
+.moot .row { flex-wrap: wrap; gap: .65rem; }
+.moot .row .btn { min-height: 44px; }
+.moot .checklist { padding: 1rem 1.15rem; border-radius: 16px; }
+.moot .check-item { padding: .65rem .25rem; line-height: 1.85; border-bottom: 1px solid color-mix(in srgb, var(--sand-line) 65%, transparent); }
+.moot .check-item:last-child { border-bottom: 0; }
+.moot .rec-card { overflow: hidden; }
+.moot .rec-timer { font-variant-numeric: tabular-nums; font-size: clamp(2rem, 7vw, 3rem); font-weight: 800; color: var(--moot-ink); }
+@media (max-width: 680px) {
+  .moot { padding-inline: .1rem; }
+  .moot > .case-panel:first-of-type { grid-template-columns: 1fr; }
+  .moot > .case-panel:first-of-type .row { justify-content: stretch; }
+  .moot > .case-panel:first-of-type .row > * { flex: 1 1 100%; width: 100%; }
+  .moot > .stepper { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; }
+  .moot > .stepper li { min-height: 54px; padding: .55rem; font-size: .82rem; }
+  .moot-body > .case-panel,
+  .moot-body > .form { padding: 1rem; border-radius: 16px; }
+  .moot .moot-nav { bottom: calc(70px + env(safe-area-inset-bottom)); }
+  .moot .moot-nav .btn { flex: 1; min-width: 0; padding-inline: .7rem; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .moot-body > * { animation: moot-enter .28s ease both; }
+  @keyframes moot-enter { from { opacity: .65; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+}
