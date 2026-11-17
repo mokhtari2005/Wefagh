@@ -7,10 +7,12 @@ import { oralDefenseSection } from './moot-ai.js';
 /** نوع فایل ضبط را از بایت‌های ابتدایی تشخیص می‌دهد (WebM، MP4/M4A، Ogg). */
 async function detectAudioType(blob, fallback) {
   try {
-    const head = new Uint8Array(await blob.slice(0, 12).arrayBuffer());
+    // بعضی مرورگرها فایل را در چند قطعه تحویل می‌دهند؛ سربرگ را از فایل
+    // ترکیب‌شده می‌خوانیم، نه صرفاً از اولین قطعه.
+    const head = new Uint8Array(await blob.slice(0, 64).arrayBuffer());
     const tag = String.fromCharCode(...head.slice(4, 8));
     if (head[0] === 0x1a && head[1] === 0x45 && head[2] === 0xdf && head[3] === 0xa3) return 'audio/webm';
-    if (tag === 'ftyp') return 'audio/mp4';
+    if (tag === 'ftyp' || String.fromCharCode(...head).includes('ftyp')) return 'audio/mp4';
     if (head[0] === 0x4f && head[1] === 0x67 && head[2] === 0x67 && head[3] === 0x53) return 'audio/ogg';
   } catch {
     // نوع از روی mimeType ادامه می‌یابد.
@@ -145,6 +147,8 @@ function buildWorksheet(CASE, persistable) {
   playButton.addEventListener('click', () => {
     if (!audioUrl) return;
     audioPlayer.hidden = false;
+    // Safari گاهی پس از تعویض src به فراخوانی load نیاز دارد.
+    audioPlayer.load();
     audioPlayer.play().catch((err) => {
       if (err?.name === 'NotAllowedError') audioStatus.textContent = 'مرورگر پخش خودکار را متوقف کرد. دوباره روی «پخش» بزنید یا نوار پخش‌کننده را استفاده کنید.';
       else showPlaybackFailure(err?.name || 'play');
@@ -296,8 +300,9 @@ function buildWorksheet(CASE, persistable) {
           return;
         }
         // نوع فایل از روی بایت‌های خود فایل تشخیص داده می‌شود؛ Safari ممکن است mimeType را خالی بگذارد.
-        const type = await detectAudioType(chunks[0], mediaRecorder?.mimeType || chosenMime);
-        const blob = new Blob(chunks, { type });
+        const rawBlob = new Blob(chunks);
+        const type = await detectAudioType(rawBlob, mediaRecorder?.mimeType || chosenMime);
+        const blob = new Blob([rawBlob], { type });
         recordedMs = Date.now() - recordStartedAt;
         recordedBytes = blob.size;
         recordedType = type;
@@ -307,6 +312,7 @@ function buildWorksheet(CASE, persistable) {
         const token = ++playbackToken;
         audioPlayer.src = audioUrl;
         audioPlayer.hidden = false;
+        audioPlayer.load();
         playButton.hidden = false;
         downloadButton.dataset.filename = `wefagh-moot-court${extensionFor(type)}`;
         downloadButton.hidden = false;
