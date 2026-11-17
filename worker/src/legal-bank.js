@@ -101,8 +101,11 @@ export async function handleLegalBank(request, env, path) {
     if (!Number.isInteger(id)||id<1||!STATUSES.has(status)) return json({ok:false,error:'VALIDATION_FAILED'},422);
     const exists=await env.DB.prepare('SELECT id FROM legal_articles WHERE id=?1').bind(id).first();
     if(!exists) return json({ok:false,error:'NOT_FOUND'},404);
+    const statusNote=clean(b.statusNote,2000), statusSourceName=clean(b.statusSourceName,200), statusSourceUrl=clean(b.statusSourceUrl,1000);
+    if (['amended','repealed'].includes(status) && (!statusNote || (!statusSourceName && !statusSourceUrl))) return json({ok:false,error:'STATUS_EVIDENCE_REQUIRED',message:'برای اصلاح یا نسخ، توضیح و مشخصات منبع الزامی است.'},422);
+    if (statusSourceUrl && !/^https:\/\//i.test(statusSourceUrl)) return json({ok:false,error:'INVALID_SOURCE_URL'},422);
     await env.DB.prepare(`UPDATE legal_articles SET status=?1,status_note=?2,status_source_name=?3,status_source_url=?4,status_effective_date=?5,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?6`)
-      .bind(status,clean(b.statusNote,2000)||null,clean(b.statusSourceName,200)||null,clean(b.statusSourceUrl,1000)||null,clean(b.statusEffectiveDate,30)||null,id).run();
+      .bind(status,statusNote||null,statusSourceName||null,statusSourceUrl||null,clean(b.statusEffectiveDate,30)||null,id).run();
     return json({ok:true,articleId:id,status});
   }
   if (path === '/api/admin/legal-bank/relations') {
