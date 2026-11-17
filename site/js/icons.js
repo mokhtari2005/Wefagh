@@ -37,6 +37,10 @@ const SHAPES = {
   info: [['circle', { cx: 12, cy: 12, r: 10 }], ['path', { d: 'M12 16v-4' }], ['path', { d: 'M12 8h.01' }]],
   'clipboard-list': [['rect', { x: 5, y: 4, width: 14, height: 18, rx: 2 }], ['path', { d: 'M9 4V2h6v2' }], ['path', { d: 'M9 10h6' }], ['path', { d: 'M9 14h6' }], ['path', { d: 'M9 18h3' }]],
   'user-round': [['circle', { cx: 12, cy: 8, r: 5 }], ['path', { d: 'M20 21a8 8 0 0 0-16 0' }]],
+  'arrow-left': [['path', { d: 'M19 12H5' }], ['path', { d: 'm12 19-7-7 7-7' }]],
+  'arrow-right': [['path', { d: 'M5 12h14' }], ['path', { d: 'm12 5 7 7-7 7' }]],
+  'arrow-up-left': [['path', { d: 'M17 17 7 7' }], ['path', { d: 'M7 17V7h10' }]],
+  'shield-check': [['path', { d: 'M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11z' }], ['path', { d: 'm9 12 2 2 4-4' }]],
 };
 
 export const ICON_NAMES = Object.freeze(Object.keys(SHAPES));

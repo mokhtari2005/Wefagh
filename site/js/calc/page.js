@@ -9,6 +9,7 @@ import { shamsiField } from '../shamsi-field.js';
 import { normalizeLimitations, formatNumbersInLine, formatRial, statusLabel } from './result-format.js';
 import { indexedDelayDamage, planDelayPeriod, periodLabel, periodKeyOfIso } from './indexation.js';
 import { computeAttorneyForm } from './attorney-form.js';
+import { icon } from '../icons.js';
 
 function h(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
@@ -597,28 +598,103 @@ function toolToolbar(section) {
   return h('div', { class: 'row tool-toolbar' }, [print, clear]);
 }
 
+const TOOL_VISUALS = {
+  court: { icon: 'landmark', eyebrow: 'هزینه‌ها و دادرسی', accent: 'teal', short: 'برآورد هزینه‌های قانونی طرح دعوا' },
+  attorney: { icon: 'briefcase', eyebrow: 'تعرفه وکالت', accent: 'gold', short: 'محاسبه تعرفه و فوق‌العاده‌های وکیل' },
+  delay: { icon: 'chart', eyebrow: 'دین و تعهدات', accent: 'blue', short: 'محاسبه خسارت بر پایه شاخص‌های ماهانه' },
+};
+
+function calculatorStyles() {
+  if (document.querySelector('link[data-calculator-styles]')) return;
+  const link = h('link', { rel: 'stylesheet', href: 'css/calculators.css' });
+  link.setAttribute('data-calculator-styles', 'true');
+  document.head.append(link);
+}
+
 /** صفحهٔ مستقل هر محاسبه‌گر با مسیر خودش. */
 function toolPage(kind) {
   const tool = TOOL_PAGES[kind];
+  const visual = TOOL_VISUALS[kind];
   const section = tool.build();
-  return h('div', {}, [
-    h('a', { class: 'tool-back', href: '#/calculators', text: '‹ همهٔ محاسبه‌گرها' }),
-    h('h1', { text: tool.title }),
-    h('p', { class: 'lead', text: tool.intro }),
-    h('div', { class: 'notice', role: 'note', text: CALC_NOTICE }),
-    toolToolbar(section),
+  section.classList.add('calculator-workspace');
+  const hero = h('section', { class: `calculator-detail-hero accent-${visual.accent}` }, [
+    h('div', { class: 'calculator-hero-symbol', 'aria-hidden': 'true' }, [icon(visual.icon, { size: 34 })]),
+    h('div', { class: 'calculator-hero-copy' }, [
+      h('span', { class: 'calculator-eyebrow', text: visual.eyebrow }),
+      h('h1', { text: tool.title }),
+      h('p', { text: tool.intro }),
+    ]),
+    h('span', { class: 'calculator-hero-mark', 'aria-hidden': 'true' }, [icon('calculator', { size: 72 })]),
+  ]);
+  const guidance = h('div', { class: 'calculator-guidance' }, [
+    icon('info', { size: 18 }),
+    h('span', { text: CALC_NOTICE }),
+  ]);
+  return h('div', { class: 'calculators-page calculator-detail-page' }, [
+    h('a', { class: 'calculator-back', href: '#/calculators' }, [icon('arrow-right', { size: 17 }), h('span', { text: 'بازگشت به همهٔ محاسبه‌گرها' })]),
+    hero,
+    guidance,
+    h('div', { class: 'calculator-actions' }, [toolToolbar(section)]),
     section,
   ]);
 }
 
+function calculatorCard(key, tool) {
+  const visual = TOOL_VISUALS[key];
+  return h('a', { class: `calculator-card accent-${visual.accent}`, href: `#/calculators/${key}`, 'aria-label': `ورود به ${tool.title}` }, [
+    h('div', { class: 'calculator-card-top' }, [
+      h('span', { class: 'calculator-card-icon', 'aria-hidden': 'true' }, [icon(visual.icon, { size: 27 })]),
+      h('span', { class: 'calculator-card-arrow', 'aria-hidden': 'true' }, [icon('arrow-up-left', { size: 18 })]),
+    ]),
+    h('span', { class: 'calculator-eyebrow', text: visual.eyebrow }),
+    h('h2', { text: tool.title }),
+    h('p', { text: tool.intro }),
+    h('span', { class: 'calculator-card-footer' }, [
+      h('span', { text: 'ورود به محاسبه‌گر' }),
+      icon('arrow-left', { size: 17 }),
+    ]),
+  ]);
+}
+
 export function calculatorsPage(params = {}) {
+  calculatorStyles();
   if (params.tool && TOOL_PAGES[params.tool]) return toolPage(params.tool);
-  return h('div', {}, [
-    h('h1', { text: 'محاسبه‌گرهای حقوقی' }),
-    h('div', { class: 'notice', role: 'note', text: CALC_NOTICE }),
-    h('div', { class: 'cards' }, Object.entries(TOOL_PAGES).map(([key, t]) => h('a', { class: 'card', href: `#/calculators/${key}` }, [
-      h('h2', { text: t.title }),
-      h('p', { class: 'muted', text: t.intro }),
-    ]))),
+  const entries = Object.entries(TOOL_PAGES);
+  const search = h('input', { type: 'search', class: 'calculator-search-input', placeholder: 'جست‌وجوی محاسبه‌گر…', 'aria-label': 'جست‌وجو در محاسبه‌گرها' });
+  const cards = h('div', { class: 'calculator-grid' }, entries.map(([key, tool]) => calculatorCard(key, tool)));
+  const count = h('span', { class: 'calculator-count', text: `${entries.length} ابزار کاربردی` });
+  search.addEventListener('input', () => {
+    const query = search.value.trim().toLocaleLowerCase('fa');
+    let visible = 0;
+    for (const card of cards.children) {
+      const match = card.textContent.toLocaleLowerCase('fa').includes(query);
+      card.hidden = !match;
+      if (match) visible++;
+    }
+    count.textContent = `${visible} محاسبه‌گر`;
+  });
+  return h('div', { class: 'calculators-page' }, [
+    h('section', { class: 'calculators-hero' }, [
+      h('div', { class: 'calculators-hero-copy' }, [
+        h('span', { class: 'calculator-eyebrow' }, [icon('scale', { size: 15 }), h('span', { text: 'ابزارهای حرفه‌ای حقوقی' })]),
+        h('h1', { text: 'محاسبه‌گرهای حقوقی' }),
+        h('p', { text: 'محاسبات حقوقی پرکاربرد را سریع، روشن و مرحله‌به‌مرحله انجام دهید.' }),
+        h('div', { class: 'calculators-hero-meta' }, [icon('shield-check', { size: 17 }), h('span', { text: 'با نمایش مبنا، جزئیات و محدودیت‌های هر محاسبه' })]),
+      ]),
+      h('div', { class: 'calculators-hero-art', 'aria-hidden': 'true' }, [
+        h('div', { class: 'calculator-art-orbit orbit-one' }),
+        h('div', { class: 'calculator-art-orbit orbit-two' }),
+        h('div', { class: 'calculator-art-core' }, [icon('calculator', { size: 66 })]),
+        h('span', { class: 'calculator-art-mini mini-one' }, [icon('scale', { size: 24 })]),
+        h('span', { class: 'calculator-art-mini mini-two' }, [icon('file-text', { size: 23 })]),
+      ]),
+    ]),
+    h('div', { class: 'calculator-list-heading' }, [
+      h('div', {}, [h('h2', { text: 'ابزار موردنظر را انتخاب کنید' }), h('p', { class: 'muted', text: 'هر محاسبه‌گر صفحه و راهنمای اختصاصی خود را دارد.' })]),
+      count,
+    ]),
+    h('div', { class: 'calculator-search' }, [icon('search', { size: 19 }), search]),
+    cards,
+    h('div', { class: 'calculator-disclaimer' }, [icon('info', { size: 19 }), h('p', { text: CALC_NOTICE })]),
   ]);
 }
