@@ -110,7 +110,7 @@ export async function handleAcademyExams(request,env,path){
 <student_answer>
 ${essayResponse.trim()}
 </student_answer>`;
-   const {data}=await generateText(env,{system,contents:[{role:'user',parts:[{text:prompt}]}],maxOutputTokens:1400,json:true,timeoutMs:30000});
+   const {data}=await generateText(env,{system,contents:[{role:'user',parts:[{text:prompt}]}],maxOutputTokens:6000,json:true,timeoutMs:40000});
    const g=gradeShape(data,rubric);if(!g)throw new AiError('AI_INVALID_GRADING',502);
    const totalScore=Math.round(objectiveScore*.4+g.score*.6);
    const result={...g,objectiveScore,essayScore:g.score,totalScore,correctAnswers:correct,totalQuestions:ids.length,essayPrompt,questionReviews:buildQuestionReviews(s,ids,cleanAnswers),weighting:{objective:40,essay:60}};

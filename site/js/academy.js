@@ -437,7 +437,7 @@ async function start(subjectId,area,user){
     event.preventDefault();if(essay.value.trim().length<80){feedback.textContent='پاسخ تشریحی باید دست‌کم ۸۰ نویسه داشته باشد.';essay.focus();return;}
     const answers={};for(const q of a.questions){const selected=form.querySelector(`input[name="${q.id}"]:checked`);if(!selected){feedback.textContent='به همه پرسش‌های تستی پاسخ دهید.';return;}answers[q.id]=Number(selected.value);}
     submit.disabled=true;submit.textContent='در حال تصحیح پاسخ‌ها…';
-    const result=await postJson('/api/academy/exams/submit',{attemptId:a.id,answers,essayResponse:essay.value});
+    const result=await postJson('/api/academy/exams/submit',{attemptId:a.id,answers,essayResponse:essay.value},{timeoutMs:60000});
     if(!result.ok){submit.disabled=false;submit.textContent='تلاش دوباره برای تصحیح';feedback.replaceChildren(h('p',{class:'form-status err',text:result.data?.message||messageFor(result.networkError?'NETWORK':result.data?.error)}));return;}
     const g=result.data.result;
     area.replaceChildren(examReportCard(user,{id:a.id,subjectTitle:a.subjectTitle,essayPrompt:a.essay?.prompt},g));
