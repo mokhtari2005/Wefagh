@@ -1,5 +1,5 @@
 // صفحهٔ محاسبه‌گرها. فرم‌ها با DOM امن ساخته می‌شوند؛ خروجی فقط متن است. تاریخ‌ها شمسی وارد می‌شوند.
-import { delayInterest, strictNumber } from './core.js';
+import { delayInterest } from './core.js';
 import { applyRule } from './engine.js';
 import { findRule, rulesFor } from './rates.js';
 import { formatShamsi } from '../shamsi.js';
