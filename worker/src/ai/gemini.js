@@ -128,8 +128,8 @@ export async function generateText(env, { system, contents, maxOutputTokens = 10
   };
   // برنامهٔ تلاش‌ها: مدل اصلی، مدل جایگزین، و (فقط اگر خواسته شود) یک درخواست ساده بدون schema و بدون حالت JSON
   // برای وقتی که Google به‌خاطر شکل درخواست ساخت‌یافته خطای 5xx می‌دهد.
-  const plan = [{ model: configuredModel, useSchema: true, useMime: true, timeout: Math.min(timeoutMs, 30_000) }];
-  plan.push({ model: fallbackModel, useSchema: true, useMime: true, timeout: 20_000 });
+  const plan = [{ model: configuredModel, useSchema: true, useMime: true, timeout: Math.min(timeoutMs, 45_000) }];
+  plan.push({ model: fallbackModel, useSchema: true, useMime: true, timeout: 25_000 });
   if (plainFallback && json) plan.push({ model: fallbackModel, useSchema: false, useMime: false, timeout: 15_000, plain: true });
   let model = configuredModel;
   let data;
