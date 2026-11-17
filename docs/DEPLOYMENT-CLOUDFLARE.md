@@ -36,7 +36,7 @@ curl -sS https://mokhtari.ir/api/health
 ```
 
 ### استقرار خودکار با Workers Builds (مهاجرت پیش از Deploy)
-در Cloudflare: Workers & Pages ← wefagh ← Settings ← Builds ← **Deploy command** را برابر مقدار زیر بگذارید:
+بخش `[build]` در `worker/wrangler.toml` پیش از هر `wrangler deploy` اسکریپت `scripts/migrate-before-deploy.mjs` را اجرا می‌کند (فقط در CI/Workers Builds)؛ پس حتی با دستور پیش‌فرض Build هم مهاجرت‌ها اول اجرا می‌شوند و شکست آن‌ها deploy را متوقف می‌کند. روش جایگزین (اختیاری) در Cloudflare: Workers & Pages ← wefagh ← Settings ← Builds ← **Deploy command** را برابر مقدار زیر بگذارید:
 ```bash
 npm run deploy:worker
 ```
