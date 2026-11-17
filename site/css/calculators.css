@@ -1,0 +1,54 @@
+/* Visual refresh for legal calculators — isolated from the rest of the academy. */
+.calculators-page{--calc-ink:#173b37;--calc-muted:#657874;--calc-line:#e2eae7;--calc-surface:#fff;direction:rtl}
+.calculators-hero{position:relative;display:flex;align-items:center;justify-content:space-between;gap:24px;min-height:245px;padding:clamp(24px,5vw,48px);margin:12px 0 34px;overflow:hidden;border:1px solid #d9e8e2;border-radius:26px;background:radial-gradient(circle at 82% 20%,rgba(197,222,211,.72),transparent 34%),linear-gradient(125deg,#f7fbf8 0%,#eaf4ef 58%,#f7f8f2 100%)}
+.calculators-hero-copy{position:relative;z-index:1;max-width:650px}
+.calculator-eyebrow{display:inline-flex;align-items:center;gap:8px;color:#287366;font-size:.82rem;font-weight:750;letter-spacing:-.01em}
+.calculators-hero h1{margin:13px 0 10px;color:#173b37;font-size:clamp(1.7rem,4vw,2.55rem);line-height:1.35}
+.calculators-hero-copy>p{max-width:550px;margin:0;color:#526963;font-size:1.03rem;line-height:2}
+.calculators-hero-meta{display:flex;align-items:center;gap:8px;margin-top:20px;color:#47766a;font-size:.85rem}
+.calculators-hero-art{position:relative;display:grid;place-items:center;flex:0 0 210px;height:185px}
+.calculator-art-orbit{position:absolute;border:1px solid rgba(49,119,101,.18);border-radius:50%;transform:rotate(-22deg)}
+.orbit-one{width:190px;height:115px}.orbit-two{width:145px;height:180px;transform:rotate(38deg)}
+.calculator-art-core{display:grid;place-items:center;width:112px;height:112px;border:1px solid rgba(255,255,255,.9);border-radius:30px;background:linear-gradient(145deg,#fff,#dcece4);color:#287366;box-shadow:0 18px 42px rgba(31,91,75,.16);transform:rotate(-7deg)}
+.calculator-art-mini{position:absolute;display:grid;place-items:center;width:48px;height:48px;border:1px solid #e3eee8;border-radius:15px;background:#fff;color:#397e6c;box-shadow:0 9px 22px rgba(30,75,63,.1)}
+.mini-one{top:12px;right:17px}.mini-two{bottom:8px;left:16px}
+.calculator-list-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px}
+.calculator-list-heading h2{margin:0 0 5px;font-size:1.25rem;color:var(--calc-ink)}
+.calculator-list-heading p{margin:0;font-size:.9rem}
+.calculator-count{flex:none;padding:7px 12px;border:1px solid var(--calc-line);border-radius:999px;background:#f7faf8;color:#4b6c62;font-size:.8rem}
+.calculator-search{display:flex;align-items:center;gap:10px;max-width:460px;height:48px;margin-bottom:20px;padding:0 14px;border:1px solid var(--calc-line);border-radius:14px;background:#fff;color:#739087}
+.calculator-search:focus-within{border-color:#75aa98;box-shadow:0 0 0 3px rgba(74,139,117,.1)}
+.calculator-search-input{width:100%;min-width:0;border:0!important;outline:0!important;box-shadow:none!important;background:transparent!important;color:var(--calc-ink);font:inherit}
+.calculator-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.calculator-card{--card-accent:#287c6c;--card-tint:#e8f3ee;position:relative;display:flex;min-height:235px;flex-direction:column;padding:22px;border:1px solid var(--calc-line);border-radius:20px;background:linear-gradient(160deg,#fff 0%,#fff 65%,var(--card-tint) 150%);color:inherit;text-decoration:none;transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease}
+.calculator-card:hover{transform:translateY(-4px);border-color:color-mix(in srgb,var(--card-accent) 42%,white);box-shadow:0 15px 34px rgba(23,59,55,.09)}
+.calculator-card:focus-visible,.calculator-back:focus-visible{outline:3px solid rgba(54,137,113,.35);outline-offset:3px}
+.accent-teal{--card-accent:#287c6c;--card-tint:#e8f3ee}.accent-gold{--card-accent:#a47b36;--card-tint:#f7f0e2}.accent-blue{--card-accent:#477aa1;--card-tint:#eaf1f8}
+.calculator-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.calculator-card-icon{display:grid;place-items:center;width:54px;height:54px;border-radius:17px;background:var(--card-tint);color:var(--card-accent)}
+.calculator-card-arrow{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:#f5f8f6;color:#6d837b}
+.calculator-card h2{margin:7px 0 8px;color:#203f39;font-size:1.12rem;line-height:1.6}
+.calculator-card>p{margin:0 0 18px;color:#6b7c76;font-size:.88rem;line-height:1.9}
+.calculator-card-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto;padding-top:14px;border-top:1px solid rgba(120,151,137,.18);color:var(--card-accent);font-size:.86rem;font-weight:750}
+.calculator-disclaimer,.calculator-guidance{display:flex;align-items:flex-start;gap:10px;margin-top:25px;padding:15px 17px;border:1px solid #e7e9dc;border-radius:15px;background:#fbfaf4;color:#756d4f;font-size:.88rem;line-height:1.9}
+.calculator-disclaimer svg,.calculator-guidance svg{flex:none;margin-top:3px}
+.calculator-disclaimer p{margin:0}
+.calculator-detail-page{max-width:980px;margin-inline:auto}
+.calculator-back{display:inline-flex;align-items:center;gap:8px;margin:4px 0 18px;color:#397668;text-decoration:none;font-size:.9rem;font-weight:700}
+.calculator-detail-hero{--card-accent:#287c6c;--card-tint:#e8f3ee;position:relative;display:flex;align-items:center;gap:20px;min-height:145px;padding:25px 28px;overflow:hidden;border:1px solid var(--calc-line);border-radius:22px;background:linear-gradient(115deg,#fff 0%,var(--card-tint) 100%)}
+.calculator-hero-symbol{z-index:1;display:grid;place-items:center;flex:none;width:70px;height:70px;border-radius:22px;background:#fff;color:var(--card-accent);box-shadow:0 8px 22px rgba(27,67,55,.08)}
+.calculator-hero-copy{z-index:1}.calculator-hero-copy h1{margin:5px 0;font-size:clamp(1.35rem,3vw,1.8rem);color:#203f39}.calculator-hero-copy p{margin:0;color:#61756d;line-height:1.9}
+.calculator-hero-mark{position:absolute;left:30px;bottom:-15px;color:var(--card-accent);opacity:.08}
+.calculator-guidance{margin:16px 0 12px}
+.calculator-actions{display:flex;justify-content:flex-end;margin:14px 0}
+.calculator-actions .tool-toolbar{gap:9px}
+.calculator-workspace{padding:clamp(18px,3vw,30px);border:1px solid var(--calc-line);border-radius:22px;background:#fff;box-shadow:0 10px 32px rgba(23,59,55,.045)}
+.calculator-workspace>.tool>h2{margin-top:0;color:#234b42}
+.calculator-workspace .form{gap:18px}
+.calculator-workspace .field input,.calculator-workspace .field select,.calculator-workspace .field textarea{min-height:48px;border-radius:12px}
+.calculator-workspace .btn{min-height:46px;border-radius:12px}
+.calculator-workspace .result{border-radius:16px}
+.calculator-workspace .amount-block{border-radius:14px}
+@media(max-width:760px){.calculators-hero{min-height:unset;padding:24px 20px}.calculators-hero-art{flex-basis:125px;height:135px;transform:scale(.76);margin-inline:-15px}.calculators-hero h1{font-size:1.65rem}.calculators-hero-copy>p{font-size:.92rem}.calculator-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.calculator-card{min-height:225px;padding:17px}.calculator-card h2{font-size:1rem}.calculator-detail-hero{padding:20px;gap:14px}.calculator-hero-symbol{width:58px;height:58px;border-radius:18px}.calculator-hero-mark{left:10px}}
+@media(max-width:480px){.calculators-hero{display:block}.calculators-hero-art{position:absolute;left:-16px;bottom:-15px;opacity:.72;transform:scale(.62);transform-origin:bottom left}.calculators-hero-copy{max-width:100%}.calculators-hero-meta{max-width:78%;font-size:.76rem}.calculator-list-heading{align-items:flex-start}.calculator-list-heading h2{font-size:1.08rem}.calculator-list-heading p{font-size:.8rem}.calculator-count{font-size:.72rem;padding:6px 9px}.calculator-grid{grid-template-columns:1fr}.calculator-card{min-height:unset;padding:18px}.calculator-card-top{margin-bottom:13px}.calculator-card>p{margin-bottom:14px}.calculator-detail-hero{align-items:flex-start}.calculator-hero-copy p{font-size:.86rem}.calculator-hero-mark{display:none}.calculator-guidance{font-size:.8rem}.calculator-workspace{padding:15px;border-radius:17px}.calculator-actions{justify-content:stretch}.calculator-actions .tool-toolbar{width:100%;flex-wrap:wrap}.calculator-actions .tool-toolbar .btn{flex:1;min-width:140px}}
+@media(prefers-reduced-motion:reduce){.calculator-card{transition:none}}
