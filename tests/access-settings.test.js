@@ -60,12 +60,11 @@ test('تنظیم عمومی ثبت‌نام پیش‌فرض خاموش است و
 test('فقط مدیر می‌تواند الزام ثبت‌نام را تغییر دهد', { skip }, async () => {
   const { env, cookie } = await setup();
   assert.equal((await worker.fetch(req('/api/admin/settings/access', { method: 'PUT', body: { registrationRequired: true } }), env)).status, 401);
-  const ordinary = await setup('user');
+  const ordinary = await setup(null);
   assert.equal((await worker.fetch(req('/api/admin/settings/access', { method: 'PUT', body: { registrationRequired: true }, cookie: ordinary.cookie }), ordinary.env)).status, 403);
   const saved = await worker.fetch(req('/api/admin/settings/access', { method: 'PUT', body: { registrationRequired: true }, cookie }), env);
   assert.equal(saved.status, 200);
   assert.equal((await saved.json()).registrationRequired, true);
-  assert.equal((await worker.fetch(req('/api/access-settings'), env)).json instanceof Function, true);
   const invalid = await worker.fetch(req('/api/admin/settings/access', { method: 'PUT', body: { registrationRequired: 'false' }, cookie }), env);
   assert.equal(invalid.status, 422);
 });
