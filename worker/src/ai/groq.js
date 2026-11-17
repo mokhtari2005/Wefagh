@@ -125,7 +125,7 @@ export function groqReviewNotes(result) {
 
   const { review } = result;
   const notes = [
-    `بازبینی ماشینی مستقل Groq انجام شد (سطح ریسک برآوردی: ${review.risk === 'high' ? 'زیاد' : review.risk === 'medium' ? 'متوسط' : 'کم'}). این نتیجه تأیید صحت حقوقی یا راستی‌آزمایی منبع رسمی نیست.`,
+    `بازبینی ماشینی مستقل Groq انجام شد (سطح ریسک برآوردی: ${review.risk === 'high' ? 'زیاد' : review.risk === 'medium' ? 'متوسط' : 'کم'}). متن درخواست و پیش‌نویس برای این بازبینی به سرویس Groq ارسال شده است؛ این نتیجه تأیید صحت حقوقی یا راستی‌آزمایی منبع رسمی نیست.`,
   ];
   if (review.summary) notes.push(`جمع‌بندی بازبین: ${review.summary}`);
   for (const item of review.issues) {
