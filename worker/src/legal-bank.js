@@ -7,7 +7,7 @@ const clean = (v, max = 500) => typeof v === 'string' ? v.trim().slice(0, max) :
 const STATUSES = new Set(['needs_review', 'verified', 'amended', 'repealed']);
 const TYPES = new Set(['law', 'regulation', 'bylaw', 'circular', 'unified_precedent', 'advisory_opinion', 'other']);
 
-async function readLargeJson(request, maxBytes = 1024 * 1024) {
+async function readLargeJson(request, maxBytes = 4 * 1024 * 1024) {
   if (!(request.headers.get('content-type') || '').toLowerCase().includes('application/json')) return { error: json({ ok:false, error:'UNSUPPORTED_MEDIA_TYPE' },415) };
   const declared = Number(request.headers.get('content-length') || 0);
   if (declared > maxBytes) return { error: json({ ok:false, error:'PAYLOAD_TOO_LARGE' },413) };
@@ -38,11 +38,20 @@ export async function handleLegalBank(request, env, path) {
       const slug = clean(b.slug,100);
       const title = clean(b.title,240);
       const type = clean(b.lawType,40) || 'law';
-      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || !title || !TYPES.has(type) || !Array.isArray(b.articles) || !b.articles.length || b.articles.length > 500) {
-        return json({ok:false,error:'VALIDATION_FAILED',message:'شناسه، عنوان، نوع سند یا فهرست مواد معتبر نیست.'},422);
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || !title || !TYPES.has(type) || !Array.isArray(b.articles) || !b.articles.length || b.articles.length > 2500) {
+        return json({ok:false,error:'VALIDATION_FAILED',message:'شناسه، عنوان، نوع سند یا فهرست مواد معتبر نیست؛ سقف هر سند ۲۵۰۰ ماده است.'},422);
       }
-      if (b.articles.some(a => !a || !clean(a.number,40) || !clean(a.body,30000) || typeof a.body !== 'string')) {
-        return json({ok:false,error:'VALIDATION_FAILED',message:'هر ماده باید شماره و متن داشته باشد.'},422);
+      const articleNumbers = new Set();
+      for (const article of b.articles) {
+        const number = clean(article?.number,40);
+        const body = article?.body;
+        if (!number || typeof body !== 'string' || !body.trim() || body.length > 100000 || (article.heading != null && typeof article.heading !== 'string')) {
+          return json({ok:false,error:'VALIDATION_FAILED',message:'هر ماده باید شماره و متن معتبر داشته باشد؛ سقف متن هر ماده ۱۰۰ هزار نویسه است.'},422);
+        }
+        if (articleNumbers.has(number)) {
+          return json({ok:false,error:'DUPLICATE_ARTICLE_NUMBER',message:`شماره ماده تکراری است: ${number}`},422);
+        }
+        articleNumbers.add(number);
       }
       try {
         const result = await env.DB.prepare(`INSERT INTO legal_laws
