@@ -84,8 +84,9 @@ export function assistantPage(params = {}) {
   wrap.append(body);
 
   (async () => {
-    const [me, status] = await Promise.all([getJson('/api/me'), aiStatus()]);
-    if (!me.ok) {
+    const [me, status, settings] = await Promise.all([getJson('/api/me'), aiStatus(), getJson('/api/access-settings')]);
+    const guestMode = !me.ok && settings.ok && settings.data?.registrationRequired === false;
+    if (!me.ok && !guestMode) {
       body.replaceChildren(h('div', { class: 'notice', role: 'note' }, [
         h('p', { text: 'برای استفاده از دستیار، ابتدا وارد حساب خود شوید.' }),
         h('p', {}, [h('a', { href: '#/account', text: 'ورود یا ثبت‌نام' })]),
@@ -96,7 +97,7 @@ export function assistantPage(params = {}) {
       body.replaceChildren(h('div', { class: 'notice', role: 'note', text: 'سرویس دستیار هنوز روی سرور فعال نشده است. پس از فعال‌سازی، این بخش آماده استفاده می‌شود.' }));
       return;
     }
-    body.replaceChildren(assistantWorkspace(params.thread));
+    body.replaceChildren(assistantWorkspace(guestMode ? null : params.thread, guestMode));
   })();
   return wrap;
 }
@@ -112,7 +113,7 @@ function downloadText(text, name) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function assistantWorkspace(initialThread) {
+function assistantWorkspace(initialThread, guestMode = false) {
   const history = [];
   let busy = false;
   let threadId = null;
@@ -130,6 +131,7 @@ function assistantWorkspace(initialThread) {
   }
 
   async function persistTurn(userText, aiText) {
+    if (guestMode) return true; // تاریخچهٔ مهمان فقط در حافظهٔ همین صفحه می‌ماند.
     if (!threadId) {
       const created = await postJson('/api/ai/threads', { title: userText.slice(0, 60) });
       if (!created.ok || !created.data?.thread?.id) return false;
