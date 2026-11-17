@@ -54,11 +54,11 @@ jobs:
           import os
           import sys
 
-          token = os.environ["CLOUDFLARE_API_TOKEN"].replace("\r", "").replace("\n", "").strip()
+          # Cloudflare API tokens are opaque strings and cannot contain whitespace.
+          # Remove whitespace introduced by line wrapping or copy/paste formatting.
+          token = "".join(os.environ["CLOUDFLARE_API_TOKEN"].split())
           if not token:
               sys.exit("Cloudflare API token is empty after whitespace normalization")
-          if any(char.isspace() for char in token):
-              sys.exit("Cloudflare API token still contains whitespace; refusing to modify or use it")
           print(token)
           PY
           )"
