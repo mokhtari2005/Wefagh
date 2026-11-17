@@ -2013,6 +2013,7 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
 }
 .ai-role { color: var(--assistant-navy); font-weight: 850; }
 .ai-text { font-size: .98rem; line-height: 2.05; }
+.ai-msg-ai .ai-text { color: var(--teal-dark); }
 .ai-msg-actions { gap: .55rem; padding-top: .75rem; border-top: 1px solid #eee9df; }
 .ai-msg-actions .btn { min-height: 40px; border-radius: 10px; }
 .ai-review-details {
