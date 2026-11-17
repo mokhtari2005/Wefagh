@@ -13,7 +13,7 @@ const migration = (name) => readFileSync(join(here, '..', 'worker', 'migrations'
 
 function d1Like(db) {
   return { prepare(sql) {
-    const stmt = db.prepare(sql.replace(/\\?\\d+/g, '?'));
+    const stmt = db.prepare(sql.replace(/\?\d+/g, '?'));
     return {
       all: async (...args) => ({ results: stmt.all(...args) }),
       first: async (...args) => stmt.get(...args) ?? null,
