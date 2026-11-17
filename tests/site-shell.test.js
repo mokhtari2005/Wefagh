@@ -54,3 +54,12 @@ test('فایل‌های CSS و JS اصلی در HTML بارگذاری می‌ش�
   assert.match(html, /href="css\/styles\.css"/);
   assert.match(html, /src="js\/app\.js(?:\?[^"]*)?"/);
 });
+
+test('کارت ضبط صدا: ستون گرید به عرض کارت محدود است تا دکمهٔ میکروفن در موبایل وسط کارت بماند', () => {
+  const css = readFileSync(join(site, 'css', 'styles.css'), 'utf8');
+  const rule = css.match(/\.rec-card\s*\{([^}]*)\}/);
+  assert.ok(rule, 'قاعدهٔ .rec-card باید وجود داشته باشد');
+  assert.match(rule[1], /grid-template-columns:\s*minmax\(0,\s*1fr\)/, 'بدون minmax(0,1fr) پهنای ذاتی select ستون را از کارت پهن‌تر می‌کند');
+  assert.match(css, /\.rec-card\s*>\s*\*\s*\{[^}]*min-width:\s*0/, 'فرزندان کارت باید بتوانند کوچک شوند');
+  assert.match(css, /\.rec-card select\s*\{[^}]*max-width:\s*100%/, 'select نباید از کارت بیرون بزند');
+});

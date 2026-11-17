@@ -63,7 +63,7 @@ test('خطای ۴۰۳ Gemini علت را فقط با کد شمارشی لاگ م
     assert.equal(logs.length, 2);
     const entry = JSON.parse(logs[0]);
     assert.deepEqual(entry, { where: 'gemini', op: 'text', model: 'gemini-3.5-flash-lite', stage: 'http', httpStatus: 403, reason: 'PERMISSION_DENIED' });
-    assert.deepEqual(JSON.parse(logs[1]), { where: 'ai', error: 'AiError', code: 'AI_KEY_REJECTED', status: 503 });
+    assert.deepEqual(JSON.parse(logs[1]), { where: 'ai', stage: 'moot_turn', error: 'AiError', code: 'AI_KEY_REJECTED', status: 503 });
     for (const log of logs) for (const bad of [KEY, 'AIzaSy', secretText, CASE.facts[0], 'متن پرونده شما']) assert.ok(!log.includes(bad), `نباید در لاگ باشد: ${bad}`);
   });
 });

@@ -252,7 +252,9 @@ test('Gemini 499 (CANCELLED) is treated as a transient provider error', async ()
 test('خطای 5xx در هر دو مدل: مرحلهٔ ساده بدون schema و بدون حالت JSON پاسخ می‌گیرد', async () => {
   const original = globalThis.fetch;
   const bodies = [];
+  const urls = [];
   globalThis.fetch = async (url, init) => {
+    urls.push(String(url));
     bodies.push(JSON.parse(init.body));
     if (bodies.length < 3) return new Response(JSON.stringify({ error: { status: 'INTERNAL' } }), { status: 500 });
     return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'پاسخ ساده بدون JSON' }] } }] }), { status: 200 });
@@ -263,6 +265,7 @@ test('خطای 5xx در هر دو مدل: مرحلهٔ ساده بدون schema 
       json: true, schema: { type: 'OBJECT', properties: {} }, plainFallback: true,
     });
     assert.equal(bodies.length, 3);
+    assert.deepEqual(urls.map((u) => u.match(/models\/([^:]+):/)[1]), ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-3.8-flash']);
     assert.ok(bodies[0].generationConfig.responseSchema && bodies[1].generationConfig.responseSchema);
     assert.equal(bodies[2].generationConfig.responseSchema, undefined);
     assert.equal(bodies[2].generationConfig.responseMimeType, undefined);
@@ -292,5 +295,26 @@ test('مرحلهٔ ساده بدون plainFallback اجرا نمی‌شود و J
     assert.equal(r.data.text, 'سلام');
   } finally {
     globalThis.fetch = original;
+  }
+});
+
+test('خروجی JSON معتبر ولی غیرشیء (مثل null) به AI_EMPTY تبدیل می‌شود، نه استثنای عمومی', async () => {
+  const original = globalThis.fetch;
+  const originalError = console.error;
+  const logs = [];
+  console.error = (...a) => logs.push(a.join(' '));
+  try {
+    for (const raw of ['null', '42', '"متن"', '[1,2]']) {
+      globalThis.fetch = async () => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: raw }] } }] }), { status: 200 });
+      await assert.rejects(
+        generateText(env, { system: 'x', contents: [{ role: 'user', parts: [{ text: 'x' }] }], json: true, schema: { type: 'OBJECT' } }),
+        (e) => e.name === 'AiError' && e.code === 'AI_EMPTY',
+        raw,
+      );
+    }
+    assert.ok(logs.some((l) => l.includes('BAD_JSON_SHAPE')));
+  } finally {
+    globalThis.fetch = original;
+    console.error = originalError;
   }
 });

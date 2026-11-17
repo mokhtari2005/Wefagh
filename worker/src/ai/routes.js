@@ -232,7 +232,8 @@ async function moot(request, env, path) {
     }
     return null;
   } catch (err) {
-    return aiFailure(err);
+    // path فقط یکی از سه مسیر ثابت turn/assess/evaluate است؛ ورودی کاربر در لاگ نمی‌آید.
+    return aiFailure(err, `moot_${path.split('/').pop()}`);
   }
 }
 
@@ -252,7 +253,7 @@ async function speech(request, env) {
       headers: { 'Content-Type': mimeType, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' },
     });
   } catch (err) {
-    return aiFailure(err);
+    return aiFailure(err, 'speech');
   }
 }
 
@@ -271,7 +272,7 @@ async function transcribe(request, env) {
     const { text } = await transcribeAudio(env, { mimeType, base64 });
     return json({ ok: true, text });
   } catch (err) {
-    return aiFailure(err);
+    return aiFailure(err, 'transcribe');
   }
 }
 
