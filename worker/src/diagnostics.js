@@ -4,7 +4,7 @@ import { requireAdmin } from './admin.js';
 
 const CATEGORIES = new Set(['api', 'network', 'javascript', 'promise']);
 const COMPONENTS = new Set(['site', 'auth', 'academy', 'assistant', 'calculator', 'regional-map', 'voice-typing', 'calendar', 'cases', 'media', 'unknown']);
-const ROUTE_RE = /^\/[a-zA-Z0-9/_-]{0,100}$/;
+const ROUTE_RE = /^\/[a-zA-Z0-9/_.-]{0,100}$/;
 const CODE_RE = /^[A-Z0-9_:-]{1,48}$/;
 
 function cleanRoute(value) {
