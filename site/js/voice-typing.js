@@ -207,6 +207,24 @@ export function voiceTypingPage() {
     });
   });
 
+  function classifyVoiceError(error, stage = 'inference') {
+    const name = String(error?.name || '');
+    const message = String(error?.message || '').toLowerCase();
+    if (name === 'QuotaExceededError' || /quota|storage.*full|disk.*full/.test(message)) {
+      return 'فضای ذخیره‌سازی مرورگر کافی نیست. کمی فضا در دستگاه خالی کنید، داده‌های موقت Safari را پاک کنید و دوباره مدل را آماده کنید.';
+    }
+    if (/out of memory|memory allocation|memory access out of bounds|allocate.*memory|wasm.*memory/.test(message) || name === 'RangeError') {
+      return 'حافظهٔ موقت دستگاه برای اجرای مدل کافی نیست. برنامه‌های دیگر را ببندید و یک بار صفحه را دوباره باز کنید؛ در صورت تکرار، دستگاه ممکن است توان اجرای مدل محلی را نداشته باشد.';
+    }
+    if (stage === 'model' || (stage !== 'decode' && name === 'TypeError') || /fetch|network|failed to load|http.*(403|404|429|5\d\d)/.test(message)) {
+      return 'دریافت مدل گفتار کامل نشد. اینترنت پایدار را بررسی کنید، محدودیت VPN یا فیلترشکن را موقتاً تغییر دهید و از دکمه «آماده‌سازی مدل گفتار» دوباره تلاش کنید.';
+    }
+    if (stage === 'decode' || name === 'NotSupportedError' || name === 'EncodingError' || /decode|codec|format|audio data/.test(message)) {
+      return 'فایل ضبط‌شده در این مرورگر رمزگشایی نشد. Safari را به‌روز کنید و یک بار دیگر با ضبط کوتاه‌تر امتحان کنید.';
+    }
+    return 'پردازش گفتار با خطا متوقف شد. صفحه را دوباره باز کنید و مدل را آماده‌سازی کنید؛ اگر خطا تکرار شد، دوباره تلاش کنید یا از دیکتهٔ صفحه‌کلید گوشی استفاده کنید.';
+  }
+
   async function loadTranscriber() {
     if (transcriber) return transcriber;
     if (transcriberPromise) return transcriberPromise;
@@ -237,7 +255,9 @@ export function voiceTypingPage() {
       transcriberPromise = null;
       prepare.disabled = false;
       prepare.textContent = 'تلاش دوباره برای آماده‌سازی';
-      setStatus('بارگذاری مدل انجام نشد. اتصال اینترنت را بررسی کنید و دوباره تلاش کنید.', 'error');
+      console.error('[voice-typing] model load failed', error);
+      const detail = classifyVoiceError(error, 'model');
+      setStatus(detail, 'error');
       throw error;
     });
     return transcriberPromise;
@@ -277,8 +297,10 @@ export function voiceTypingPage() {
       setStatus('صدایی برای تبدیل ثبت نشد. دوباره ضبط کنید.', 'error');
       return;
     }
+    let stage = 'model';
     try {
       const pipe = await loadTranscriber();
+      stage = 'decode';
       setStatus('در حال آماده‌سازی فایل صوتی روی دستگاه…', 'starting');
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) throw new Error('AUDIO_CONTEXT_UNAVAILABLE');
@@ -292,6 +314,7 @@ export function voiceTypingPage() {
       const samples = resampleAudio(audioBuffer, 16000);
       if (!samples.length) throw new Error('EMPTY_AUDIO');
       const languageName = { 'fa-IR': 'persian', 'en-US': 'english', 'ar-SA': 'arabic' }[language.value] || 'persian';
+      stage = 'inference';
       setStatus('مدل روی همین دستگاه در حال تبدیل گفتار به متن است…', 'processing');
       const result = await pipe(samples, {
         task: 'transcribe',
@@ -309,11 +332,10 @@ export function voiceTypingPage() {
       setStatus('تبدیل انجام شد؛ متن به ویرایشگر اضافه شد. لطفاً آن را بازبینی کنید.');
       editor.focus();
     } catch (error) {
+      console.error('[voice-typing] transcription failed at ' + stage, error);
       const message = error?.message === 'AUDIO_CONTEXT_UNAVAILABLE'
-        ? 'مرورگر امکان پردازش فایل صوتی را ندارد.'
-        : error?.name === 'NotSupportedError'
-          ? 'قالب صدای ضبط‌شده در این مرورگر قابل پردازش نیست.'
-          : 'تبدیل گفتار انجام نشد. فضای خالی دستگاه و اتصال اینترنت برای دریافت مدل را بررسی کنید.';
+        ? 'این مرورگر ابزار لازم برای پردازش فایل صوتی را ندارد. Safari را به‌روز کنید.'
+        : classifyVoiceError(error, stage);
       setStatus(message, 'error');
     }
   }
@@ -378,7 +400,9 @@ export function voiceTypingPage() {
           setStatus('ضبط صدا با خطا متوقف شد؛ دوباره تلاش کنید.', 'error');
         }, { once: true });
         recorder.addEventListener('stop', finishRecording, { once: true });
-        recorder.start(1000);
+        // در Safari/iOS قطعه‌های زمانی MP4 ممکن است به‌درستی به هم متصل و رمزگشایی نشوند؛
+        // ضبط را بدون timeslice آغاز می‌کنیم تا مرورگر یک فایل نهایی سالم تحویل دهد.
+        recorder.start();
         recording = true;
         recordingTimeout = window.setTimeout(() => {
           if (recording) {
@@ -468,7 +492,10 @@ export function voiceTypingPage() {
     editor.focus();
   });
   window.addEventListener('beforeunload', () => {
-    if (recording) { try { recognition?.stop(); } catch { /* ignore */ } }
+    if (recording) {
+      try { recorder?.stop(); } catch { /* ignore */ }
+      mediaStream?.getTracks().forEach((track) => track.stop());
+    }
   }, { once: true });
 
   return root;
