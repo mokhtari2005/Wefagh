@@ -5,7 +5,7 @@ import { sendMail } from '../worker/src/email/resend.js';
 import { logError } from '../worker/src/auth/routes.js';
 
 const KEY = 're_secret_never_log';
-const env = { RESEND_API_KEY: KEY };
+const env = { RESEND_API_KEY: KEY, RESEND_FROM: 'Vefagh Law Society <noreply@mokhtari.ir>' };
 const call = (fetchImpl, e = env) => sendMail({
   env: e, to: 'user@example.com', subject: 'تأیید حساب وِفاق', text: 'لینک تأیید', fetchImpl,
 });
