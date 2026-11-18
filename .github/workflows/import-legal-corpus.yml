@@ -15,9 +15,17 @@ on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: Type IMPORT_TO_D1 to import parsed public corpus documents as needs_review
+        description: Type IMPORT_TO_D1 to import selected public corpus documents as needs_review
         required: true
         type: string
+      phase:
+        description: laws first; regulations only after the laws phase
+        required: true
+        default: laws
+        type: choice
+        options:
+          - laws
+          - regulations
 
 permissions:
   contents: read
@@ -101,6 +109,7 @@ jobs:
         run: wrangler deploy --config wrangler.toml
       - name: Import corpus into D1
         env:
+          LEGAL_IMPORT_PHASE: ${{ inputs.phase || 'laws' }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           GITHUB_TOKEN: ${{ github.token }}
         run: python scripts/import_ekhtebar_corpus.py
