@@ -70,8 +70,8 @@ export default {
     const path = url.pathname.replace(/\/+$/, '') || '/';
 
     if (path.startsWith('/api/map/tiles/')) return handleMapTiles(request);
-    if (path.startsWith('/api/diagnostics/repair')) return handleDiagnosticRepair(request, env, path);
-    if (path.startsWith('/api/diagnostics/')) return handleDiagnostics(request, env, path);
+    if (path.startsWith('/api/admin/diagnostics/repair')) return handleDiagnosticRepair(request, env, path);
+    if (path.startsWith('/api/admin/diagnostics/') || path.startsWith('/api/diagnostics/')) return handleDiagnostics(request, env, path);
 
     if (path === '/api/health') {
       if (request.method !== 'GET' && request.method !== 'HEAD') {
