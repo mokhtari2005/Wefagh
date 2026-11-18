@@ -39,8 +39,8 @@ export async function handleDiagnostics(request, env, path) {
       await env.DB.prepare(`INSERT INTO diagnostic_events (fingerprint, category, component, route, error_code, http_status)
         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
         ON CONFLICT(fingerprint) DO UPDATE SET
-          occurrences = MIN(diagnostic_events.occurrences + 1, 1000000),
-          last_seen = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+          occurrences = CASE WHEN julianday(diagnostic_events.last_seen) <= julianday('now', '-30 seconds') THEN MIN(diagnostic_events.occurrences + 1, 1000000) ELSE diagnostic_events.occurrences END,
+          last_seen = CASE WHEN julianday(diagnostic_events.last_seen) <= julianday('now', '-30 seconds') THEN strftime('%Y-%m-%dT%H:%M:%fZ', 'now') ELSE diagnostic_events.last_seen END,
           status = CASE WHEN diagnostic_events.status = 'resolved' THEN 'open' ELSE diagnostic_events.status END,
           resolved_at = NULL`)
         .bind(key, category, component, route, errorCode, httpStatus).run();
