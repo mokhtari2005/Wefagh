@@ -19,7 +19,7 @@ test('ارسال موفق: درخواست استاندارد Resend و فرست�
   assert.equal(request.url, 'https://api.resend.com/emails');
   assert.equal(request.options.headers.Authorization, `Bearer ${KEY}`);
   const body = JSON.parse(request.options.body);
-  assert.equal(body.from, 'Mokhtari Law Academy <noreply@mokhtari.ir>');
+  assert.equal(body.from, 'Vefagh Law Society <noreply@mokhtari.ir>');
   assert.deepEqual(body.to, ['user@example.com']);
   assert.equal(body.subject, 'تأیید حساب وِفاق');
 });
