@@ -18,7 +18,7 @@ test('Every Ekhtabar question exposes a detailed answer action with legal source
   assert.match(page, /دریافت پاسخ تشریحی و مستند/);
   assert.match(page, /\/api\/ai\/ekhtebar\/answer/);
   assert.match(page, /مواد بازیابی‌شده از بانک قوانین آکادمی/);
-  assert.match(page, /مثبت/);
+  assert.match(page, /پاسخ آموزشی آماده شد/);
   assert.match(css, /\.ekhtebar-answer-content/);
   assert.match(css, /@media\(max-width:560px\)/);
 });
