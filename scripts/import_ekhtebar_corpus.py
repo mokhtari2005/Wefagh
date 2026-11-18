@@ -15,6 +15,18 @@ DB_ID = "a02aeb28-b6e7-4423-9671-1ce3f9e3038b"
 D1 = f"https://api.cloudflare.com/client/v4/accounts/{ACCOUNT}/d1/database/{DB_ID}/query"
 GH = {"Accept":"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28"}
 if os.getenv("GITHUB_TOKEN"): GH["Authorization"] = f"Bearer {os.environ['GITHUB_TOKEN']}"
+IMPORT_PHASE = os.getenv("LEGAL_IMPORT_PHASE", "laws").strip().lower()
+PHASE_TYPES = {
+    "laws": {"law"},
+    "regulations": {"bylaw", "executive_regulation", "executive_circular"},
+    "all": {"law", "bylaw", "executive_regulation", "executive_circular", "judicial_circular",
+            "supreme_court_unified_precedent", "supreme_court_insistence_precedent",
+            "administrative_court_unified_precedent", "administrative_court_general_board",
+            "administrative_court_specialized_board", "judicial_advisory_opinion",
+            "advisory_opinion", "treaty", "guardian_council_opinion", "parliamentary_research", "other"},
+}
+if IMPORT_PHASE not in PHASE_TYPES:
+    raise SystemExit("LEGAL_IMPORT_PHASE must be one of: laws, regulations, all")
 DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩","01234567890123456789")
 ARTICLE = re.compile(r"^\s*(?:#{1,6}\s*)?(ماده|اصل)\s*[\(（]?\s*([0-9۰-۹٠-٩]+(?:\s*(?:مکرر|الحاقی))?|[آ-ی‌]+(?:\s+و\s+[آ-ی‌]+)?)(?=\s*(?:[ـ\-–—:：]|$))\s*[\)）]?\s*(?:[ـ\-–—:：]\s*)?(.*)$")
 SINGLE = re.compile(r"^\s*(?:#{1,6}\s*)?ماده[\s‌ـ\-]*واحده\s*(?:[ـ\-–—:：]\s*)?(.*)$")
@@ -203,8 +215,11 @@ def main():
                 if d: docs.append(d)
                 else: skipped+=1; errors.append({"file":p,"reason":reason})
             except Exception as e: skipped+=1; errors.append({"file":p,"reason":str(e)[:250]})
+    parsed_count = len(docs)
+    phase_skipped = [d for d in docs if d["lawType"] not in PHASE_TYPES[IMPORT_PHASE]]
+    docs = [d for d in docs if d["lawType"] in PHASE_TYPES[IMPORT_PHASE]]
     docs.sort(key=lambda x:x["slug"])
-    print(f"Parsed {len(docs)} documents; skipped {skipped}.")
+    print(f"Phase: {IMPORT_PHASE}; parsed {parsed_count}; selected {len(docs)}; excluded by phase {len(phase_skipped)}; parse-skipped {skipped}.")
     batch=[]; size=0; done=0
     for d in docs:
         for statement, params in sql_for(d):
@@ -223,7 +238,7 @@ def main():
         print("WARNING: database audit failed: "+str(e)[:500])
     from collections import Counter
     skip_reason_counts=dict(Counter(x["reason"] for x in errors))
-    report={"source":"https://github.com/SaeedAqamiri/laws-mcp","index_source":"https://www.ekhtebar.ir/قوانین/","files_found":len(files),"documents_parsed":len(docs),"documents_submitted":done,"documents_skipped":skipped,"skip_reason_counts":skip_reason_counts,"database_audit":database_audit,"status":"needs_review","skip_sample":errors[:200]}
+    report={"source":"https://github.com/SaeedAqamiri/laws-mcp","index_source":"https://www.ekhtebar.ir/قوانین/","files_found":len(files),"phase":IMPORT_PHASE,"documents_parsed":parsed_count,"documents_selected":len(docs),"documents_excluded_by_phase":len(phase_skipped),"documents_submitted":done,"documents_skipped":skipped,"skip_reason_counts":skip_reason_counts,"database_audit":database_audit,"status":"needs_review","selected_types":sorted(PHASE_TYPES[IMPORT_PHASE]),"phase_excluded_sample":[{"slug":d["slug"],"title":d["title"],"type":d["lawType"]} for d in phase_skipped[:100]],"skip_sample":errors[:200]}
     with open("artifacts/legal-bank-import-report.json","w",encoding="utf-8") as f: json.dump(report,f,ensure_ascii=False,indent=2)
     print(json.dumps({k:v for k,v in report.items() if k!="skip_sample"},ensure_ascii=False))
 
