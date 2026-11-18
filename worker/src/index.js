@@ -96,7 +96,11 @@ export default {
       return handleContact(request, env);
     }
 
-    if (path === '/api/me/avatar' && request.method === 'GET') {\n      if (!env.DB) return json({ ok: false, error: 'DB_NOT_CONFIGURED' }, 503);\n      try { return await getAvatar(request, env); }\n      catch (err) { console.error(JSON.stringify({ where: 'route:/api/me/avatar:get', error: err?.name || 'Error' })); return json({ ok: false, error: 'INTERNAL_ERROR' }, 500); }\n    }\n\n    if (path === '/api/me/avatar' && request.method === 'DELETE') {
+    if (path === '/api/me/avatar' && request.method === 'GET') {
+      if (!env.DB) return json({ ok: false, error: 'DB_NOT_CONFIGURED' }, 503);
+      try { return await getAvatar(request, env); }
+      catch (err) { console.error(JSON.stringify({ where: 'route:/api/me/avatar:get', error: err?.name || 'Error' })); return json({ ok: false, error: 'INTERNAL_ERROR' }, 500); }
+    }\n\n    if (path === '/api/me/avatar' && request.method === 'DELETE') {
       if (!env.DB) return json({ ok: false, error: 'DB_NOT_CONFIGURED' }, 503);
       try { return await deleteAvatar(request, env); }
       catch (err) { console.error(JSON.stringify({ where: 'route:/api/me/avatar', error: err?.name || 'Error' })); return json({ ok: false, error: 'INTERNAL_ERROR' }, 500); }
