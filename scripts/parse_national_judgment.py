@@ -52,8 +52,27 @@ def normalize(value: str) -> str:
 
 
 def field(text: str, labels: str) -> str | None:
+    """Read a labelled value on the same or immediately following visible line."""
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    label_re = re.compile(rf"^(?:{labels})\s*[:：]?\s*(.*)$", re.I)
+    for index, line in enumerate(lines):
+        match = label_re.search(line)
+        if not match:
+            continue
+        value = match.group(1).strip(" :：*")
+        if value:
+            return value
+        if index + 1 < len(lines):
+            candidate = lines[index + 1].strip(" :：*")
+            # Do not mistake the next labelled metadata field for this value.
+            if candidate and not re.match(r"^(?:عنوان|پیام|شماره|تاریخ|گروه|پرونده)\b", candidate):
+                return candidate
+    # Some pages embed labels in a longer paragraph (e.g. "پرونده ... شماره ...").
     match = re.search(rf"(?:{labels})\s*[:：]?\s*([^\n]+)", text, re.I)
-    return match.group(1).strip(" :：") if match else None
+    if match:
+        value = match.group(1).strip(" :：*")
+        return value or None
+    return None
 
 
 def classify(title: str, group: str | None) -> str:
@@ -73,55 +92,68 @@ def classify(title: str, group: str | None) -> str:
 
 def parse_judgment(html: str, source_url: str) -> dict:
     parsed_url = urlparse(source_url)
-    match = re.search(r"/Judge/Text/(\d+)", parsed_url.path, re.I)
-    if parsed_url.netloc.lower() not in {"ara.jri.ac.ir", "www.ara.jri.ac.ir"} or not match:
+    match = re.fullmatch(r"/Judge/Text/(\d+)/?", parsed_url.path, re.I)
+    if parsed_url.scheme != "https" or parsed_url.netloc.lower() not in {"ara.jri.ac.ir", "www.ara.jri.ac.ir"} or not match:
         raise ValueError("source_url must be a canonical ara.jri.ac.ir/Judge/Text/<id> URL")
 
     parser = VisibleText()
     parser.feed(html)
     text = normalize("".join(parser.parts))
-    title = field(text, r"عنوان")
-    summary = field(text, r"پیام")
-    number = field(text, r"شماره\s+دادنامه\s+قطعی")
-    date = field(text, r"تاریخ\s+دادنامه\s+قطعی")
-    if not title or not number or not date:
-        raise ValueError("required judgment metadata (title, judgment number, date) not found")
 
-    # The live portal currently labels the body with headings such as «رأی دادگاه بدوی»;
-    # older saved pages may use «رأی خلاصه جریان پرونده».
-    start = re.search(r"(?:رأی|رای)\s+(?:خلاصه\s+جریان\s+پرونده|دادگاه\s+(?:بدوی|تجدیدنظر)|شعبه(?:\s+[^\n]+)?|هیئت\s+عمومی)", text)
+    title = field(text, r"عنوان")
+    if not title:
+        # Current public pages can expose only a heading such as «رأی دادگاه بدوی».
+        headings = [line for line in text.splitlines() if re.match(r"^(?:رأی|رای)\s+", line)]
+        title = headings[0] if headings else None
+    if not title:
+        raise ValueError("judgment title or heading not found")
+
+    summary = field(text, r"پیام")
+    number = field(text, r"شماره\s+دادنامه\s+قطعی|شماره\s+دادنامه|شماره\s+نهایی")
+    date = field(text, r"تاریخ\s+دادنامه\s+قطعی|تاریخ\s+دادنامه")
+    group = field(text, r"گروه\s+رأی|گروه\s+رای")
+
+    start = re.search(
+        r"(?:رأی|رای)\s+(?:خلاصه\s+جریان\s+پرونده|دادگاه\s+(?:بدوی|تجدیدنظر)|شعبه(?:\s+[^\n]+)?|هیئت\s+عمومی)",
+        text,
+    )
     if not start:
         start = re.search(r"(?:متن\s+رأی|متن\s+رای)", text)
-    end = re.search(r"نقد رأی|نقد رای|آراء منتخب پرونده|تماس با ما|کلیه حقوق برای پژوهشگاه", text[start.end():] if start else "")
     if not start:
         raise ValueError("judgment text section not found")
+
     body_start = start.end()
-    body_end = body_start + end.start() if end else len(text)
-    full_text = text[body_start:body_end].strip()
+    # On current pages, case metadata and parties precede the actual «رأی دادگاه» paragraph.
+    decision_marker = re.search(r"(?:رأی|رای)\s+دادگاه\b", text[body_start:], re.I)
+    if decision_marker:
+        body_start += decision_marker.end()
+    remainder = text[body_start:]
+    end = re.search(r"نقد رأی|نقد رای|آراء منتخب پرونده|تماس با ما|کلیه حقوق برای پژوهشگاه", remainder)
+    full_text = remainder[:end.start() if end else len(remainder)].strip()
     if len(full_text) < 100:
         raise ValueError("judgment text is unexpectedly short")
 
     source_id = match.group(1)
-    group = field(text, r"گروه رأی|گروه رای")
     metadata = {
         "source": "سامانه ملی آرای قضایی پژوهشگاه قوه قضائیه",
         "source_id": source_id,
-        "judgment_number": number.translate(PERSIAN_DIGITS),
-        "judgment_date": date.translate(PERSIAN_DIGITS),
+        "judgment_number": number.translate(PERSIAN_DIGITS) if number else None,
+        "judgment_date": date.translate(PERSIAN_DIGITS) if date else None,
         "summary": summary,
         "group": group,
         "classification_is_provisional": True,
+        "missing_metadata": [name for name, value in (("judgment_number", number), ("judgment_date", date)) if not value],
     }
     return {
         "slug": f"ara-jri-{source_id}",
-        "title": title,
+        "title": title[:240],
         "lawType": classify(title, group),
         "issuingAuthority": "مرجع مندرج در متن رأی؛ نیازمند تطبیق",
         "approvedDate": metadata["judgment_date"],
         "sourceName": metadata["source"],
         "sourceUrl": source_url,
         "notes": json.dumps(metadata, ensure_ascii=False),
-        "articles": [{"number": "متن کامل", "heading": title, "body": full_text}],
+        "articles": [{"number": "متن کامل", "heading": title[:240], "body": full_text}],
         "status": "needs_review",
         "metadata": metadata,
     }
