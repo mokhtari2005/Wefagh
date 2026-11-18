@@ -174,6 +174,40 @@ export async function adminPage() {
   const diagnosticsNotice = el('p', { class: 'form-status', role: 'status' });
   const diagnosticsList = el('div', { class: 'admin-content-list' });
   const diagnosticsRefresh = el('button', { class: 'btn secondary', type: 'button', text: 'به‌روزرسانی گزارش خطاها' });
+  const diagnosticsSelfTest = el('button', { class: 'btn', type: 'button', text: 'اجرای آزمون سلامت سیستم' });
+  const diagnosticsTestResults = el('div', { class: 'admin-content-list', 'aria-live': 'polite' });
+  diagnosticsSelfTest.addEventListener('click', async () => {
+    diagnosticsSelfTest.disabled = true;
+    diagnosticsSelfTest.textContent = 'در حال اجرای آزمون‌ها…';
+    diagnosticsTestResults.replaceChildren();
+    diagnosticsNotice.className = 'form-status';
+    diagnosticsNotice.textContent = 'در حال بررسی اعتبارسنجی، D1، Gemini و دسترسی خواندن GitHub…';
+    try {
+      const result = await postJson('/api/admin/diagnostics/self-test', {});
+      if (!result.ok) {
+        diagnosticsNotice.className = 'form-status err';
+        diagnosticsNotice.textContent = errorText(result.data, result.status);
+        return;
+      }
+      for (const check of result.data.checks || []) {
+        diagnosticsTestResults.append(el('article', { class: 'admin-content-row card' }, [
+          el('div', {}, [
+            el('span', { class: `badge${check.ok ? ' success' : ' danger'}`, text: check.ok ? 'موفق' : 'ناموفق' }),
+            el('h3', { text: check.label }),
+            el('p', { class: 'muted', text: check.detail }),
+          ]),
+        ]));
+      }
+      diagnosticsNotice.className = `form-status${result.data.ok ? ' ok' : ' err'}`;
+      diagnosticsNotice.textContent = `نتیجهٔ آزمون: ${result.data.passed} از ${result.data.total} مرحله موفق بود. ${result.data.note}`;
+    } catch {
+      diagnosticsNotice.className = 'form-status err';
+      diagnosticsNotice.textContent = 'ارتباط با سرویس آزمون برقرار نشد؛ دوباره تلاش کنید.';
+    } finally {
+      diagnosticsSelfTest.disabled = false;
+      diagnosticsSelfTest.textContent = 'اجرای دوبارهٔ آزمون سلامت';
+    }
+  });
   async function refreshDiagnostics() {
     diagnosticsRefresh.disabled = true;
     diagnosticsNotice.className = 'form-status';
@@ -257,7 +291,7 @@ export async function adminPage() {
   const diagnosticsPanel = el('section', { class: 'card admin-import' }, [
     el('h2', { text: 'مرکز سلامت و عیب‌یابی خودکار' }),
     el('p', { class: 'muted', text: 'خطاهای JavaScript، وعده‌های ردشده، قطع شبکه، پاسخ‌های ۴۲۹ و خطاهای ۵xx به‌صورت ناشناس ثبت می‌شوند. این مرکز علت و الگوی خطا را نشان می‌دهد؛ اصلاح کد نیازمند آزمون و انتشار کنترل‌شده است.' }),
-    diagnosticsRefresh, diagnosticsNotice, diagnosticsList,
+    diagnosticsRefresh, diagnosticsSelfTest, diagnosticsNotice, diagnosticsTestResults, diagnosticsList,
   ]);
   servicesView.append(diagnosticsPanel);
   diagnosticsRefresh.addEventListener('click', refreshDiagnostics);
