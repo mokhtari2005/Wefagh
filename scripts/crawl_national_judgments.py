@@ -68,7 +68,9 @@ def same_origin_url(value: str) -> str | None:
 
 def robots_policy(session: requests.Session) -> RobotFileParser:
     url = urljoin(BASE, "robots.txt")
-    response = session.get(url, timeout=30)
+    response = session.get(url, timeout=30, allow_redirects=False)
+    if 300 <= response.status_code < 400:
+        raise PermissionError("robots.txt redirect requires manual source validation")
     if response.status_code == 404:
         parser = RobotFileParser()
         parser.set_url(url)
@@ -85,9 +87,14 @@ def fetch(session: requests.Session, robots: RobotFileParser, url: str, delay: f
     if not robots.can_fetch(USER_AGENT, url):
         raise PermissionError(f"robots.txt disallows {url}")
     time.sleep(delay)
-    response = session.get(url, timeout=45, allow_redirects=True)
-    if response.url and urlparse(response.url).netloc.lower() not in {HOST, "www." + HOST}:
-        raise RuntimeError("Cross-origin redirect refused")
+    response = session.get(url, timeout=45, allow_redirects=False)
+    if 300 <= response.status_code < 400:
+        target = same_origin_url(response.headers.get("Location", ""))
+        if not target:
+            raise PermissionError("Cross-origin or invalid redirect refused")
+        response = session.get(target, timeout=45, allow_redirects=False)
+        if 300 <= response.status_code < 400:
+            raise PermissionError("Redirect chain refused; manual source validation required")
     if response.status_code in (401, 403, 429):
         raise PermissionError(f"Source refused access (HTTP {response.status_code}); stopping without retry")
     response.raise_for_status()
