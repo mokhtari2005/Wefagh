@@ -21,7 +21,7 @@ jobs:
       - name: Verify legal importer syntax and focused tests
         run: |
           python -m py_compile scripts/import_ekhtebar_corpus.py
-          python -m unittest tests.test_legal_corpus_importer
+          python -m unittest discover -s tests -p 'test_legal_corpus_importer.py'
           node --test tests/legal-source-registry.test.js
   full-suite:
     runs-on: ubuntu-latest
