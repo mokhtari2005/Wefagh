@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generateTextWithFallback } from '../worker/src/ai/fallback.js';
+import { generateTextWithFallback, stripGroqFormatting } from '../worker/src/ai/fallback.js';
 
 const env = {
   GEMINI_API_KEY: 'test-gemini-key-123456',
@@ -61,15 +61,20 @@ test('parses JSON output from Groq for structured assistant responses', async ()
     calls++;
     if (calls <= 2) return new Response(JSON.stringify({ error: { status: 'INTERNAL' } }), { status: 503 });
     return new Response(JSON.stringify({
-      choices: [{ message: { content: '{"status":"ready","questions":[],"notes":[],"text":"پاسخ حقوقی"}' } }],
+      choices: [{ message: { content: '{"status":"ready","questions":[],"notes":[],"text":"**پاسخ حقوقی**\\n\\n## مبنای قانونی\\n- ماده ۱۰ قانون مدنی"}' } }],
     }), { status: 200, headers: { 'content-type': 'application/json' } });
   };
   try {
     const result = await generateTextWithFallback(env, { ...input, json: true });
     assert.equal(result.provider, 'groq');
-    assert.equal(result.data.text, 'پاسخ حقوقی');
+    assert.equal(result.data.text, 'پاسخ حقوقی\\n\\nمبنای قانونی\\nماده ۱۰ قانون مدنی');
     assert.equal(result.data.status, 'ready');
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test('removes Markdown stars, headings and list markers from Groq text while preserving numbering and legal punctuation', () => {
+  const raw = '**شکایت کیفری**\\n\\n## مبنای قانونی\\n- ماده ۲۲۲ قانون مجازات اسلامی؛\\n1. شرط نخست\\n* شرط دوم';
+  assert.equal(stripGroqFormatting(raw), 'شکایت کیفری\\n\\nمبنای قانونی\\nماده ۲۲۲ قانون مجازات اسلامی؛\\n1. شرط نخست\\nشرط دوم');
 });
