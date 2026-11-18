@@ -2328,3 +2328,27 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
   .profile-choice-grid { grid-template-columns: minmax(0, 1fr); gap: .45rem; }
   .profile-choice-chip { min-height: 46px; padding: .65rem .75rem; font-size: .9rem; }
 }
+
+
+/* مرکز اعلان‌های تقویم */
+.notification-center { margin-block: 1rem; }
+.notification-center h2 { margin-top: 0; }
+.notification-center .check-row {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  margin-block: .8rem;
+  font-weight: 700;
+}
+.notification-center .check-row input { width: 18px; height: 18px; }
+.notification-item {
+  display: grid;
+  gap: .35rem;
+  margin-block: .55rem;
+  padding: .8rem .9rem;
+  border: 1px solid var(--sand-line, #e6e0d4);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+}
+.notification-item p { margin: 0; overflow-wrap: anywhere; }
+.notification-item small { color: var(--muted, #687477); }
