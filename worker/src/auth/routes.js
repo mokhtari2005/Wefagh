@@ -161,6 +161,42 @@ export async function register(request, env) {
  * (بدون مقادیر حساس)، تا پاسخ عمومی ثبت‌نام یا ارسال مجدد تغییر نکند.
  * @returns {Promise<boolean>} true اگر ایمیل با موفقیت به سرویس ارسال داده شد.
  */
+const POSITION_LABELS = Object.freeze({
+  lawyer: 'وکیل دادگستری',
+  trainee: 'کارآموز وکالت',
+  law_student: 'دانشجوی حقوق',
+  law_graduate: 'فارغ‌التحصیل حقوق',
+  professor: 'استاد دانشگاه',
+  researcher: 'پژوهشگر حقوق',
+  other: 'فعال حوزه حقوق',
+});
+
+export function buildVerificationEmailText({ displayName, gender, position, link }) {
+  const name = cleanText(displayName) || 'عضو گرامی';
+  const honorific = gender === 'male' ? 'جناب آقای' : gender === 'female' ? 'سرکار خانم' : '';
+  const positionLabel = POSITION_LABELS[position] || cleanText(position);
+  const salutation = [honorific, name].filter(Boolean).join(' ');
+  const professionalLine = positionLabel ? `${positionLabel} محترم` : 'عضو ارجمند آکادمی';
+  return [
+    'با سلام و احترام،',
+    '',
+    `${salutation}، ${professionalLine}`,
+    '',
+    'از ثبت‌نام شما در آکادمی وکالت شهرام مختاری سپاسگزاریم.',
+    'برای تأیید نشانی ایمیل و تکمیل مرحله نخست ثبت‌نام، لطفاً روی پیوند زیر کلیک کنید:',
+    link,
+    '',
+    'پس از تأیید ایمیل، درخواست عضویت شما برای بررسی مدیر آکادمی ارسال می‌شود. خواهشمندیم تا اعلام نتیجه و تأیید نهایی عضویت از سوی مدیر آکادمی شکیبا باشید.',
+    'توجه داشته باشید تأیید ایمیل به‌تنهایی به معنای تأیید نهایی عضویت نیست.',
+    '',
+    'با احترام،',
+    'آکادمی وکالت شهرام مختاری',
+    '',
+    'اگر شما درخواست ثبت‌نام نداده‌اید، این پیام را نادیده بگیرید.',
+    'پیوند تأیید تا ۳۰ دقیقه معتبر است.',
+  ].join('\n');
+}
+
 async function issueVerificationEmail(env, userId, email) {
   const token = generateToken();
   const now = new Date();
@@ -171,10 +207,18 @@ async function issueVerificationEmail(env, userId, email) {
 
   const link = `${publicBaseUrl(env)}/#/verify?token=${token}`;
   try {
+    const identity = await env.DB.prepare(
+      'SELECT display_name, gender, position FROM users WHERE id = ?1'
+    ).bind(userId).first();
     await mailer(env)({
       to: email,
-      subject: 'تأیید حساب آکادمی وکالت شهرام مختاری',
-      text: `برای تأیید حساب خود روی لینک زیر کلیک کنید (تا ۳۰ دقیقه معتبر است):\n${link}\n\nاگر شما درخواست نکرده‌اید، این پیام را نادیده بگیرید.`,
+      subject: 'تأیید ایمیل و تکمیل درخواست عضویت | آکادمی وکالت شهرام مختاری',
+      text: buildVerificationEmailText({
+        displayName: identity?.display_name,
+        gender: identity?.gender,
+        position: identity?.position,
+        link,
+      }),
     });
     return true;
   } catch (err) {
