@@ -737,6 +737,7 @@ export async function adminPage() {
     if (!result.ok) { notice.className = 'form-status err'; notice.textContent = errorText(result.data, result.status); form.hidden = true; list.replaceChildren(); return; }
     form.hidden = false; notice.textContent = `${result.data.items.length} محتوا دریافت شد.`; notice.className = 'form-status'; currentItems = result.data.items; list.replaceChildren();
     if (!currentItems.length) list.append(el('p', { class: 'muted', text: 'هنوز محتوایی ثبت نشده است.' }));
+    updateDashboard();
     for (const item of currentItems) {
       const statusText = item.status === 'published' ? 'منتشرشده' : (item.payload?.review_status || 'پیش‌نویس');
       const row = el('article', { class: 'admin-content-row card' }, [
@@ -992,6 +993,7 @@ export async function adminPage() {
     const result = await getJson('/api/admin/media');
     if (!result.ok) { mediaNotice.className = 'form-status err'; mediaNotice.textContent = errorText(result.data, result.status); mediaForm.hidden = true; mediaList.replaceChildren(); return; }
     mediaForm.hidden = false; mediaNotice.className = 'form-status'; mediaNotice.textContent = `${result.data.items.length} رسانه دریافت شد.`; mediaList.replaceChildren();
+    updateDashboard();
     if (!result.data.items.length) mediaList.append(el('p', { class: 'muted', text: 'رسانهٔ مدیریتی ثبت نشده است.' }));
     for (const item of result.data.items) {
       const row = el('article', { class: 'admin-content-row card' }, [el('div', {}, [el('span', { class: 'badge', text: `${item.kind === 'article' ? 'مقاله' : 'پادکست'} · ${item.status === 'published' ? 'منتشرشده' : 'پیش‌نویس'}` }), el('h3', { text: item.title }), el('p', { class: 'muted', text: `${item.slug} — ${item.summary}` })])]);
@@ -1023,10 +1025,13 @@ export async function adminPage() {
     if (result.ok) { mediaForm.reset(); mediaStatus.value = 'draft'; mAuthor.querySelector('input').value = 'تحریریهٔ آکادمی وکالت شهرام مختاری'; mDate.querySelector('input').value = new Date().toISOString().slice(0, 10); await refreshMedia(); }
   });
   showMediaFields();
-  await refreshMedia();
   showKindFields();
-  await refresh();
-  await refreshImportStatus();
+
+  // پنل را منتظر پاسخ‌های مستقل API نمی‌گذاریم؛ هر سه منبع هم‌زمان دریافت می‌شوند.
+  mediaNotice.textContent = 'در حال دریافت رسانه‌ها…';
+  notice.textContent = 'در حال دریافت محتوا…';
+  importStatus.textContent = 'در حال دریافت آمار بانک پرونده‌ها…';
+  void Promise.all([refreshMedia(), refresh(), refreshImportStatus()]);
 
   const dashboardCards = el('div', { class: 'admin-dashboard-grid' });
   const dashboardActivity = el('div', { class: 'admin-dashboard-activity' });
