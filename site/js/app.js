@@ -298,7 +298,7 @@ const ROUTES = {
 function mobileQuickAccess(path) {
   if (path === '/' || path === '/moot-court/hearing') return null;
   const calculatorLinks = [
-    { icon: 'map-pin', title: 'ارزش منطقه‌ای', href: '#/calculators/regional' },
+    { icon: 'landmark', title: 'ارزش منطقه‌ای', href: '#/calculators/regional' },
     { icon: 'landmark', title: 'هزینه دادرسی', href: '#/calculators/court' },
     { icon: 'briefcase', title: 'حق‌الوکاله', href: '#/calculators/attorney' },
     { icon: 'calculator', title: 'تأخیر تأدیه', href: '#/calculators/delay' },
