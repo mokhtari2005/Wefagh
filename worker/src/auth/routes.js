@@ -22,6 +22,16 @@ function logOutcome(where, outcome) {
   console.info(JSON.stringify({ where, outcome }));
 }
 
+async function membershipApproved(db, userId) {
+  try {
+    const row = await db.prepare('SELECT membership_status FROM users WHERE id = ?1').bind(userId).first();
+    return !row?.membership_status || row.membership_status === 'approved';
+  } catch (err) {
+    if (String(err?.message || '').includes('no such column')) return true;
+    throw err;
+  }
+}
+
 export const LOCK_THRESHOLD = 5;
 export const LOCK_MINUTES = 15;
 const GENERIC_REGISTER_MSG = 'اگر این نشانی معتبر باشد، ایمیل تأیید برای شما ارسال شد.';
@@ -268,8 +278,8 @@ export async function login(request, env) {
   }
 
   const passOk = await verifyPassword(password, user ? user.password_hash : await dummyHash());
-  const membership = user ? await env.DB.prepare('SELECT membership_status FROM users WHERE id = ?1').bind(user.id).first() : null;
-  if (!user || !passOk || user.status !== 'active' || (membership?.membership_status && membership.membership_status !== 'approved')) {
+  const membershipOk = user ? await membershipApproved(env.DB, user.id) : false;
+  if (!user || !passOk || user.status !== 'active' || !membershipOk) {
     if (user) {
       const failed = (user.failed_logins || 0) + 1;
       const lockedUntil = failed >= LOCK_THRESHOLD ? addMs(new Date(), LOCK_MINUTES * 60 * 1000) : null;
@@ -319,8 +329,7 @@ export async function currentUser(request, env) {
     .bind(await hashToken(token), nowIso)
     .first();
   if (!row) return null;
-  const membership = await env.DB.prepare('SELECT membership_status FROM users WHERE id = ?1').bind(row.id).first();
-  if (membership?.membership_status && membership.membership_status !== 'approved') return null;
+  if (!(await membershipApproved(env.DB, row.id))) return null;
   let identity = {};
   try {
     identity = await env.DB.prepare('SELECT membership_no, professional_title, position FROM users WHERE id=?1').bind(row.id).first() || {};
