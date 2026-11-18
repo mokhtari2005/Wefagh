@@ -101,7 +101,6 @@ const CONTRACT_BASE = [
 
 function fieldNode(field) {
  const name=field[0], label=field[1], kind=field[2], required=field[3];
- const attrs={name,required:required?true:undefined};
  const control=kind==='area'
   ? h('textarea',{name,rows:'3',...(required?{required:''}:{}),placeholder:'اطلاعات مربوط به این بخش را وارد کنید.'})
   : h('input',{name,type:'text',...(required?{required:''}:{}),placeholder:'وارد کنید'});
