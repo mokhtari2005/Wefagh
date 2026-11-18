@@ -2352,3 +2352,29 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
 }
 .notification-item p { margin: 0; overflow-wrap: anywhere; }
 .notification-item small { color: var(--muted, #687477); }
+
+
+/* تایپ صوتی آکادمی */
+.voice-typing { max-width: 1000px; margin-inline: auto; }
+.voice-typing-intro { max-width: 75ch; color: var(--ink-soft); line-height: 1.9; }
+.voice-typing-panel { margin-top: 1.2rem; padding: clamp(.9rem, 3vw, 1.4rem); }
+.voice-typing-toolbar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-block: .8rem; }
+.voice-typing-toolbar button { min-width: 42px; min-height: 42px; }
+.voice-typing-editor { min-height: 300px; max-height: 65vh; overflow-y: auto; padding: 1rem; border: 1px solid var(--sand-line); border-radius: 14px; background: var(--paper); color: var(--ink); font: inherit; line-height: 2.1; white-space: pre-wrap; overflow-wrap: anywhere; outline: none; }
+.voice-typing-editor:focus { border-color: var(--teal); box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal) 15%, transparent); }
+.voice-typing-editor:empty::before { content: attr(data-placeholder); color: var(--ink-soft); opacity: .75; pointer-events: none; }
+.voice-typing-status { display: flex; align-items: center; gap: .55rem; min-height: 2rem; color: var(--ink-soft); font-size: .9rem; }
+.voice-typing-status[data-state="recording"] { color: #a33a2a; font-weight: 700; }
+.voice-typing-dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+.voice-typing-status[data-state="recording"] .voice-typing-dot { animation: voice-pulse 1.2s infinite; }
+.voice-typing-actions { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1rem; }
+.voice-typing-meta { display: flex; justify-content: space-between; gap: .7rem; flex-wrap: wrap; margin-top: .65rem; color: var(--ink-soft); font-size: .85rem; }
+.voice-typing-record { background: #a33a2a; }
+.voice-typing-record:hover { background: #7e281f; }
+.voice-typing-record[aria-pressed="true"] { background: #7e281f; }
+@keyframes voice-pulse { 50% { opacity: .35; transform: scale(.8); } }
+@media (max-width: 560px) {
+  .voice-typing-editor { min-height: 48vh; padding: .85rem; font-size: 1rem; }
+  .voice-typing-actions > button { flex: 1 1 calc(50% - .6rem); }
+  .voice-typing-toolbar { gap: .35rem; }
+}
