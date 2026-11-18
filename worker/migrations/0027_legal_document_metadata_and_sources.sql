@@ -43,7 +43,7 @@ CREATE INDEX idx_legal_document_relations_target ON legal_document_relations(tar
 
 INSERT OR IGNORE INTO legal_document_sources
 (source_key,title,authority,document_types,base_url,access_mode,notes) VALUES
-('judiciary-portal','درگاه ملی قوه قضائیه','قوه قضائیه','judicial_advisory_opinion,judicial_circular,supreme_court_unified_precedent,administrative_court_general_board,administrative_court_specialized_board','https://www.eadl.com/','public_html','درگاه راهنمای رسمی به مخازن تخصصی؛ پیوندهای هر مجموعه باید جداگانه پایش شوند.'),
+('judiciary-portal','درگاه ملی قوه قضائیه','قوه قضائیه','judicial_advisory_opinion,judicial_circular,supreme_court_unified_precedent,administrative_court_general_board,administrative_court_specialized_board','https://eadil.com/','public_html','درگاه راهنمای رسمی به مخازن تخصصی؛ پیوندهای هر مجموعه باید جداگانه پایش شوند.'),
 ('national-judgments','سامانه ملی آرای قضایی','پژوهشگاه قوه قضائیه','judicial_decision,supreme_court_unified_precedent,administrative_court_general_board','https://ara.jri.ac.ir/','public_html','سامانه دارای جستجوی پیشرفته و نمایه مستندات؛ دسترسی ماشینی و شرایط بازنشر باید جداگانه ارزیابی شود.'),
 ('official-gazette','روزنامه رسمی کشور','روزنامه رسمی جمهوری اسلامی ایران','law,regulation,bylaw,executive_regulation,circular','https://www.rrk.ir/','manual','مرجع انتشار رسمی؛ پیوند مستقیم و امکان دریافت انبوه باید بررسی شود.'),
 ('national-regulations','سامانه ملی قوانین و مقررات','معاونت حقوقی ریاست جمهوری','law,regulation,bylaw,executive_regulation,circular','https://qavanin.ir/','manual','منبع اصلی مقابله و تنقیح؛ روش دسترسی خودکار باید بررسی شود.'),
