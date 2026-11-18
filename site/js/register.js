@@ -41,7 +41,7 @@ function errorFor(id) {
   return h('div', { class: 'error', id: `${id}-err`, 'aria-live': 'polite' });
 }
 
-export function registerForm() {
+export function registerForm({ onSuccess } = {}) {
   let current = 0;
 
   // ---------- کنترل‌ها ----------
@@ -243,13 +243,36 @@ export function registerForm() {
 
     if (res.ok) {
       lastEmail = v.email;
-      form.reset();
-      clearErrors();
-      status.className = 'form-status ok';
-      status.textContent = REGISTER_SENT;
-      resendBtn.hidden = false;
-      resendBtn.disabled = false;
-      renderStep(0);
+      const successPage = h('section', { class: 'registration-success', 'aria-labelledby': 'registration-success-title' }, [
+        h('div', { class: 'registration-success-mark', 'aria-hidden': 'true', text: '✓' }),
+        h('span', { class: 'registration-success-kicker', text: 'آکادمی وکالت شهرام مختاری' }),
+        h('h1', { id: 'registration-success-title', text: 'ثبت‌نام شما با موفقیت انجام شد' }),
+        h('p', { class: 'registration-success-lead', text: 'حساب کاربری شما ایجاد شد. برای فعال‌سازی عضویت، منتظر دریافت ایمیل تأیید از طرف آکادمی باشید.' }),
+        h('div', { class: 'registration-success-note' }, [
+          h('strong', { text: 'مرحلهٔ بعد: تأیید نشانی ایمیل' }),
+          h('p', { text: 'صندوق ورودی ایمیل خود را بررسی کنید. اگر پیام را پیدا نکردید، پوشه‌های هرزنامه (Spam) و تبلیغات (Promotions) را هم ببینید.' }),
+        ]),
+        h('p', { class: 'registration-success-email', dir: 'ltr', text: v.email }),
+        h('p', { class: 'form-status', role: 'status', 'aria-live': 'polite' }),
+        h('button', { class: 'btn secondary registration-resend', type: 'button', text: 'ایمیل تأیید را دریافت نکرده‌ام؛ ارسال مجدد' }),
+        h('a', { class: 'btn registration-login-link', href: '#/account', text: 'رفتن به صفحهٔ ورود' }),
+      ]);
+      const successStatus = successPage.querySelector('.form-status');
+      const successResend = successPage.querySelector('.registration-resend');
+      successResend.addEventListener('click', async () => {
+        successResend.disabled = true;
+        successStatus.className = 'form-status';
+        successStatus.textContent = 'در حال ارسال مجدد ایمیل تأیید…';
+        const resend = await postJson('/api/auth/resend-verification', { email: lastEmail });
+        successStatus.className = `form-status${resend.ok ? ' ok' : ' err'}`;
+        successStatus.textContent = resend.ok
+          ? (resend.data?.message || 'درخواست ارسال ایمیل تأیید ثبت شد؛ صندوق ورودی و Spam را بررسی کنید.')
+          : messageFor(resend.networkError ? 'NETWORK' : resend.data?.error);
+        window.setTimeout(() => { successResend.disabled = false; }, 60 * 1000);
+      });
+      form.replaceWith(successPage);
+      successPage.querySelector('.registration-login-link')?.focus();
+      onSuccess?.(v.email);
       return;
     }
     if (res.status === 422 && res.data?.errors) {
