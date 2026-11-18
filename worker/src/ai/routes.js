@@ -261,7 +261,15 @@ async function speech(request, env) {
 }
 
 async function transcribe(request, env) {
-  const auth = await authorized(request, env);
+  let auth;
+  try {
+    auth = await authorized(request, env);
+  } catch (err) {
+    // خطای لحظه‌ای D1 هنگام بررسی نشست: یک بار با فاصلهٔ کوتاه تکرار می‌شود (فقط تایپ صوتی).
+    console.error(JSON.stringify({ where: 'ai', stage: 'transcribe_auth_retry', error: err?.name || 'Error' }));
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    auth = await authorized(request, env);
+  }
   if (auth.error) return auth.error;
   if (request.method !== 'POST') return fail('METHOD_NOT_ALLOWED', 405);
   const parsed = await readBody(request, LIMITS.audioBytes + 4096);

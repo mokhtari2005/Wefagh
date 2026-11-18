@@ -215,7 +215,8 @@ const TRANSCRIBE_LANGS = { fa: 'فارسی', en: 'انگلیسی', ar: 'عربی
 export async function transcribeAudio(env, { mimeType, base64, language = 'fa' }) {
   const model = modelIds(env).text;
   const langName = TRANSCRIBE_LANGS[language] || TRANSCRIBE_LANGS.fa;
-  const data = await post(env, 'transcribe', model, `${GEMINI_API}/models/${encodeURIComponent(model)}:generateContent`, {
+  const url = `${GEMINI_API}/models/${encodeURIComponent(model)}:generateContent`;
+  const body = {
     contents: [{
       role: 'user',
       parts: [
@@ -227,8 +228,20 @@ export async function transcribeAudio(env, { mimeType, base64, language = 'fa' }
       maxOutputTokens: 4000,
       ...(model.startsWith('gemini-3.') ? { thinkingConfig: { thinkingLevel: 'low' } } : {}),
     },
-  });
-  return { text: textOrLog('transcribe', model, data) };
+  };
+  // خطای موقت Gemini (۵xx، قطع شبکه، پاسخ خالی/نامعتبر) یک بار تکرار می‌شود؛ سهمیه و خطای کلید هرگز.
+  const RETRY = new Set(['AI_NETWORK_ERROR', 'AI_PROVIDER_ERROR', 'AI_PROVIDER_BAD_RESPONSE', 'AI_EMPTY']);
+  let lastError;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const data = await post(env, 'transcribe', model, url, body);
+      return { text: textOrLog('transcribe', model, data) };
+    } catch (err) {
+      lastError = err;
+      if (!(err instanceof AiError) || !RETRY.has(err.code)) throw err;
+    }
+  }
+  throw lastError;
 }
 
 /**
