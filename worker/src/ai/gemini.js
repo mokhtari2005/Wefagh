@@ -234,7 +234,7 @@ export async function transcribeAudio(env, { mimeType, base64, language = 'fa' }
   let lastError;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      const data = await post(env, 'transcribe', model, url, body);
+      const data = await post(env, 'transcribe', model, url, body, 120_000);
       return { text: textOrLog('transcribe', model, data) };
     } catch (err) {
       lastError = err;
