@@ -31,6 +31,14 @@ class LegalCorpusImporterTests(unittest.TestCase):
         self.assertEqual(importer.classify("نظریه مشورتی اداره کل حقوقی قوه قضائیه"), "judicial_advisory_opinion")
         self.assertEqual(importer.classify("کنوانسیون حقوقی"), "treaty")
 
+    def test_article_heading_with_closing_parenthesis_is_parsed(self):
+        markdown = "# قانون دریایی\nhttps://www.ekhtebar.ir/sample-law/\n\nماده ۱) شرایط تابعیت کشتی\nمتن ماده نخست"
+        with patch.object(importer, "get", return_value=FakeResponse(markdown)):
+            doc, reason = importer.parse_doc("data/laws/sample.md", {})
+        self.assertIsNone(reason)
+        self.assertEqual(doc["articles"][0]["number"], "1")
+        self.assertIn("شرایط تابعیت کشتی", doc["articles"][0]["body"])
+
     def test_parse_doc_extracts_title_and_article_without_network(self):
         markdown = "# قانون نمونه\nhttps://www.ekhtebar.ir/sample-law/\n\nماده ۱\nمتن ماده نخست"
         with patch.object(importer, "get", return_value=FakeResponse(markdown)):
