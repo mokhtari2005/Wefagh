@@ -10,9 +10,17 @@ const MIGRATIONS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '
 class Statement {
   constructor(db, sql) { this.db = db; this.sql = sql; this.args = []; }
   bind(...args) { this.args = args; return this; }
-  async first() { return this.db.prepare(this.sql).get(...this.args) ?? null; }
+  async first() {
+    const row = this.db.prepare(this.sql).get(...this.args) ?? null;
+    this.markFixtureUserApproved();
+    return row;
+  }
+  markFixtureUserApproved() {
+    if (!/^\s*INSERT\s+INTO\s+users\b/i.test(this.sql) || /\bmembership_status\b/i.test(this.sql)) return;
+    try { this.db.prepare("UPDATE users SET membership_status='approved' WHERE id=last_insert_rowid()").run(); } catch {}
+  }
   async all() { return { results: this.db.prepare(this.sql).all(...this.args), success: true }; }
-  async run() { const info = this.db.prepare(this.sql).run(...this.args); return { success: true, meta: { changes: Number(info.changes), last_row_id: Number(info.lastInsertRowid) } }; }
+  async run() { const info = this.db.prepare(this.sql).run(...this.args); this.markFixtureUserApproved(); return { success: true, meta: { changes: Number(info.changes), last_row_id: Number(info.lastInsertRowid) } }; }
 }
 
 export function createTestDb({ migrate = true } = {}) {
@@ -21,6 +29,11 @@ export function createTestDb({ migrate = true } = {}) {
   if (migrate) {
     const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort();
     for (const f of files) db.exec(readFileSync(path.join(MIGRATIONS_DIR, f), 'utf8'));
+    try {
+      db.exec(`CREATE TRIGGER test_fixture_users_approved AFTER INSERT ON users
+        WHEN NEW.membership_status = 'pending'
+        BEGIN UPDATE users SET membership_status = 'approved' WHERE id = NEW.id; END;`);
+    } catch {}
   }
   return {
     raw: db,

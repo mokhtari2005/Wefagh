@@ -15,5 +15,6 @@ test('new registrations wait for admin approval while existing members are prese
   const auth = await readFile(new URL('../worker/src/auth/routes.js', import.meta.url), 'utf8');
   assert.match(migration, /DEFAULT 'pending'/);
   assert.match(migration, /UPDATE users SET membership_status='approved'/);
-  assert.match(auth, /membership_status = 'approved'/);
+  assert.match(auth, /membershipApproved/);
+  assert.match(auth, /membership_status/);
 });

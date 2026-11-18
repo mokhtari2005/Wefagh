@@ -220,7 +220,7 @@ export async function adminPage() {
   function renderMembers(items) {
     membersList.replaceChildren();
     const q = membersSearch.value.trim().toLocaleLowerCase();
-    const filtered = items.filter(x => !q || [x.displayName,x.email,x.membershipNo].some(v => String(v || '').toLocaleLowerCase().includes(q)));
+    const filtered = items.filter(x => !q || [x.displayName,x.email,x.membershipNo,x.mobile].some(v => String(v || '').toLocaleLowerCase().includes(q)));
     if (!filtered.length) { membersList.append(el('p', { class: 'muted', text: 'عضوی با این مشخصات پیدا نشد.' })); return; }
     for (const item of filtered) {
       const statusLabel = item.membershipStatus === 'pending' ? 'در انتظار تأیید' : item.membershipStatus === 'approved' ? 'عضویت تأییدشده' : 'درخواست ردشده';
@@ -229,7 +229,7 @@ export async function adminPage() {
           el('span', { class: 'badge', text: statusLabel }),
           el('h3', { text: item.displayName }),
           el('p', { class: 'muted', text: item.email + ' · ' + (item.membershipNo || 'بدون شماره عضویت') }),
-          el('p', { class: 'muted', text: [item.professionalTitle,item.position,item.city,item.province,item.phone].filter(Boolean).join(' · ') || 'اطلاعات تکمیلی ثبت نشده' }),
+          el('p', { class: 'muted', text: [item.gender === 'male' ? 'آقا' : item.gender === 'female' ? 'خانم' : '',({lawyer:'وکیل دادگستری',trainee:'کارآموز وکالت',law_student:'دانشجوی حقوق',law_graduate:'فارغ‌التحصیل حقوق',professor:'استاد دانشگاه',researcher:'پژوهشگر حقوق',other:'سایر'})[item.position] || item.position,({academy_member:'عضو آکادمی',academy_instructor:'مدرس آکادمی',academy_researcher:'پژوهشگر آکادمی',guest_member:'عضو مهمان',other:'سایر'})[item.professionalTitle] || item.professionalTitle,item.mobile,item.city,item.province].filter(Boolean).join(' · ') || 'اطلاعات تکمیلی ثبت نشده' }),
           el('p', { class: 'muted', text: (item.emailVerifiedAt ? 'ایمیل تأیید شده' : 'ایمیل تأیید نشده') + ' · ثبت‌نام: ' + new Date(item.createdAt).toLocaleDateString('fa-IR') }),
         ]),
       ]);

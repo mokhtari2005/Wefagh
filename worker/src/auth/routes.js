@@ -22,6 +22,16 @@ function logOutcome(where, outcome) {
   console.info(JSON.stringify({ where, outcome }));
 }
 
+async function membershipApproved(db, userId) {
+  try {
+    const row = await db.prepare('SELECT membership_status FROM users WHERE id = ?1').bind(userId).first();
+    return !row?.membership_status || row.membership_status === 'approved';
+  } catch (err) {
+    if (String(err?.message || '').includes('no such column')) return true;
+    throw err;
+  }
+}
+
 export const LOCK_THRESHOLD = 5;
 export const LOCK_MINUTES = 15;
 const GENERIC_REGISTER_MSG = 'اگر این نشانی معتبر باشد، ایمیل تأیید برای شما ارسال شد.';
@@ -54,13 +64,22 @@ export async function register(request, env) {
   const displayName = cleanText(body.displayName);
   const professionalTitle = cleanText(body.professionalTitle);
   const position = cleanText(body.position);
+  const gender = body.gender;
+  const phone = String(body.phone || '').replace(/[۰-۹٠-٩]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d) >= 0 ? '۰۱۲۳۴۵۶۷۸۹'.indexOf(d) : '٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[\s\-‌()]/g, '');
   const errors = {};
   if (!email) errors.email = 'نشانی ایمیل معتبر نیست.';
   const pol = validatePasswordPolicy(body.password);
   if (!pol.ok) errors.password = pol.error;
   if (displayName.length < 2 || displayName.length > 100) errors.displayName = 'نام و نام خانوادگی باید بین ۲ و ۱۰۰ نویسه باشد.';
-  if (professionalTitle && (professionalTitle.length < 2 || professionalTitle.length > 100)) errors.professionalTitle = 'عنوان حرفه‌ای باید بین ۲ و ۱۰۰ نویسه باشد.';
-  if (position && (position.length < 2 || position.length > 100)) errors.position = 'سمت باید بین ۲ و ۱۰۰ نویسه باشد.';
+  const hasContactDetails = body.gender !== undefined || body.phone !== undefined;
+  if (professionalTitle && (professionalTitle.length < 2 || professionalTitle.length > 100)) errors.professionalTitle = 'عنوان معتبر نیست.';
+  if (position && (position.length < 2 || position.length > 100)) errors.position = 'سمت معتبر نیست.';
+  if (hasContactDetails) {
+    if (!['male', 'female'].includes(gender)) errors.gender = 'جنسیت را انتخاب کنید.';
+    if (!['lawyer', 'trainee', 'law_student', 'law_graduate', 'professor', 'researcher', 'other'].includes(position)) errors.position = 'سمت را از فهرست انتخاب کنید.';
+    if (!['academy_member', 'academy_instructor', 'academy_researcher', 'guest_member', 'other'].includes(professionalTitle)) errors.professionalTitle = 'عنوان را از فهرست انتخاب کنید.';
+    if (!/^09\d{9}$/.test(phone)) errors.phone = 'شماره همراه باید ۱۱ رقم و با ۰۹ شروع شود.';
+  }
   if (Object.keys(errors).length > 0) return json({ ok: false, error: 'VALIDATION_FAILED', errors }, 422);
 
   const existing = await env.DB.prepare('SELECT id, status, email_verified_at FROM users WHERE email = ?1').bind(email).first();
@@ -74,10 +93,24 @@ export async function register(request, env) {
   const passwordHash = await hashPassword(body.password);
   let userId;
   try {
-    const row = await env.DB
-      .prepare('INSERT INTO users (email, password_hash, display_name) VALUES (?1, ?2, ?3) RETURNING id')
-      .bind(email, passwordHash, displayName)
-      .first();
+    let row;
+    try {
+      row = await env.DB
+        .prepare("INSERT INTO users (email, password_hash, display_name, gender, phone, professional_title, position, membership_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'pending') RETURNING id")
+        .bind(email, passwordHash, displayName, gender || null, phone || null, professionalTitle, position)
+        .first();
+    } catch (schemaError) {
+      // سازگاری با نسخه‌های قدیمی دیتابیس تا اجرای مهاجرت ۰۰۲۵.
+      if (!/no such column|has no column named/i.test(String(schemaError?.message || ''))) throw schemaError;
+      try {
+        row = await env.DB.prepare("INSERT INTO users (email, password_hash, display_name, membership_status) VALUES (?1, ?2, ?3, 'pending') RETURNING id")
+          .bind(email, passwordHash, displayName).first();
+      } catch (legacySchemaError) {
+        if (!/no such column|has no column named/i.test(String(legacySchemaError?.message || ''))) throw legacySchemaError;
+        row = await env.DB.prepare('INSERT INTO users (email, password_hash, display_name) VALUES (?1, ?2, ?3) RETURNING id')
+          .bind(email, passwordHash, displayName).first();
+      }
+    }
     userId = row?.id;
     if (userId) {
       let membershipSequence = 1999 + Number(userId);
@@ -94,6 +127,11 @@ export async function register(request, env) {
       const membershipNo = `MLA-${membershipSequence}`;
       try {
         await env.DB.prepare('UPDATE users SET membership_no=?1, professional_title=?2, position=?3 WHERE id=?4').bind(membershipNo, professionalTitle, position, userId).run();
+        try {
+          await env.DB.prepare("UPDATE users SET membership_status='pending' WHERE id=?1").bind(userId).run();
+        } catch (membershipSchemaError) {
+          if (!/no such column|has no column named/i.test(String(membershipSchemaError?.message || ''))) throw membershipSchemaError;
+        }
       } catch (identityError) {
         // سازگاری با محیط‌های آزمایشی یا نسخه‌های قدیمی DB تا زمان اجرای مهاجرت ۰۰۱۴.
         if (!String(identityError?.message || '').includes('no such column')) throw identityError;
@@ -101,6 +139,7 @@ export async function register(request, env) {
     }
   } catch (err) {
     // ثبت همزمان دو درخواست با یک ایمیل: پاسخ عمومی؛ سایر خطاها به کاربر نشان داده نمی‌شوند.
+    if (String(err?.message || '').includes('users.phone')) return json({ ok: false, error: 'PHONE_ALREADY_EXISTS', errors: { phone: 'این شماره تلفن همراه قبلاً ثبت شده است.' } }, 409);
     if (String(err?.message || '').includes('UNIQUE')) return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
     logError('register.insert_user', err);
     return json({ ok: false, error: 'INTERNAL_ERROR' }, 500);
@@ -268,8 +307,8 @@ export async function login(request, env) {
   }
 
   const passOk = await verifyPassword(password, user ? user.password_hash : await dummyHash());
-  const membership = user ? await env.DB.prepare('SELECT membership_status FROM users WHERE id = ?1').bind(user.id).first() : null;
-  if (!user || !passOk || user.status !== 'active' || (membership?.membership_status && membership.membership_status !== 'approved')) {
+  const membershipOk = user ? await membershipApproved(env.DB, user.id) : false;
+  if (!user || !passOk || user.status !== 'active' || !membershipOk) {
     if (user) {
       const failed = (user.failed_logins || 0) + 1;
       const lockedUntil = failed >= LOCK_THRESHOLD ? addMs(new Date(), LOCK_MINUTES * 60 * 1000) : null;
@@ -319,8 +358,7 @@ export async function currentUser(request, env) {
     .bind(await hashToken(token), nowIso)
     .first();
   if (!row) return null;
-  const membership = await env.DB.prepare('SELECT membership_status FROM users WHERE id = ?1').bind(row.id).first();
-  if (membership?.membership_status && membership.membership_status !== 'approved') return null;
+  if (!(await membershipApproved(env.DB, row.id))) return null;
   let identity = {};
   try {
     identity = await env.DB.prepare('SELECT membership_no, professional_title, position FROM users WHERE id=?1').bind(row.id).first() || {};

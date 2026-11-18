@@ -263,3 +263,36 @@ test('بدون جدول پروفایل: ثبت‌نام همچنان کار می
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM users').get().n, 1);
 });
 
+
+
+test('ثبت‌نام جنسیت، سمت، عنوان آکادمی و شماره همراه را ذخیره می‌کند', { skip }, async () => {
+  const { db, env } = setup();
+  db.exec(migration('0024_membership_approval.sql'));
+  db.exec(migration('0025_registration_contact_details.sql'));
+  const payload = {
+    email: 'newmember@example.com',
+    password: 'رمز-امن-۱۴۰۵',
+    displayName: 'عضو جدید',
+    gender: 'female',
+    position: 'lawyer',
+    professionalTitle: 'academy_member',
+    phone: '۰۹۱۲۳۴۵۶۷۸۹',
+  };
+  const response = await call(env, '/api/auth/register', { body: payload });
+  assert.equal(response.status, 202);
+  const row = db.prepare('SELECT gender, phone, position, professional_title FROM users WHERE email=?').get(payload.email);
+  assert.deepEqual({ ...row }, { gender: 'female', phone: '09123456789', position: 'lawyer', professional_title: 'academy_member' });
+  const duplicate = await call(env, '/api/auth/register', { body: { ...payload, email: 'second@example.com' } });
+  assert.equal(duplicate.status, 409);
+  assert.equal((await duplicate.json()).error, 'PHONE_ALREADY_EXISTS');
+});
+
+test('ثبت‌نام با جنسیت یا سمت و عنوان خارج از فهرست رد می‌شود', { skip }, async () => {
+  const { db, env } = setup();
+  db.exec(migration('0024_membership_approval.sql'));
+  db.exec(migration('0025_registration_contact_details.sql'));
+  const response = await call(env, '/api/auth/register', { body: { email: 'bad@example.com', password: 'رمز-امن-۱۴۰۵', displayName: 'کاربر نامعتبر', gender: 'unknown', position: 'unknown', professionalTitle: 'unknown', phone: '08123456789' } });
+  assert.equal(response.status, 422);
+  const body = await response.json();
+  for (const key of ['gender', 'position', 'professionalTitle', 'phone']) assert.ok(body.errors[key]);
+});
