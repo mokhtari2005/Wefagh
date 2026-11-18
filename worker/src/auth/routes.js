@@ -82,7 +82,30 @@ export async function register(request, env) {
   }
   if (Object.keys(errors).length > 0) return json({ ok: false, error: 'VALIDATION_FAILED', errors }, 422);
 
-  const existing = await env.DB.prepare('SELECT id, status, email_verified_at FROM users WHERE email = ?1').bind(email).first();
+  const existing = await env.DB.prepare('SELECT id, status, email_verified_at, membership_status FROM users WHERE email = ?1').bind(email).first();
+  if (existing?.membership_status === 'rejected') {
+    // رد قبلی نباید ایمیل را برای همیشه مسدود کند: همان حساب با حفظ شناسه و شماره عضویت، درخواست تازه می‌دهد.
+    // نشست‌ها و توکن‌های قبلی باطل و تأیید ایمیل و بررسی عضویت از ابتدا انجام می‌شود.
+    try {
+      await env.DB.prepare(`UPDATE users SET password_hash=?1, display_name=?2, gender=?3, phone=?4,
+        professional_title=?5, position=?6, status='active', membership_status='pending',
+        email_verified_at=NULL, failed_logins=0, locked_until=NULL WHERE id=?7`)
+        .bind(await hashPassword(body.password), displayName, gender || null, phone || null,
+          professionalTitle, position, existing.id).run();
+      await env.DB.prepare('DELETE FROM sessions WHERE user_id=?1').bind(existing.id).run();
+      await env.DB.prepare("UPDATE email_tokens SET used_at=?1 WHERE user_id=?2 AND purpose='verify_email' AND used_at IS NULL")
+        .bind(new Date().toISOString(), existing.id).run();
+    } catch (err) {
+      if (String(err?.message || '').includes('users.phone')) {
+        return json({ ok: false, error: 'PHONE_ALREADY_EXISTS', errors: { phone: 'این شماره تلفن همراه قبلاً ثبت شده است.' } }, 409);
+      }
+      logError('register.reapply_rejected', err);
+      return json({ ok: false, error: 'INTERNAL_ERROR' }, 500);
+    }
+    const sent = await issueVerificationEmail(env, existing.id, email);
+    logOutcome('auth.register_rejected_reapply', sent ? 'mail_sent' : 'mail_failed');
+    return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
+  }
   if (existing) {
     if (existing.status === 'active' && !existing.email_verified_at) {
       const outcome = await resendForUser(env, existing.id, email);
