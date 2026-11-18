@@ -2,7 +2,7 @@ import { h } from './dom.js';
 import { icon } from './icons.js';
 import { getJson, postJson } from './api.js';
 import { aiStatus, errorText } from './ai-client.js';
-import { DOC_TYPES, CONTRACT_TYPES, ASSISTANT_NOTICE } from './assistant.js';
+import { CONTRACT_TYPES, ASSISTANT_NOTICE } from './assistant.js';
 
 const DOCS = [
  ['petition','دادخواست','file-text','تنظیم دادخواست حقوقی، خواسته و دلایل'],
@@ -17,6 +17,7 @@ const DOCS = [
  ['letter','نامه حقوقی','file-text','مکاتبه رسمی با اشخاص و مراجع'],
  ['other','سایر اسناد','folder','تنظیم یا تحلیل سند با قالب اختصاصی']
 ];
+export const ASSISTANT_DOCUMENT_IDS = Object.freeze(DOCS.map(([id]) => id));
 
 // هر فیلد: [نام، عنوان، نوع کنترل، ضروری]
 const SCHEMAS = {
@@ -91,6 +92,7 @@ const CONTRACT_EXTRA = {
  supply: [['goods','مشخصات، تعداد و استاندارد کالا','area',true],['inspection','کنترل کیفیت و تحویل','area',false]],
  consulting: [['scope','شرح خدمات و خروجی‌های قابل تحویل','area',true],['acceptance','نحوه تأیید خدمات و گزارش‌دهی','area',false]]
 };
+export const ASSISTANT_CONTRACT_FORM_IDS = Object.freeze(Object.keys(CONTRACT_EXTRA));
 const CONTRACT_BASE = [
  ['partyA','طرف اول: نام، مشخصات و نشانی','area',true],['partyB','طرف دوم: نام، مشخصات و نشانی','area',true],
  ['subject','موضوع و حدود دقیق قرارداد','area',true],['price','مبلغ، عوض یا آورده و شیوه پرداخت','area',true],
