@@ -118,7 +118,7 @@ export async function updateAvatar(request, env) {
   await env.DB.prepare(`INSERT INTO user_avatars (user_id, data_url, updated_at) VALUES (?1, ?2, ?3)
     ON CONFLICT(user_id) DO UPDATE SET data_url=excluded.data_url, updated_at=excluded.updated_at`)
     .bind(user.id, dataUrl, new Date().toISOString()).run();
-  return json({ ok: true, avatarDataUrl: dataUrl });
+  return json({ ok: true });
 }
 
 export async function deleteAvatar(request, env) {
