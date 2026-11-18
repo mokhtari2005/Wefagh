@@ -76,7 +76,9 @@ function decodePushKey(value) {
 }
 async function offerPushActivation() {
   if (!isStandalone() || !('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
-  if (Notification.permission === 'denied' || localStorage.getItem('mla-push-onboarding-dismissed') === '1') return;
+  if (Notification.permission === 'denied' || localStorage.getItem('mla-push-onboarding-enabled') === '1') return;
+  const snoozeUntil = Number(localStorage.getItem('mla-push-onboarding-snooze-until') || 0);
+  if (snoozeUntil > Date.now()) return;
   try {
     const me = await fetch('/api/me', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
     if (!me.ok) return;
@@ -111,8 +113,11 @@ async function offerPushActivation() {
     panel.append(heading, copy, enable, later, status);
     document.body.append(panel);
 
-    const close = () => { localStorage.setItem('mla-push-onboarding-dismissed', '1'); panel.remove(); };
-    later.addEventListener('click', close);
+    const close = () => panel.remove();
+    later.addEventListener('click', () => {
+      localStorage.setItem('mla-push-onboarding-snooze-until', String(Date.now() + 24 * 60 * 60 * 1000));
+      close();
+    });
     enable.addEventListener('click', async () => {
       enable.disabled = true;
       status.textContent = 'در حال فعال‌سازی…';
@@ -135,6 +140,7 @@ async function offerPushActivation() {
         });
         if (!saved.ok) throw new Error('subscription-save-failed');
         status.textContent = 'اعلان‌های آکادمی با موفقیت فعال شد.';
+        localStorage.setItem('mla-push-onboarding-enabled', '1');
         window.setTimeout(close, 1400);
       } catch {
         status.textContent = 'فعال‌سازی کامل نشد. از صفحهٔ مواعد دوباره تلاش کنید.';
