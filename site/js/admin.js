@@ -739,31 +739,85 @@ export async function adminPage() {
   await refreshImportStatus();
 
   const dashboardCards = el('div', { class: 'admin-dashboard-grid' });
-  const dashboardIntro = el('p', { class: 'muted', text: 'برای ورود به هر ابزار، بخش مربوط را از منوی کناری انتخاب کنید.' });
-  dashboardView.append(el('h2', { text: 'نمای کلی مدیریت' }), dashboardIntro, dashboardCards);
-
+  const dashboardActivity = el('div', { class: 'admin-dashboard-activity' });
+  const dashboardChart = el('section', { class: 'admin-dashboard-panel card' });
+  const dashboardEvents = el('section', { class: 'admin-dashboard-panel card' });
+  const dashboardViewHeader = el('header', { class: 'admin-dashboard-heading' }, [
+    el('div', {}, [el('span', { class: 'section-kicker', text: 'مرکز فرماندهی آکادمی' }), el('h2', { text: 'نمای کلی سامانه' }), el('p', { class: 'muted', text: 'نمایی سریع از محتوا، انتشار و رخدادهای مهم سامانه' })]),
+    el('span', { class: 'admin-live-indicator', text: 'نمای مدیریتی' }),
+  ]);
+  dashboardView.append(dashboardViewHeader, dashboardCards, el('div', { class: 'admin-dashboard-insights' }, [dashboardChart, dashboardEvents]));
   function updateDashboard() {
     const published = currentItems.filter((item) => item.status === 'published').length;
     const drafts = currentItems.length - published;
     const mediaCount = mediaList.querySelectorAll('.admin-content-row').length;
-    const caseSummary = importStatus.textContent || 'برای مشاهدهٔ آمار بانک، بخش بانک پرونده و دوره‌ها را باز کنید.';
-    dashboardCards.replaceChildren(
-      el('article', { class: 'admin-stat-card card' }, [el('span', { class: 'muted', text: 'محتواهای آموزشی' }), el('strong', { text: String(currentItems.length) }), el('small', { text: `${published} منتشرشده · ${drafts} پیش‌نویس` })]),
-      el('article', { class: 'admin-stat-card card' }, [el('span', { class: 'muted', text: 'رسانه‌ها' }), el('strong', { text: String(mediaCount) }), el('small', { text: 'مقاله‌ها و قسمت‌های پادکست' })]),
-      el('article', { class: 'admin-stat-card card admin-stat-wide' }, [el('span', { class: 'muted', text: 'وضعیت بانک تمرین' }), el('small', { text: caseSummary })]),
-      el('article', { class: 'admin-stat-card card' }, [el('span', { class: 'muted', text: 'سرویس‌های سامانه' }), el('strong', { text: 'آمادهٔ بررسی' }), el('small', { text: 'آزمون ایمیل و هوش مصنوعی از بخش سلامت سرویس‌ها' })]),
+    const caseSummary = importStatus.textContent || 'آمار بانک تمرین هنوز دریافت نشده است.';
+    const metrics = [
+      ['محتوای آموزشی', currentItems.length, 'دوره و پرونده', '▤'],
+      ['منتشرشده', published, 'محتوای در دسترس کاربران', '✓'],
+      ['پیش‌نویس', drafts, 'نیازمند تکمیل یا بازبینی', '◷'],
+      ['رسانه‌ها', mediaCount, 'مقاله و قسمت پادکست', '▧'],
+    ];
+    dashboardCards.replaceChildren(...metrics.map(([label, value, hint, icon]) => el('article', { class: 'admin-stat-card card' }, [
+      el('span', { class: 'admin-stat-icon', 'aria-hidden': 'true', text: icon }),
+      el('span', { class: 'admin-stat-label', text: label }),
+      el('strong', { text: String(value) }),
+      el('small', { text: hint }),
+    ])));
+    dashboardChart.replaceChildren(
+      el('div', { class: 'admin-panel-heading' }, [el('div', {}, [el('h3', { text: 'ترکیب محتوای آموزشی' }), el('p', { class: 'muted', text: 'بر اساس وضعیت انتشار' })])]),
+      el('div', { class: 'admin-chart-legend' }, [el('span', { text: 'منتشرشده' }), el('span', { text: 'پیش‌نویس' })]),
+      ...[['منتشرشده', published, '#178579'], ['پیش‌نویس', drafts, '#c7a45b']].map(([label, value, color]) => {
+        const track = el('div', { class: 'admin-chart-track' });
+        track.append(el('span', { class: 'admin-chart-fill', style: `width:${currentItems.length ? Math.max(3, value / currentItems.length * 100) : 0}%;background:${color}` }));
+        return el('div', { class: 'admin-chart-row' }, [el('div', { class: 'admin-chart-row-label' }, [el('span', { text: label }), el('strong', { text: String(value) })]), track]);
+      }),
+      el('p', { class: 'muted admin-chart-footnote', text: caseSummary }),
     );
+    dashboardEvents.replaceChildren(
+      el('div', { class: 'admin-panel-heading' }, [el('div', {}, [el('h3', { text: 'رخدادهای اخیر سامانه' }), el('p', { class: 'muted', text: 'گزارش‌های ثبت‌شده در مرکز سلامت' })]), el('button', { class: 'btn secondary admin-small-action', type: 'button', text: 'مشاهدهٔ همه' })]),
+    );
+    dashboardEvents.querySelector('button').addEventListener('click', () => selectView('services'));
+    dashboardActivity.replaceChildren(el('p', { class: 'muted', text: 'برای دریافت رخدادها، داشبورد را تازه‌سازی کنید.' }));
+    dashboardEvents.append(dashboardActivity);
+    getJson('/api/admin/diagnostics').then((result) => {
+      if (!result.ok) { dashboardActivity.replaceChildren(el('p', { class: 'muted', text: 'دریافت رخدادها ممکن نشد؛ از بخش سلامت سرویس‌ها بررسی کنید.' })); return; }
+      const items = result.data.items || [];
+      const openCount = result.data.openCount || 0;
+      const summary = el('div', { class: 'admin-event-summary' }, [
+        el('strong', { text: String(openCount) }), el('span', { text: 'رخداد باز برای بررسی' }),
+      ]);
+      const table = el('div', { class: 'admin-event-table-wrap' });
+      const tableEl = el('table', { class: 'admin-event-table' });
+      const head = el('thead', {}, [el('tr', {}, ['وضعیت','بخش','شرح رخداد','آخرین ثبت'].map((x) => el('th', { text: x })))]);
+      const body = el('tbody');
+      for (const item of items.slice(0, 6)) {
+        const tr = el('tr', {}, [
+          el('td', {}, [el('span', { class: `admin-event-status ${item.status === 'open' ? 'is-open' : 'is-closed'}`, text: item.status === 'open' ? 'باز' : 'بسته' })]),
+          el('td', { text: item.component || '—' }),
+          el('td', { text: item.detail || item.errorCode || 'رخداد ثبت‌شده' }),
+          el('td', { text: item.lastSeen ? new Date(item.lastSeen).toLocaleDateString('fa-IR') : '—' }),
+        ]);
+        body.append(tr);
+      }
+      if (!items.length) body.append(el('tr', {}, [el('td', { colspan: '4', text: 'هنوز رخدادی ثبت نشده است.' })]));
+      tableEl.append(head, body); table.append(tableEl);
+      dashboardActivity.replaceChildren(summary, table);
+    }).catch(() => dashboardActivity.replaceChildren(el('p', { class: 'muted', text: 'ارتباط با مرکز سلامت برقرار نشد.' })));
   }
   updateDashboard();
 
-  const nav = el('nav', { class: 'admin-sidebar', 'aria-label': 'منوی مدیریت', id: 'admin-sidebar' });
+  const nav = el('nav', { class: 'admin-sidebar', 'aria-label': 'منوی مدیریت', id: 'admin-sidebar' }, [
+    el('div', { class: 'admin-sidebar-brand' }, [el('span', { class: 'admin-sidebar-mark', text: 'و' }), el('div', {}, [el('strong', { text: 'مدیریت وفاق' }), el('small', { text: 'MOKHTARI LAW ACADEMY' })])]),
+    el('p', { class: 'admin-sidebar-caption', text: 'فضای کاری مدیر' }),
+  ]);
   const menuItems = [
-    ['dashboard', 'نمای کلی', '▦'],
+    ['dashboard', 'داشبورد', '⌂'],
     ['content', 'دوره‌ها و پرونده‌ها', '▤'],
     ['imports', 'بانک پرونده و بارگذاری', '⇧'],
     ['legal-bank', 'بانک قوانین', '§'],
     ['media', 'رسانه و اندیشه', '▧'],
-    ['services', 'سلامت سرویس‌ها', '⚙'],
+    ['services', 'سلامت و عیب‌یابی', '⚙'],
   ];
   const menuToggle = el('button', { class: 'admin-menu-toggle btn secondary', type: 'button', 'aria-expanded': 'false', 'aria-controls': 'admin-sidebar' }, [el('span', { text: '☰' }), el('span', { text: ' منوی مدیریت' })]);
   const views = { dashboard: dashboardView, content: contentView, imports: importView, 'legal-bank': legalBankView, media: mediaView, services: servicesView };
@@ -792,7 +846,7 @@ export async function adminPage() {
     const open = nav.classList.toggle('open');
     menuToggle.setAttribute('aria-expanded', String(open));
   });
-  const workspace = el('div', { class: 'admin-workspace' }, [nav, el('div', { class: 'admin-main-column' }, [menuToggle, dashboardView, contentView, importView, legalBankView, mediaView, servicesView])]);
+  const workspace = el('div', { class: 'admin-workspace admin-workspace-redesigned' }, [nav, el('div', { class: 'admin-main-column' }, [menuToggle, dashboardView, contentView, importView, legalBankView, mediaView, servicesView])]);
   wrap.append(workspace);
   return wrap;
 }
