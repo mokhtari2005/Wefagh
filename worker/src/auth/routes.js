@@ -127,6 +127,11 @@ export async function register(request, env) {
       const membershipNo = `MLA-${membershipSequence}`;
       try {
         await env.DB.prepare('UPDATE users SET membership_no=?1, professional_title=?2, position=?3 WHERE id=?4').bind(membershipNo, professionalTitle, position, userId).run();
+        try {
+          await env.DB.prepare("UPDATE users SET membership_status='pending' WHERE id=?1").bind(userId).run();
+        } catch (membershipSchemaError) {
+          if (!/no such column|has no column named/i.test(String(membershipSchemaError?.message || ''))) throw membershipSchemaError;
+        }
       } catch (identityError) {
         // سازگاری با محیط‌های آزمایشی یا نسخه‌های قدیمی DB تا زمان اجرای مهاجرت ۰۰۱۴.
         if (!String(identityError?.message || '').includes('no such column')) throw identityError;
