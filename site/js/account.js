@@ -215,7 +215,7 @@ export async function accountPanel({ onLogout }) {
   return h('div', {}, [
     h('h1', { text: 'حساب من' }),
     h('p', { text: `نام: ${user.displayName}` }),
-    avatarEditor(user.profile?.avatarDataUrl),
+    avatarEditor(user.profile?.avatarUrl),
     h('p', { text: `شماره عضویت: ${user.membershipNo || 'در انتظار تخصیص'}` }),
     h('p', { text: `عنوان: ${user.professionalTitle || '—'} | سمت: ${user.position || '—'}` }),
     h('p', { dir: 'ltr', text: user.email }),
