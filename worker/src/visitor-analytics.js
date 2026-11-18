@@ -27,7 +27,7 @@ export async function handleVisitorAnalytics(request, env, path) {
       current_path=excluded.current_path,last_seen=excluded.last_seen`)
       .bind(body.sessionId, user?.id || null, user?.displayName || null, ip, ua, pathValue, now).run();
     // دادهٔ خام بازدیدکننده بیش از ۳۰ روز نگهداری نمی‌شود.
-    await env.DB.prepare("DELETE FROM site_visitors WHERE last_seen < datetime('now','-30 days')").run().catch(() => {});
+    await env.DB.prepare("DELETE FROM site_visitors WHERE datetime(last_seen) < datetime('now','-30 days')").run().catch(() => {});
     return json({ ok: true });
   }
 
@@ -39,10 +39,10 @@ export async function handleVisitorAnalytics(request, env, path) {
   if (!user.roles?.some((role) => ['admin','super_admin','academy_manager'].includes(role))) return json({ ok: false, error: 'FORBIDDEN' }, 403);
 
   const [online, today, total, popular] = await Promise.all([
-    env.DB.prepare("SELECT session_id,user_id,display_name,ip_address,user_agent,current_path,first_seen,last_seen,page_views FROM site_visitors WHERE last_seen >= datetime('now','-2 minutes') ORDER BY last_seen DESC LIMIT 200").all(),
+    env.DB.prepare("SELECT session_id,user_id,display_name,ip_address,user_agent,current_path,first_seen,last_seen,page_views FROM site_visitors WHERE datetime(last_seen) >= datetime('now','-2 minutes') ORDER BY last_seen DESC LIMIT 200").all(),
     env.DB.prepare("SELECT COUNT(*) AS visits, COUNT(DISTINCT session_id) AS visitors FROM site_visitors WHERE first_seen >= date('now')").first(),
     env.DB.prepare("SELECT COUNT(*) AS visits, COUNT(DISTINCT session_id) AS visitors FROM site_visitors WHERE first_seen >= datetime('now','-30 days')").first(),
-    env.DB.prepare("SELECT current_path, SUM(page_views) AS views FROM site_visitors WHERE last_seen >= datetime('now','-7 days') GROUP BY current_path ORDER BY views DESC LIMIT 10").all(),
+    env.DB.prepare("SELECT current_path, SUM(page_views) AS views FROM site_visitors WHERE datetime(last_seen) >= datetime('now','-7 days') GROUP BY current_path ORDER BY views DESC LIMIT 10").all(),
   ]);
   return json({ ok: true, generatedAt: iso(), online: online.results || [], today: today || {}, last30Days: total || {}, popularPages: popular.results || [] });
 }
