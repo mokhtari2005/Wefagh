@@ -294,61 +294,74 @@ export async function adminPage() {
     const repairHint = repairConfigured
       ? 'عامل هوشمند آمادهٔ ساخت PR پیشنهادی است؛ هیچ تغییری خودکار روی main منتشر نمی‌شود.'
       : 'برای ساخت PR خودکار، Secret با نام GH_REPAIR_TOKEN در Cloudflare Worker لازم است؛ کلید Gemini نیز باید فعال باشد.';
-    const repairInfo = el('p', { class: `form-status${repairConfigured ? ' ok' : ''}`, text: repairHint });
-    diagnosticsList.append(repairInfo);
     if (!result.data.items.length) diagnosticsList.append(el('p', { class: 'muted', text: 'هنوز خطایی از مرورگرها یا API ثبت نشده است.' }));
     for (const item of result.data.items) {
-      const row = el('article', { class: 'admin-content-row card' }, [
-        el('div', {}, [
-          el('span', { class: 'badge', text: item.status === 'open' ? 'در انتظار بررسی' : 'بسته‌شده' }),
-          el('h3', { text: `${item.errorCode} · ${item.component}` }),
-          ...(item.detail ? [el('p', { text: item.detail })] : []),
-          el('p', { class: 'muted', text: `مسیر: ${item.route} · نوع: ${item.category} · HTTP: ${item.httpStatus || '—'}` }),
-          el('p', { class: 'muted', text: `تکرار: ${item.occurrences} · آخرین رخداد: ${new Date(item.lastSeen).toLocaleString('fa-IR')}` }),
-        ]),
+      const row = el('article', { class: 'admin-content-row card' });
+      const heading = el('div');
+      heading.append(
+        el('span', { class: 'badge', text: item.status === 'open' ? 'در انتظار بررسی' : 'بسته‌شده' }),
+        el('h3', { text: `${item.errorCode} · ${item.component}` }),
+        el('p', { class: 'muted', text: `مسیر: ${item.route} · نوع: ${item.category} · HTTP: ${item.httpStatus || '—'}` }),
+        el('p', { class: 'muted', text: `تکرار: ${item.occurrences} · آخرین رخداد: ${new Date(item.lastSeen).toLocaleString('fa-IR')}` }),
+      );
+      if (item.detail) {
+        const report = el('section', { class: 'admin-diagnostic-detail' }, [
+          el('h4', { text: item.category === 'manual' ? 'شرح گزارش' : 'جزئیات رخداد' }),
+          el('p', { text: item.detail }),
+        ]);
+        heading.append(report);
+      }
+      const analysisPanel = el('section', { class: 'admin-diagnostic-analysis', 'aria-live': 'polite' }, [
+        el('h4', { text: 'تحلیل هوشمند' }),
+        el('p', { class: 'muted', text: repairHint }),
       ]);
+      row.append(heading, analysisPanel);
       if (item.status === 'open') {
-        const repair = el('button', { class: 'btn', type: 'button', text: 'تحلیل هوشمند و ساخت PR اصلاحی' });
+        const repair = el('button', { class: 'btn', type: 'button', text: 'تحلیل دوباره' });
         repair.disabled = !repairConfigured;
         repair.addEventListener('click', async () => {
-          if (!window.confirm('هوش مصنوعی کد مرتبط را بررسی می‌کند و در صورت یافتن اصلاح امن، یک Pull Request برای بازبینی می‌سازد. هیچ تغییری مستقیماً منتشر نمی‌شود. ادامه می‌دهید؟')) return;
+          if (!window.confirm('هوش مصنوعی گزارش و کد مرتبط را بررسی می‌کند و فقط در صورت یافتن اصلاح امن، یک Pull Request برای بازبینی می‌سازد. هیچ تغییری مستقیماً منتشر نمی‌شود. ادامه می‌دهید؟')) return;
           repair.disabled = true;
           repair.textContent = 'در حال تحلیل کد و ساخت اصلاحیه…';
-          diagnosticsNotice.className = 'form-status';
-          diagnosticsNotice.textContent = 'در حال بررسی گزارش و فایل کد مرتبط با هوش مصنوعی…';
+          analysisPanel.replaceChildren(
+            el('h4', { text: 'تحلیل هوشمند' }),
+            el('p', { class: 'muted', text: 'در حال بررسی گزارش و فایل کد مرتبط…' }),
+          );
           let proposed;
           try {
-            // تحلیل Gemini ممکن است تا ۶۵ ثانیه (مدل اصلی و جایگزین) طول بکشد؛
-            // مهلت پیش‌فرض ۱۵ ثانیه‌ای API برای این عملیات کافی نیست.
             proposed = await postJson('/api/admin/diagnostics/repair', { fingerprint: item.fingerprint }, { timeoutMs: 120000 });
           } catch {
             proposed = { ok: false, status: 0, networkError: true };
           }
           if (!proposed.ok) {
-            repair.disabled = false;
-            repair.textContent = 'تلاش دوباره برای تحلیل و ساخت PR';
-            diagnosticsNotice.className = 'form-status err';
-            diagnosticsNotice.textContent = proposed.timeoutError
-              ? 'زمان پاسخ‌گویی تحلیل هوشمند بیش از مهلت مجاز شد؛ هیچ نتیجه‌ای از ساخت PR دریافت نشد. دوباره تلاش کنید و در صورت تکرار، وضعیت Worker بررسی شود.'
+            const message = proposed.timeoutError
+              ? 'زمان تحلیل بیش از مهلت مجاز شد؛ نتیجه‌ای از ساخت PR دریافت نشد. دوباره تلاش کنید.'
               : proposed.networkError || proposed.status === 0
-                ? 'ارتباط با سرویس تحلیل برقرار نشد؛ ممکن است درخواست پیش از دریافت پاسخ قطع شده باشد. وضعیت GitHub را نیز بررسی کنید.'
+                ? 'ارتباط با سرویس تحلیل برقرار نشد؛ وضعیت Worker و GitHub را بررسی کنید.'
                 : proposed.data?.hint || proposed.data?.error
-                  ? `تحلیل ناموفق بود: ${proposed.data.hint || proposed.data.error} (HTTP ${proposed.status})`
+                  ? `${proposed.data.hint || proposed.data.error} (HTTP ${proposed.status})`
                   : errorText(proposed.data, proposed.status);
+            analysisPanel.replaceChildren(el('h4', { text: 'تحلیل ناموفق بود' }), el('p', { class: 'form-status err', text: message }));
+            repair.disabled = false;
+            repair.textContent = 'تلاش دوباره برای تحلیل';
             return;
           }
-          if (proposed.data.created && proposed.data.pullRequest) {
-            const link = el('a', { href: proposed.data.pullRequest, target: '_blank', rel: 'noopener noreferrer', class: 'btn secondary' }, [document.createTextNode(`مشاهده PR شمارهٔ ${proposed.data.number}`)]);
-            row.append(link);
-            diagnosticsNotice.className = 'form-status ok';
-            diagnosticsNotice.textContent = `PR ساخته شد. اطمینان مدل: ${proposed.data.confidence}. ${proposed.data.summary}`;
-            repair.textContent = 'PR ساخته شد';
-          } else {
-            diagnosticsNotice.className = 'form-status';
-            diagnosticsNotice.textContent = proposed.data.summary || proposed.data.hint || 'اصلاح امنی پیشنهاد نشد؛ هیچ PR ساخته نشد.';
-            repair.disabled = false;
-            repair.textContent = 'تحلیل دوباره';
-          }
+          const summary = proposed.data.summary || proposed.data.hint || 'اصلاح امنی پیشنهاد نشد؛ هیچ PR ساخته نشد.';
+          analysisPanel.replaceChildren(
+            el('h4', { text: proposed.data.created ? 'نتیجهٔ تحلیل؛ PR اصلاحی ساخته شد' : 'نتیجهٔ تحلیل' }),
+            el('p', { text: summary }),
+            ...(proposed.data.file ? [el('p', { class: 'muted', text: `فایل بررسی‌شده: ${proposed.data.file}` })] : []),
+            ...(proposed.data.confidence ? [el('p', { class: 'muted', text: `میزان اطمینان مدل: ${proposed.data.confidence}` })] : []),
+            ...(Array.isArray(proposed.data.tests) && proposed.data.tests.length ? [
+              el('h5', { text: 'آزمون‌های پیشنهادی (هنوز اجرا نشده‌اند)' }),
+              el('ul', {}, proposed.data.tests.map((test) => el('li', { text: test }))),
+            ] : []),
+            ...(proposed.data.created && proposed.data.pullRequest ? [
+              el('a', { href: proposed.data.pullRequest, target: '_blank', rel: 'noopener noreferrer', class: 'btn secondary' }, [document.createTextNode(`مشاهده PR شمارهٔ ${proposed.data.number}`)]),
+            ] : []),
+          );
+          repair.disabled = false;
+          repair.textContent = proposed.data.created ? 'تحلیل انجام شد' : 'تحلیل دوباره';
         });
         row.append(repair);
         const resolve = el('button', { class: 'btn secondary', type: 'button', text: 'علامت‌گذاری به‌عنوان بررسی‌شده' });
@@ -357,8 +370,7 @@ export async function adminPage() {
           const saved = await postJson('/api/admin/diagnostics/resolve', { fingerprint: item.fingerprint });
           if (!saved.ok) {
             resolve.disabled = false;
-            diagnosticsNotice.className = 'form-status err';
-            diagnosticsNotice.textContent = errorText(saved.data, saved.status);
+            analysisPanel.replaceChildren(el('h4', { text: 'خطا در ثبت وضعیت' }), el('p', { class: 'form-status err', text: errorText(saved.data, saved.status) }));
             return;
           }
           await refreshDiagnostics();
