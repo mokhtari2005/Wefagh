@@ -168,6 +168,8 @@ def make_statements(record):
     parsed = parse_judgment(record["html"], record["url"])
     meta = parsed["metadata"]
     body = parsed["articles"][0]["body"]
+    if len(body) > 100000:
+        raise ValueError("judgment text exceeds the 100,000-character import limit")
     digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
     source_id = meta["source_id"]
     metadata_json = json.dumps(meta, ensure_ascii=False, separators=(",", ":"))
