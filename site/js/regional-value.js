@@ -115,14 +115,48 @@ export function regionalValueTool() {
   }
   loadLeaflet().then(L => {
     regionalMap = L.map(mapCanvas, { scrollWheelZoom: false }).setView(defaultPoint, 13);
-    const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19, attribution: '&copy; OpenStreetMap'
-    }).addTo(regionalMap);
-    let tileErrors = 0;
-    tiles.on('tileerror', () => {
-      tileErrors++;
-      if (tileErrors >= 2) mapStatus.textContent = 'نقشه ساخته شد، اما دریافت تصاویر نقشه از OpenStreetMap با خطا روبه‌روست. اتصال اینترنت یا محدودیت شبکه را بررسی کنید؛ تعیین مختصات دستی همچنان ممکن است.';
-    });
+    // Use multiple independent raster providers. Some networks block OSM tiles,
+    // so a failed provider must not leave the user with a blank map.
+    const tileProviders = [
+      {
+        name: 'Carto',
+        url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+        options: { subdomains: 'abcd', maxZoom: 20, attribution: '&copy; OpenStreetMap contributors &copy; CARTO' }
+      },
+      {
+        name: 'OpenStreetMap',
+        url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        options: { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }
+      },
+      {
+        name: 'Esri',
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+        options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
+      }
+    ];
+    let activeTiles = null;
+    let providerIndex = -1;
+    function useTileProvider(index) {
+      if (index >= tileProviders.length) {
+        mapStatus.textContent = 'سرویس‌های دریافت تصویر نقشه در این شبکه در دسترس نیستند. اتصال اینترنت یا محدودیت شبکه را بررسی کنید؛ می‌توانید بعداً دوباره تلاش کنید و مختصات را نیز دستی ثبت کنید.';
+        return;
+      }
+      if (activeTiles) regionalMap.removeLayer(activeTiles);
+      providerIndex = index;
+      const provider = tileProviders[index];
+      let errors = 0;
+      mapStatus.textContent = `در حال دریافت نقشه از سرویس جایگزین ${index + 1} از ${tileProviders.length}…`;
+      activeTiles = L.tileLayer(provider.url, { ...provider.options, crossOrigin: true }).addTo(regionalMap);
+      activeTiles.on('tileload', () => {
+        if (providerIndex === index) mapStatus.textContent = 'نقشه آماده است؛ محل ملک را انتخاب کنید.';
+      });
+      activeTiles.on('tileerror', () => {
+        if (providerIndex !== index) return;
+        errors += 1;
+        if (errors >= 3) useTileProvider(index + 1);
+      });
+    }
+    useTileProvider(0);
     regionalMarker = L.marker(defaultPoint, { draggable: true }).addTo(regionalMap);
     const setPoint = async point => {
       const lat = Number(point.lat).toFixed(6), lon = Number(point.lng).toFixed(6);
@@ -139,7 +173,6 @@ export function regionalValueTool() {
     };
     regionalMap.on('click', event => { regionalMarker.setLatLng(event.latlng); setPoint(event.latlng); });
     regionalMarker.on('dragend', () => setPoint(regionalMarker.getLatLng()));
-    mapStatus.textContent = 'نقشه آماده است؛ محل ملک را انتخاب کنید.';
     [150, 500, 1200].forEach(delay => setTimeout(() => regionalMap?.invalidateSize(), delay));
     window.addEventListener('resize', () => regionalMap?.invalidateSize());
   }).catch(error => {
