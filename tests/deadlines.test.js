@@ -6,6 +6,7 @@ import { join, dirname } from 'node:path';
 import worker from '../worker/src/index.js';
 import { hashToken } from '../worker/src/auth/token.js';
 import { validateDeadline } from '../worker/src/deadlines/validate.js';
+import { createDueNotifications } from '../worker/src/notifications.js';
 
 let DatabaseSync;
 let sqliteAvailable = true;
@@ -41,7 +42,7 @@ function d1Like(db) {
 async function setup() {
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON;');
-  for (const f of ['0001_init.sql', '0002_auth.sql', '0003_academy.sql', '0004_deadlines.sql', '0011_deadline_time.sql']) db.exec(migration(f));
+  for (const f of ['0001_init.sql', '0002_auth.sql', '0003_academy.sql', '0004_deadlines.sql', '0011_deadline_time.sql', '0020_calendar_notifications.sql']) db.exec(migration(f));
   const env = { DB: d1Like(db) };
   const make = async (email, token) => {
     const u = db
@@ -193,4 +194,32 @@ test('ثبت با ساعت، ویرایش کامل با PUT و رعایت مال
 
   const other = await call(env, `/api/deadlines/${id}`, { method: 'PUT', body: { ...valid, title: 'هک' }, cookie: b.cookie });
   assert.equal(other.status, 404);
+});
+
+
+test('اعلان‌های داخلی فقط برای موعدهای سررسیدشده و یک‌بار ساخته می‌شوند', { skip }, async () => {
+  const { env, a, db } = await setup();
+  const now = new Date('2026-11-18T06:00:00.000Z'); // 09:30 تهران
+  const today = '2026-11-18';
+  await call(env, '/api/deadlines', { method: 'POST', body: { ...valid, dueDate: today }, cookie: a.cookie });
+  const first = await createDueNotifications(env, now);
+  const second = await createDueNotifications(env, now);
+  assert.equal(first.created, 1);
+  assert.equal(second.created, 0);
+  const listed = await (await call(env, '/api/notifications', { cookie: a.cookie })).json();
+  assert.equal(listed.notifications.length, 1);
+  assert.equal(listed.unreadCount, 1);
+  assert.equal(listed.notifications[0].kind, 'd0');
+});
+
+test('کاربر فقط اعلان‌های خودش را می‌بیند و تنظیم اعلان را تغییر می‌دهد', { skip }, async () => {
+  const { env, a, b } = await setup();
+  await call(env, '/api/deadlines', { method: 'POST', body: { ...valid, dueDate: '2026-11-18' }, cookie: a.cookie });
+  await createDueNotifications(env, new Date('2026-11-18T06:00:00.000Z'));
+  const other = await (await call(env, '/api/notifications', { cookie: b.cookie })).json();
+  assert.equal(other.notifications.length, 0);
+  const saved = await call(env, '/api/notifications/preferences', { method: 'PUT', body: { inAppEnabled: false }, cookie: a.cookie });
+  assert.equal(saved.status, 200);
+  const own = await (await call(env, '/api/notifications', { cookie: a.cookie })).json();
+  assert.equal(own.preferences.inAppEnabled, false);
 });
