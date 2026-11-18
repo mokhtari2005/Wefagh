@@ -10,6 +10,7 @@ import { normalizeLimitations, formatNumbersInLine, formatRial, statusLabel } fr
 import { indexedDelayDamage, planDelayPeriod, periodLabel, periodKeyOfIso } from './indexation.js';
 import { computeAttorneyForm } from './attorney-form.js';
 import { icon } from '../icons.js';
+import { regionalValueTool } from '../regional-value.js';
 
 function h(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
@@ -573,6 +574,11 @@ function attorneyTool(id) {
 }
 
 const TOOL_PAGES = {
+  regional: {
+    title: 'ارزش منطقه‌ای املاک شیراز',
+    intro: 'محاسبه ارزش معاملاتی عرصه و اعیانی بر اساس بلوک‌های مناطق یازده‌گانه شیراز و دفترچه سال ۱۴۰۵.',
+    build: () => regionalValueTool(),
+  },
   court: {
     title: 'هزینهٔ دادرسی',
     intro: 'محاسبهٔ هزینهٔ دادرسی بر اساس مبنای خواسته یا محکوم‌به و پله‌های قانونی.',
@@ -622,6 +628,7 @@ function toolToolbar(section) {
 }
 
 const TOOL_VISUALS = {
+  regional: { icon: 'map-pin', eyebrow: 'ارزش معاملاتی املاک', accent: 'blue', short: 'ارزش عرصه و اعیانی بر اساس بلوک شیراز' },
   court: { icon: 'landmark', eyebrow: 'هزینه‌ها و دادرسی', accent: 'teal', short: 'برآورد هزینه‌های قانونی طرح دعوا' },
   attorney: { icon: 'briefcase', eyebrow: 'تعرفه وکالت', accent: 'gold', short: 'محاسبه تعرفه و فوق‌العاده‌های وکیل' },
   delay: { icon: 'chart', eyebrow: 'دین و تعهدات', accent: 'blue', short: 'محاسبه خسارت بر پایه شاخص‌های ماهانه' },
