@@ -193,7 +193,7 @@ function pageContact() {
   wrap.append(h('div', { class: 'notice', role: 'note', text: 'توجه: آکادمی به پرسش‌های حقوقی اشخاص پاسخ نمی‌دهد، خدمات مشاوره حقوقی ارائه نمی‌کند و پرونده‌های شخصی را بررسی نمی‌کند. پیام‌های این بخش صرفاً به‌عنوان پیشنهاد یا بازخورد دریافت می‌شوند.' }));
   wrap.append(h('p', { class: 'muted' }, [
     document.createTextNode('یا مستقیماً به ایمیل '),
-    h('a', { href: 'mailto:Mokhtari.ai.app@gmail.com', text: 'Mokhtari.ai.app@gmail.com' }),
+    h('a', { href: 'mailto:edu@mokhtari.ir', text: 'edu@mokhtari.ir' }),
     document.createTextNode(' بنویسید.'),
   ]));
   return wrap;
