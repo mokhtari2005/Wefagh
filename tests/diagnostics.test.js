@@ -23,3 +23,16 @@ test('دسته‌بندی ناشناخته پذیرفته نمی‌شود', asyn
   const response = await handleDiagnostics(request, { DB: fakeDb() }, '/api/diagnostics/report');
   assert.equal(response.status, 422);
 });
+
+test('گزارش دستی جزئیات پالایش‌شده را برای بررسی مدیر ذخیره می‌کند', async () => {
+  const db = fakeDb();
+  const request = new Request('https://mokhtari.ir/api/admin/diagnostics/manual-report', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ component: 'assistant', route: '/admin?token=hidden', description: '  دکمه ارسال کار نمی‌کند\\n لطفاً بررسی شود.  ' }),
+  });
+  const response = await handleDiagnostics(request, { DB: db }, '/api/admin/diagnostics/manual-report');
+  // درخواست بدون نشست مدیر باید رد شود؛ مسیر ذخیره‌سازی تنها پس از احراز هویت قابل دسترسی است.
+  assert.notEqual(response.status, 202);
+  assert.equal(db.calls.length, 0);
+});

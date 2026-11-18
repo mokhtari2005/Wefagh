@@ -22,6 +22,35 @@ async function fingerprint(value) {
 }
 
 export async function handleDiagnostics(request, env, path) {
+  if (path === '/api/admin/diagnostics/manual-report') {
+    if (request.method !== 'POST') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'POST' });
+    if (!env.DB) return json({ ok: false, error: 'DB_NOT_CONFIGURED' }, 503);
+    const access = await requireAdmin(request, env);
+    if (access.response) return access.response;
+    const parsed = await readJsonBody(request);
+    if (parsed.error) return parsed.error;
+    const body = parsed.body || {};
+    const component = COMPONENTS.has(body.component) ? body.component : null;
+    const description = typeof body.description === 'string'
+      ? body.description.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 1200)
+      : '';
+    const route = cleanRoute(body.route);
+    if (!component || description.length < 10) return json({ ok: false, error: 'VALIDATION_FAILED', hint: 'بخش مشکل را انتخاب کنید و توضیحی دست‌کم ۱۰ نویسه‌ای بنویسید.' }, 422);
+    const key = await fingerprint(['manual', component, route, description].join('|'));
+    try {
+      await env.DB.prepare(`INSERT INTO diagnostic_events (fingerprint, category, component, route, error_code, detail)
+        VALUES (?1, 'manual', ?2, ?3, 'MANUAL_REPORT', ?4)
+        ON CONFLICT(fingerprint) DO UPDATE SET
+          occurrences = MIN(diagnostic_events.occurrences + 1, 1000000),
+          last_seen = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+          status = 'open', resolved_at = NULL`)
+        .bind(key, component, route, description).run();
+      return json({ ok: true, accepted: true, fingerprint: key }, 202);
+    } catch (error) {
+      console.error(JSON.stringify({ where: 'diagnostics.manual-report', error: error?.name || 'Error' }));
+      return json({ ok: false, error: 'SERVICE_UNAVAILABLE' }, 503);
+    }
+  }
   if (path === '/api/diagnostics/report') {
     if (request.method !== 'POST') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'POST' });
     if (!env.DB) return json({ ok: false, error: 'SERVICE_UNAVAILABLE' }, 503);
@@ -66,7 +95,7 @@ export async function handleDiagnostics(request, env, path) {
     }
     if (request.method !== 'GET') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'GET' });
     const result = await env.DB.prepare(`SELECT fingerprint, category, component, route, error_code AS errorCode,
-      http_status AS httpStatus, occurrences, status, first_seen AS firstSeen, last_seen AS lastSeen, resolved_at AS resolvedAt
+      http_status AS httpStatus, detail, occurrences, status, first_seen AS firstSeen, last_seen AS lastSeen, resolved_at AS resolvedAt
       FROM diagnostic_events ORDER BY CASE status WHEN 'open' THEN 0 ELSE 1 END, last_seen DESC LIMIT 150`).all();
     const items = result?.results || [];
     return json({ ok: true, items, openCount: items.filter((item) => item.status === 'open').length });
