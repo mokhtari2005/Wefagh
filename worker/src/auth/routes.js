@@ -63,8 +63,14 @@ export async function register(request, env) {
   if (position && (position.length < 2 || position.length > 100)) errors.position = 'سمت باید بین ۲ و ۱۰۰ نویسه باشد.';
   if (Object.keys(errors).length > 0) return json({ ok: false, error: 'VALIDATION_FAILED', errors }, 422);
 
-  const existing = await env.DB.prepare('SELECT id FROM users WHERE email = ?1').bind(email).first();
-  if (existing) return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
+  const existing = await env.DB.prepare('SELECT id, status, email_verified_at FROM users WHERE email = ?1').bind(email).first();
+  if (existing) {
+    if (existing.status === 'active' && !existing.email_verified_at) {
+      const outcome = await resendForUser(env, existing.id, email);
+      logOutcome('auth.register_existing', outcome);
+    }
+    return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
+  }
   const passwordHash = await hashPassword(body.password);
   let userId;
   try {
@@ -138,6 +144,23 @@ async function issueVerificationEmail(env, userId, email) {
   }
 }
 
+/** ارسال کنترل‌شدهٔ لینک تأیید برای حساب موجود؛ خروجی فقط برای لاگ داخلی است. */
+async function resendForUser(env, userId, email) {
+  const recent = await env.DB
+    .prepare("SELECT created_at FROM email_tokens WHERE user_id = ?1 AND purpose = 'verify_email' AND used_at IS NULL ORDER BY created_at DESC LIMIT 1")
+    .bind(userId)
+    .first();
+  const elapsed = recent ? Date.now() - Date.parse(recent.created_at) : Infinity;
+  if (recent && elapsed < RESEND_COOLDOWN_MS) return 'cooldown';
+
+  await env.DB
+    .prepare("UPDATE email_tokens SET used_at = ?1 WHERE user_id = ?2 AND purpose = 'verify_email' AND used_at IS NULL")
+    .bind(new Date().toISOString(), userId)
+    .run();
+  const sent = await issueVerificationEmail(env, userId, email);
+  return sent ? 'sent' : 'send_failed';
+}
+
 /**
  * ارسال مجدد ایمیل تأیید. پاسخ همیشه عمومی است تا وجود حساب فاش نشود.
  * ایمیل فقط برای حساب فعال و تأییدنشده و با فاصلهٔ حداقل یک دقیقه فرستاده می‌شود.
@@ -167,21 +190,8 @@ export async function resendVerification(request, env) {
     return generic();
   }
 
-  const recent = await env.DB
-    .prepare("SELECT created_at FROM email_tokens WHERE user_id = ?1 AND purpose = 'verify_email' AND used_at IS NULL ORDER BY created_at DESC LIMIT 1")
-    .bind(user.id)
-    .first();
-  if (recent && Date.now() - Date.parse(recent.created_at) < RESEND_COOLDOWN_MS) {
-    logOutcome('auth.resend', 'cooldown');
-    return generic();
-  }
-
-  await env.DB
-    .prepare("UPDATE email_tokens SET used_at = ?1 WHERE user_id = ?2 AND purpose = 'verify_email' AND used_at IS NULL")
-    .bind(new Date().toISOString(), user.id)
-    .run();
-  const sent = await issueVerificationEmail(env, user.id, email);
-  logOutcome('auth.resend', sent ? 'sent' : 'send_failed');
+  const outcome = await resendForUser(env, user.id, email);
+  logOutcome('auth.resend', outcome);
   return generic();
 }
 
