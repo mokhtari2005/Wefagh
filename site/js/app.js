@@ -146,7 +146,7 @@ function pageHome() {
   ]);
 
   const quick = lazy(async () => {
-    const { ACADEMY_TOOLS } = await import('./academy.js');
+    const { ACADEMY_TOOLS } = await import('./academy.js?v=20261119-regional-quick');
     return h('section', { class: 'quick-section', 'aria-labelledby': 'quick-title' }, [
       h('h2', { id: 'quick-title', class: 'block-title', text: 'دسترسی سریع' }),
       h('div', { class: 'quick-grid' }, ACADEMY_TOOLS.map((item) =>
