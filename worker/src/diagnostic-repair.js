@@ -1,7 +1,8 @@
 // عامل ساخت اصلاحیهٔ پیشنهادی از روی رخداد تشخیصی؛ هرگز کد را مستقیم روی main منتشر یا merge نمی‌کند.
 import { json, readJsonBody } from './http.js';
 import { requireMailAdmin } from './admin-mail.js';
-import { generateText, aiConfigured } from './ai/gemini.js';
+import { aiConfigured } from './ai/gemini.js';
+import { generateTextWithFallback } from './ai/fallback.js';
 
 const OWNER = 'mokhtari2005';
 const REPOSITORY = 'Wefagh';
@@ -125,7 +126,7 @@ export async function handleDiagnosticRepair(request, env, path) {
       timeoutMs: 40_000,
     };
     stage = 'ai_analysis';
-    const generated = await generateText(env, prompt);
+    const generated = await generateTextWithFallback(env, prompt);
     const proposal = generated.data;
     if (!proposal || typeof proposal.summary !== 'string' || !['low', 'medium', 'high'].includes(proposal.confidence) || !Array.isArray(proposal.patches)) {
       return json({ ok: false, error: 'AI_INVALID_PROPOSAL' }, 502);
