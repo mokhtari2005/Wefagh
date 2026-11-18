@@ -2378,3 +2378,56 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
   .voice-typing-actions > button { flex: 1 1 calc(50% - .6rem); }
   .voice-typing-toolbar { gap: .35rem; }
 }
+
+
+/* نوار دسترسی سریع در ابتدای صفحات موبایل */
+.mobile-quick-access { display: none; }
+@media (max-width: 700px) {
+  .mobile-quick-access {
+    display: block;
+    margin: 0 -1px 14px;
+    padding: 9px 0 8px;
+    border: 1px solid var(--sand-line);
+    border-radius: 15px;
+    background: var(--paper);
+  }
+  .mobile-quick-access-label {
+    display: block;
+    padding: 0 12px 7px;
+    color: var(--muted);
+    font-size: .72rem;
+    font-weight: 700;
+  }
+  .mobile-quick-access-list {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    padding: 0 10px 3px;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+  }
+  .mobile-quick-access-list::-webkit-scrollbar { display: none; }
+  .mobile-quick-access-item {
+    display: flex;
+    flex: 0 0 76px;
+    min-height: 65px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 6px 4px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    color: var(--teal-dark);
+    text-decoration: none;
+    scroll-snap-align: start;
+  }
+  .mobile-quick-access-item[aria-current="page"] {
+    border-color: var(--sand-line);
+    background: var(--bone);
+    color: var(--gold-dark, var(--teal-dark));
+  }
+  .mobile-quick-access-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; background: var(--bone); }
+  .mobile-quick-access-title { max-width: 100%; overflow: hidden; color: inherit; font-size: .68rem; line-height: 1.4; text-align: center; white-space: nowrap; text-overflow: ellipsis; }
+}
