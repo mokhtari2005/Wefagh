@@ -14,7 +14,7 @@ export function stripGroqFormatting(value) {
     .replace(/^\s*(?:[-*_]\s*){3,}$/gm, '')
     .replace(/\*\*(.*?)\*\*/gs, '$1')
     .replace(/__(.*?)__/gs, '$1')
-    .replace(/(^|[\s([{])\*([^*\n]+)\*(?=$|[\s)\\]},.!?؛،:])/gm, '$1$2')
+    .replace(/(^|[\s([{])\*([^*\n]+)\*(?=$|[\s)\]},.!?؛،:])/gm, '$1$2')
     .replace(/`{1,3}/g, '')
     .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '$1 ($2)')
     .replace(/\n{3,}/g, '\n\n')
