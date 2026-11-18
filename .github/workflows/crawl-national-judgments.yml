@@ -48,7 +48,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          LIMIT="${{ github.event.inputs.max_pages || '250' }}"
+          LIMIT="${{ github.event.inputs.max_pages || '1000' }}"
           python scripts/crawl_national_judgments.py --max-pages "$LIMIT" --delay 2
       - name: Upload crawl audit
         if: always()
