@@ -2450,3 +2450,16 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
   .mobile-quick-access-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; background: var(--bone); }
   .mobile-quick-access-title { max-width: 100%; overflow: hidden; color: inherit; font-size: .68rem; line-height: 1.4; text-align: center; white-space: nowrap; text-overflow: ellipsis; }
 }
+
+
+/* تایپ صوتی محلی با Whisper */
+.voice-typing-panel > .row .voice-typing-prepare { min-height: 44px; border-radius: 12px; }
+.voice-typing-status[data-state="processing"] { color: var(--teal-dark); border-color: var(--teal); background: color-mix(in srgb, var(--teal) 7%, var(--paper)); font-weight: 650; }
+.voice-typing-status[data-state="starting"] .voice-typing-dot,
+.voice-typing-status[data-state="processing"] .voice-typing-dot { animation: voice-pulse 1.1s infinite; }
+.voice-typing-mic[data-state="waiting"] .voice-typing-mic-icon { animation: voice-pulse 1.4s infinite; }
+@media (max-width: 640px) {
+  .voice-typing-panel > .row .voice-typing-prepare,
+  .voice-typing-panel > .row .voice-typing-record,
+  .voice-typing-panel > .row .secondary { flex: 1 1 100%; }
+}

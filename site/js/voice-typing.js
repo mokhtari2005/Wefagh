@@ -123,8 +123,9 @@ export function voiceTypingPage() {
     h('option', { value: 'en-US', text: 'English' }),
     h('option', { value: 'ar-SA', text: 'العربية' }),
   ]);
+  const prepare = h('button', { class: 'btn secondary voice-typing-prepare', type: 'button', text: 'آماده‌سازی مدل گفتار' });
   const start = h('button', { class: 'btn voice-typing-record', type: 'button', text: 'شروع ضبط' });
-  const stop = h('button', { class: 'btn secondary', type: 'button', text: 'توقف ضبط' });
+  const stop = h('button', { class: 'btn secondary', type: 'button', text: 'توقف و تبدیل به متن' });
   stop.disabled = true;
   const toolbar = h('div', { class: 'voice-typing-toolbar', role: 'toolbar', 'aria-label': 'قالب‌بندی متن' }, [
     h('button', { class: 'btn secondary small', type: 'button', text: 'پررنگ' }),
@@ -142,9 +143,9 @@ export function voiceTypingPage() {
   const pdf = h('button', { class: 'btn secondary', type: 'button', text: 'چاپ / ذخیره PDF' });
   const clear = h('button', { class: 'btn secondary', type: 'button', text: 'پاک‌کردن متن' });
   actions.append(copy, download, word, pdf, clear);
-  const help = h('p', { class: 'muted', text: 'اگر مرورگر از تشخیص گفتار پشتیبانی نکند، می‌توانید از قابلیت دیکتهٔ صفحه‌کلید گوشی استفاده کنید. برای دقت بهتر، دسترسی میکروفون را فعال کنید و در محیطی کم‌صدا صحبت کنید.' });
+  const help = h('p', { class: 'muted', text: 'در اولین استفاده، مدل تشخیص گفتار (حدود ۷۵ تا ۱۵۰ مگابایت) دانلود و در حافظه مرورگر نگهداری می‌شود. پس از آن برای تبدیل گفتار به متن نیازی به ارسال صدا به سرور نیست. برای دقت بهتر، در محیطی کم‌صدا صحبت کنید.' });
   panel.append(
-    h('div', { class: 'row' }, [start, stop, language]),
+    h('div', { class: 'row' }, [prepare, start, stop, language]),
     status,
     micIndicator,
     toolbar,
@@ -155,27 +156,43 @@ export function voiceTypingPage() {
   );
   root.append(panel);
 
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let recognition = null;
+  let recorder = null;
+  let mediaStream = null;
+  let audioChunks = [];
   let recording = false;
-  let finalTranscript = '';
-  let interimTranscript = '';
+  let transcriber = null;
+  let transcriberPromise = null;
   let permissionStatus = null;
-  function setMicState(state, message) { micIndicator.dataset.state = state; micIndicator.lastElementChild.textContent = message; }
-  if (navigator.permissions?.query) navigator.permissions.query({ name: 'microphone' }).then((permission) => {
-    permissionStatus = permission;
-    const refresh = () => { if (recording) return; if (permission.state === 'granted') setMicState('connected', 'مجوز میکروفون فعال است'); else if (permission.state === 'denied') setMicState('disconnected', 'دسترسی میکروفون مسدود است'); else setMicState('unknown', 'برای شروع، اجازهٔ دسترسی میکروفون را بدهید'); };
-    refresh(); permission.addEventListener?.('change', refresh);
-  }).catch(() => setMicState('unknown', 'وضعیت میکروفون هنگام شروع ضبط مشخص می‌شود'));
+  let recordingTimeout = null;
+  const MAX_RECORDING_MS = 5 * 60 * 1000;
+  const MODEL_ID = 'onnx-community/whisper-tiny';
 
-  function updateCount() {
-    const text = editor.innerText || '';
-    const words = text.trim() ? text.trim().split(/\s+/u).length : 0;
-    count.textContent = `${words.toLocaleString('fa-IR')} واژه · ${text.length.toLocaleString('fa-IR')} نویسه`;
+  function setMicState(state, message) {
+    micIndicator.dataset.state = state;
+    micIndicator.lastElementChild.textContent = message;
   }
   function setStatus(message, state = 'idle') {
     status.dataset.state = state;
     status.lastElementChild.textContent = message;
+  }
+  if (navigator.permissions?.query) {
+    navigator.permissions.query({ name: 'microphone' }).then((permission) => {
+      permissionStatus = permission;
+      const refresh = () => {
+        if (recording) return;
+        if (permission.state === 'granted') setMicState('connected', 'مجوز میکروفون فعال است');
+        else if (permission.state === 'denied') setMicState('disconnected', 'دسترسی میکروفون مسدود است');
+        else setMicState('unknown', 'برای شروع، اجازهٔ دسترسی میکروفون را بدهید');
+      };
+      refresh();
+      permission.addEventListener?.('change', refresh);
+    }).catch(() => setMicState('unknown', 'وضعیت میکروفون هنگام شروع ضبط مشخص می‌شود'));
+  }
+
+  function updateCount() {
+    const text = editor.innerText || '';
+    const words = text.trim() ? text.trim().split(/\s+/u).length : 0;
+    count.textContent = words.toLocaleString('fa-IR') + ' واژه · ' + text.length.toLocaleString('fa-IR') + ' نویسه';
   }
   editor.addEventListener('input', updateCount);
 
@@ -190,93 +207,215 @@ export function voiceTypingPage() {
     });
   });
 
-  function stopRecognition(message = 'ضبط متوقف شد.', state = 'idle') {
-    recording = false;
-    start.disabled = false;
-    start.setAttribute('aria-pressed', 'false');
-    stop.disabled = true;
-    interim.textContent = '';
-    setStatus(message, state);
-    if (permissionStatus?.state === 'denied') setMicState('disconnected', 'دسترسی میکروفون مسدود است');
-    else if (permissionStatus?.state === 'granted') setMicState('connected', 'مجوز میکروفون فعال است · ضبط متوقف است');
-    else if (state !== 'error') setMicState('unknown', 'ضبط متوقف است');
-    try { recognition?.stop(); } catch { /* already stopped */ }
+  async function loadTranscriber() {
+    if (transcriber) return transcriber;
+    if (transcriberPromise) return transcriberPromise;
+    prepare.disabled = true;
+    prepare.textContent = 'در حال آماده‌سازی…';
+    setStatus('در حال بارگذاری موتور تشخیص گفتار؛ در اولین بار ممکن است چند دقیقه طول بکشد…', 'starting');
+    transcriberPromise = (async () => {
+      const module = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1');
+      module.env.allowLocalModels = false;
+      module.env.allowRemoteModels = true;
+      module.env.useBrowserCache = true;
+      const pipe = await module.pipeline('automatic-speech-recognition', MODEL_ID, {
+        dtype: 'q8',
+        progress_callback: (event) => {
+          if (event.status === 'progress' && Number.isFinite(event.progress)) {
+            setStatus('دریافت مدل تشخیص گفتار: ' + Math.round(event.progress) + '٪', 'starting');
+          } else if (event.status === 'initiate') {
+            setStatus('در حال دریافت فایل‌های مدل؛ لطفاً صفحه را نبندید…', 'starting');
+          }
+        },
+      });
+      transcriber = pipe;
+      prepare.textContent = 'مدل آماده است';
+      prepare.disabled = true;
+      setStatus('مدل گفتار آماده است. می‌توانید ضبط را شروع کنید.');
+      return pipe;
+    })().catch((error) => {
+      transcriberPromise = null;
+      prepare.disabled = false;
+      prepare.textContent = 'تلاش دوباره برای آماده‌سازی';
+      setStatus('بارگذاری مدل انجام نشد. اتصال اینترنت را بررسی کنید و دوباره تلاش کنید.', 'error');
+      throw error;
+    });
+    return transcriberPromise;
   }
 
-  if (!SpeechRecognition) {
-    start.disabled = true;
-    setMicState('unavailable', 'تشخیص میکروفون در این مرورگر پشتیبانی نمی‌شود');
-    setStatus('مرورگر شما تبدیل گفتار به متن را پشتیبانی نمی‌کند. از نسخهٔ به‌روز Safari یا Chrome استفاده کنید؛ در صورت ادامهٔ مشکل از دیکتهٔ صفحه‌کلید گوشی کمک بگیرید.', 'error');
-  } else {
-    recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-    recognition.lang = language.value;
-    recognition.onstart = () => {
-      recording = true;
-      start.disabled = true;
-      start.setAttribute('aria-pressed', 'true');
-      stop.disabled = false;
-      setMicState('connected', 'میکروفون وصل است · در حال دریافت صدا');
-      setStatus('ضبط فعال است؛ صحبت کنید. برای پایان، توقف ضبط را بزنید.', 'recording');
-    };
-    recognition.onaudiostart = () => { if (recording) setMicState('connected', 'میکروفون فعال است · صدا دریافت می‌شود'); };
-    recognition.onaudioend = () => { if (recording) setMicState('waiting', 'میکروفون وصل است · در انتظار صدای شما'); };
-    recognition.onresult = (event) => {
-      interimTranscript = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const phrase = event.results[i][0].transcript;
-        if (event.results[i].isFinal) finalTranscript += phrase + ' ';
-        else interimTranscript += phrase;
-      }
-      if (finalTranscript.trim()) {
-        insertTextAtCursor(editor, finalTranscript.trimEnd());
-        finalTranscript = '';
-      }
-      interim.textContent = interimTranscript ? 'در حال تشخیص: ' + interimTranscript : '';
-    };
-    recognition.onerror = (event) => {
-      const messages = {
-        'not-allowed': 'دسترسی میکروفون مسدود است؛ از تنظیمات سایت در مرورگر، اجازهٔ میکروفون را فعال کنید.',
-        'service-not-allowed': 'مرورگر اجازهٔ استفاده از سرویس تشخیص گفتار را نداد.',
-        'no-speech': 'صدایی دریافت نشد؛ میکروفون را بررسی کنید و دوباره تلاش کنید.',
-        'aborted': 'ضبط متوقف شد.',
-        'audio-capture': 'میکروفون پیدا نشد یا در دسترس نیست.',
-        'network': 'تشخیص گفتار به اتصال شبکه نیاز دارد؛ اتصال را بررسی کنید.',
-      };
-      const denied = ['not-allowed', 'service-not-allowed', 'audio-capture'].includes(event.error);
-      if (denied) setMicState('disconnected', event.error === 'audio-capture' ? 'میکروفون در دسترس نیست' : 'دسترسی میکروفون قطع یا مسدود است');
-      stopRecognition(messages[event.error] || 'در تشخیص گفتار خطایی رخ داد؛ دوباره تلاش کنید.', denied ? 'error' : 'idle');
-    };
-    recognition.onend = () => {
-      if (recording) {
-        try { recognition.start(); }
-        catch { stopRecognition('ضبط پایان یافت. برای ادامه دوباره شروع ضبط را بزنید.'); }
-      }
-    };
-    start.addEventListener('click', () => {
-      if (recording) return;
-      recognition.lang = language.value;
-      finalTranscript = '';
-      interimTranscript = '';
-      start.disabled = true;
-      stop.disabled = false;
-      setMicState('connecting', 'در حال اتصال به میکروفون…');
-      setStatus('در حال درخواست دسترسی و آماده‌سازی میکروفون…', 'starting');
-      try { recognition.start(); }
-      catch (error) {
-        start.disabled = false; stop.disabled = true;
-        const message = error?.name === 'NotAllowedError' ? 'اجازهٔ میکروفون صادر نشد؛ دسترسی سایت را در تنظیمات مرورگر فعال کنید.' : error?.name === 'InvalidStateError' ? 'ضبط قبلی هنوز در حال بسته‌شدن است؛ یک لحظه صبر کنید و دوباره بزنید.' : 'شروع ضبط ممکن نشد؛ اتصال اینترنت و مجوز میکروفون را بررسی کنید.';
-        setMicState('disconnected', 'میکروفون متصل نیست یا مجوز ندارد'); setStatus(message, 'error');
-      }
-    });
-    stop.addEventListener('click', () => stopRecognition());
-    language.addEventListener('change', () => {
-      if (recording) stopRecognition('برای تغییر زبان، ضبط متوقف شد. دوباره شروع کنید.');
-      recognition.lang = language.value;
-    });
+  prepare.addEventListener('click', () => { loadTranscriber().catch(() => {}); });
+
+  function chooseMimeType() {
+    if (typeof MediaRecorder === 'undefined') return '';
+    const choices = ['audio/mp4;codecs=mp4a.40.2', 'audio/mp4', 'audio/webm;codecs=opus', 'audio/webm'];
+    return choices.find((type) => MediaRecorder.isTypeSupported?.(type)) || '';
   }
+
+  function resampleAudio(audioBuffer, targetRate = 16000) {
+    const sourceRate = audioBuffer.sampleRate;
+    const channels = Array.from({ length: audioBuffer.numberOfChannels }, (_, i) => audioBuffer.getChannelData(i));
+    const mono = new Float32Array(audioBuffer.length);
+    for (const channel of channels) {
+      for (let i = 0; i < audioBuffer.length; i++) mono[i] += channel[i] / channels.length;
+    }
+    if (sourceRate === targetRate) return mono;
+    const targetLength = Math.floor(audioBuffer.length * targetRate / sourceRate);
+    const output = new Float32Array(targetLength);
+    const ratio = sourceRate / targetRate;
+    for (let i = 0; i < targetLength; i++) {
+      const position = i * ratio;
+      const left = Math.floor(position);
+      const right = Math.min(left + 1, audioBuffer.length - 1);
+      const fraction = position - left;
+      output[i] = mono[left] * (1 - fraction) + mono[right] * fraction;
+    }
+    return output;
+  }
+
+  async function transcribeBlob(blob) {
+    if (!blob || !blob.size) {
+      setStatus('صدایی برای تبدیل ثبت نشد. دوباره ضبط کنید.', 'error');
+      return;
+    }
+    try {
+      const pipe = await loadTranscriber();
+      setStatus('در حال آماده‌سازی فایل صوتی روی دستگاه…', 'starting');
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) throw new Error('AUDIO_CONTEXT_UNAVAILABLE');
+      const audioContext = new AudioContextClass();
+      let audioBuffer;
+      try {
+        audioBuffer = await audioContext.decodeAudioData(await blob.arrayBuffer());
+      } finally {
+        await audioContext.close().catch(() => {});
+      }
+      const samples = resampleAudio(audioBuffer, 16000);
+      if (!samples.length) throw new Error('EMPTY_AUDIO');
+      const languageName = { 'fa-IR': 'persian', 'en-US': 'english', 'ar-SA': 'arabic' }[language.value] || 'persian';
+      setStatus('مدل روی همین دستگاه در حال تبدیل گفتار به متن است…', 'processing');
+      const result = await pipe(samples, {
+        task: 'transcribe',
+        language: languageName,
+        chunk_length_s: 30,
+        stride_length_s: 5,
+      });
+      const text = String(result?.text || '').trim();
+      if (!text) {
+        setStatus('متنی از صدا تشخیص داده نشد؛ در محیط آرام‌تر دوباره ضبط کنید.', 'error');
+        return;
+      }
+      insertTextAtCursor(editor, text);
+      updateCount();
+      setStatus('تبدیل انجام شد؛ متن به ویرایشگر اضافه شد. لطفاً آن را بازبینی کنید.');
+      editor.focus();
+    } catch (error) {
+      const message = error?.message === 'AUDIO_CONTEXT_UNAVAILABLE'
+        ? 'مرورگر امکان پردازش فایل صوتی را ندارد.'
+        : error?.name === 'NotSupportedError'
+          ? 'قالب صدای ضبط‌شده در این مرورگر قابل پردازش نیست.'
+          : 'تبدیل گفتار انجام نشد. فضای خالی دستگاه و اتصال اینترنت برای دریافت مدل را بررسی کنید.';
+      setStatus(message, 'error');
+    }
+  }
+
+  async function finishRecording() {
+    const mimeType = recorder?.mimeType || audioChunks[0]?.type || 'audio/mp4';
+    const blob = new Blob(audioChunks, { type: mimeType });
+    audioChunks = [];
+    if (recordingTimeout) window.clearTimeout(recordingTimeout);
+    recordingTimeout = null;
+    mediaStream?.getTracks().forEach((track) => track.stop());
+    mediaStream = null;
+    recorder = null;
+    start.disabled = false;
+    stop.disabled = true;
+    setMicState('connected', 'میکروفون آزاد شد · ضبط متوقف است');
+    await transcribeBlob(blob);
+  }
+
+  function stopRecording() {
+    if (!recording || !recorder) return;
+    recording = false;
+    if (recordingTimeout) window.clearTimeout(recordingTimeout);
+    recordingTimeout = null;
+    stop.disabled = true;
+    start.disabled = true;
+    setMicState('waiting', 'ضبط پایان یافت · در حال آماده‌سازی فایل');
+    setStatus('ضبط پایان یافت؛ فایل صوتی آمادهٔ تبدیل می‌شود…', 'starting');
+    try { recorder.stop(); } catch { finishRecording(); }
+  }
+
+  if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+    start.disabled = true;
+    setMicState('unavailable', 'ضبط صدا در این مرورگر در دسترس نیست');
+    setStatus('این مرورگر امکان ضبط مستقیم صدا را ندارد. از نسخهٔ به‌روز Safari یا Chrome استفاده کنید یا از دیکتهٔ صفحه‌کلید گوشی کمک بگیرید.', 'error');
+  } else {
+    start.addEventListener('click', async () => {
+      if (recording) return;
+      start.disabled = true;
+      setMicState('connecting', 'در حال درخواست دسترسی به میکروفون…');
+      setStatus('برای شروع ضبط، اجازهٔ استفاده از میکروفون را بدهید.', 'starting');
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        });
+        const mimeType = chooseMimeType();
+        recorder = mimeType
+          ? new MediaRecorder(mediaStream, { mimeType, audioBitsPerSecond: 64000 })
+          : new MediaRecorder(mediaStream);
+        audioChunks = [];
+        recorder.addEventListener('dataavailable', (event) => {
+          if (event.data?.size) audioChunks.push(event.data);
+        });
+        recorder.addEventListener('error', () => {
+          recording = false;
+          mediaStream?.getTracks().forEach((track) => track.stop());
+          mediaStream = null;
+          recorder = null;
+          start.disabled = false;
+          stop.disabled = true;
+          setMicState('disconnected', 'خطا در دریافت صدای میکروفون');
+          setStatus('ضبط صدا با خطا متوقف شد؛ دوباره تلاش کنید.', 'error');
+        }, { once: true });
+        recorder.addEventListener('stop', finishRecording, { once: true });
+        recorder.start(1000);
+        recording = true;
+        recordingTimeout = window.setTimeout(() => {
+          if (recording) {
+            setStatus('حداکثر زمان هر نوبت ضبط ۵ دقیقه است؛ ضبط متوقف و تبدیل آغاز می‌شود.', 'starting');
+            stopRecording();
+          }
+        }, MAX_RECORDING_MS);
+        start.disabled = true;
+        stop.disabled = false;
+        setMicState('connected', 'میکروفون فعال است · در حال ضبط');
+        setStatus('در حال ضبط صدا؛ برای پایان و تبدیل به متن، دکمه توقف را بزنید.', 'recording');
+      } catch (error) {
+        mediaStream?.getTracks().forEach((track) => track.stop());
+        mediaStream = null;
+        start.disabled = false;
+        stop.disabled = true;
+        const message = error?.name === 'NotAllowedError' || error?.name === 'SecurityError'
+          ? 'اجازهٔ میکروفون صادر نشد؛ دسترسی سایت را در تنظیمات Safari فعال کنید.'
+          : error?.name === 'NotFoundError'
+            ? 'میکروفونی در دستگاه پیدا نشد.'
+            : error?.name === 'NotReadableError'
+              ? 'میکروفون در برنامهٔ دیگری در حال استفاده است.'
+              : 'شروع ضبط ممکن نشد؛ مجوز میکروفون و تنظیمات مرورگر را بررسی کنید.';
+        setMicState('disconnected', 'میکروفون متصل نیست یا مجوز ندارد');
+        setStatus(message, 'error');
+      }
+    });
+    stop.addEventListener('click', stopRecording);
+  }
+
+  window.addEventListener('beforeunload', () => {
+    if (recordingTimeout) window.clearTimeout(recordingTimeout);
+    if (recording) {
+      try { recorder?.stop(); } catch { /* ignore */ }
+      mediaStream?.getTracks().forEach((track) => track.stop());
+    }
+  }, { once: true });
 
   copy.addEventListener('click', async () => {
     const text = editor.innerText || '';
