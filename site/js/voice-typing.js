@@ -181,6 +181,7 @@ export function voiceTypingPage() {
   let recordingTimeout = null;
   let speechRecognition = null;
   let recognitionShouldRun = false;
+  let liveRecognitionProducedText = false;
   let audioContextForMeter = null;
   let analyser = null;
   let meterSource = null;
@@ -298,6 +299,7 @@ export function voiceTypingPage() {
   }
 
   function startLiveRecognition() {
+    liveRecognitionProducedText = false;
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!Recognition) {
       interim.textContent = 'تایپ زنده در این مرورگر پشتیبانی نمی‌شود؛ صدا ضبط و پس از توقف تبدیل خواهد شد.';
@@ -319,7 +321,10 @@ export function voiceTypingPage() {
           if (event.results[i].isFinal) confirmed += value;
           else pending += value;
         }
-        if (confirmed.trim()) insertTextAtCursor(editor, confirmed.trim());
+        if (confirmed.trim()) {
+          liveRecognitionProducedText = true;
+          insertTextAtCursor(editor, confirmed.trim());
+        }
         interim.textContent = pending ? 'در حال تشخیص: ' + pending : (recording ? 'گفتار شما به‌صورت زنده در متن ثبت می‌شود.' : '');
         interim.dataset.state = pending ? 'pending' : 'live';
         updateCount();
@@ -516,6 +521,11 @@ export function voiceTypingPage() {
       setStatus('متنی از صدا تشخیص داده نشد؛ در محیط آرام‌تر دوباره ضبط کنید.', 'error');
       return;
     }
+    if (res?.status === 405) {
+      console.error('[voice-typing] transcription method rejected', { url: res.url, redirected: res.redirected, allow: res.allow, contentType: res.contentType });
+      setStatus('سرور درخواست تبدیل گفتار را با خطای 405 رد کرد. نشانی یا مسیر انتشار API با نسخهٔ صفحه هماهنگ نیست؛ پس از اصلاح انتشار Worker دوباره تلاش کنید.', 'error');
+      return;
+    }
     let code = res?.data?.error;
     if (!code) code = res?.networkError ? (res.timeoutError ? 'AI_REQUEST_TIMEOUT' : 'NETWORK') : `HTTP_${res?.status || 0}`;
     console.error('[voice-typing] transcription failed', code, res?.status);
@@ -598,6 +608,11 @@ export function voiceTypingPage() {
     start.disabled = false;
     stop.disabled = true;
     setMicState('connected', 'میکروفون آزاد شد · ضبط متوقف است');
+    if (liveRecognitionProducedText) {
+      setStatus('تایپ زنده انجام شد؛ برای جلوگیری از درج دوبارهٔ همان گفتار، تبدیل مجدد فایل اجرا نشد. متن را بازبینی کنید.');
+      updateCount();
+      return;
+    }
     await transcribeOnServer(blob);
   }
 
