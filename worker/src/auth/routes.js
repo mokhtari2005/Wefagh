@@ -99,7 +99,7 @@ export async function register(request, env) {
         .first();
     } catch (schemaError) {
       // سازگاری با نسخه‌های قدیمی دیتابیس تا اجرای مهاجرت ۰۰۲۵.
-      if (!String(schemaError?.message || '').includes('no such column')) throw schemaError;
+      if (!/no such column|has no column named/i.test(String(schemaError?.message || ''))) throw schemaError;
       row = await env.DB.prepare('INSERT INTO users (email, password_hash, display_name) VALUES (?1, ?2, ?3) RETURNING id')
         .bind(email, passwordHash, displayName).first();
     }
