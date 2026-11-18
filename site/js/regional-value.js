@@ -187,9 +187,9 @@ export function regionalValueTool() {
     // so a failed provider must not leave the user with a blank map.
     const tileProviders = [
       {
-        name: 'Carto',
+        name: 'OpenStreetMap',
         url: '/api/map/tiles/{z}/{x}/{y}.png',
-        options: { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors &copy; CARTO / Esri' }
+        options: { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }
       },
       {
         name: 'OpenStreetMap',
