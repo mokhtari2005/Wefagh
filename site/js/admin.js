@@ -370,6 +370,7 @@ export async function adminPage() {
   const importView = el('section', { class: 'admin-view', 'data-admin-view': 'imports', hidden: 'hidden' }, [importPanel]);
   const mediaView = el('section', { class: 'admin-view', 'data-admin-view': 'media', hidden: 'hidden' });
   const servicesView = el('section', { class: 'admin-view', 'data-admin-view': 'services', hidden: 'hidden' }, [mailPanel]);
+  const trafficView = el('section', { class: 'admin-view', 'data-admin-view': 'traffic', hidden: 'hidden' });
   const accessNotice = el('p', { class: 'form-status', role: 'status' });
   const accessDescription = el('p', { class: 'muted', text: 'با غیرفعال‌کردن الزام ثبت‌نام، دستیار وکیل و ابزارهای عمومی هوش مصنوعی بدون ورود در دسترس قرار می‌گیرند. اطلاعات شخصی، مواعد، سوابق و پیشرفت آموزشی همچنان نیازمند ورود هستند.' });
   const registrationToggle = el('input', { type: 'checkbox', id: 'registration-required' });
@@ -1115,14 +1116,21 @@ export async function adminPage() {
     ['legal-bank', 'بانک قوانین', '§'],
     ['media', 'رسانه و اندیشه', '▧'],
     ['services', 'سلامت و عیب‌یابی', '⚙'],
+    ['traffic', 'پایش زنده سایت', '◉'],
   ];
   const menuToggle = el('button', { class: 'admin-menu-toggle btn secondary', type: 'button', 'aria-expanded': 'false', 'aria-controls': 'admin-sidebar' }, [el('span', { text: '☰' }), el('span', { text: ' منوی مدیریت' })]);
-  const views = { dashboard: dashboardView, members: membersView, 'rejected-members': rejectedMembersView, content: contentView, imports: importView, 'legal-bank': legalBankView, media: mediaView, services: servicesView };
+  const views = { dashboard: dashboardView, members: membersView, 'rejected-members': rejectedMembersView, content: contentView, imports: importView, 'legal-bank': legalBankView, media: mediaView, services: servicesView, traffic: trafficView };
   function selectView(key) {
     if (key === 'dashboard') updateDashboard();
     if (key === 'members') refreshMembers();
     if (key === 'services') refreshDiagnostics();
     if (key === 'legal-bank') refreshLegalBank();
+    if (key === 'traffic' && !trafficView.dataset.loaded) {
+      trafficView.dataset.loaded = '1';
+      import('./visitor-analytics.js').then(({ visitorAnalyticsPage }) => visitorAnalyticsPage())
+        .then((page) => trafficView.replaceChildren(page))
+        .catch(() => { trafficView.textContent = 'بارگذاری مرکز پایش سایت ناموفق بود؛ صفحه را دوباره باز کنید.'; delete trafficView.dataset.loaded; });
+    }
     for (const [name, view] of Object.entries(views)) view.hidden = name !== key;
     for (const button of nav.querySelectorAll('[data-admin-target]')) {
       const active = button.dataset.adminTarget === key;
@@ -1132,8 +1140,6 @@ export async function adminPage() {
     nav.classList.remove('open');
     menuToggle.setAttribute('aria-expanded', 'false');
   }
-  const trafficLink = el('a', { class: 'admin-nav-item', href: '#/admin/traffic' }, [el('span', { class: 'admin-nav-icon', 'aria-hidden': 'true', text: '◉' }), el('span', { text: 'پایش زنده سایت' })]);
-  nav.append(trafficLink);
   for (const [key, label, symbol] of menuItems) {
     const button = el('button', { class: 'admin-nav-item', type: 'button', 'data-admin-target': key }, [
       el('span', { class: 'admin-nav-icon', 'aria-hidden': 'true', text: symbol }),
@@ -1146,7 +1152,7 @@ export async function adminPage() {
     const open = nav.classList.toggle('open');
     menuToggle.setAttribute('aria-expanded', String(open));
   });
-  const workspace = el('div', { class: 'admin-workspace admin-workspace-redesigned' }, [nav, el('div', { class: 'admin-main-column' }, [menuToggle, dashboardView, membersView, rejectedMembersView, contentView, importView, legalBankView, mediaView, servicesView])]);
+  const workspace = el('div', { class: 'admin-workspace admin-workspace-redesigned' }, [nav, el('div', { class: 'admin-main-column' }, [menuToggle, dashboardView, membersView, rejectedMembersView, contentView, importView, legalBankView, mediaView, servicesView, trafficView])]);
   wrap.append(workspace);
   return wrap;
 }
