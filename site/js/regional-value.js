@@ -53,6 +53,71 @@ export function regionalValueTool() {
   const zone = select('rv-zone', 'منطقه شهرداری / مالیاتی شیراز', Array.from({length:11},(_,i)=>[String(i+1),`منطقه ${fa(i+1)}`]));
   const block = select('rv-block', 'بلوک', []);
   const blockRate = h('p', { class: 'muted', role: 'status' });
+  const province = input('rv-province', 'استان', 'فارس');
+  const city = input('rv-city', 'شهر', 'شیراز');
+  province.el.value = 'فارس';
+  city.el.value = 'شیراز';
+  province.el.readOnly = true;
+  city.el.readOnly = true;
+  const address = input('rv-address', 'نشانی دقیق ملک');
+  const postalCode = input('rv-postal-code', 'کد پستی (در صورت وجود)');
+  postalCode.el.maxLength = 10;
+  postalCode.el.inputMode = 'numeric';
+  const coordinates = input('rv-coordinates', 'مختصات جغرافیایی (عرض، طول)');
+  coordinates.el.readOnly = true;
+  const mapStatus = h('p', { class: 'muted regional-map-status', role: 'status', text: 'برای تعیین موقعیت، روی نقشه کلیک کنید یا نشانگر را جابه‌جا کنید.' });
+  const mapCanvas = h('div', { id: 'rv-map', class: 'regional-property-map', role: 'application', 'aria-label': 'نقشه تعیین موقعیت ملک در شیراز' });
+  const locationFields = h('section', { class: 'regional-location-fields' }, [
+    h('h3', { text: 'موقعیت و نشانی ملک' }),
+    province.node, city.node, address.node, postalCode.node,
+    h('div', { class: 'field regional-map-field' }, [h('label', { text: 'نقشه شهر و تعیین موقعیت ملک' }), mapCanvas, mapStatus]),
+    coordinates.node
+  ]);
+  function loadLeaflet() {
+    if (window.L) return Promise.resolve(window.L);
+    if (window.__regionalLeafletPromise) return window.__regionalLeafletPromise;
+    window.__regionalLeafletPromise = new Promise((resolve, reject) => {
+      if (!document.querySelector('link[data-regional-leaflet]')) {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        link.dataset.regionalLeaflet = '1';
+        document.head.append(link);
+      }
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.onload = () => window.L ? resolve(window.L) : reject(new Error('Leaflet unavailable'));
+      script.onerror = reject;
+      document.head.append(script);
+    });
+    return window.__regionalLeafletPromise;
+  }
+  loadLeaflet().then(L => {
+    const map = L.map(mapCanvas, { scrollWheelZoom: false }).setView([29.5918, 52.5837], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+    const marker = L.marker([29.5918, 52.5837], { draggable: true }).addTo(map);
+    const setPoint = async point => {
+      const lat = Number(point.lat).toFixed(6), lon = Number(point.lng).toFixed(6);
+      coordinates.el.value = `${lat}, ${lon}`;
+      mapStatus.textContent = 'موقعیت روی نقشه ثبت شد؛ در صورت نیاز نشانی و کد پستی را دستی تکمیل کنید.';
+      try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=fa`);
+        if (response.ok) {
+          const data = await response.json();
+          if (!address.el.value && data.display_name) address.el.value = data.display_name;
+          if (!postalCode.el.value && data.address?.postcode) postalCode.el.value = data.address.postcode;
+        }
+      } catch (_) { /* ورود دستی نشانی همچنان ممکن است. */ }
+    };
+    map.on('click', event => { marker.setLatLng(event.latlng); setPoint(event.latlng); });
+    marker.on('dragend', () => setPoint(marker.getLatLng()));
+    mapStatus.textContent = 'نقشه آماده است؛ محل ملک را انتخاب کنید.';
+    setTimeout(() => map.invalidateSize(), 100);
+  }).catch(() => {
+    mapStatus.textContent = 'بارگذاری نقشه ممکن نشد؛ نشانی ملک را در کادر بالا به‌صورت دستی وارد کنید.';
+  });
   function updateBlocks() {
     const rows = SHIRAZ_BLOCKS.filter(x=>x[0]===Number(zone.el.value));
     block.el.replaceChildren(...rows.map(x=>h('option',{value:x[1],text:`بلوک ${x[1]}`})));
@@ -102,6 +167,7 @@ export function regionalValueTool() {
 
   const out=h('div',{class:'tool-out'});
   const form=h('form',{class:'form regional-value-form',novalidate:'', 'aria-label':'محاسبه ارزش معاملاتی ملک در شیراز'},[
+    locationFields,
     h('h3',{text:'۱. مشخصات عرصه'}),zone.node,block.node,blockRate,...landFields,
     h('h3',{text:'۲. مشخصات اعیانی'}),buildingWrap,
     h('button',{class:'btn dix-submit',type:'submit',text:'محاسبه ارزش معاملاتی'}),
@@ -180,7 +246,11 @@ export function regionalValueTool() {
       h('dl',{class:'regional-report-meta'},[
         h('dt',{text:'نام کاربر'}),h('dd',{text:userName}),
         h('dt',{text:'زمان استعلام'}),h('dd',{text:`${dateText} — ${timeText}`}),
-        h('dt',{text:'شناسه استعلام'}),h('dd',{text:inquiryId})
+        h('dt',{text:'شناسه استعلام'}),h('dd',{text:inquiryId}),
+        h('dt',{text:'استان و شهر'}),h('dd',{text:`${province.el.value}، ${city.el.value}`}),
+        h('dt',{text:'نشانی ملک'}),h('dd',{text:address.el.value || 'درج نشده'}),
+        h('dt',{text:'کد پستی'}),h('dd',{text:postalCode.el.value || 'درج نشده'}),
+        h('dt',{text:'مختصات'}),h('dd',{text:coordinates.el.value || 'روی نقشه تعیین نشده'})
       ]),
       h('div',{class:'result-head'},[h('h3',{text:'ارزش معاملاتی برآوردشده ملک'})]),
       h('div',{class:'amount-block'},[h('span',{class:'amount-label',text:'جمع ارزش عرصه و اعیانی'}),h('strong',{class:'amount-value',text:money(total)})]),
