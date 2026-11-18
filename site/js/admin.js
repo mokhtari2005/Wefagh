@@ -176,6 +176,48 @@ export async function adminPage() {
   const diagnosticsRefresh = el('button', { class: 'btn secondary', type: 'button', text: 'به‌روزرسانی گزارش خطاها' });
   const diagnosticsSelfTest = el('button', { class: 'btn', type: 'button', text: 'اجرای آزمون سلامت سیستم' });
   const diagnosticsWriteTest = el('button', { class: 'btn secondary', type: 'button', text: 'آزمون واقعی ساخت و پاک‌سازی PR در GitHub' });
+  const manualReportToggle = el('button', { class: 'btn secondary', type: 'button', text: 'گزارش دستی مشکل' });
+  const manualReportForm = el('form', { class: 'card admin-manual-diagnostic', hidden: 'hidden' });
+  const manualReportComponent = el('select', { 'aria-label': 'بخش دارای مشکل' }, [
+    ...[['site','کل سایت / مورد دیگر'],['auth','ورود و ثبت‌نام'],['academy','آموزش و آزمون'],['assistant','دستیار وکیل و هوش مصنوعی'],['calculator','محاسبه‌گر'],['regional-map','ارزش منطقه‌ای و نقشه'],['voice-typing','تایپ صوتی'],['calendar','تقویم و مواعد'],['cases','پرونده‌ها'],['media','رسانه و محتوا'],['unknown','نامشخص']].map(([value,label]) => el('option', { value, text: label }))
+  ]);
+  const manualReportDescription = el('textarea', { rows: 4, maxLength: 1200, required: 'required', placeholder: 'چه کاری انجام دادید و چه اتفاقی افتاد؟ اگر پیام خطایی دیدید، متن آن را بنویسید.' });
+  const manualReportSubmit = el('button', { class: 'btn', type: 'submit', text: 'ثبت گزارش مشکل' });
+  const manualReportCancel = el('button', { class: 'btn secondary', type: 'button', text: 'انصراف' });
+  const manualReportHint = el('p', { class: 'muted', text: 'لطفاً اطلاعات هویتی، رمز، شماره تماس یا متن پرونده و اسناد محرمانه را وارد نکنید. مسیر صفحه به‌صورت خودکار ثبت می‌شود.' });
+  manualReportForm.append(el('h3', { text: 'ثبت گزارش دستی' }), manualReportHint, manualReportComponent, manualReportDescription, manualReportSubmit, manualReportCancel);
+  manualReportToggle.addEventListener('click', () => { manualReportForm.hidden = !manualReportForm.hidden; if (!manualReportForm.hidden) manualReportDescription.focus(); });
+  manualReportCancel.addEventListener('click', () => { manualReportForm.hidden = true; manualReportDescription.value = ''; });
+  manualReportForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    manualReportSubmit.disabled = true;
+    manualReportSubmit.textContent = 'در حال ثبت گزارش…';
+    diagnosticsNotice.className = 'form-status';
+    diagnosticsNotice.textContent = 'گزارش در حال ثبت است…';
+    try {
+      const result = await postJson('/api/admin/diagnostics/manual-report', {
+        component: manualReportComponent.value,
+        description: manualReportDescription.value,
+        route: (window.location.hash || '#/').split('?')[0].replace(/^#/, '') || '/',
+      }, { timeoutMs: 20000 });
+      if (!result.ok) {
+        diagnosticsNotice.className = 'form-status err';
+        diagnosticsNotice.textContent = result.data?.hint || errorText(result.data, result.status);
+        return;
+      }
+      manualReportDescription.value = '';
+      manualReportForm.hidden = true;
+      diagnosticsNotice.className = 'form-status ok';
+      diagnosticsNotice.textContent = 'گزارش مشکل ثبت شد و در فهرست عیب‌یابی قرار گرفت.';
+      await refreshDiagnostics();
+    } catch {
+      diagnosticsNotice.className = 'form-status err';
+      diagnosticsNotice.textContent = 'ارتباط برقرار نشد؛ گزارش ثبت‌شده نیست. دوباره تلاش کنید.';
+    } finally {
+      manualReportSubmit.disabled = false;
+      manualReportSubmit.textContent = 'ثبت گزارش مشکل';
+    }
+  });
   diagnosticsWriteTest.addEventListener('click', async () => {
     if (!window.confirm('این آزمون یک شاخه و Pull Request موقت در GitHub می‌سازد، سپس PR را می‌بندد و شاخه را حذف می‌کند. هیچ تغییری روی main اعمال نمی‌شود. ادامه می‌دهید؟')) return;
     diagnosticsWriteTest.disabled = true;
@@ -260,6 +302,7 @@ export async function adminPage() {
         el('div', {}, [
           el('span', { class: 'badge', text: item.status === 'open' ? 'در انتظار بررسی' : 'بسته‌شده' }),
           el('h3', { text: `${item.errorCode} · ${item.component}` }),
+          ...(item.detail ? [el('p', { text: item.detail })] : []),
           el('p', { class: 'muted', text: `مسیر: ${item.route} · نوع: ${item.category} · HTTP: ${item.httpStatus || '—'}` }),
           el('p', { class: 'muted', text: `تکرار: ${item.occurrences} · آخرین رخداد: ${new Date(item.lastSeen).toLocaleString('fa-IR')}` }),
         ]),
@@ -328,7 +371,7 @@ export async function adminPage() {
   const diagnosticsPanel = el('section', { class: 'card admin-import' }, [
     el('h2', { text: 'مرکز سلامت و عیب‌یابی خودکار' }),
     el('p', { class: 'muted', text: 'خطاهای JavaScript، وعده‌های ردشده، قطع شبکه، پاسخ‌های ۴۲۹ و خطاهای ۵xx به‌صورت ناشناس ثبت می‌شوند. این مرکز علت و الگوی خطا را نشان می‌دهد؛ اصلاح کد نیازمند آزمون و انتشار کنترل‌شده است.' }),
-    diagnosticsRefresh, diagnosticsSelfTest, diagnosticsWriteTest, diagnosticsNotice, diagnosticsTestResults, diagnosticsList,
+    diagnosticsRefresh, manualReportToggle, manualReportForm, diagnosticsSelfTest, diagnosticsWriteTest, diagnosticsNotice, diagnosticsTestResults, diagnosticsList,
   ]);
   servicesView.append(diagnosticsPanel);
   diagnosticsRefresh.addEventListener('click', refreshDiagnostics);
