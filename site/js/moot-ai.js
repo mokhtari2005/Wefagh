@@ -114,9 +114,6 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
   let recorder = null;
   let recordTimer = null;
   let chunks = [];
-  let lastBlob = null;
-  let lastText = '';
-  let lastSpeaker = null;
   let autoAdvanceTimer = null;
   let autoAdvancePending = false;
 
@@ -207,7 +204,7 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
     const upcoming = script.slice(index, index + 4);
     turnOrder.replaceChildren(
       h('strong', { class: 'court-turn-order-title', text: 'ترتیب نوبت‌های پیش رو' }),
-      h('ol', {}, upcoming.map((step, offset) => {
+      ...(upcoming.length ? [h('ol', {}, upcoming.map((step, offset) => {
         const isCurrent = offset === 0;
         const role = step.speaker === userSide ? `شما · ${SPEAKER_LABEL[step.speaker]}` : SPEAKER_LABEL[step.speaker];
         return h('li', { class: `court-turn-item ${isCurrent ? 'current' : ''}`, ...(isCurrent ? { 'aria-current': 'step' } : {}) }, [
@@ -215,7 +212,7 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
           h('span', { class: 'court-turn-stage', text: GROUP_LABELS[step.group - 1] }),
           h('span', { class: 'court-turn-state', text: isCurrent ? 'اکنون' : 'بعدی' }),
         ]);
-      }))
+      }))] : [h('p', { class: 'court-turn-empty', text: 'جلسه به پایان رسیده است.' })])
     );
   }
 
@@ -270,8 +267,7 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
         return false;
       }
       if (item) item.blob = res.blob;
-      lastBlob = res.blob;
-      activeSpeaker = speaker;
+        activeSpeaker = speaker;
       renderSeats();
       const played = await player.play(res.blob);
       if (item) item.audioPlaying = played.ok;
@@ -301,8 +297,6 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
   function addLine(speaker, text, fromUser = false) {
     const item = { role: fromUser ? 'user' : 'ai', speaker, text, at: timeNow() };
     history.push(item);
-    lastText = text;
-    lastSpeaker = speaker;
     renderLog();
     return item;
   }
@@ -374,7 +368,6 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
   function advance() {
     clearAutoAdvance();
     index += 1;
-    lastBlob = null;
     runCurrent();
   }
 
