@@ -6,7 +6,9 @@ import { json, readJsonBody } from '../http.js';
 import { currentUser } from '../auth/routes.js';
 import { registrationRequired } from '../access.js';
 import { handleThreads } from './threads.js';
-import { AiError, aiConfigured, generateText, transcribeAudio, synthesizeLongSpeech } from './gemini.js';
+import { AiError, aiConfigured, transcribeAudio, synthesizeLongSpeech } from './gemini.js';
+import { generateTextWithFallback } from './fallback.js';
+import { groqConfigured } from './groq.js';
 import { clampReply } from './speech.js';
 import { reviewLegalDraft, groqReviewNotes, groqReviewShortNote } from './groq.js';
 import { AttachmentError, ATTACHMENT_LIMITS, processAttachments, buildUserParts, summarizeAttachments } from './attachments.js';
@@ -384,7 +386,7 @@ async function assistant(request, env) {
     }
     const legalContext = legalArticles.length ? legalArticles.map((a) => `قانون: ${a.lawTitle}\nماده ${a.articleNumber}${a.heading ? ` ـ ${a.heading}` : ''}\n${a.body}\nمنبع ثبت‌شده: ${a.sourceName || 'ثبت نشده'}${a.sourceUrl ? ` (${a.sourceUrl})` : ''}`).join('\n\n---\n\n') : '';
     stage = 'gemini_generation';
-    const { data, truncated } = await generateText(env, {
+    const { data, truncated, provider } = await generateTextWithFallback(env, {
       system: assistantSystemPrompt({ mode, docType, hasAttachments: attachments.length > 0, legalContext }),
       contents,
       // توکن‌های «تفکر» مدل هم از این سقف کم می‌شوند؛ سقف پایین باعث قطع شدن پیش‌نویس‌های فارسی می‌شد.
@@ -393,9 +395,10 @@ async function assistant(request, env) {
       json: true,
       schema: ASSISTANT_SCHEMA,
       plainFallback: true,
-    });
+    }, { allowGroq: attachments.length === 0 });
     const questions = Array.isArray(data.questions) ? data.questions.filter((q) => typeof q === 'string').slice(0, 5) : [];
     const notes = Array.isArray(data.notes) ? data.notes.filter((n) => typeof n === 'string').slice(0, 10) : [];
+    if (provider === 'groq') notes.push('به‌دلیل اختلال یا عدم دسترسی Gemini، پاسخ این نوبت با مدل جایگزین Groq تولید شد. مواد قانونیِ بازیابی‌شده از بانک آکادمی بدون تغییر در اختیار مدل قرار گرفتند؛ پاسخ همچنان نیازمند بررسی و راستی‌آزمایی حقوقی است.');
     if (legalBankUnavailable) notes.push('بانک قوانین در این درخواست پاسخ نداد؛ پاسخ بدون استناد به مواد ثبت‌شده در بانک تهیه شد و استنادها باید جداگانه بررسی شوند.');
     const text = typeof data.text === 'string' ? data.text : '';
     if (truncated) notes.push('پاسخ به‌دلیل طول زیاد کامل نشد. برای ادامه بنویسید «ادامه بده».');
@@ -405,6 +408,9 @@ async function assistant(request, env) {
     if (attachments.length) {
       notes.push('هشدار: بازبینی مستقل انجام نشد.');
       reviewDetails = ['به‌دلیل وجود پیوست، بازبینی مستقل Groq اجرا نشد تا محتوای سند به سرویس دیگری منتقل نشود.'];
+    } else if (provider === 'groq') {
+      notes.push('چون پاسخ اصلی همین نوبت با Groq تولید شده، بازبینی مستقل جداگانه اجرا نشد تا یک سرویس هم‌زمان نقش تولیدکننده و بازبین را نداشته باشد.');
+      reviewDetails = ['پاسخ با Groq تولید شده است؛ بازبینی مستقلِ جداگانه انجام نشده و صحت حقوقی آن تأیید نشده است.'];
     } else {
       stage = 'groq_review';
       const review = await reviewLegalDraft(env, { mode, docType, question: message, draft: text });
@@ -475,7 +481,7 @@ async function ekhtebarAnswer(request, env) {
     'پاسخ را با تیترهای روشن و جزئیات کافی ارائه کن. در پایان، مواد و منابعی را که واقعاً در زمینه بالا وجود دارند فهرست کن و موارد نیازمند راستی‌آزمایی را جداگانه مشخص کن.',
   ].join('\n\n');
   try {
-    const { text: answer, truncated } = await generateText(env, {
+    const { text: answer, truncated, provider } = await generateTextWithFallback(env, {
       system, contents: [{ role: 'user', parts: [{ text: prompt }] }],
       maxOutputTokens: 5200, timeoutMs: 45_000,
     });
@@ -485,6 +491,7 @@ async function ekhtebarAnswer(request, env) {
       source: a.sourceName || '', url: a.sourceUrl || '',
     }));
     const notes = [];
+    if (provider === 'groq') notes.push('به‌دلیل اختلال یا عدم دسترسی Gemini، پاسخ آموزشی با مدل جایگزین Groq تولید شد. مستندات بازیابی‌شده از بانک قوانین آکادمی حفظ شده‌اند؛ استنادها را پیش از استفاده با منبع رسمی تطبیق دهید.');
     if (legalBankUnavailable) notes.push('بانک قوانین در دسترس نبود؛ استنادهای پاسخ باید مستقلاً با متن رسمی قوانین تطبیق داده شوند.');
     if (!legalSources.length) notes.push('ماده قانونی تأییدشده‌ای از بانک قوانین بازیابی نشد؛ شماره مواد و مقررات ذکرشده در متن پاسخ را پیش از استفاده با منبع رسمی بررسی کنید.');
     if (truncated) notes.push('پاسخ به سقف طول رسید و ممکن است نیاز به درخواست ادامه داشته باشد.');
@@ -508,7 +515,7 @@ export async function handleAi(request, env, path) {
 async function routeAi(request, env, path) {
   if (path === '/api/ai/status') {
     if (request.method !== 'GET') return fail('METHOD_NOT_ALLOWED', 405);
-    return json({ ok: true, configured: aiConfigured(env) });
+    return json({ ok: true, configured: aiConfigured(env) || groqConfigured(env), providers: { gemini: aiConfigured(env), groq: groqConfigured(env) } });
   }
   if (path === '/api/ai/speech') return speech(request, env);
   if (path === '/api/ai/transcribe') return transcribe(request, env);
