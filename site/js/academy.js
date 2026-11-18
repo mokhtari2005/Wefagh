@@ -22,6 +22,7 @@ function loginHint() {
 }
 
 export const ACADEMY_TOOLS = [
+  { icon: 'mic', title: 'تایپ صوتی', href: '#/voice-typing' },
   { icon: 'cap', title: 'دوره‌های آموزشی', href: '#/courses' },
   { icon: 'edit', title: 'مرکز آزمون هوشمند', href: '#/academy/exams' },
   { icon: 'file-text', title: 'بانک سؤالات اختبار', href: '#/academy/ekhtebar' },
