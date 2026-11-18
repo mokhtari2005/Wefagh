@@ -16,7 +16,7 @@ function insertTextAtCursor(editor, text) {
   if (selection?.rangeCount) {
     const range = selection.getRangeAt(0);
     range.deleteContents();
-    const needsSpace = editor.textContent && !/[\\s،؛.!؟:]$/.test(editor.textContent);
+    const needsSpace = editor.textContent && !/[\s،؛.!؟:]$/.test(editor.textContent);
     const node = document.createTextNode((needsSpace ? ' ' : '') + text);
     range.insertNode(node);
     range.setStartAfter(node);
@@ -161,7 +161,7 @@ export function voiceTypingPage() {
 
   function updateCount() {
     const text = editor.innerText || '';
-    const words = text.trim() ? text.trim().split(/\\s+/u).length : 0;
+    const words = text.trim() ? text.trim().split(/\s+/u).length : 0;
     count.textContent = `${words.toLocaleString('fa-IR')} واژه · ${text.length.toLocaleString('fa-IR')} نویسه`;
   }
   function setStatus(message, state = 'idle') {
@@ -262,7 +262,7 @@ export function voiceTypingPage() {
   download.addEventListener('click', () => {
     const text = editor.innerText || '';
     if (!text.trim()) { setStatus('متنی برای دریافت وجود ندارد.'); return; }
-    const blob = new Blob(['\\uFEFF', text], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob(['\uFEFF', text], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = h('a', { href: url, download: 'matn-typ-shode.txt' });
     document.body.append(link);
