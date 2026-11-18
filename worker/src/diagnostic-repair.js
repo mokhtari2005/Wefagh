@@ -72,7 +72,7 @@ async function github(env, path, options = {}) {
 }
 async function loadEvent(env, fingerprint) {
   return env.DB.prepare(`SELECT fingerprint, category, component, route, error_code AS errorCode,
-    http_status AS httpStatus, occurrences, status, first_seen AS firstSeen, last_seen AS lastSeen
+    http_status AS httpStatus, detail, occurrences, status, first_seen AS firstSeen, last_seen AS lastSeen
     FROM diagnostic_events WHERE fingerprint = ?1`).bind(fingerprint).first();
 }
 
@@ -115,7 +115,7 @@ export async function handleDiagnosticRepair(request, env, path) {
         'If a safe minimal fix cannot be justified, patches must be an empty array.',
       ].join('\n'),
       contents: [{ role: 'user', parts: [{ text: JSON.stringify({
-        diagnostic: { category: event.category, component: event.component, route: event.route, errorCode: event.errorCode, httpStatus: event.httpStatus, occurrences: event.occurrences, firstSeen: event.firstSeen, lastSeen: event.lastSeen },
+        diagnostic: { category: event.category, component: event.component, route: event.route, errorCode: event.errorCode, httpStatus: event.httpStatus, detail: event.detail || '', occurrences: event.occurrences, firstSeen: event.firstSeen, lastSeen: event.lastSeen },
         allowedFile: original.path,
         sourceCode: original.content,
       }) }] }],
