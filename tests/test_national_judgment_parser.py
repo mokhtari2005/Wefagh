@@ -63,7 +63,29 @@ class NationalJudgmentParserTests(unittest.TestCase):
         result = parse_judgment(html, "https://ara.jri.ac.ir/Judge/Text/34496")
         self.assertEqual(result["lawType"], "supreme_court_unified_precedent")
 
-    def test_rejects_page_without_required_metadata(self):
+    def test_accepts_public_page_without_number_or_date(self):
+        # Captured from the live public page structure: the visible heading is
+        # the judgment title and the page does not expose number/date metadata.
+        html = """
+        <html><body><div id="treeText">
+        <h1>رأی دادگاه بدوی</h1>
+        <p>پرونده کلاسه *تصمیم نهایی شماره *</p>
+        <p>خواهان: خانم ف. ف. ز. ع. فرزند م.</p>
+        <p>خوانده: ساختمان دادگستری کل استان</p>
+        <p>خواسته: تغییر جنسیت</p>
+        <p>رای دادگاه</p>
+        <p>خواسته خانم ف. ف. ز. ع. فرزند م. به طرفیت دادستان تغییر جنسیت ازمونث به مذکراست. خواهان اظهار نموده مبتلا به اختلال هویت جنسی است و ادامه زندگی با وصف شرایط مذکور بر وی سخت و دشوار است. حسب مفاد گواهی پزشکی قانونی خواهان شرایط تغییر جنسیت را ندارد. با توجه به مفاد گواهی پزشکی قانونی و نظر موافق قاضی مشاور و به استناد ماده ۱۲۵۷ قانون مدنی حکم بر بطلان دعوی صادر و اعلام می‌نماید. رای دادگاه حضوری و ظرف بیست روز از تاریخ ابلاغ قابل تجدیدنظرخواهی است.</p>
+        </div></body></html>
+        """
+        result = parse_judgment(html, "https://ara.jri.ac.ir/Judge/Text/42028")
+        self.assertEqual(result["title"], "رأی دادگاه بدوی")
+        self.assertIsNone(result["metadata"]["judgment_number"])
+        self.assertIsNone(result["metadata"]["judgment_date"])
+        self.assertEqual(result["metadata"]["missing_metadata"], ["judgment_number", "judgment_date"])
+        self.assertIn("خواسته خانم", result["articles"][0]["body"])
+        self.assertEqual(result["status"], "needs_review")
+
+    def test_rejects_page_without_title_or_judgment_text(self):
         with self.assertRaises(ValueError):
             parse_judgment("<h1>صفحه ناقص</h1>", "https://ara.jri.ac.ir/Judge/Text/34496")
 
