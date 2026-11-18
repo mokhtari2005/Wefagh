@@ -7,7 +7,7 @@ const bank = JSON.parse(raw);
 
 test('Ekhtabar bank has unique IDs and required publication metadata', () => {
   assert.ok(Array.isArray(bank.records));
-  assert.ok(bank.records.length >= 12);
+  assert.ok(bank.records.length >= 70);
   const ids = bank.records.map((item) => item.id);
   assert.equal(new Set(ids).size, ids.length);
   for (const item of bank.records) {
@@ -31,4 +31,26 @@ test('Ekhtabar bank covers all six core subjects', () => {
 test('Archive source list is present', () => {
   assert.ok(Array.isArray(bank.archives));
   assert.ok(bank.archives.length >= 5);
+});
+
+test('Expanded archive includes individually indexed Gilan and Qazvin questions', () => {
+  const ids = new Set(bank.records.map((item) => item.id));
+  for (const id of [
+    'GILAN-CIV-1404-002',
+    'GILAN-COM-1404-002',
+    'GILAN-CIVPRO-1404-002',
+    'GILAN-CIVPRO-1404-003',
+    'GILAN-REG-1404-002',
+    'GILAN-PROB-1404-001',
+    'GILAN-CRIMPRO-1404-002',
+    'GILAN-CRIM-1404-002',
+    'GILAN-CIVPRO-1400-002',
+    'GILAN-CIV-1400-002',
+    'GILAN-REG-1400-002',
+    'QAZVIN-CIV-1384-002',
+    'QAZVIN-REG-1384-002',
+    'QAZVIN-CRIM-1384-003',
+    'QAZVIN-CIVPRO-1384-002',
+    'QAZVIN-CRIMPRO-1384-002'
+  ]) assert.ok(ids.has(id), 'missing expanded record: ' + id);
 });

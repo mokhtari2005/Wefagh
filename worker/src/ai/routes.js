@@ -488,7 +488,8 @@ export async function handleAi(request, env, path) {
   }
   if (path === '/api/ai/speech') return speech(request, env);
   if (path === '/api/ai/transcribe') return transcribe(request, env);
-  if (path === '/api/ai/assistant') return assistant(request, env);\n  if (path === '/api/ai/ekhtebar/answer') return ekhtebarAnswer(request, env);
+  if (path === '/api/ai/assistant') return assistant(request, env);
+  if (path === '/api/ai/ekhtebar/answer') return ekhtebarAnswer(request, env);
   if (path === '/api/ai/threads' || path.startsWith('/api/ai/threads/')) return handleThreads(request, env, path);
   if (path === '/api/ai/moot/turn' || path === '/api/ai/moot/assess' || path === '/api/ai/moot/evaluate') return moot(request, env, path);
   return null;
