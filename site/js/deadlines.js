@@ -95,7 +95,7 @@ export async function deadlinesPage(params = {}) {
   ]);
   const notificationStatus = h('p', { class: 'form-status', role: 'status', 'aria-live': 'polite' });
   const pushButton = h('button', { class: 'btn small', type: 'button', text: 'فعال‌سازی اعلان گوشی' });
-  const pushStatus = h('p', { class: 'muted', role: 'status', 'aria-live': 'polite', text: 'در آیفون، ابتدا سایت را با Safari به صفحهٔ اصلی اضافه کنید.' });
+  const pushStatus = h('p', { class: 'muted', role: 'status', 'aria-live': 'polite', text: 'برای آیفون: در Safari گزینهٔ افزودن به صفحهٔ اصلی را بزنید؛ در اندروید: سایت را با Chrome باز کنید و از منو، نصب برنامه یا افزودن به صفحهٔ اصلی را انتخاب کنید.' });
   const notificationList = h('div');
   const preferenceLabel = h('label', { class: 'check-row' });
   const preference = h('input', { type: 'checkbox' });
@@ -394,16 +394,16 @@ function decodeBase64Url(value) {
 }
 async function enablePushNotifications() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window))
-    return { ok:false, message:'این مرورگر از اعلان Push پشتیبانی نمی‌کند. در آیفون از Safari و افزودن به صفحهٔ اصلی استفاده کنید.' };
+    return { ok:false, message:'این مرورگر از اعلان Push پشتیبانی نمی‌کند. لطفاً از مرورگر به‌روز و سازگار استفاده کنید.' };
   try {
-    if (await Notification.requestPermission() !== 'granted') return {ok:false,message:'اجازهٔ اعلان داده نشد؛ تنظیمات آیفون را بررسی کنید.'};
+    if (await Notification.requestPermission() !== 'granted') return {ok:false,message:'اجازهٔ اعلان داده نشد؛ تنظیمات اعلان مرورگر یا گوشی را بررسی کنید.'};
     const key = await getJson('/api/push/public-key');
     if (!key.ok || !key.data.publicKey) return {ok:false,message:'کلید امن اعلان هنوز در سرور تنظیم نشده است.'};
     const reg = await navigator.serviceWorker.register('/sw.js');
     const sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:decodeBase64Url(key.data.publicKey)});
     const saved = await postJson('/api/push/subscription', sub.toJSON());
     return saved.ok ? {ok:true,message:'اعلان گوشی فعال شد.'} : {ok:false,message:'ثبت دستگاه در سرور ناموفق بود.'};
-  } catch { return {ok:false,message:'فعال‌سازی انجام نشد؛ مطمئن شوید سایت به صفحهٔ اصلی آیفون اضافه شده است.'}; }
+  } catch { return {ok:false,message:'فعال‌سازی انجام نشد؛ سازگاری مرورگر، اتصال اینترنت و مجوز اعلان را بررسی کنید. در صورت نیاز سایت را به صفحهٔ اصلی اضافه کنید.'}; }
 }
 async function disablePushNotifications() {
   try {
