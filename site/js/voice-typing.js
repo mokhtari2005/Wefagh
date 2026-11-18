@@ -1,4 +1,7 @@
-// ابزار مستقل تایپ صوتی؛ از Web Speech API مرورگر استفاده می‌کند و متن را به سرور نمی‌فرستد.
+// ابزار تایپ صوتی: صدا ضبط و برای تبدیل به متن به سرور وفاق (Gemini) فرستاده می‌شود؛ مدل محلی فقط جایگزین دستی است.
+import { postJson } from './api.js';
+import { errorText, blobToBase64, baseMime } from './ai-client.js';
+
 function h(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
   for (const [key, value] of Object.entries(attrs)) {
@@ -143,7 +146,7 @@ export function voiceTypingPage() {
   const pdf = h('button', { class: 'btn secondary', type: 'button', text: 'چاپ / ذخیره PDF' });
   const clear = h('button', { class: 'btn secondary', type: 'button', text: 'پاک‌کردن متن' });
   actions.append(copy, download, word, pdf, clear);
-  const help = h('p', { class: 'muted', text: 'در اولین استفاده، مدل تشخیص گفتار (حدود ۷۵ تا ۱۵۰ مگابایت) دانلود و در حافظه مرورگر نگهداری می‌شود. پس از آن برای تبدیل گفتار به متن نیازی به ارسال صدا به سرور نیست. برای دقت بهتر، در محیطی کم‌صدا صحبت کنید.' });
+  const help = h('p', { class: 'muted', text: 'صدای ضبط‌شده برای تبدیل به متن به سرور وفاق ارسال می‌شود و ذخیره نمی‌شود؛ برای استفاده باید وارد حساب خود باشید. هر نوبت ضبط حداکثر ۴ دقیقه است. برای دقت بهتر در محیطی کم‌صدا صحبت کنید.' });
   panel.append(
     h('div', { class: 'row' }, [prepare, start, stop, language]),
     status,
@@ -164,7 +167,7 @@ export function voiceTypingPage() {
   let transcriberPromise = null;
   let permissionStatus = null;
   let recordingTimeout = null;
-  const MAX_RECORDING_MS = 5 * 60 * 1000;
+  const MAX_RECORDING_MS = 4 * 60 * 1000;
   const MODEL_ID = 'onnx-community/whisper-tiny';
 
   function setMicState(state, message) {
@@ -292,6 +295,67 @@ export function voiceTypingPage() {
     return output;
   }
 
+  const SERVER_AUDIO_TYPES = ['audio/webm', 'audio/mp4', 'audio/ogg', 'audio/wav'];
+  const MAX_SERVER_AUDIO_BYTES = 2 * 1024 * 1024;
+  let lastBlob = null;
+  const retry = h('button', { class: 'btn secondary', type: 'button', text: 'تلاش دوباره' });
+  const localFallback = h('button', { class: 'btn secondary', type: 'button', text: 'تبدیل روی دستگاه (آفلاین)' });
+  retry.hidden = true;
+  localFallback.hidden = true;
+  prepare.hidden = true;
+  panel.querySelector('.row').append(retry, localFallback);
+
+  async function transcribeOnServer(blob) {
+    lastBlob = blob;
+    retry.hidden = true;
+    localFallback.hidden = true;
+    if (!blob || !blob.size) {
+      setStatus('صدایی برای تبدیل ثبت نشد. دوباره ضبط کنید.', 'error');
+      return;
+    }
+    let type = baseMime(blob.type);
+    if (!SERVER_AUDIO_TYPES.includes(type)) type = 'audio/mp4';
+    if (blob.size > MAX_SERVER_AUDIO_BYTES) {
+      setStatus('ضبط بیش از حد بزرگ است (حداکثر حدود ۴ دقیقه). کوتاه‌تر ضبط کنید.', 'error');
+      return;
+    }
+    setStatus('در حال تبدیل گفتار به متن…', 'processing');
+    let res;
+    try {
+      const data = await blobToBase64(blob);
+      res = await postJson('/api/ai/transcribe', { mimeType: type, data, language: language.value.slice(0, 2) }, { timeoutMs: 90000 });
+    } catch (error) {
+      console.error('[voice-typing] upload failed', error);
+      res = { ok: false, data: { error: 'NETWORK' } };
+    }
+    const text = String(res?.data?.text || '').trim();
+    if (res.ok && text) {
+      insertTextAtCursor(editor, text);
+      updateCount();
+      setStatus('تبدیل انجام شد؛ متن به ویرایشگر اضافه شد. لطفاً آن را بازبینی کنید.');
+      editor.focus();
+      return;
+    }
+    if (res.ok) {
+      setStatus('متنی از صدا تشخیص داده نشد؛ در محیط آرام‌تر دوباره ضبط کنید.', 'error');
+      return;
+    }
+    const code = res?.data?.error || 'AI_UNAVAILABLE';
+    console.error('[voice-typing] transcription failed', code, res?.status);
+    setStatus(`${errorText(code)} (کد: ${code})`, 'error');
+    if (code !== 'UNAUTHENTICATED') {
+      retry.hidden = false;
+      localFallback.hidden = false;
+    }
+  }
+  retry.addEventListener('click', () => { transcribeOnServer(lastBlob); });
+  localFallback.addEventListener('click', () => {
+    retry.hidden = true;
+    localFallback.hidden = true;
+    prepare.hidden = false;
+    transcribeBlob(lastBlob);
+  });
+
   async function transcribeBlob(blob) {
     if (!blob || !blob.size) {
       setStatus('صدایی برای تبدیل ثبت نشد. دوباره ضبط کنید.', 'error');
@@ -352,7 +416,7 @@ export function voiceTypingPage() {
     start.disabled = false;
     stop.disabled = true;
     setMicState('connected', 'میکروفون آزاد شد · ضبط متوقف است');
-    await transcribeBlob(blob);
+    await transcribeOnServer(blob);
   }
 
   function stopRecording() {
@@ -406,7 +470,7 @@ export function voiceTypingPage() {
         recording = true;
         recordingTimeout = window.setTimeout(() => {
           if (recording) {
-            setStatus('حداکثر زمان هر نوبت ضبط ۵ دقیقه است؛ ضبط متوقف و تبدیل آغاز می‌شود.', 'starting');
+            setStatus('حداکثر زمان هر نوبت ضبط ۴ دقیقه است؛ ضبط متوقف و تبدیل آغاز می‌شود.', 'starting');
             stopRecording();
           }
         }, MAX_RECORDING_MS);
