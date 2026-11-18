@@ -14,6 +14,7 @@ import { handleAdminCases } from './admin-cases.js';
 import { handleAdmin } from './admin.js';
 import { handleAdminMedia } from './admin-media.js';
 import { handleAdminMail } from './admin-mail.js';
+import { handleAdminMembership } from './admin-membership.js';
 import { handleAdminAi } from './admin-ai.js';
 import { handleLegalBank } from './legal-bank.js';
 import { handleAi } from './ai/routes.js';
