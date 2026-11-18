@@ -215,9 +215,9 @@ export async function adminPage() {
     return Uint8Array.from(raw, (char) => char.charCodeAt(0));
   }
   pushEnable.addEventListener('click', async () => {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+    if (!('serviceWorker' in navigator) || !('Notification' in window)) {
       pushNotice.className = 'form-status err';
-      pushNotice.textContent = 'مرورگر این دستگاه از اعلان مستقیم پشتیبانی نمی‌کند.';
+      pushNotice.textContent = 'این محیط مرورگر از سرویس‌ورکر یا اعلان پشتیبانی نمی‌کند. سایت را مستقیماً در Safari یا مرورگر اصلی دستگاه باز کنید.';
       return;
     }
     const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -236,9 +236,13 @@ export async function adminPage() {
       const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
       if (permission !== 'granted') throw new Error(permission === 'denied' ? 'اجازهٔ اعلان در تنظیمات مرورگر مسدود شده است.' : 'اجازهٔ ارسال اعلان داده نشد.');
       const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-      await navigator.serviceWorker.ready;
-      let subscription = await registration.pushManager.getSubscription();
-      if (!subscription) subscription = await registration.pushManager.subscribe({
+      const readyRegistration = await navigator.serviceWorker.ready;
+      const pushManager = readyRegistration.pushManager || registration.pushManager;
+      if (!pushManager || typeof pushManager.subscribe !== 'function') {
+        throw new Error('قابلیت اعلان در این مرورگر فعال نیست. در آیفون، سایت را از Safari به صفحهٔ اصلی اضافه کنید و آن را از همان آیکون باز کنید؛ در سایر دستگاه‌ها از مرورگر اصلی استفاده کنید.');
+      }
+      let subscription = await pushManager.getSubscription();
+      if (!subscription) subscription = await pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: decodePushKey(keyResult.data.publicKey),
       });
