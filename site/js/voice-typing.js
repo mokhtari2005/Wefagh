@@ -470,7 +470,7 @@ export function voiceTypingPage() {
   retry.hidden = true;
   localFallback.hidden = true;
   prepare.hidden = true;
-  panel.querySelector('.row').append(retry, localFallback);
+  controls.append(retry, localFallback);
 
   async function transcribeOnServer(blob) {
     lastBlob = blob;
