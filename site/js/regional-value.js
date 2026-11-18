@@ -83,6 +83,7 @@ export function regionalValueTool() {
   ]);
   let regionalMap = null;
   let regionalMarker = null;
+  let fallbackMapFrame = null;
   const defaultPoint = [29.5918, 52.5837];
   function loadScript(url) {
     return new Promise((resolve, reject) => {
@@ -96,6 +97,8 @@ export function regionalValueTool() {
   function showMapFallback(reason) {
     // Keep a visible map even when Leaflet/CDN or raster tile requests are blocked.
     mapCanvas.replaceChildren();
+    regionalMap = null;
+    regionalMarker = null;
     const frame = h('iframe', {
       title: 'نمای نقشه شیراز و موقعیت تقریبی ملک',
       src: 'https://maps.google.com/maps?q=29.5918,52.5837&z=13&output=embed',
@@ -105,6 +108,7 @@ export function regionalValueTool() {
     });
     frame.style.cssText = 'display:block;width:100%;height:100%;min-height:260px;border:0;border-radius:11px;';
     mapCanvas.append(frame);
+    fallbackMapFrame = frame;
     coordinates.el.readOnly = false;
     mapStatus.textContent = reason || 'نمای جایگزین نقشه فعال شد. این نما برای مشاهده است؛ مختصات ملک را در کادر مختصات دستی وارد کنید.';
   }
@@ -223,7 +227,36 @@ export function regionalValueTool() {
       return;
     }
     if (!regionalMap || !regionalMarker) {
-      postalSearchStatus.textContent = 'نقشه هنوز آماده نیست؛ چند لحظه دیگر دوباره تلاش کنید.';
+      if (!fallbackMapFrame) {
+        postalSearchStatus.textContent = 'نمای نقشه هنوز آماده نیست؛ چند لحظه دیگر دوباره تلاش کنید.';
+        return;
+      }
+      postalSearchButton.disabled = true;
+      postalSearchButton.textContent = 'در حال جست‌وجو…';
+      postalSearchStatus.textContent = 'در حال جست‌وجوی کد پستی در داده‌های نقشه عمومی…';
+      try {
+        const params = new URLSearchParams({ format: 'jsonv2', postalcode: code, country: 'Iran', addressdetails: '1', limit: '5' });
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, { headers: { Accept: 'application/json' } });
+        if (!response.ok) throw new Error(`Geocoder HTTP ${response.status}`);
+        const results = await response.json();
+        if (!Array.isArray(results) || !results.length) {
+          postalSearchStatus.textContent = 'برای این کد پستی در نقشه عمومی نتیجه‌ای پیدا نشد. مختصات را دستی وارد کنید.';
+          return;
+        }
+        const result = results[0];
+        const lat = Number(result.lat), lon = Number(result.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) throw new Error('Invalid geocoder coordinates');
+        fallbackMapFrame.src = `https://maps.google.com/maps?q=${lat},${lon}&z=17&output=embed`;
+        coordinates.el.value = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+        if (!address.el.value && result.display_name) address.el.value = result.display_name;
+        postalSearchStatus.textContent = 'موقعیت پیشنهادی روی نقشه جایگزین نمایش داده شد؛ لطفاً آن را با محل واقعی ملک تطبیق دهید.';
+      } catch (error) {
+        console.error('[regional-value] postal lookup failed', error);
+        postalSearchStatus.textContent = 'جست‌وجوی کد پستی ناموفق بود؛ مختصات را دستی وارد کنید.';
+      } finally {
+        postalSearchButton.disabled = false;
+        postalSearchButton.textContent = 'یافتن موقعیت روی نقشه';
+      }
       return;
     }
     postalSearchButton.disabled = true;
