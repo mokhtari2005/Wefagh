@@ -74,11 +74,12 @@ export function regionalValueTool() {
   coordinates.el.placeholder = 'پس از انتخاب روی نقشه، مختصات اینجا ثبت می‌شود؛ در صورت نیاز دستی وارد کنید.';
   const mapStatus = h('p', { class: 'muted regional-map-status', role: 'status', text: 'برای تعیین موقعیت، روی نقشه کلیک کنید یا نشانگر را جابه‌جا کنید.' });
   const mapCanvas = h('div', { id: 'rv-map', class: 'regional-property-map', role: 'application', 'aria-label': 'نقشه تعیین موقعیت ملک در شیراز' });
+  const locateMeButton = h('button', { type: 'button', class: 'btn secondary regional-locate-me', text: '◎ نمایش موقعیت فعلی من' });
   const locationFields = h('section', { class: 'regional-location-fields' }, [
     h('h3', { text: 'موقعیت و نشانی ملک' }),
     province.node, city.node, address.node,
     h('div', { class: 'field regional-postal-field' }, [h('label', { for: 'rv-postal-code', text: 'کد پستی ده‌رقمی (اختیاری)' }), postalCode.el, postalSearchButton, postalSearchStatus]),
-    h('div', { class: 'field regional-map-field' }, [h('label', { text: 'نقشه شهر و تعیین موقعیت ملک' }), mapCanvas, mapStatus]),
+    h('div', { class: 'field regional-map-field' }, [h('label', { text: 'نقشه شهر و تعیین موقعیت ملک' }), mapCanvas, locateMeButton, mapStatus]),
     coordinates.node
   ]);
   let regionalMap = null;
@@ -182,26 +183,15 @@ export function regionalValueTool() {
     return window.__regionalLeafletPromise;
   }
   loadLeaflet().then(L => {
-    regionalMap = L.map(mapCanvas, { scrollWheelZoom: false }).setView(defaultPoint, 13);
+    regionalMap = L.map(mapCanvas, { scrollWheelZoom: false, preferCanvas: true }).setView(defaultPoint, 12);
     // Use multiple independent raster providers. Some networks block OSM tiles,
     // so a failed provider must not leave the user with a blank map.
-    const tileProviders = [
-      {
-        name: 'OpenStreetMap',
-        url: '/api/map/tiles/{z}/{x}/{y}.png',
-        options: { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }
-      },
-      {
-        name: 'OpenStreetMap',
-        url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        options: { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }
-      },
-      {
-        name: 'OpenStreetMap (backup)',
-        url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-        options: { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }
-      }
-    ];
+    // One tile source only: avoid duplicate requests to the same public service.
+    const tileProviders = [{
+      name: 'OpenStreetMap',
+      url: '/api/map/tiles/{z}/{x}/{y}.png',
+      options: { maxZoom: 19, maxNativeZoom: 19, updateWhenIdle: true, updateWhenZooming: false, keepBuffer: 1, reuseTiles: true, attribution: '&copy; OpenStreetMap contributors' }
+    }];
     let activeTiles = null;
     let providerIndex = -1;
     function useTileProvider(index) {
@@ -241,6 +231,34 @@ export function regionalValueTool() {
     };
     regionalMap.on('click', event => { regionalMarker.setLatLng(event.latlng); setPoint(event.latlng); });
     regionalMarker.on('dragend', () => setPoint(regionalMarker.getLatLng()));
+    locateMeButton.addEventListener('click', () => {
+      if (!navigator.geolocation) {
+        mapStatus.textContent = 'مکان‌یابی در این مرورگر پشتیبانی نمی‌شود؛ موقعیت ملک را روی نقشه انتخاب کنید.';
+        return;
+      }
+      locateMeButton.disabled = true;
+      locateMeButton.textContent = 'در حال دریافت موقعیت…';
+      mapStatus.textContent = 'برای تعیین موقعیت فعلی، اجازه دسترسی مکان‌یابی مرورگر را تأیید کنید.';
+      navigator.geolocation.getCurrentPosition(async position => {
+        const point = { lat: position.coords.latitude, lng: position.coords.longitude };
+        regionalMarker.setLatLng(point);
+        regionalMap.setView(point, 16, { animate: true });
+        regionalMap.invalidateSize();
+        await setPoint(point);
+        mapStatus.textContent = 'موقعیت فعلی دستگاه ثبت شد (دقت تقریبی ' + Math.round(position.coords.accuracy) + ' متر). محل ملک را با نشانگر تطبیق دهید.';
+        locateMeButton.disabled = false;
+        locateMeButton.textContent = '◎ نمایش موقعیت فعلی من';
+      }, error => {
+        const message = error.code === 1
+          ? 'دسترسی مکان‌یابی رد شد. از تنظیمات مرورگر، اجازه Location را برای mokhtari.ir فعال کنید.'
+          : error.code === 2
+            ? 'موقعیت فعلی دستگاه در دسترس نیست؛ GPS و سرویس مکان‌یابی گوشی را بررسی کنید.'
+            : 'دریافت موقعیت بیش از حد طول کشید؛ دوباره تلاش کنید یا محل را دستی روی نقشه انتخاب کنید.';
+        mapStatus.textContent = message;
+        locateMeButton.disabled = false;
+        locateMeButton.textContent = '◎ تلاش دوباره برای مکان‌یابی';
+      }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+    });
     [150, 500, 1200].forEach(delay => setTimeout(() => regionalMap?.invalidateSize(), delay));
     window.addEventListener('resize', () => regionalMap?.invalidateSize());
   }).catch(error => {
