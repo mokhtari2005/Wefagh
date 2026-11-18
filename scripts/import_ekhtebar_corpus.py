@@ -51,7 +51,7 @@ def get_files():
     return [x["path"] for x in rows if x.get("type")=="file" and x.get("name","").endswith(".md")]
 
 def classify(t):
-    text=re.sub(r"\\s+"," ",t.replace("\\u200c"," ").strip())
+    text=re.sub(r"\s+"," ",t.replace("\u200c"," ").strip())
     # Specific document families take precedence over generic title words.
     if "دیوان عالی کشور" in text and "اصراری" in text: return "supreme_court_insistence_precedent"
     if "دیوان عالی کشور" in text and "وحدت رویه" in text: return "supreme_court_unified_precedent"
@@ -66,13 +66,50 @@ def classify(t):
     if "کنوانسیون" in text or "معاهده" in text: return "treaty"
     # A title beginning with قانون remains a statute even when it mentions
     # آیین‌نامه داخلی مجلس or another regulation in its title.
-    if re.match(r"^(?:قانون|قوانین)\\b", text): return "law"
+    if re.match(r"^(?:قانون|قوانین)\b", text): return "law"
     if "بخشنامه" in text and ("قوه قضائیه" in text or "رئیس قوه" in text): return "judicial_circular"
     if "بخشنامه" in text or "دستورالعمل" in text: return "executive_circular"
     if "آیین نامه" in text or "آیین‌نامه" in text: return "bylaw"
     if "تصویب نامه" in text or "تصویب‌نامه" in text: return "executive_regulation"
     if "قانون" in text or "اساسی" in text: return "law"
     return "other"
+def parse_doc(path, index):
+    raw=get(RAW+path).text
+    lines=raw.replace("\r\n","\n").replace("\r","\n").replace("\u200c"," ").split("\n")
+    title=""
+    for line in lines[:12]:
+        m=re.match(r"^\s*#\s+(.+?)\s*$",line)
+        if m: title=m.group(1).strip(); break
+    if not title: return None,"missing-title"
+    source=""
+    for line in lines[:12]:
+        m=re.search(r"https://www\.ekhtebar\.ir/[^\s)>]+",line)
+        if m: source=m.group(0).rstrip(".,؛)"); break
+    stem=path.rsplit("/",1)[-1][:-3]
+    item=index.get(stem)
+    if not source and item: source=item.get("url") or ""
+    if not source: return None,"missing-source-url"
+    starts=[]
+    for i,line in enumerate(lines):
+        m=ARTICLE.match(line)
+        if m:
+            starts.append((i,m.group(2).translate(DIGITS).replace(" ",""),(m.group(3) or "").strip(" -*#\t"),m.group(1)))
+        else:
+            m=SINGLE.match(line)
+            if m: starts.append((i,"واحده",(m.group(1) or "").strip(),"ماده"))
+    if not starts: return None,"no-article-structure"
+    articles=[]; seen=set()
+    for n,(pos,num,heading,kind) in enumerate(starts):
+        end=starts[n+1][0] if n+1<len(starts) else len(lines)
+        body="\n".join(lines[pos+1:end]).strip()
+        if heading: body=(heading+"\n"+body).strip()
+        body=re.sub(r"\n{3,}","\n\n",body)
+        if not body or len(body)>100000 or num in seen: continue
+        seen.add(num); articles.append({"number":num,"heading":f"{kind} {num}","body":body})
+    if not articles: return None,"no-valid-articles"
+    slug="ekhtebar-"+hashlib.sha1(source.encode()).hexdigest()[:20]
+    return {"slug":slug,"title":title[:240],"lawType":classify(title),"sourceName":"پایگاه خبری اختبار (منبع ثانویه؛ نیازمند مقابله رسمی)","sourceUrl":source[:1000],"notes":"ورود خودکار از پیکره عمومی مبتنی بر اختبار؛ وضعیت اولیه needs_review؛ پیش از استناد باید متن و نسخه جاری با روزنامه رسمی یا سامانه ملی قوانین مقابله شود.","articles":articles},None
+
 def lit(v): return "'"+str(v).replace("'","''")+"'"
 def sql_for(d):
     vals=[lit(d["slug"]),lit(d["title"]),lit(d["lawType"]),"NULL","NULL","NULL","NULL","'needs_review'",lit(d["sourceName"]),lit(d["sourceUrl"]),lit(d["notes"]),"NULL"]
