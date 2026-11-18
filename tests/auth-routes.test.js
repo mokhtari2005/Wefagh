@@ -118,7 +118,7 @@ test('ثبت‌نام: ایمیل با حروف کوچک ذخیره، رمز ه�
   assert.equal(row.email_verified_at, null);
   assert.equal(row.professional_title, 'وکیل دادگستری');
   assert.equal(row.position, 'عضو');
-  assert.match(row.membership_no, /^WFA-\d{8}$/);
+  assert.equal(row.membership_no, 'MLA-2000');
   assert.equal(sent.length, 1);
   assert.equal(sent[0].to, 'shahram@example.com');
   assert.ok(tokenFromMail(sent));

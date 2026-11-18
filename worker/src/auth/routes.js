@@ -74,7 +74,18 @@ export async function register(request, env) {
       .first();
     userId = row?.id;
     if (userId) {
-      const membershipNo = `WFA-${String(userId).padStart(8, '0')}`;
+      let membershipSequence = 1999 + Number(userId);
+      try {
+        // شمارندهٔ دیتابیس تخصیص هم‌زمان شماره‌ها را بدون تکرار مدیریت می‌کند.
+        const allocated = await env.DB.prepare(
+          'UPDATE membership_sequence SET next_value = next_value + 1 WHERE id = 1 RETURNING next_value - 1 AS value'
+        ).bind().first();
+        if (Number.isInteger(allocated?.value)) membershipSequence = allocated.value;
+      } catch (sequenceError) {
+        // سازگاری موقت با محیط‌هایی که هنوز مهاجرت ۰۰۱۹ را اجرا نکرده‌اند.
+        if (!String(sequenceError?.message || '').includes('no such table')) throw sequenceError;
+      }
+      const membershipNo = `MLA-${membershipSequence}`;
       try {
         await env.DB.prepare('UPDATE users SET membership_no=?1, professional_title=?2, position=?3 WHERE id=?4').bind(membershipNo, professionalTitle, position, userId).run();
       } catch (identityError) {
@@ -308,7 +319,7 @@ export async function currentUser(request, env) {
     id: row.id,
     email: row.email,
     displayName: row.display_name,
-    membershipNo: identity.membership_no || `WFA-${String(row.id).padStart(8, '0')}`,
+    membershipNo: identity.membership_no || `MLA-${1999 + Number(row.id)}`,
     professionalTitle: identity.professional_title || '',
     position: identity.position || '',
     roles: (roleRows?.results || []).map((r) => r.role),

@@ -44,7 +44,7 @@ function d1Like(db) {
 function setup() {
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON;');
-  for (const f of ['0001_init.sql', '0002_auth.sql', '0008_registration_profile.sql', '0014_member_identity.sql']) db.exec(migration(f));
+  for (const f of ['0001_init.sql', '0002_auth.sql', '0008_registration_profile.sql', '0014_member_identity.sql', '0019_mla_membership_sequence.sql']) db.exec(migration(f));
   const sent = [];
   const env = {
     DB: d1Like(db),
@@ -95,6 +95,20 @@ const verifiedCookie = async (env, sent, email, password = 'رمز-امن-۱۴۰
   assert.equal(login.status, 200);
   return (login.headers.get('set-cookie') || '').match(/wefagh_session=[^;]+/)[0];
 };
+
+// ---- شناسهٔ عضویت: پیشوند MLA و شماره‌گذاری متوالی از ۲۰۰۰ ----
+test('شماره عضویت ثبت‌نام‌های جدید از MLA-2000 آغاز و بدون صفر ابتدایی افزایش می‌یابد', { skip }, async () => {
+  const { db, env } = setup();
+  for (const [n, email] of [[1, 'member-one@example.com'], [2, 'member-two@example.com'], [3, 'member-three@example.com']]) {
+    const response = await call(env, '/api/auth/register', {
+      body: { email, password: 'رمز-امن-۱۴۰۵', displayName: `عضو ${n}` },
+    });
+    assert.equal(response.status, 202);
+  }
+  const numbers = db.prepare('SELECT membership_no FROM users ORDER BY id').all().map((row) => row.membership_no);
+  assert.deepEqual(numbers, ['MLA-2000', 'MLA-2001', 'MLA-2002']);
+  assert.equal(db.prepare('SELECT next_value FROM membership_sequence WHERE id = 1').get().next_value, 2003);
+});
 
 // ---- ثبت‌نام: پروفایل و کنترل شماره تکراری از ثبت‌نام حذف شده‌اند (تصمیم مالک) ----
 test('ثبت‌نام بدون کنترل شماره و بدون ذخیرهٔ پروفایل انجام می‌شود', { skip }, async () => {
@@ -168,6 +182,7 @@ test('/api/me پروفایل ذخیره‌شده را برمی‌گرداند و
   await call(env, '/api/me/profile', { method: 'PUT', cookie, body: { profile: { ...baseProfile, phone: '09129998877' } } });
   const me = await (await call(env, '/api/me', { method: 'GET', cookie })).json();
   assert.equal(me.user.profile.phone, '09129998877');
+  assert.equal(me.user.membershipNo, 'MLA-2000');
   assert.deepEqual(me.user.profile.practiceAreas.sort(), ['civil', 'family']);
   assert.ok(!JSON.stringify(me).includes('password'));
   const anon = await call(env, '/api/me', { method: 'GET' });
@@ -222,7 +237,7 @@ import { hashPassword } from '../worker/src/auth/password.js';
 function setupWithoutProfiles() {
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON;');
-  for (const f of ['0001_init.sql', '0002_auth.sql', '0014_member_identity.sql']) db.exec(migration(f));
+  for (const f of ['0001_init.sql', '0002_auth.sql', '0014_member_identity.sql', '0019_mla_membership_sequence.sql']) db.exec(migration(f));
   const env = { DB: d1Like(db), PUBLIC_BASE_URL: 'https://mokhtari.ir', mailer: async () => {} };
   return { db, env };
 }

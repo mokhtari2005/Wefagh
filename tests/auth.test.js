@@ -201,10 +201,12 @@ test('مهاجرت ۰۰۱۴ برای همه کاربران شماره عضویت
   db.prepare('INSERT INTO users (email, password_hash, display_name) VALUES (?,?,?)').run('one@example.com', 'h', 'کاربر یک');
   db.prepare('INSERT INTO users (email, password_hash, display_name) VALUES (?,?,?)').run('two@example.com', 'h', 'کاربر دو');
   db.exec(read('0014_member_identity.sql'));
+  db.exec(read('0019_mla_membership_sequence.sql'));
   const rows = db.prepare('SELECT id, membership_no FROM users ORDER BY id').all();
   assert.equal(rows.length, 2);
-  assert.equal(rows[0].membership_no, 'WFA-00000001');
-  assert.equal(rows[1].membership_no, 'WFA-00000002');
+  assert.equal(rows[0].membership_no, 'MLA-2000');
+  assert.equal(rows[1].membership_no, 'MLA-2001');
+  assert.equal(db.prepare('SELECT next_value FROM membership_sequence WHERE id=1').get().next_value, 2002);
   assert.notEqual(rows[0].membership_no, rows[1].membership_no);
   assert.throws(() => db.prepare('UPDATE users SET membership_no=? WHERE id=?').run(rows[0].membership_no, rows[1].id));
 });
