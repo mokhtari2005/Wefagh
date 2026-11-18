@@ -229,7 +229,7 @@ export async function adminPage() {
           el('span', { class: 'badge', text: statusLabel }),
           el('h3', { text: item.displayName }),
           el('p', { class: 'muted', text: item.email + ' · ' + (item.membershipNo || 'بدون شماره عضویت') }),
-          el('p', { class: 'muted', text: [item.gender === 'male' ? 'آقا' : item.gender === 'female' ? 'خانم' : '',item.position,item.professionalTitle,item.mobile,item.city,item.province].filter(Boolean).join(' · ') || 'اطلاعات تکمیلی ثبت نشده' }),
+          el('p', { class: 'muted', text: [item.gender === 'male' ? 'آقا' : item.gender === 'female' ? 'خانم' : '',({lawyer:'وکیل دادگستری',trainee:'کارآموز وکالت',law_student:'دانشجوی حقوق',law_graduate:'فارغ‌التحصیل حقوق',professor:'استاد دانشگاه',researcher:'پژوهشگر حقوق',other:'سایر'})[item.position] || item.position,({academy_member:'عضو آکادمی',academy_instructor:'مدرس آکادمی',academy_researcher:'پژوهشگر آکادمی',guest_member:'عضو مهمان',other:'سایر'})[item.professionalTitle] || item.professionalTitle,item.mobile,item.city,item.province].filter(Boolean).join(' · ') || 'اطلاعات تکمیلی ثبت نشده' }),
           el('p', { class: 'muted', text: (item.emailVerifiedAt ? 'ایمیل تأیید شده' : 'ایمیل تأیید نشده') + ' · ثبت‌نام: ' + new Date(item.createdAt).toLocaleDateString('fa-IR') }),
         ]),
       ]);
