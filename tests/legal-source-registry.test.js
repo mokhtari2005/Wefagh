@@ -40,11 +40,12 @@ test('source keys are unique and every source has an official authority and URL'
 test("legal corpus import defaults to laws and separates the regulations phase", () => {
   const importer = readFileSync(new URL("../scripts/import_ekhtebar_corpus.py", import.meta.url), "utf8");
   const workflow = readFileSync(new URL("../.github/workflows/import-legal-corpus.yml", import.meta.url), "utf8");
-  assert.match(importer, /IMPORT_PHASE = os\\.getenv\\("LEGAL_IMPORT_PHASE", "laws"\\)/);
-  assert.match(importer, /"laws": \\{"law"\\}/);
-  assert.match(importer, /"regulations": \\{"bylaw", "executive_regulation", "executive_circular"\\}/);
-  assert.match(importer, /documents_excluded_by_phase/);
-  assert.match(importer, /phase_excluded_sample/);
-  assert.match(workflow, /default: laws/);
-  assert.match(workflow, /LEGAL_IMPORT_PHASE:/);
+  assert.ok(importer.includes('IMPORT_PHASE = os.getenv("LEGAL_IMPORT_PHASE", "laws")'));
+  assert.ok(importer.includes('"laws": {"law"}'));
+  assert.ok(importer.includes('"regulations": {"bylaw", "executive_regulation", "executive_circular"}'));
+  assert.ok(importer.includes("documents_excluded_by_phase"));
+  assert.ok(importer.includes("phase_excluded_sample"));
+  assert.ok(workflow.includes("default: laws"));
+  assert.ok(workflow.includes("LEGAL_IMPORT_PHASE:"));
+  assert.ok(!workflow.includes("- all"));
 });
