@@ -216,7 +216,7 @@ export function voiceTypingPage() {
     if (/out of memory|memory allocation|memory access out of bounds|allocate.*memory|wasm.*memory/.test(message) || name === 'RangeError') {
       return 'حافظهٔ موقت دستگاه برای اجرای مدل کافی نیست. برنامه‌های دیگر را ببندید و یک بار صفحه را دوباره باز کنید؛ در صورت تکرار، دستگاه ممکن است توان اجرای مدل محلی را نداشته باشد.';
     }
-    if (stage === 'model' || (stage !== 'decode' && name === 'TypeError') || /fetch|network|failed to load|http.*(403|404|429|5\\d\\d)/.test(message)) {
+    if (stage === 'model' || (stage !== 'decode' && name === 'TypeError') || /fetch|network|failed to load|http.*(403|404|429|5\d\d)/.test(message)) {
       return 'دریافت مدل گفتار کامل نشد. اینترنت پایدار را بررسی کنید، محدودیت VPN یا فیلترشکن را موقتاً تغییر دهید و از دکمه «آماده‌سازی مدل گفتار» دوباره تلاش کنید.';
     }
     if (stage === 'decode' || name === 'NotSupportedError' || name === 'EncodingError' || /decode|codec|format|audio data/.test(message)) {
