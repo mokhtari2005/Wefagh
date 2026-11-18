@@ -8,6 +8,74 @@ const REPOSITORY = 'Wefagh';
 const API = 'https://api.github.com';
 const SOURCE_PROBE = 'site/js/diagnostics.js';
 
+async function githubWriteProbe(env) {
+  const token = env.GH_REPAIR_TOKEN.trim();
+  const headers = {
+    accept: 'application/vnd.github+json',
+    authorization: `Bearer ${token}`,
+    'user-agent': 'Mokhtari-Law-Academy-Diagnostics',
+    'x-github-api-version': '2022-11-28',
+    'content-type': 'application/json',
+  };
+  const request = async (path, method = 'GET', body) => {
+    const response = await (env.fetchImpl || fetch)(`${API}${path}`, {
+      method, headers, ...(body ? { body: JSON.stringify(body) } : {}),
+      signal: AbortSignal.timeout(15_000),
+    });
+    const raw = await response.text().catch(() => '');
+    let data = {};
+    try { data = raw ? JSON.parse(raw) : {}; } catch { /* پاسخ غیر JSON */ }
+    if (!response.ok) {
+      const error = new Error('GITHUB_WRITE_PROBE_FAILED');
+      error.status = response.status;
+      error.githubMessage = String(data?.message || raw || '').replaceAll(token, '[پنهان]').replace(/[\\u0000-\\u001f\\u007f]/g, ' ').slice(0, 180);
+      throw error;
+    }
+    return data;
+  };
+  const id = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+  const branch = `diagnostics/write-probe-${id}`;
+  const filePath = `.github/diagnostics-write-tests/${id}.txt`;
+  let pullRequestNumber = 0;
+  let branchCreated = false;
+  let pullRequestClosed = false;
+  let branchDeleted = false;
+  try {
+    const main = await request(`/repos/${OWNER}/${REPOSITORY}/git/ref/heads/main`);
+    await request(`/repos/${OWNER}/${REPOSITORY}/git/refs`, 'POST', { ref: `refs/heads/${branch}`, sha: main.object.sha });
+    branchCreated = true;
+    await request(`/repos/${OWNER}/${REPOSITORY}/contents/${filePath}`, 'PUT', {
+      message: 'Test GitHub write access for diagnostics (temporary)',
+      content: btoa(`Temporary diagnostics write-access probe. ID: ${id}. This file is removed with its branch.\\n`),
+      branch,
+    });
+    const pr = await request(`/repos/${OWNER}/${REPOSITORY}/pulls`, 'POST', {
+      title: `[Diagnostics Test] GitHub write access ${id}`,
+      head: branch,
+      base: 'main',
+      body: 'Temporary automated permission test. This PR is immediately closed and its branch deleted; it contains no production changes.',
+    });
+    pullRequestNumber = pr.number;
+    await request(`/repos/${OWNER}/${REPOSITORY}/pulls/${pullRequestNumber}`, 'PATCH', { state: 'closed' });
+    pullRequestClosed = true;
+    await request(`/repos/${OWNER}/${REPOSITORY}/git/refs/heads/${branch}`, 'DELETE');
+    branchDeleted = true;
+    return { ok: true, pullRequestNumber, pullRequestUrl: pr.html_url, branchDeleted, pullRequestClosed };
+  } catch (error) {
+    if (pullRequestNumber && !pullRequestClosed) {
+      try { await request(`/repos/${OWNER}/${REPOSITORY}/pulls/${pullRequestNumber}`, 'PATCH', { state: 'closed' }); pullRequestClosed = true; } catch { /* گزارش وضعیت پاک‌سازی در خروجی */ }
+    }
+    if (branchCreated && (!pullRequestNumber || pullRequestClosed)) {
+      try { await request(`/repos/${OWNER}/${REPOSITORY}/git/refs/heads/${branch}`, 'DELETE'); branchDeleted = true; } catch { /* گزارش وضعیت پاک‌سازی در خروجی */ }
+    }
+    error.pullRequestNumber = pullRequestNumber;
+    error.pullRequestClosed = pullRequestClosed;
+    error.branchDeleted = branchDeleted;
+    throw error;
+  }
+}
+
+
 export function validateSyntheticDiagnostic(payload) {
   return Boolean(payload
     && payload.category === 'javascript'
@@ -58,6 +126,18 @@ export async function githubRead(env, path) {
 }
 
 export async function handleDiagnosticSelfTest(request, env, path) {
+  if (path === '/api/admin/diagnostics/write-test') {
+    if (request.method !== 'POST') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'POST' });
+    const access = await requireMailAdmin(request, env);
+    if (access.response) return access.response;
+    if (!env.GH_REPAIR_TOKEN || env.GH_REPAIR_TOKEN.trim().length < 20) return json({ ok: false, error: 'GITHUB_TOKEN_NOT_CONFIGURED' }, 503);
+    try {
+      const result = await githubWriteProbe(env);
+      return json({ ...result, message: 'ساخت شاخه، ثبت فایل آزمایشی، ایجاد Pull Request، بستن PR و حذف شاخه با موفقیت انجام شد. هیچ تغییری روی main ثبت نشد.' });
+    } catch (error) {
+      return json({ ok: false, status: error?.status || 0, githubMessage: error?.githubMessage || '', pullRequestNumber: error?.pullRequestNumber || null, pullRequestClosed: Boolean(error?.pullRequestClosed), branchDeleted: Boolean(error?.branchDeleted), message: 'آزمون نوشتن GitHub کامل نشد؛ وضعیت پاک‌سازی در همین پاسخ مشخص شده است.' }, 502);
+    }
+  }
   if (path !== '/api/admin/diagnostics/self-test') return null;
   if (request.method !== 'POST') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'POST' });
   const access = await requireMailAdmin(request, env);
