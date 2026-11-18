@@ -19,14 +19,9 @@ IMPORT_PHASE = os.getenv("LEGAL_IMPORT_PHASE", "laws").strip().lower()
 PHASE_TYPES = {
     "laws": {"law"},
     "regulations": {"bylaw", "executive_regulation", "executive_circular"},
-    "all": {"law", "bylaw", "executive_regulation", "executive_circular", "judicial_circular",
-            "supreme_court_unified_precedent", "supreme_court_insistence_precedent",
-            "administrative_court_unified_precedent", "administrative_court_general_board",
-            "administrative_court_specialized_board", "judicial_advisory_opinion",
-            "advisory_opinion", "treaty", "guardian_council_opinion", "parliamentary_research", "other"},
 }
 if IMPORT_PHASE not in PHASE_TYPES:
-    raise SystemExit("LEGAL_IMPORT_PHASE must be one of: laws, regulations, all")
+    raise SystemExit("LEGAL_IMPORT_PHASE must be one of: laws, regulations")
 DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩","01234567890123456789")
 ARTICLE = re.compile(r"^\s*(?:#{1,6}\s*)?(ماده|اصل)\s*[\(（]?\s*([0-9۰-۹٠-٩]+(?:\s*(?:مکرر|الحاقی))?|[آ-ی‌]+(?:\s+و\s+[آ-ی‌]+)?)(?=\s*(?:[ـ\-–—:：]|$))\s*[\)）]?\s*(?:[ـ\-–—:：]\s*)?(.*)$")
 SINGLE = re.compile(r"^\s*(?:#{1,6}\s*)?ماده[\s‌ـ\-]*واحده\s*(?:[ـ\-–—:：]\s*)?(.*)$")
