@@ -169,6 +169,61 @@ export async function adminPage() {
   const saveAccess = el('button', { class: 'btn', type: 'button', text: 'ذخیره تنظیم دسترسی' });
   const accessPanel = el('section', { class: 'card admin-import' }, [el('h2', { text: 'تنظیم دسترسی کاربران' }), accessDescription, registrationLabel, saveAccess, accessNotice]);
   servicesView.append(accessPanel);
+
+  // مرکز سلامت و عیب‌یابی: گزارش‌های ناشناس مرورگر و API فقط برای مدیر مجاز.
+  const diagnosticsNotice = el('p', { class: 'form-status', role: 'status' });
+  const diagnosticsList = el('div', { class: 'admin-content-list' });
+  const diagnosticsRefresh = el('button', { class: 'btn secondary', type: 'button', text: 'به‌روزرسانی گزارش خطاها' });
+  async function refreshDiagnostics() {
+    diagnosticsRefresh.disabled = true;
+    diagnosticsNotice.className = 'form-status';
+    diagnosticsNotice.textContent = 'در حال دریافت گزارش‌ها…';
+    const result = await getJson('/api/admin/diagnostics');
+    diagnosticsRefresh.disabled = false;
+    if (!result.ok) {
+      diagnosticsNotice.className = 'form-status err';
+      diagnosticsNotice.textContent = errorText(result.data, result.status);
+      diagnosticsList.replaceChildren();
+      return;
+    }
+    diagnosticsNotice.className = 'form-status';
+    diagnosticsNotice.textContent = `${result.data.openCount} مورد باز از ${result.data.items.length} الگوی خطا (حداکثر ۱۵۰ مورد اخیر).`;
+    diagnosticsList.replaceChildren();
+    if (!result.data.items.length) diagnosticsList.append(el('p', { class: 'muted', text: 'هنوز خطایی از مرورگرها یا API ثبت نشده است.' }));
+    for (const item of result.data.items) {
+      const row = el('article', { class: 'admin-content-row card' }, [
+        el('div', {}, [
+          el('span', { class: 'badge', text: item.status === 'open' ? 'در انتظار بررسی' : 'بسته‌شده' }),
+          el('h3', { text: `${item.errorCode} · ${item.component}` }),
+          el('p', { class: 'muted', text: `مسیر: ${item.route} · نوع: ${item.category} · HTTP: ${item.httpStatus || '—'}` }),
+          el('p', { class: 'muted', text: `تکرار: ${item.occurrences} · آخرین رخداد: ${new Date(item.lastSeen).toLocaleString('fa-IR')}` }),
+        ]),
+      ]);
+      if (item.status === 'open') {
+        const resolve = el('button', { class: 'btn secondary', type: 'button', text: 'علامت‌گذاری به‌عنوان بررسی‌شده' });
+        resolve.addEventListener('click', async () => {
+          resolve.disabled = true;
+          const saved = await postJson('/api/admin/diagnostics/resolve', { fingerprint: item.fingerprint });
+          if (!saved.ok) {
+            resolve.disabled = false;
+            diagnosticsNotice.className = 'form-status err';
+            diagnosticsNotice.textContent = errorText(saved.data, saved.status);
+            return;
+          }
+          await refreshDiagnostics();
+        });
+        row.append(resolve);
+      }
+      diagnosticsList.append(row);
+    }
+  }
+  const diagnosticsPanel = el('section', { class: 'card admin-import' }, [
+    el('h2', { text: 'مرکز سلامت و عیب‌یابی خودکار' }),
+    el('p', { class: 'muted', text: 'خطاهای JavaScript، وعده‌های ردشده، قطع شبکه، پاسخ‌های ۴۲۹ و خطاهای ۵xx به‌صورت ناشناس ثبت می‌شوند. این مرکز علت و الگوی خطا را نشان می‌دهد؛ اصلاح کد نیازمند آزمون و انتشار کنترل‌شده است.' }),
+    diagnosticsRefresh, diagnosticsNotice, diagnosticsList,
+  ]);
+  servicesView.append(diagnosticsPanel);
+  diagnosticsRefresh.addEventListener('click', refreshDiagnostics);
   const loadAccess = async () => {
     const result = await getJson('/api/admin/settings/access');
     if (!result.ok) { accessNotice.className = 'form-status err'; accessNotice.textContent = errorText(result.data, result.status); saveAccess.disabled = true; return; }
@@ -551,6 +606,7 @@ export async function adminPage() {
   const views = { dashboard: dashboardView, content: contentView, imports: importView, 'legal-bank': legalBankView, media: mediaView, services: servicesView };
   function selectView(key) {
     if (key === 'dashboard') updateDashboard();
+    if (key === 'services') refreshDiagnostics();
     if (key === 'legal-bank') refreshLegalBank();
     for (const [name, view] of Object.entries(views)) view.hidden = name !== key;
     for (const button of nav.querySelectorAll('[data-admin-target]')) {
