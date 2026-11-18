@@ -91,63 +91,56 @@ def parse_doc(path, index):
 
 def lit(v): return "'"+str(v).replace("'","''")+"'"
 def sql_for(d):
-    slug=lit(d["slug"])
     vals=[lit(d["slug"]),lit(d["title"]),lit(d["lawType"]),"NULL","NULL","NULL","NULL","'needs_review'",lit(d["sourceName"]),lit(d["sourceUrl"]),lit(d["notes"]),"NULL"]
     law_sql=("INSERT OR IGNORE INTO legal_laws (slug,title,law_type,issuing_authority,approved_date,publication_date,effective_date,status,source_name,source_url,notes,created_by) VALUES ("+",".join(vals)+");")
+    statements=[(law_sql, [])]
 
-    # Keep each SQL statement comfortably below SQLite/D1's statement-size limit.
-    # Large laws are split into multiple idempotent article inserts.
-    article_sqls=[]
+    # Keep SQL text short: pass article JSON as bound parameters, not SQL literals.
     chunk=[]
     chunk_bytes=0
     for article in d["articles"]:
         encoded=json.dumps(article,ensure_ascii=False,separators=(",",":"))
         encoded_bytes=len(encoded.encode("utf-8"))
-        if chunk and (len(chunk)>=40 or chunk_bytes+encoded_bytes>180_000):
-            payload=lit(json.dumps(chunk,ensure_ascii=False,separators=(",",":")))
-            article_sqls.append(
+        if chunk and (len(chunk)>=20 or chunk_bytes+encoded_bytes>48_000):
+            payload=json.dumps(chunk,ensure_ascii=False,separators=(",",":"))
+            statements.append((
                 "INSERT OR IGNORE INTO legal_articles (law_id,article_number,heading,body,status) "
                 "SELECT l.id,json_extract(j.value,'$.number'),json_extract(j.value,'$.heading'),json_extract(j.value,'$.body'),'needs_review' "
-                f"FROM legal_laws l,json_each({payload}) j WHERE l.slug={slug};"
-            )
+                "FROM legal_laws l,json_each(?) j WHERE l.slug=?;",
+                [payload,d["slug"]]
+            ))
             chunk=[]
             chunk_bytes=0
         chunk.append(article)
         chunk_bytes+=encoded_bytes
     if chunk:
-        payload=lit(json.dumps(chunk,ensure_ascii=False,separators=(",",":")))
-        article_sqls.append(
+        payload=json.dumps(chunk,ensure_ascii=False,separators=(",",":"))
+        statements.append((
             "INSERT OR IGNORE INTO legal_articles (law_id,article_number,heading,body,status) "
             "SELECT l.id,json_extract(j.value,'$.number'),json_extract(j.value,'$.heading'),json_extract(j.value,'$.body'),'needs_review' "
-            f"FROM legal_laws l,json_each({payload}) j WHERE l.slug={slug};"
-        )
-    return [law_sql,*article_sqls]
+            "FROM legal_laws l,json_each(?) j WHERE l.slug=?;",
+            [payload,d["slug"]]
+        ))
+    return statements
 
 
-def send(sqls):
-    """Submit a bounded batch of idempotent statements to Cloudflare D1."""
-    if not sqls:
+def send(statements):
+    """Submit a bounded batch of idempotent, parameterized statements to Cloudflare D1."""
+    if not statements:
         return
-    response = requests.post(
+    response=requests.post(
         D1,
-        headers={
-            "Authorization": f"Bearer {TOKEN}",
-            "Content-Type": "application/json",
-        },
-        json={"batch": [{"sql": statement, "params": []} for statement in sqls]},
+        headers={"Authorization":f"Bearer {TOKEN}","Content-Type":"application/json"},
+        json={"batch":[{"sql":sql,"params":params} for sql,params in statements]},
         timeout=240,
     )
-    if response.status_code != 200:
+    if response.status_code!=200:
         raise RuntimeError(f"D1 HTTP {response.status_code}: {response.text[:1000]}")
-    result = response.json()
-    if not result.get("success") or any(
-        not item.get("success", True) for item in result.get("result", [])
-    ):
-        details = result.get("errors", result.get("result", []))
-        raise RuntimeError(
-            "D1 import batch failed: "
-            + json.dumps(details, ensure_ascii=False)[:1200]
-        )
+    result=response.json()
+    if not result.get("success") or any(not item.get("success",True) for item in result.get("result",[])):
+        details=result.get("errors",result.get("result",[]))
+        raise RuntimeError("D1 import batch failed: "+json.dumps(details,ensure_ascii=False)[:1200])
+
 
 def main():
     index=get_index(); files=get_files()
@@ -166,11 +159,11 @@ def main():
     print(f"Parsed {len(docs)} documents; skipped {skipped}.")
     batch=[]; size=0; done=0
     for d in docs:
-        for statement in sql_for(d):
-            n=len(statement.encode("utf-8"))
+        for statement, params in sql_for(d):
+            n=len(statement.encode("utf-8"))+len(json.dumps(params,ensure_ascii=False).encode("utf-8"))
             if batch and (len(batch)>=90 or size+n>3_500_000):
                 send(batch); batch=[]; size=0
-            batch.append(statement); size+=n
+            batch.append((statement, params)); size+=n
         done+=1
         if done%25==0: print(f"Prepared: {done}/{len(docs)} documents")
     if batch: send(batch)
