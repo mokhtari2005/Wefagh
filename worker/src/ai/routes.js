@@ -408,6 +408,9 @@ async function assistant(request, env) {
     if (attachments.length) {
       notes.push('هشدار: بازبینی مستقل انجام نشد.');
       reviewDetails = ['به‌دلیل وجود پیوست، بازبینی مستقل Groq اجرا نشد تا محتوای سند به سرویس دیگری منتقل نشود.'];
+    } else if (provider === 'groq') {
+      notes.push('چون پاسخ اصلی همین نوبت با Groq تولید شده، بازبینی مستقل جداگانه اجرا نشد تا یک سرویس هم‌زمان نقش تولیدکننده و بازبین را نداشته باشد.');
+      reviewDetails = ['پاسخ با Groq تولید شده است؛ بازبینی مستقلِ جداگانه انجام نشده و صحت حقوقی آن تأیید نشده است.'];
     } else {
       stage = 'groq_review';
       const review = await reviewLegalDraft(env, { mode, docType, question: message, draft: text });
