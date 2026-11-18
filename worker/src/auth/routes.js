@@ -36,7 +36,7 @@ function dummyHash() {
 }
 
 function mailer(env) {
-  // در تست‌ها env.mailer جایگزین می‌شود؛ در حالت واقعی از Gmail استفاده می‌شود.
+  // در تست‌ها env.mailer جایگزین می‌شود؛ در حالت واقعی از Resend استفاده می‌شود.
   return env.mailer ?? ((args) => sendMail({ env, ...args }));
 }
 
