@@ -1,4 +1,5 @@
 import { SHIRAZ_BLOCKS } from './calc/shiraz-1405-data.js';
+import { getJson } from './api.js';
 
 function h(tag, attrs = {}, children = []) {
   const n = document.createElement(tag);
@@ -106,7 +107,7 @@ export function regionalValueTool() {
     h('button',{class:'btn dix-submit',type:'submit',text:'محاسبه ارزش معاملاتی'}),
     out
   ]);
-  form.addEventListener('submit',e=>{
+  form.addEventListener('submit',async e=>{
     e.preventDefault();
     const row=SHIRAZ_BLOCKS.find(x=>x[0]===Number(zone.el.value)&&x[1]===block.el.value);
     const area=parse(landArea.el.value), road=parse(width.el.value);
@@ -161,7 +162,26 @@ export function regionalValueTool() {
       );
     }
     const total=landTotal+buildingTotal+parkingTotal;
+    const inquiryAt = new Date();
+    const inquiryId = (globalThis.crypto?.randomUUID?.() || `RV-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2,8).toUpperCase()}`);
+    let userName = 'کاربر مهمان';
+    try {
+      const me = await getJson('/api/me');
+      if (me.ok && me.data?.user?.displayName) userName = me.data.user.displayName;
+    } catch (_) { /* گزارش برای کاربر مهمان نیز قابل چاپ است. */ }
+    const dateText = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'long' }).format(inquiryAt);
+    const timeText = new Intl.DateTimeFormat('fa-IR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(inquiryAt);
     const result=h('section',{class:'result regional-result',role:'status','aria-live':'polite'},[
+      h('header',{class:'regional-print-header'},[
+        h('strong',{class:'regional-academy-name',text:'آکادمی وکالت شهرام مختاری'}),
+        h('span',{class:'regional-academy-domain',text:'Mokhtari Law Academy | mokhtari.ir'}),
+        h('h2',{text:'گزارش استعلام ارزش معاملاتی ملک'})
+      ]),
+      h('dl',{class:'regional-report-meta'},[
+        h('dt',{text:'نام کاربر'}),h('dd',{text:userName}),
+        h('dt',{text:'زمان استعلام'}),h('dd',{text:`${dateText} — ${timeText}`}),
+        h('dt',{text:'شناسه استعلام'}),h('dd',{text:inquiryId})
+      ]),
       h('div',{class:'result-head'},[h('h3',{text:'ارزش معاملاتی برآوردشده ملک'})]),
       h('div',{class:'amount-block'},[h('span',{class:'amount-label',text:'جمع ارزش عرصه و اعیانی'}),h('strong',{class:'amount-value',text:money(total)})]),
       h('dl',{class:'facts'},facts.flatMap(([k,v])=>[h('dt',{text:k}),h('dd',{text:v})])),
@@ -170,7 +190,13 @@ export function regionalValueTool() {
       h('p',{class:'notice',text:'این خروجی ارزش معاملاتی مالیاتی است، نه قیمت روز بازار یا قیمت کارشناسی ملک. پیش از استفاده رسمی، بلوک و کاربری را با سند و موقعیت دقیق ملک تطبیق دهید.'}),
       h('button',{class:'btn secondary',type:'button',text:'چاپ گزارش'})
     ]);
-    result.querySelector('button').addEventListener('click',()=>window.print());
+    result.querySelector('button').addEventListener('click',()=>{
+      document.body.classList.add('printing-regional-report');
+      const cleanup=()=>document.body.classList.remove('printing-regional-report');
+      window.addEventListener('afterprint',cleanup,{once:true});
+      window.print();
+      setTimeout(cleanup,1500);
+    });
     out.replaceChildren(result);
   });
   return root;
