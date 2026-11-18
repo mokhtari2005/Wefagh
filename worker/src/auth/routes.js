@@ -91,10 +91,18 @@ export async function register(request, env) {
   const passwordHash = await hashPassword(body.password);
   let userId;
   try {
-    const row = await env.DB
-      .prepare('INSERT INTO users (email, password_hash, display_name, gender, phone, professional_title, position) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) RETURNING id')
-      .bind(email, passwordHash, displayName, gender, phone, professionalTitle, position)
-      .first();
+    let row;
+    try {
+      row = await env.DB
+        .prepare('INSERT INTO users (email, password_hash, display_name, gender, phone, professional_title, position) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) RETURNING id')
+        .bind(email, passwordHash, displayName, gender, phone, professionalTitle, position)
+        .first();
+    } catch (schemaError) {
+      // سازگاری با نسخه‌های قدیمی دیتابیس تا اجرای مهاجرت ۰۰۲۵.
+      if (!String(schemaError?.message || '').includes('no such column')) throw schemaError;
+      row = await env.DB.prepare('INSERT INTO users (email, password_hash, display_name) VALUES (?1, ?2, ?3) RETURNING id')
+        .bind(email, passwordHash, displayName).first();
+    }
     userId = row?.id;
     if (userId) {
       let membershipSequence = 1999 + Number(userId);
@@ -110,7 +118,7 @@ export async function register(request, env) {
       }
       const membershipNo = `MLA-${membershipSequence}`;
       try {
-        await env.DB.prepare('UPDATE users SET membership_no=?1 WHERE id=?2').bind(membershipNo, userId).run();
+        await env.DB.prepare('UPDATE users SET membership_no=?1, professional_title=?2, position=?3 WHERE id=?4').bind(membershipNo, professionalTitle, position, userId).run();
       } catch (identityError) {
         // سازگاری با محیط‌های آزمایشی یا نسخه‌های قدیمی DB تا زمان اجرای مهاجرت ۰۰۱۴.
         if (!String(identityError?.message || '').includes('no such column')) throw identityError;
