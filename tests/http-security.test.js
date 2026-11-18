@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { isSameOriginMutationAllowed, readJsonBody, MAX_BODY_BYTES } from '../worker/src/http.js';
+import worker from '../worker/src/index.js';
 
 const env = { PUBLIC_BASE_URL: 'https://mokhtari.ir' };
 
@@ -67,4 +68,15 @@ test('نوع محتوای غیر JSON و JSON خراب رد می‌شوند', as
     'content-type': 'application/json',
   }, '{'));
   assert.equal(malformed.error.status, 400);
+});
+
+test('دروازهٔ اصلی Worker درخواست جعلی بین‌مبدأ با کوکی نشست را پیش از رسیدن به API رد می‌کند', async () => {
+  const res = await worker.fetch(request('POST', {
+    cookie: 'wefagh_session=valid-session',
+    origin: 'https://attacker.example',
+    'sec-fetch-site': 'cross-site',
+    'content-type': 'application/json',
+  }, '{}'), {});
+  assert.equal(res.status, 403);
+  assert.equal((await res.json()).error, 'CROSS_ORIGIN_REQUEST_BLOCKED');
 });
