@@ -117,6 +117,7 @@ export function voiceTypingPage() {
     h('span', { class: 'voice-typing-dot', 'aria-hidden': 'true' }),
     h('span', { text: 'آمادهٔ شروع؛ برای تایپ صوتی، دکمهٔ شروع ضبط را بزنید.' }),
   ]);
+  const micIndicator = h('div', { class: 'voice-typing-mic', 'data-state': 'unknown', role: 'status', 'aria-live': 'polite' }, [h('span', { class: 'voice-typing-mic-icon', 'aria-hidden': 'true', text: '●' }), h('span', { text: 'وضعیت میکروفون: بررسی‌نشده' })]);
   const language = h('select', { 'aria-label': 'زبان تشخیص گفتار' }, [
     h('option', { value: 'fa-IR', text: 'فارسی' }),
     h('option', { value: 'en-US', text: 'English' }),
@@ -145,6 +146,7 @@ export function voiceTypingPage() {
   panel.append(
     h('div', { class: 'row' }, [start, stop, language]),
     status,
+    micIndicator,
     toolbar,
     editor,
     h('div', { class: 'voice-typing-meta' }, [count, interim]),
@@ -158,6 +160,13 @@ export function voiceTypingPage() {
   let recording = false;
   let finalTranscript = '';
   let interimTranscript = '';
+  let permissionStatus = null;
+  function setMicState(state, message) { micIndicator.dataset.state = state; micIndicator.lastElementChild.textContent = message; }
+  if (navigator.permissions?.query) navigator.permissions.query({ name: 'microphone' }).then((permission) => {
+    permissionStatus = permission;
+    const refresh = () => { if (recording) return; if (permission.state === 'granted') setMicState('connected', 'مجوز میکروفون فعال است'); else if (permission.state === 'denied') setMicState('disconnected', 'دسترسی میکروفون مسدود است'); else setMicState('unknown', 'برای شروع، اجازهٔ دسترسی میکروفون را بدهید'); };
+    refresh(); permission.addEventListener?.('change', refresh);
+  }).catch(() => setMicState('unknown', 'وضعیت میکروفون هنگام شروع ضبط مشخص می‌شود'));
 
   function updateCount() {
     const text = editor.innerText || '';
@@ -181,19 +190,23 @@ export function voiceTypingPage() {
     });
   });
 
-  function stopRecognition(message = 'ضبط متوقف شد.') {
+  function stopRecognition(message = 'ضبط متوقف شد.', state = 'idle') {
     recording = false;
     start.disabled = false;
     start.setAttribute('aria-pressed', 'false');
     stop.disabled = true;
     interim.textContent = '';
-    setStatus(message, 'idle');
+    setStatus(message, state);
+    if (permissionStatus?.state === 'denied') setMicState('disconnected', 'دسترسی میکروفون مسدود است');
+    else if (permissionStatus?.state === 'granted') setMicState('connected', 'مجوز میکروفون فعال است · ضبط متوقف است');
+    else if (state !== 'error') setMicState('unknown', 'ضبط متوقف است');
     try { recognition?.stop(); } catch { /* already stopped */ }
   }
 
   if (!SpeechRecognition) {
     start.disabled = true;
-    setStatus('تشخیص گفتار مستقیم در این مرورگر در دسترس نیست؛ از دیکتهٔ صفحه‌کلید گوشی استفاده کنید.');
+    setMicState('unavailable', 'تشخیص میکروفون در این مرورگر پشتیبانی نمی‌شود');
+    setStatus('مرورگر شما تبدیل گفتار به متن را پشتیبانی نمی‌کند. از نسخهٔ به‌روز Safari یا Chrome استفاده کنید؛ در صورت ادامهٔ مشکل از دیکتهٔ صفحه‌کلید گوشی کمک بگیرید.', 'error');
   } else {
     recognition = new SpeechRecognition();
     recognition.continuous = true;
@@ -205,8 +218,11 @@ export function voiceTypingPage() {
       start.disabled = true;
       start.setAttribute('aria-pressed', 'true');
       stop.disabled = false;
-      setStatus('در حال شنیدن صدای شما… برای پایان، توقف ضبط را بزنید.', 'recording');
+      setMicState('connected', 'میکروفون وصل است · در حال دریافت صدا');
+      setStatus('ضبط فعال است؛ صحبت کنید. برای پایان، توقف ضبط را بزنید.', 'recording');
     };
+    recognition.onaudiostart = () => { if (recording) setMicState('connected', 'میکروفون فعال است · صدا دریافت می‌شود'); };
+    recognition.onaudioend = () => { if (recording) setMicState('waiting', 'میکروفون وصل است · در انتظار صدای شما'); };
     recognition.onresult = (event) => {
       interimTranscript = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -222,12 +238,16 @@ export function voiceTypingPage() {
     };
     recognition.onerror = (event) => {
       const messages = {
-        'not-allowed': 'دسترسی میکروفون مسدود است؛ مجوز میکروفون مرورگر را فعال کنید.',
-        'no-speech': 'صدایی تشخیص داده نشد؛ دوباره صحبت کنید.',
+        'not-allowed': 'دسترسی میکروفون مسدود است؛ از تنظیمات سایت در مرورگر، اجازهٔ میکروفون را فعال کنید.',
+        'service-not-allowed': 'مرورگر اجازهٔ استفاده از سرویس تشخیص گفتار را نداد.',
+        'no-speech': 'صدایی دریافت نشد؛ میکروفون را بررسی کنید و دوباره تلاش کنید.',
+        'aborted': 'ضبط متوقف شد.',
         'audio-capture': 'میکروفون پیدا نشد یا در دسترس نیست.',
         'network': 'تشخیص گفتار به اتصال شبکه نیاز دارد؛ اتصال را بررسی کنید.',
       };
-      stopRecognition(messages[event.error] || 'در تشخیص گفتار خطایی رخ داد؛ دوباره تلاش کنید.');
+      const denied = ['not-allowed', 'service-not-allowed', 'audio-capture'].includes(event.error);
+      if (denied) setMicState('disconnected', event.error === 'audio-capture' ? 'میکروفون در دسترس نیست' : 'دسترسی میکروفون قطع یا مسدود است');
+      stopRecognition(messages[event.error] || 'در تشخیص گفتار خطایی رخ داد؛ دوباره تلاش کنید.', denied ? 'error' : 'idle');
     };
     recognition.onend = () => {
       if (recording) {
@@ -239,8 +259,17 @@ export function voiceTypingPage() {
       if (recording) return;
       recognition.lang = language.value;
       finalTranscript = '';
+      interimTranscript = '';
+      start.disabled = true;
+      stop.disabled = false;
+      setMicState('connecting', 'در حال اتصال به میکروفون…');
+      setStatus('در حال درخواست دسترسی و آماده‌سازی میکروفون…', 'starting');
       try { recognition.start(); }
-      catch { setStatus('شروع ضبط ممکن نشد؛ چند لحظه بعد دوباره تلاش کنید.'); }
+      catch (error) {
+        start.disabled = false; stop.disabled = true;
+        const message = error?.name === 'NotAllowedError' ? 'اجازهٔ میکروفون صادر نشد؛ دسترسی سایت را در تنظیمات مرورگر فعال کنید.' : error?.name === 'InvalidStateError' ? 'ضبط قبلی هنوز در حال بسته‌شدن است؛ یک لحظه صبر کنید و دوباره بزنید.' : 'شروع ضبط ممکن نشد؛ اتصال اینترنت و مجوز میکروفون را بررسی کنید.';
+        setMicState('disconnected', 'میکروفون متصل نیست یا مجوز ندارد'); setStatus(message, 'error');
+      }
     });
     stop.addEventListener('click', () => stopRecognition());
     language.addEventListener('change', () => {
