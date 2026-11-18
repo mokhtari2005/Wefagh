@@ -95,22 +95,52 @@ export function regionalValueTool() {
     });
   }
   function showMapFallback(reason) {
-    // Keep a visible map even when Leaflet/CDN or raster tile requests are blocked.
+    // A self-contained schematic ensures the map area is never blank when
+    // external map libraries, tiles, or embedded map providers are blocked.
     mapCanvas.replaceChildren();
     regionalMap = null;
     regionalMarker = null;
-    const frame = h('iframe', {
-      title: 'نمای نقشه شیراز و موقعیت تقریبی ملک',
-      src: 'https://maps.google.com/maps?q=29.5918,52.5837&z=13&output=embed',
-      loading: 'lazy',
-      referrerpolicy: 'no-referrer-when-downgrade',
-      allowfullscreen: ''
-    });
-    frame.style.cssText = 'display:block;width:100%;height:100%;min-height:260px;border:0;border-radius:11px;';
-    mapCanvas.append(frame);
-    fallbackMapFrame = frame;
+    fallbackMapFrame = null;
+    const panel = h('div', { class: 'regional-map-offline', role: 'img', 'aria-label': 'نمای شماتیک شهر شیراز؛ نقشه آنلاین در دسترس نیست' });
+    panel.innerHTML = `
+      <svg viewBox="0 0 900 430" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <defs>
+          <pattern id="rv-grid" width="112" height="78" patternUnits="userSpaceOnUse" patternTransform="rotate(-12)">
+            <path d="M112 0H0V78" fill="none" stroke="#c7d7cb" stroke-width="2"/>
+            <path d="M56 0V78M0 39H112" fill="none" stroke="#d5e0d7" stroke-width="1"/>
+          </pattern>
+          <pattern id="rv-blocks" width="28" height="28" patternUnits="userSpaceOnUse">
+            <path d="M0 0H28V28H0Z" fill="#e6eee5" stroke="#c8d8ca" stroke-width="1"/>
+          </pattern>
+        </defs>
+        <rect width="900" height="430" fill="#edf2e9"/>
+        <rect width="900" height="430" fill="url(#rv-grid)"/>
+        <path d="M-30 330C160 250 270 365 430 285S690 180 940 235" fill="none" stroke="#c4d9e0" stroke-width="28"/>
+        <path d="M-30 330C160 250 270 365 430 285S690 180 940 235" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="12 10"/>
+        <path d="M90 -20L260 460M380 -20L490 460M690 -20L760 460M-20 110L920 160M-20 250L920 300" fill="none" stroke="#fff" stroke-width="13"/>
+        <path d="M90 -20L260 460M380 -20L490 460M690 -20L760 460M-20 110L920 160M-20 250L920 300" fill="none" stroke="#d6cbb2" stroke-width="2"/>
+        <g fill="#587c65" font-family="Tahoma,sans-serif" font-size="18" opacity=".9">
+          <text x="450" y="82" text-anchor="middle">شیراز</text>
+          <text x="170" y="205" text-anchor="middle" font-size="14">نمای شماتیک محدوده شهری</text>
+          <text x="690" y="365" text-anchor="middle" font-size="14">برای موقعیت دقیق، مختصات را وارد کنید</text>
+        </g>
+        <g transform="translate(450 210)">
+          <circle r="25" fill="#356c68" opacity=".15"/>
+          <path d="M0 -22C-13 -22 -22 -12 -22 1C-22 17 0 35 0 35S22 17 22 1C22 -12 13 -22 0 -22Z" fill="#356c68" stroke="#fff" stroke-width="4"/>
+          <circle cy="0" r="7" fill="#fff"/>
+        </g>
+        <rect x="18" y="18" width="250" height="38" rx="9" fill="#fff" opacity=".92"/>
+        <text x="143" y="43" text-anchor="middle" fill="#38594e" font-family="Tahoma,sans-serif" font-size="14">نقشه آنلاین در دسترس نیست</text>
+      </svg>
+      <div class="regional-map-offline-caption">نمای شماتیک شیراز — این تصویر نقشهٔ ثبتی یا دارای مقیاس نیست.</div>`;
+    panel.style.cssText = 'display:flex;flex-direction:column;width:100%;height:100%;min-height:260px;overflow:hidden;border-radius:11px;background:#edf2e9;';
+    const svg = panel.querySelector('svg');
+    svg.style.cssText = 'display:block;width:100%;height:100%;min-height:220px;flex:1 1 auto;';
+    const caption = panel.querySelector('.regional-map-offline-caption');
+    caption.style.cssText = 'padding:7px 10px;text-align:center;font:12px/1.7 Tahoma,sans-serif;color:#52685c;background:#f8faf6;border-top:1px solid #d6e0d5;';
+    mapCanvas.append(panel);
     coordinates.el.readOnly = false;
-    mapStatus.textContent = reason || 'نمای جایگزین نقشه فعال شد. این نما برای مشاهده است؛ مختصات ملک را در کادر مختصات دستی وارد کنید.';
+    mapStatus.textContent = reason || 'نقشه آنلاین در این شبکه در دسترس نیست؛ برای ثبت دقیق موقعیت، مختصات را دستی وارد کنید.';
   }
   function loadStylesheet(url) {
     return new Promise((resolve, reject) => {
@@ -227,10 +257,6 @@ export function regionalValueTool() {
       return;
     }
     if (!regionalMap || !regionalMarker) {
-      if (!fallbackMapFrame) {
-        postalSearchStatus.textContent = 'نمای نقشه هنوز آماده نیست؛ چند لحظه دیگر دوباره تلاش کنید.';
-        return;
-      }
       postalSearchButton.disabled = true;
       postalSearchButton.textContent = 'در حال جست‌وجو…';
       postalSearchStatus.textContent = 'در حال جست‌وجوی کد پستی در داده‌های نقشه عمومی…';
@@ -246,10 +272,10 @@ export function regionalValueTool() {
         const result = results[0];
         const lat = Number(result.lat), lon = Number(result.lon);
         if (!Number.isFinite(lat) || !Number.isFinite(lon)) throw new Error('Invalid geocoder coordinates');
-        fallbackMapFrame.src = `https://maps.google.com/maps?q=${lat},${lon}&z=17&output=embed`;
+        if (fallbackMapFrame) fallbackMapFrame.src = `https://maps.google.com/maps?q=${lat},${lon}&z=17&output=embed`;
         coordinates.el.value = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
         if (!address.el.value && result.display_name) address.el.value = result.display_name;
-        postalSearchStatus.textContent = 'موقعیت پیشنهادی روی نقشه جایگزین نمایش داده شد؛ لطفاً آن را با محل واقعی ملک تطبیق دهید.';
+        postalSearchStatus.textContent = 'مختصات پیشنهادی پیدا شد و در گزارش ثبت می‌شود؛ چون نقشه آنلاین در دسترس نیست، موقعیت را با نشانی ملک تطبیق دهید.';
       } catch (error) {
         console.error('[regional-value] postal lookup failed', error);
         postalSearchStatus.textContent = 'جست‌وجوی کد پستی ناموفق بود؛ مختصات را دستی وارد کنید.';
