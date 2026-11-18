@@ -2,7 +2,7 @@
 // ثبت‌نام فعلاً شماره تلفن و پروفایل را نمی‌گیرد و کنترل شماره تکراری ندارد (تصمیم مالک).
 // DOM امن (بدون innerHTML با داده). اعتبارسنجی سمت کاربر؛ سرور همچنان مرجع نهایی است.
 import { postJson } from './api.js';
-import { messageFor, REGISTER_SENT } from './auth-messages.js';
+import { messageFor } from './auth-messages.js';
 
 const STEP_TITLES = ['حساب کاربری', 'بررسی و تأیید'];
 const STEP_KEYS = [['displayName', 'professionalTitle', 'position', 'email', 'password', 'passwordConfirm']];
