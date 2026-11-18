@@ -349,7 +349,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     if (!res.ok || !res.data?.ok) {
       const code = res.data?.error || (res.timeoutError ? 'AI_REQUEST_TIMEOUT' : res.networkError ? 'NETWORK' : 'AI_UNAVAILABLE');
       const which = res.data?.file ? ` (فایل: ${res.data.file})` : '';
-      status.textContent = `${errorText(code)}${which} (کد: ${code}${res.data?.providerStatus ? ` · HTTP ${res.data.providerStatus}` : ''}${res.data?.providerReason ? ` ${res.data.providerReason}` : ''}${res.data?.reason ? ` · ${res.data.reason}` : ''}${res.data?.stage ? ` · ${res.data.stage}` : ''}) متن و پیوست‌های شما حفظ شد.`;
+      status.textContent = `${errorText(code)}${which} (کد: ${code}${res.data?.providerStatus ? ` · HTTP ${res.data.providerStatus}` : ''}${res.data?.providerReason ? ` ${res.data.providerReason}` : ''}${res.data?.reason ? ` · ${res.data.reason}` : ''} متن و پیوست‌های شما حفظ شد.`;
       renderLog();
       return;
     }
