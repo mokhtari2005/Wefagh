@@ -1,7 +1,8 @@
 // Same-origin raster tile proxy for the regional property map.
 // Client requests are constrained to valid Web Mercator tile coordinates.
 const TILE_HOSTS = [
-  (z, x, y) => `https://a.basemaps.cartocdn.com/light_all/${z}/${x}/${y}.png`,
+  // OpenStreetMap public raster tiles are the primary source. CARTO's
+  // current tile endpoint can return an API KEY REQUIRED watermark.
   (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`,
 ];
 
