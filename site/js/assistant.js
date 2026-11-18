@@ -12,6 +12,43 @@ export const DOC_TYPES = [
   ['contract', 'تنظیم یا بازنویسی قرارداد'], ['judicial_request', 'درخواست قضایی متناسب با موضوع'],
   ['letter', 'نامهٔ رسمی و مکاتبهٔ حقوقی'], ['other', 'سایر اسناد (تحلیل و بررسی)'],
 ];
+export const CONTRACT_TYPES = Object.freeze([
+  ['sale', 'بیع و خریدوفروش (اموال منقول و غیرمنقول)'],
+  ['real_estate_sale', 'مبایعه‌نامه ملک و آپارتمان'],
+  ['lease', 'اجاره‌نامه املاک مسکونی و تجاری'],
+  ['vehicle_sale', 'خریدوفروش خودرو و وسایل نقلیه'],
+  ['promise_sale', 'تعهد به بیع و قرارداد پیش‌فروش'],
+  ['construction', 'مشارکت در ساخت و قراردادهای ساختمانی'],
+  ['investment', 'سرمایه‌گذاری و مشارکت مدنی'],
+  ['partnership', 'مشارکت و همکاری تجاری'],
+  ['company', 'توافق‌نامه شرکا و سهام‌داران'],
+  ['share_transfer', 'انتقال سهام و سهم‌الشرکه'],
+  ['joint_venture', 'مشارکت در پروژه و سرمایه‌گذاری مشترک'],
+  ['agency', 'وکالت و نمایندگی'],
+  ['commission', 'حق‌العمل‌کاری و عاملیت فروش'],
+  ['distribution', 'توزیع، پخش و عاملیت تجاری'],
+  ['employment', 'قرارداد کار و استخدام'],
+  ['consulting', 'مشاوره و خدمات تخصصی'],
+  ['services', 'ارائه خدمات و پیمانکاری'],
+  ['contracting', 'پیمانکاری و اجرای پروژه'],
+  ['manufacturing', 'ساخت، تولید و سفارش کالا'],
+  ['supply', 'تأمین و فروش کالا و تجهیزات'],
+  ['transport', 'حمل‌ونقل و باربری'],
+  ['maintenance', 'نگهداری، تعمیرات و پشتیبانی'],
+  ['software', 'طراحی نرم‌افزار و خدمات فناوری اطلاعات'],
+  ['license', 'مجوز بهره‌برداری و انتقال دانش فنی'],
+  ['nda', 'محرمانگی و عدم افشای اطلاعات'],
+  ['ip', 'انتقال یا اعطای مجوز مالکیت فکری'],
+  ['loan', 'قرض و قراردادهای تأمین مالی'],
+  ['guarantee', 'ضمانت، تعهد و وثیقه'],
+  ['settlement', 'صلح، سازش و تسویه‌حساب'],
+  ['debt_acknowledgment', 'اقرار به دین و تعهد به پرداخت'],
+  ['gift', 'هبه و صلح بلاعوض'],
+  ['deposit', 'ودیعه و امانت'],
+  ['franchise', 'فرانچایز و اعطای امتیاز کسب‌وکار'],
+  ['ecommerce', 'فروش اینترنتی و تجارت الکترونیکی'],
+  ['custom', 'سایر قراردادها / قرارداد اختصاصی'],
+]);
 export const MODES = [['consult', 'مشاوره حقوقی'], ['draft', 'تنظیم سند'], ['analyze', 'تحلیل حقوقی پرونده'], ['review', 'بررسی و اصلاح متن']];
 
 export const ASSISTANT_NOTICE = 'این ابزار آموزشی و پیش‌نویس‌ساز است. خروجی آن پیش از هر استفاده در پرونده واقعی باید توسط وکیل با قوانین و مقررات جاری و رویهٔ معتبر تطبیق داده شود. اطلاعات پرونده در این بخش فقط برای تولید پاسخ به سرویس هوش مصنوعی فرستاده می‌شود.';
@@ -157,6 +194,17 @@ function assistantWorkspace(initialThread, guestMode = false) {
   modeGroup.append(...modeButtons.map((b, i) => b));
   const docSelect = h('select', { 'aria-label': 'نوع سند' }, DOC_TYPES.map(([v, t]) => h('option', { value: v, text: t })));
   const docWrap = h('label', { class: 'ai-doc-picker' }, [h('span', { text: 'نوع سند' }), docSelect]);
+  const contractSelect = h('select', { 'aria-label': 'نوع قرارداد' }, [
+    h('option', { value: '', text: 'انتخاب نوع قرارداد…' }),
+    ...CONTRACT_TYPES.map(([v, t]) => h('option', { value: v, text: t })),
+  ]);
+  const contractWrap = h('label', { class: 'ai-doc-picker ai-contract-picker', hidden: '' }, [
+    h('span', { text: 'نوع قرارداد' }), contractSelect,
+  ]);
+  docSelect.addEventListener('change', syncContractPicker);
+  function syncContractPicker() {
+    contractWrap.hidden = mode === 'consult' || docSelect.value !== 'contract';
+  }
   const PLACEHOLDERS = {
     consult: 'پرسش حقوقی یا قضایی خود را بنویسید؛ هرچه جزئیات (مرجع، مرحله، تاریخ‌ها) دقیق‌تر باشد پاسخ دقیق‌تر است…',
     other: 'موضوع دعوا، سمت موکل، مرجع رسیدگی، مرحله، خواسته، وقایع و دلایل موجود…',
@@ -165,6 +213,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     modeButtons.forEach((x, i) => x.setAttribute('aria-pressed', MODES[i][0] === mode ? 'true' : 'false'));
     docWrap.hidden = mode === 'consult';
     composerText.placeholder = mode === 'consult' ? PLACEHOLDERS.consult : PLACEHOLDERS.other;
+    syncContractPicker();
     renderSuggestions();
   }
 
@@ -312,7 +361,16 @@ function assistantWorkspace(initialThread, guestMode = false) {
 
   async function send() {
     if (busy) return;
-    const typed = composerText.value.trim();
+    const rawTyped = composerText.value.trim();
+    const contractLabel = CONTRACT_TYPES.find(([value]) => value === contractSelect.value)?.[1];
+    const typed = mode !== 'consult' && docSelect.value === 'contract' && contractLabel
+      ? `نوع قرارداد درخواستی: ${contractLabel}\n\nشرح و شرایط موردنظر کاربر:\n${rawTyped}`
+      : rawTyped;
+    if (mode !== 'consult' && docSelect.value === 'contract' && !contractLabel) {
+      status.textContent = 'ابتدا نوع قرارداد را از فهرست انتخاب کنید.';
+      contractSelect.focus();
+      return;
+    }
     if (!typed && !attachments.length) { status.textContent = 'ابتدا شرح پرونده یا متن را بنویسید یا فایلی پیوست کنید.'; return; }
     if (typed.length > MESSAGE_LIMIT) {
       status.textContent = `متن بیش از ${MESSAGE_LIMIT.toLocaleString('fa-IR')} نویسه است. آن را کوتاه‌تر کنید یا بخش بلند را به‌صورت فایل پیوست کنید.`;
@@ -394,7 +452,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
   renderLog();
   if (initialThread && /^[1-9][0-9]{0,15}$/.test(initialThread)) loadThread(initialThread);
 
-  const toolbar = h('div', { class: 'ai-toolbar' }, [modeGroup, docWrap, newBtn]);
+  const toolbar = h('div', { class: 'ai-toolbar' }, [modeGroup, docWrap, contractWrap, newBtn]);
   const composer = h('form', { class: 'ai-composer', 'aria-label': 'ارسال پیام' }, [
     attachChip,
     composerText,
