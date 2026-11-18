@@ -12,7 +12,7 @@ test('درخواست کاشی نقشه به سرویس پایه منتقل و ب
   try {
     const response = await handleMapTiles(new Request('https://mokhtari.ir/api/map/tiles/13/5142/3380.png'));
     assert.equal(response.status, 200);
-    assert.match(response.headers.get('content-type'), /image\\/png/);
+    assert.match(response.headers.get('content-type'), /image\/png/);
     assert.match(response.headers.get('cache-control'), /max-age=86400/);
     assert.match(requested, /basemaps\\.cartocdn\\.com/);
   } finally { globalThis.fetch = originalFetch; }
