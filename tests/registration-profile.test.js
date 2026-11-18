@@ -281,7 +281,7 @@ test('ثبت‌نام جنسیت، سمت، عنوان آکادمی و شمار�
   const response = await call(env, '/api/auth/register', { body: payload });
   assert.equal(response.status, 202);
   const row = db.prepare('SELECT gender, phone, position, professional_title FROM users WHERE email=?').get(payload.email);
-  assert.deepEqual(row, { gender: 'female', phone: '09123456789', position: 'lawyer', professional_title: 'academy_member' });
+  assert.deepEqual({ ...row }, { gender: 'female', phone: '09123456789', position: 'lawyer', professional_title: 'academy_member' });
   const duplicate = await call(env, '/api/auth/register', { body: { ...payload, email: 'second@example.com' } });
   assert.equal(duplicate.status, 409);
   assert.equal((await duplicate.json()).error, 'PHONE_ALREADY_EXISTS');
