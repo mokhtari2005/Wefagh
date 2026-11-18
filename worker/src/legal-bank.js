@@ -122,7 +122,7 @@ export async function handleLegalBank(request, env, path) {
     if (!sourceKey || !sourceId || !title || !TYPES.has(documentType) || !sourceUrl ||
         (contentSha256 && !/^[a-f0-9]{64}$/.test(contentSha256)) ||
         (metadata && metadata.length > 8000) ||
-        (discoverySourceUrl && !/^https:\\/\\//i.test(discoverySourceUrl))) {
+        (discoverySourceUrl && !discoverySourceUrl.toLowerCase().startsWith('https://'))) {
       return json({ok:false,error:'VALIDATION_FAILED',message:'فراداده، نوع سند، نشانی منبع یا هش معتبر نیست.'},422);
     }
     let source;
