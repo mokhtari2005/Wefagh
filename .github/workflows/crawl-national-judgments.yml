@@ -8,7 +8,7 @@ on:
       max_pages:
         description: Maximum public judgment pages to process (1-1500)
         required: true
-        default: '1000'
+        default: '20'
         type: string
       confirm:
         description: Type CRAWL_PUBLIC_JUDGMENTS to start
@@ -48,8 +48,8 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          LIMIT="${{ github.event.inputs.max_pages || '1000' }}"
-          python scripts/crawl_national_judgments.py --max-pages "$LIMIT" --delay 2
+          LIMIT="${{ github.event.inputs.max_pages || '20' }}"
+          python scripts/crawl_national_judgments.py --max-pages "$LIMIT" --delay 5
       - name: Upload crawl audit
         if: always()
         uses: actions/upload-artifact@v4
