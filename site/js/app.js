@@ -178,7 +178,7 @@ function pageContact() {
   ]);
   const holder = h('div');
   wrap.append(holder);
-  lazy(async () => { const { mountContactForm } = await import('./contact.js'); const form = h('div'); mountContactForm(form); return form; }).then(node => holder.replaceChildren(node));
+  holder.replaceChildren(lazy(async () => { const { mountContactForm } = await import('./contact.js'); const form = h('div'); mountContactForm(form); return form; }));
   wrap.append(h('div', { class: 'notice', role: 'note', text: 'توجه: آکادمی به پرسش‌های حقوقی اشخاص پاسخ نمی‌دهد، خدمات مشاوره حقوقی ارائه نمی‌کند و پرونده‌های شخصی را بررسی نمی‌کند. پیام‌های این بخش صرفاً به‌عنوان پیشنهاد یا بازخورد دریافت می‌شوند.' }));
   wrap.append(h('p', { class: 'muted' }, [
     document.createTextNode('یا مستقیماً به ایمیل '),
