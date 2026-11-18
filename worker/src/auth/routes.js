@@ -268,7 +268,8 @@ export async function login(request, env) {
   }
 
   const passOk = await verifyPassword(password, user ? user.password_hash : await dummyHash());
-  if (!user || !passOk || user.status !== 'active') {
+  const membership = user ? await env.DB.prepare('SELECT membership_status FROM users WHERE id = ?1').bind(user.id).first() : null;
+  if (!user || !passOk || user.status !== 'active' || (membership?.membership_status && membership.membership_status !== 'approved')) {
     if (user) {
       const failed = (user.failed_logins || 0) + 1;
       const lockedUntil = failed >= LOCK_THRESHOLD ? addMs(new Date(), LOCK_MINUTES * 60 * 1000) : null;
@@ -318,6 +319,8 @@ export async function currentUser(request, env) {
     .bind(await hashToken(token), nowIso)
     .first();
   if (!row) return null;
+  const membership = await env.DB.prepare('SELECT membership_status FROM users WHERE id = ?1').bind(row.id).first();
+  if (membership?.membership_status && membership.membership_status !== 'approved') return null;
   let identity = {};
   try {
     identity = await env.DB.prepare('SELECT membership_no, professional_title, position FROM users WHERE id=?1').bind(row.id).first() || {};

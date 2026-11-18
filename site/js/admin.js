@@ -205,6 +205,84 @@ export async function adminPage() {
     const q = search.value.trim();
     for (const row of list.children) row.hidden = Boolean(q) && !(row.dataset.search || '').includes(q);
   });
+  // مدیریت اعضا: درخواست‌ها، فهرست کاربران و ثبت‌نام دستی.
+  const membersNotice = el('p', { class: 'form-status', role: 'status' });
+  const membersList = el('div', { class: 'admin-content-list' });
+  const membersSearch = el('input', { type: 'search', placeholder: 'جست‌وجو بر اساس نام، ایمیل یا شماره عضویت', 'aria-label': 'جست‌وجوی اعضا' });
+  const manualMemberForm = el('form', { class: 'admin-form card' });
+  const manualName = field('نام و نام خانوادگی', 'memberName');
+  const manualEmail = field('ایمیل', 'memberEmail', '', 'email');
+  const manualTitle = field('عنوان حرفه‌ای (اختیاری)', 'memberTitle', '', 'text', false);
+  const manualPosition = field('سمت (اختیاری)', 'memberPosition', '', 'text', false);
+  const manualPassword = field('رمز عبور موقت (حداقل مطابق سیاست رمز عبور)', 'memberPassword', '', 'password');
+  const manualSubmit = el('button', { class: 'btn', type: 'submit', text: 'ثبت عضو و ارسال ایمیل تأیید' });
+  manualMemberForm.append(manualName, manualEmail, manualTitle, manualPosition, manualPassword, manualSubmit);
+  function renderMembers(items) {
+    membersList.replaceChildren();
+    const q = membersSearch.value.trim().toLocaleLowerCase();
+    const filtered = items.filter(x => !q || [x.displayName,x.email,x.membershipNo].some(v => String(v || '').toLocaleLowerCase().includes(q)));
+    if (!filtered.length) { membersList.append(el('p', { class: 'muted', text: 'عضوی با این مشخصات پیدا نشد.' })); return; }
+    for (const item of filtered) {
+      const statusLabel = item.membershipStatus === 'pending' ? 'در انتظار تأیید' : item.membershipStatus === 'approved' ? 'عضویت تأییدشده' : 'درخواست ردشده';
+      const row = el('article', { class: 'admin-content-row card' }, [
+        el('div', {}, [
+          el('span', { class: 'badge', text: statusLabel }),
+          el('h3', { text: item.displayName }),
+          el('p', { class: 'muted', text: item.email + ' · ' + (item.membershipNo || 'بدون شماره عضویت') }),
+          el('p', { class: 'muted', text: [item.professionalTitle,item.position,item.city,item.province,item.phone].filter(Boolean).join(' · ') || 'اطلاعات تکمیلی ثبت نشده' }),
+          el('p', { class: 'muted', text: (item.emailVerifiedAt ? 'ایمیل تأیید شده' : 'ایمیل تأیید نشده') + ' · ثبت‌نام: ' + new Date(item.createdAt).toLocaleDateString('fa-IR') }),
+        ]),
+      ]);
+      if (item.membershipStatus !== 'approved') {
+        const approve = el('button', { class: 'btn secondary', type: 'button', text: 'تأیید عضویت' });
+        approve.addEventListener('click', () => decide(item.id,'approved'));
+        row.append(approve);
+      }
+      if (item.membershipStatus !== 'rejected') {
+        const reject = el('button', { class: 'btn danger', type: 'button', text: 'رد درخواست' });
+        reject.addEventListener('click', () => { if (window.confirm('درخواست عضویت این کاربر رد شود؟')) decide(item.id,'rejected'); });
+        row.append(reject);
+      }
+      membersList.append(row);
+    }
+  }
+  let memberItems = [];
+  async function refreshMembers() {
+    membersNotice.className = 'form-status'; membersNotice.textContent = 'در حال دریافت فهرست اعضا…';
+    const r = await getJson('/api/admin/members');
+    if (!r.ok) { membersNotice.className = 'form-status err'; membersNotice.textContent = errorText(r.data,r.status); return; }
+    memberItems = r.data.items || [];
+    const pending = memberItems.filter(x => x.membershipStatus === 'pending').length;
+    membersNotice.textContent = memberItems.length + ' کاربر · ' + pending + ' درخواست در انتظار بررسی';
+    renderMembers(memberItems);
+  }
+  async function decide(userId, decision) {
+    const r = await postJson('/api/admin/members/decision',{userId,decision});
+    membersNotice.className = 'form-status' + (r.ok ? '' : ' err');
+    membersNotice.textContent = r.ok ? (decision === 'approved' ? 'عضویت تأیید شد. کاربر پس از تأیید ایمیل می‌تواند وارد شود.' : 'درخواست رد شد و نشست‌های فعال کاربر بسته شد.') : errorText(r.data,r.status);
+    if (r.ok) await refreshMembers();
+  }
+  membersSearch.addEventListener('input', () => renderMembers(memberItems));
+  manualMemberForm.addEventListener('submit', async event => {
+    event.preventDefault(); manualSubmit.disabled = true;
+    const r = await postJson('/api/admin/members/manual',{
+      displayName: manualName.querySelector('input').value.trim(), email: manualEmail.querySelector('input').value.trim(),
+      professionalTitle: manualTitle.querySelector('input').value.trim(), position: manualPosition.querySelector('input').value.trim(),
+      password: manualPassword.querySelector('input').value,
+    });
+    manualSubmit.disabled = false;
+    membersNotice.className = 'form-status' + (r.ok ? '' : ' err');
+    membersNotice.textContent = r.ok ? 'عضو با شماره ' + r.data.membershipNo + ' ثبت شد. ایمیل تأیید برای او ارسال شده است.' : errorText(r.data,r.status);
+    if (r.ok) { manualMemberForm.reset(); await refreshMembers(); }
+  });
+  const membersView = el('section', { class: 'admin-view card', 'data-admin-view': 'members', hidden: 'hidden' }, [
+    el('h2', { text: 'مدیریت اعضا و درخواست‌های عضویت' }),
+    el('p', { class: 'muted', text: 'ثبت‌نام‌های جدید تا تصمیم مدیر در وضعیت انتظار می‌مانند. تأیید عضویت جایگزین تأیید ایمیل نیست؛ ورود کاربر پس از انجام هر دو مرحله ممکن می‌شود.' }),
+    membersNotice, el('h3', { text: 'فهرست کاربران و درخواست‌ها' }), membersSearch, membersList,
+    el('h3', { text: 'ثبت‌نام دستی عضو' }), el('p', { class: 'muted', text: 'رمز عبور موقت را امن به کاربر تحویل دهید؛ کاربر برای فعال‌سازی ورود باید ایمیل خود را نیز تأیید کند.' }), manualMemberForm,
+  ]);
+  await refreshMembers();
+
   const contentView = el('section', { class: 'admin-view card', 'data-admin-view': 'content', hidden: 'hidden' }, [
     el('h2', { text: 'مدیریت دوره‌ها و پرونده‌ها' }), notice, form,
     el('h3', { text: 'محتواهای ثبت‌شده' }), search, list,
@@ -947,15 +1025,17 @@ export async function adminPage() {
   const menuItems = [
     ['dashboard', 'داشبورد', '⌂'],
     ['content', 'دوره‌ها و پرونده‌ها', '▤'],
+    ['members', 'مدیریت اعضا', '♙'],
     ['imports', 'بانک پرونده و بارگذاری', '⇧'],
     ['legal-bank', 'بانک قوانین', '§'],
     ['media', 'رسانه و اندیشه', '▧'],
     ['services', 'سلامت و عیب‌یابی', '⚙'],
   ];
   const menuToggle = el('button', { class: 'admin-menu-toggle btn secondary', type: 'button', 'aria-expanded': 'false', 'aria-controls': 'admin-sidebar' }, [el('span', { text: '☰' }), el('span', { text: ' منوی مدیریت' })]);
-  const views = { dashboard: dashboardView, content: contentView, imports: importView, 'legal-bank': legalBankView, media: mediaView, services: servicesView };
+  const views = { dashboard: dashboardView, members: membersView, content: contentView, imports: importView, 'legal-bank': legalBankView, media: mediaView, services: servicesView };
   function selectView(key) {
     if (key === 'dashboard') updateDashboard();
+    if (key === 'members') refreshMembers();
     if (key === 'services') refreshDiagnostics();
     if (key === 'legal-bank') refreshLegalBank();
     for (const [name, view] of Object.entries(views)) view.hidden = name !== key;
@@ -979,7 +1059,7 @@ export async function adminPage() {
     const open = nav.classList.toggle('open');
     menuToggle.setAttribute('aria-expanded', String(open));
   });
-  const workspace = el('div', { class: 'admin-workspace admin-workspace-redesigned' }, [nav, el('div', { class: 'admin-main-column' }, [menuToggle, dashboardView, contentView, importView, legalBankView, mediaView, servicesView])]);
+  const workspace = el('div', { class: 'admin-workspace admin-workspace-redesigned' }, [nav, el('div', { class: 'admin-main-column' }, [menuToggle, dashboardView, membersView, contentView, importView, legalBankView, mediaView, servicesView])]);
   wrap.append(workspace);
   return wrap;
 }

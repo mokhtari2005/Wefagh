@@ -14,6 +14,7 @@ import { handleAdminCases } from './admin-cases.js';
 import { handleAdmin } from './admin.js';
 import { handleAdminMedia } from './admin-media.js';
 import { handleAdminMail } from './admin-mail.js';
+import { handleAdminMembership } from './admin-membership.js';
 import { handleAdminAi } from './admin-ai.js';
 import { handleLegalBank } from './legal-bank.js';
 import { handleAi } from './ai/routes.js';
@@ -110,6 +111,17 @@ export default {
     if (path === '/api/admin/cases/import' || path === '/api/admin/cases/status' || path === '/api/admin/courses/import-builtin') {
       const res = await handleAdminCases(request, env, path);
       if (res) return res;
+    }
+
+    if (path === '/api/admin/members' || path.startsWith('/api/admin/members/')) {
+      if (!env.DB) return json({ ok: false, error: 'DB_NOT_CONFIGURED' }, 503);
+      try {
+        const res = await handleAdminMembership(request, env, path);
+        if (res) return res;
+      } catch (err) {
+        console.error(JSON.stringify({ where: `route:${path}`, error: err?.name || 'Error' }));
+        return json({ ok: false, error: 'INTERNAL_ERROR' }, 500);
+      }
     }
 
     if (path.startsWith('/api/admin/mail/')) {
