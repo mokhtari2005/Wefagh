@@ -646,7 +646,18 @@ function toolPage(kind) {
   const tool = TOOL_PAGES[kind];
   const visual = TOOL_VISUALS[kind];
   const section = tool.build();
+  // Some legacy/global page styles can collapse nested tool sections. Keep the
+  // actual calculator workspace mounted and visible on its dedicated route.
+  section.hidden = false;
+  section.removeAttribute('hidden');
   section.classList.add('calculator-workspace');
+  section.style.setProperty('display', 'block', 'important');
+  section.style.setProperty('visibility', 'visible', 'important');
+  section.querySelectorAll('form, .field, input, select, button, .tool-out').forEach((node) => {
+    node.hidden = false;
+    node.style.removeProperty('display');
+    node.style.removeProperty('visibility');
+  });
   const hero = h('section', { class: `calculator-detail-hero accent-${visual.accent}` }, [
     h('div', { class: 'calculator-hero-symbol', 'aria-hidden': 'true' }, [icon(visual.icon, { size: 34 })]),
     h('div', { class: 'calculator-hero-copy' }, [

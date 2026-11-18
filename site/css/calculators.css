@@ -107,3 +107,35 @@
   .regional-result button{display:none!important}
   .regional-result{break-inside:avoid}
 }
+
+/* Keep the regional calculator controls visible inside its dedicated page. */
+.calculator-detail-page > .regional-value-tool,
+.calculator-detail-page .calculator-workspace.regional-value-tool {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  min-height: 12rem;
+}
+.calculator-detail-page .regional-value-tool > h2,
+.calculator-detail-page .regional-value-tool > p,
+.calculator-detail-page .regional-value-tool > form,
+.calculator-detail-page .regional-value-tool .regional-value-form > *,
+.calculator-detail-page .regional-value-tool .regional-building-fields > * {
+  visibility: visible !important;
+}
+.calculator-detail-page .regional-value-tool .regional-value-form {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.calculator-detail-page .regional-value-tool .regional-value-form > .tool-out,
+.calculator-detail-page .regional-value-tool .regional-value-form > button,
+.calculator-detail-page .regional-value-tool .regional-value-form > h3,
+.calculator-detail-page .regional-value-tool .regional-value-form > .regional-building-fields {
+  grid-column: 1 / -1;
+}
+@media (max-width: 600px) {
+  .calculator-detail-page .regional-value-tool .regional-value-form,
+  .calculator-detail-page .regional-value-tool .regional-building-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
