@@ -18,7 +18,7 @@ const lazyObserver = 'IntersectionObserver' in window
     }, { rootMargin: '480px 0px' })
   : null;
 
-function lazy(fn) {
+function lazy(fn, { defer = false } = {}) {
   const holder = h('div', {}, [h('p', { class: 'loading', role: 'status', text: 'در حال بارگذاری…' })]);
   let started = false;
   const load = () => {
@@ -29,7 +29,9 @@ function lazy(fn) {
       .then((node) => holder.replaceChildren(node))
       .catch(() => holder.replaceChildren(h('p', { class: 'form-status err', role: 'alert', text: 'بارگذاری صفحه ناموفق بود.' })));
   };
-  if (lazyObserver) {
+  // صفحات مقصد باید بلافاصله پس از ورود بارگذاری شوند؛ تعویق فقط برای
+  // اجزای پایین صفحهٔ اصلی است که هنوز در دید کاربر قرار نگرفته‌اند.
+  if (defer && lazyObserver) {
     holder.__loadLazy = load;
     lazyObserver.observe(holder);
   } else {
@@ -150,7 +152,7 @@ function pageHome() {
       h('div', { class: 'quick-grid' }, ACADEMY_TOOLS.map((item) =>
         h('a', { class: 'quick-tile', href: item.href }, [h('span', { class: 'quick-icon', 'aria-hidden': 'true' }, [icon(item.icon, { size: 24 })]), h('span', { text: item.title })]))),
     ]);
-  });
+  }, { defer: true });
 
   const lower = h('section', { class: 'dashboard-lower' }, [
     h('article', { class: 'panel quote-panel' }, [
@@ -174,9 +176,9 @@ function pageHome() {
   const calendarSection = h('section', { class: 'home-calendar', 'aria-label': 'تقویم و مواعد پیش‌رو' }, [
     h('article', { class: 'panel deadline-panel' }, [
       h('div', { class: 'section-heading' }, [h('h2', { class: 'block-title', text: 'موعدهای پیش‌رو' }), h('a', { href: '#/deadlines', text: 'مشاهدهٔ تقویم کامل ‹' })]),
-      lazy(async () => { const { upcomingCard } = await import('./deadlines.js'); return upcomingCard(); }),
+      lazy(async () => { const { upcomingCard } = await import('./deadlines.js'); return upcomingCard(); }, { defer: true }),
     ]),
-    lazy(async () => { const { shamsiCalendar } = await import('./calendar.js'); return shamsiCalendar({ onSelect: (iso) => { window.location.hash = `#/deadlines?date=${encodeURIComponent(iso)}`; } }); }),
+    lazy(async () => { const { shamsiCalendar } = await import('./calendar.js'); return shamsiCalendar({ onSelect: (iso) => { window.location.hash = `#/deadlines?date=${encodeURIComponent(iso)}`; } }); }, { defer: true }),
   ]);
   const profileSpot = h('section', { class: 'home-profile-spot', hidden: '' });
   fetch('/api/me', { credentials: 'same-origin', headers: { Accept: 'application/json' }, cache: 'no-store' })
