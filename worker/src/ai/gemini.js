@@ -210,18 +210,21 @@ export function repairTruncatedJson(raw) {
 }
 
 /** تبدیل گفتار به متن از یک فایل صوتی (base64). */
-export async function transcribeAudio(env, { mimeType, base64 }) {
+const TRANSCRIBE_LANGS = { fa: 'فارسی', en: 'انگلیسی', ar: 'عربی' };
+
+export async function transcribeAudio(env, { mimeType, base64, language = 'fa' }) {
   const model = modelIds(env).text;
+  const langName = TRANSCRIBE_LANGS[language] || TRANSCRIBE_LANGS.fa;
   const data = await post(env, 'transcribe', model, `${GEMINI_API}/models/${encodeURIComponent(model)}:generateContent`, {
     contents: [{
       role: 'user',
       parts: [
-        { text: 'این فایل صوتی به زبان فارسی است. فقط متن دقیق گفته‌شده را بدون توضیح اضافه بنویس.' },
+        { text: `این فایل صوتی به زبان ${langName} است. فقط متن دقیق گفته‌شده را با نشانه‌گذاری درست و بدون هیچ توضیح اضافه بنویس. اگر صدایی قابل‌تشخیص نبود، پاسخ را خالی بگذار.` },
         { inlineData: { mimeType, data: base64 } },
       ],
     }],
     generationConfig: {
-      maxOutputTokens: 1500,
+      maxOutputTokens: 4000,
       ...(model.startsWith('gemini-3.') ? { thinkingConfig: { thinkingLevel: 'low' } } : {}),
     },
   });

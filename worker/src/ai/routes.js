@@ -272,7 +272,8 @@ async function transcribe(request, env) {
     return fail('VALIDATION_FAILED', 422, { field: 'audio' });
   }
   try {
-    const { text } = await transcribeAudio(env, { mimeType, base64 });
+    const language = ['fa', 'en', 'ar'].includes(parsed.body?.language) ? parsed.body.language : 'fa';
+    const { text } = await transcribeAudio(env, { mimeType, base64, language });
     return json({ ok: true, text });
   } catch (err) {
     return aiFailure(err, 'transcribe');

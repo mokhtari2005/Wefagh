@@ -322,3 +322,20 @@ test('تشخیص Groq: وضعیت کلید بدون افشا و بررسی را�
     assert.ok(!JSON.stringify(r).includes(key));
   });
 });
+
+test('تایپ صوتی: صدا با زبان انتخاب‌شده به Gemini می‌رود و متن برمی‌گردد؛ کلید افشا نمی‌شود', async () => {
+  const env = { DB: fakeDb({ loggedIn: true }), GEMINI_API_KEY: KEY };
+  await withFetch(async () => jsonRes(200, { candidates: [{ content: { parts: [{ text: 'hello world' }] }, finishReason: 'STOP' }] }), async (calls) => {
+    const res = await worker.fetch(req('/api/ai/transcribe', { body: { mimeType: 'audio/mp4', data: 'AAAA', language: 'en' }, cookie: 'tok' }), env);
+    const text = await res.text();
+    assert.equal(res.status, 200);
+    assert.equal(JSON.parse(text).text, 'hello world');
+    assert.ok(!text.includes(KEY));
+    const sent = JSON.parse(calls[0].init.body);
+    assert.ok(sent.contents[0].parts[0].text.includes('انگلیسی'));
+    assert.equal(sent.contents[0].parts[1].inlineData.mimeType, 'audio/mp4');
+    const fa = await worker.fetch(req('/api/ai/transcribe', { body: { mimeType: 'audio/webm', data: 'AAAA', language: 'xx' }, cookie: 'tok' }), env);
+    assert.equal(fa.status, 200);
+    assert.ok(JSON.parse(calls[1].init.body).contents[0].parts[0].text.includes('فارسی'));
+  });
+});
