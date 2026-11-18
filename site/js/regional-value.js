@@ -190,8 +190,8 @@ export function regionalValueTool() {
     const tileProviders = [
       {
         name: 'Carto',
-        url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-        options: { subdomains: 'abcd', maxZoom: 20, attribution: '&copy; OpenStreetMap contributors &copy; CARTO' }
+        url: '/api/map/tiles/{z}/{x}/{y}.png',
+        options: { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors &copy; CARTO / Esri' }
       },
       {
         name: 'OpenStreetMap',
