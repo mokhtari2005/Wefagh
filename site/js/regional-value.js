@@ -459,13 +459,19 @@ export function regionalValueTool() {
         h('h2',{text:'گزارش استعلام ارزش معاملاتی ملک'})
       ]),
       h('dl',{class:'regional-report-meta'},[
-        h('dt',{text:'نام کاربر'}),h('dd',{text:userName}),
-        h('dt',{text:'زمان استعلام'}),h('dd',{text:`${dateText} — ${timeText}`}),
-        h('dt',{text:'شناسه استعلام'}),h('dd',{text:inquiryId}),
-        h('dt',{text:'استان و شهر'}),h('dd',{text:`${province.el.value}، ${city.el.value}`}),
+        h('dt',{text:'استعلام‌کننده'}),h('dd',{text:userName}),
+        h('dt',{text:'تاریخ و ساعت استعلام'}),h('dd',{text:`${dateText} — ${timeText}`}),
         h('dt',{text:'نشانی ملک'}),h('dd',{text:address.el.value || 'درج نشده'}),
+        h('dt',{text:'شناسه استعلام'}),h('dd',{text:inquiryId})
+      ]),
+      h('section',{class:'regional-report-map-section'},[
+        h('strong',{class:'regional-report-map-title',text:'نقشه موقعیت ملک'}),
+        (()=>{const snapshot=mapCanvas.cloneNode(true);snapshot.removeAttribute('id');snapshot.classList.add('regional-report-map');snapshot.setAttribute('aria-label','نقشه موقعیت ملک در گزارش');return snapshot;})()
+      ]),
+      h('dl',{class:'regional-report-details'},[
+        h('dt',{text:'استان و شهر'}),h('dd',{text:`${province.el.value}، ${city.el.value}`}),
         h('dt',{text:'کد پستی'}),h('dd',{text:postalCode.el.value || 'درج نشده'}),
-        h('dt',{text:'مختصات'}),h('dd',{text:coordinates.el.value || 'روی نقشه تعیین نشده'})
+        h('dt',{text:'مختصات جغرافیایی'}),h('dd',{text:coordinates.el.value || 'روی نقشه تعیین نشده'})
       ]),
       h('div',{class:'result-head'},[h('h3',{text:'ارزش معاملاتی برآوردشده ملک'})]),
       h('div',{class:'amount-block'},[h('span',{class:'amount-label',text:'جمع ارزش عرصه و اعیانی'}),h('strong',{class:'amount-value',text:money(total)})]),
@@ -488,9 +494,15 @@ export function regionalValueTool() {
       .regional-academy-name{font-size:16pt;font-weight:800;color:#173b37}
       .regional-academy-domain{font-size:8pt;color:#667b74;direction:ltr}
       .regional-print-header h2{font-size:13pt;margin:2mm 0 0;color:#173b37}
-      .regional-report-meta{display:grid;grid-template-columns:22mm minmax(0,1fr) 22mm minmax(0,1fr);gap:2mm 3mm;padding:3mm;margin:0 0 4mm;border:1px solid #d8e1dc;border-right:3px solid #b28a45;background:#f8faf8;font-size:8.5pt}
-      .regional-report-meta dt{font-weight:700;color:#426058}
-      .regional-report-meta dd{min-width:0;margin:0;overflow-wrap:anywhere}
+      .regional-report-meta,.regional-report-details{display:grid;grid-template-columns:28mm minmax(0,1fr) 28mm minmax(0,1fr);gap:1.5mm 3mm;padding:2.5mm;margin:0 0 2.5mm;border:1px solid #d8e1dc;border-right:3px solid #b28a45;background:#f8faf8;font-size:8pt}
+      .regional-report-meta dt,.regional-report-details dt{font-weight:700;color:#426058}
+      .regional-report-meta dd,.regional-report-details dd{min-width:0;margin:0;overflow-wrap:anywhere}
+      .regional-report-map-section{margin:0 0 2.5mm;break-inside:avoid}
+      .regional-report-map-title{display:block;margin-bottom:1mm;color:#244f49;font-size:8pt}
+      .regional-report-map{height:42mm!important;width:100%!important;max-width:100%!important;overflow:hidden;border:1px solid #d8e1dc;border-radius:1.5mm}
+      .regional-report-map .leaflet-control-container{display:none!important}
+      .regional-report-map .leaflet-pane,.regional-report-map .leaflet-tile,.regional-report-map .leaflet-marker-icon,.regional-report-map .leaflet-marker-shadow,.regional-report-map .leaflet-tile-container,.regional-report-map .leaflet-map-pane svg{position:absolute;left:0;top:0}
+      .regional-report-map img{max-width:none!important}
       .result-head h3{font-size:11pt;color:#244f49;margin:3mm 0 2mm}
       .amount-block{display:flex;align-items:center;justify-content:space-between;gap:4mm;padding:3mm 4mm;margin:2mm 0 4mm;border:1px solid #cbd8d1;border-radius:2mm;background:#edf3ef;color:#173b37}
       .amount-label{font-size:9pt;font-weight:700}
@@ -508,13 +520,15 @@ export function regionalValueTool() {
       @page{size:A4 portrait;margin:8mm}
       @media print{
         html,body{width:194mm!important;margin:0!important;padding:0!important;background:#fff!important}
-        body{font-size:7.6pt!important;line-height:1.38!important}
-        .regional-result{width:194mm!important;max-width:none!important;margin:0!important}
+        body{font-size:7.1pt!important;line-height:1.3!important}
+        .regional-result{width:194mm!important;max-width:none!important;margin:0!important;zoom:.96}
         .regional-report-actions{display:none!important}
         .regional-print-header{padding:2mm 0 2.5mm;margin-bottom:2.5mm}
         .regional-academy-name{font-size:13pt}.regional-academy-domain{font-size:7pt}
         .regional-print-header h2{font-size:10.5pt}
-        .regional-report-meta{grid-template-columns:18mm minmax(0,1fr) 18mm minmax(0,1fr);gap:1mm 2mm;padding:2mm;margin-bottom:2.5mm;font-size:7.1pt}
+        .regional-report-meta,.regional-report-details{grid-template-columns:22mm minmax(0,1fr) 22mm minmax(0,1fr);gap:1mm 2mm;padding:1.5mm;margin-bottom:1.5mm;font-size:6.8pt}
+        .regional-report-map{height:34mm!important}
+        .regional-report-map-title{font-size:7pt}
         .result-head h3{font-size:9pt;margin:1.5mm 0}
         .amount-block{padding:2mm 3mm;margin:1mm 0 2mm}
         .amount-value{font-size:14pt}

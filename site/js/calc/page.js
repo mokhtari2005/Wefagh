@@ -615,7 +615,7 @@ const CALC_NOTICE = 'این ابزارها پیش‌نویس محاسباتی ه
 
 /** نوار ابزار هر ابزار: چاپ یا ذخیرهٔ گزارش، و پاک‌کردن ورودی‌ها و نتیجه. */
 function toolToolbar(section) {
-  const print = h('button', { type: 'button', class: 'btn secondary', text: 'چاپ یا ذخیرهٔ گزارش' });
+  const print = h('button', { type: 'button', class: 'btn secondary', text: 'چاپ یا ذخیرهٔ گزارش A4' });
   print.addEventListener('click', () => window.print());
   const clear = h('button', { type: 'button', class: 'btn secondary', text: 'پاک‌کردن ورودی‌ها و نتیجه' });
   clear.addEventListener('click', () => {
