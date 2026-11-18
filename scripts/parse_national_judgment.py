@@ -30,13 +30,13 @@ class VisibleText(HTMLParser):
         if tag in self.SKIP:
             self.skip_depth += 1
         elif not self.skip_depth and tag in self.BLOCK:
-            self.parts.append("\\n")
+            self.parts.append("\n")
 
     def handle_endtag(self, tag):
         if tag in self.SKIP and self.skip_depth:
             self.skip_depth -= 1
         elif not self.skip_depth and tag in self.BLOCK:
-            self.parts.append("\\n")
+            self.parts.append("\n")
 
     def handle_data(self, data):
         if not self.skip_depth and data.strip():
@@ -45,14 +45,14 @@ class VisibleText(HTMLParser):
 
 def normalize(value: str) -> str:
     value = value.translate(PERSIAN_DIGITS).replace("\u200c", "‌")
-    value = re.sub(r"[ \\t\\xa0]+", " ", value)
-    value = re.sub(r" *\\n *", "\\n", value)
-    value = re.sub(r"\\n{3,}", "\\n\\n", value)
+    value = re.sub(r"[ \t\xa0]+", " ", value)
+    value = re.sub(r" *\n *", "\n", value)
+    value = re.sub(r"\n{3,}", "\n\n", value)
     return value.strip()
 
 
 def field(text: str, labels: str) -> str | None:
-    match = re.search(rf"(?:{labels})\\s*[:：]?\\s*([^\\n]+)", text, re.I)
+    match = re.search(rf"(?:{labels})\s*[:：]?\s*([^\n]+)", text, re.I)
     return match.group(1).strip(" :：") if match else None
 
 
@@ -71,7 +71,7 @@ def classify(text: str) -> str:
 
 def parse_judgment(html: str, source_url: str) -> dict:
     parsed_url = urlparse(source_url)
-    match = re.search(r"/Judge/Text/(\\d+)", parsed_url.path, re.I)
+    match = re.search(r"/Judge/Text/(\d+)", parsed_url.path, re.I)
     if parsed_url.netloc.lower() not in {"ara.jri.ac.ir", "www.ara.jri.ac.ir"} or not match:
         raise ValueError("source_url must be a canonical ara.jri.ac.ir/Judge/Text/<id> URL")
 
@@ -80,8 +80,8 @@ def parse_judgment(html: str, source_url: str) -> dict:
     text = normalize("".join(parser.parts))
     title = field(text, r"عنوان")
     summary = field(text, r"پیام")
-    number = field(text, r"شماره\\s+دادنامه\\s+قطعی")
-    date = field(text, r"تاریخ\\s+دادنامه\\s+قطعی")
+    number = field(text, r"شماره\s+دادنامه\s+قطعی")
+    date = field(text, r"تاریخ\s+دادنامه\s+قطعی")
     if not title or not number or not date:
         raise ValueError("required judgment metadata (title, judgment number, date) not found")
 
@@ -121,13 +121,13 @@ def parse_judgment(html: str, source_url: str) -> dict:
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--html", required=True, help="Path to a saved HTML judgment page")
-    parser.add_argument("--url", required=True, help="Canonical source URL for that page")
-    parser.add_argument("--output", help="Output JSON path; defaults to stdout")
-    args = parser.parse_args()
+    cli = argparse.ArgumentParser(description=__doc__)
+    cli.add_argument("--html", required=True, help="Path to a saved HTML judgment page")
+    cli.add_argument("--url", required=True, help="Canonical source URL for that page")
+    cli.add_argument("--output", help="Output JSON path; defaults to stdout")
+    args = cli.parse_args()
     result = parse_judgment(Path(args.html).read_text(encoding="utf-8"), args.url)
-    rendered = json.dumps(result, ensure_ascii=False, indent=2) + "\\n"
+    rendered = json.dumps(result, ensure_ascii=False, indent=2) + "\n"
     if args.output:
         Path(args.output).write_text(rendered, encoding="utf-8")
     else:
