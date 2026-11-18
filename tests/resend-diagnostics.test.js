@@ -5,7 +5,7 @@ import { sendMail } from '../worker/src/email/resend.js';
 import { logError } from '../worker/src/auth/routes.js';
 
 const KEY = 're_secret_never_log';
-const env = { RESEND_API_KEY: KEY };
+const env = { RESEND_API_KEY: KEY, RESEND_FROM: 'Vefagh Law Society <noreply@mokhtari.ir>' };
 const call = (fetchImpl, e = env) => sendMail({
   env: e, to: 'user@example.com', subject: 'تأیید حساب وِفاق', text: 'لینک تأیید', fetchImpl,
 });
@@ -22,6 +22,26 @@ test('ارسال موفق: درخواست استاندارد Resend و فرست�
   assert.equal(body.from, 'Vefagh Law Society <noreply@mokhtari.ir>');
   assert.deepEqual(body.to, ['user@example.com']);
   assert.equal(body.subject, 'تأیید حساب وِفاق');
+});
+
+test('اعتبارسنجی سربرگ فقط CR و LF واقعی را رد می‌کند، نه حروف r و n', async () => {
+  let called = false;
+  const ok = await sendMail({
+    env: { RESEND_API_KEY: KEY },
+    to: 'user@example.com',
+    subject: 'Normal registration notice',
+    text: 'hello',
+    fetchImpl: async () => { called = true; return new Response('{}', { status: 200 }); },
+  });
+  assert.deepEqual(ok, { ok: true });
+  assert.equal(called, true);
+  await assert.rejects(sendMail({
+    env: { RESEND_API_KEY: KEY },
+    to: 'user@example.com\r\nBcc:bad@example.com',
+    subject: 'test',
+    text: 'x',
+    fetchImpl: async () => { throw new Error('network must not be called'); },
+  }), /INVALID_MAIL_HEADER/);
 });
 
 test('خطای Resend فقط کد امن و وضعیت را نگه می‌دارد؛ کلید افشا نمی‌شود', async () => {

@@ -112,7 +112,7 @@ export default {
       if (res) return res;
     }
 
-    if (path === '/api/admin/mail/status' || path === '/api/admin/mail/test') {
+    if (path.startsWith('/api/admin/mail/')) {
       if (!env.DB) return json({ ok: false, error: 'DB_NOT_CONFIGURED' }, 503);
       try {
         const res = await handleAdminMail(request, env, path);

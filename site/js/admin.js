@@ -102,28 +102,75 @@ export async function adminPage() {
     importStatus,
     importNotice,
   ]);
-  // تشخیص ارسال ایمیل (فقط مدیر سامانه): وضعیت Secretها، بررسی توکن Gmail و ایمیل آزمایشی.
+  // تشخیص مسیر واقعی ارسال ایمیل Resend و وضعیت حساب ثبت‌نامی برای مدیر مجاز.
   const mailNotice = el('p', { class: 'form-status', role: 'status' });
-  const mailCheck = el('button', { class: 'btn secondary', type: 'button', text: 'بررسی تنظیمات ایمیل' });
+  const mailCheck = el('button', { class: 'btn secondary', type: 'button', text: 'بررسی تنظیمات Resend' });
   mailCheck.addEventListener('click', async () => {
     mailNotice.className = 'form-status';
     mailNotice.textContent = 'در حال بررسی…';
-    const r = await getJson('/api/admin/mail/status?probe=1');
+    const r = await getJson('/api/admin/mail/status');
     if (!r.ok) { mailNotice.className = 'form-status err'; mailNotice.textContent = errorText(r.data, r.status); return; }
     const d = r.data;
-    const bad = !d.configured || (d.probe && !d.probe.ok);
+    const bad = !d.configured;
     mailNotice.className = `form-status${bad ? ' err' : ' ok'}`;
     mailNotice.textContent = bad
       ? `مشکل ایمیل: ${d.hint || d.probe?.hint || 'نامشخص'}`
-      : `تنظیمات ایمیل کامل است و توکن Gmail معتبر است. آدرس پایه لینک‌ها: ${d.baseUrl}`;
+      : `کلید Resend در Worker تنظیم شده است. برای بررسی واقعی ارسال، ایمیل آزمایشی بفرستید. آدرس پایهٔ لینک‌ها: ${d.baseUrl}`;
   });
-  const mailTest = el('button', { class: 'btn secondary', type: 'button', text: 'ارسال ایمیل آزمایشی به خودم' });
+  const mailTest = el('button', { class: 'btn secondary', type: 'button', text: 'آزمون واقعی ارسال با Resend' });
   mailTest.addEventListener('click', async () => {
     mailNotice.className = 'form-status';
     mailNotice.textContent = 'در حال ارسال…';
     const r = await postJson('/api/admin/mail/test', {});
     mailNotice.className = `form-status${r.ok ? ' ok' : ' err'}`;
-    mailNotice.textContent = r.ok ? 'ایمیل آزمایشی ارسال شد؛ صندوق ورودی و Spam را ببینید.' : `ارسال ناموفق: ${r.data?.hint || errorText(r.data, r.status)}`;
+    mailNotice.textContent = r.ok ? 'ارسال آزمایشی از طریق Resend پذیرفته شد؛ صندوق ورودی و Spam را بررسی کنید.' : `ارسال ناموفق: ${r.data?.hint || errorText(r.data, r.status)}`;
+  });
+  const accountEmail = el('input', { type: 'email', dir: 'ltr', placeholder: 'نشانی ایمیل کاربر', 'aria-label': 'ایمیل برای بررسی وضعیت ثبت‌نام' });
+  const accountCheck = el('button', { class: 'btn secondary', type: 'button', text: 'بررسی وضعیت حساب' });
+  const accountResend = el('button', { class: 'btn secondary', type: 'button', text: 'ارسال مجدد لینک تأیید' });
+  accountResend.disabled = true;
+  const accountNotice = el('p', { class: 'form-status', role: 'status' });
+  accountCheck.addEventListener('click', async () => {
+    accountResend.disabled = true;
+    accountNotice.className = 'form-status';
+    accountNotice.textContent = 'در حال بررسی وضعیت حساب…';
+    const r = await postJson('/api/admin/mail/account-status', { email: accountEmail.value.trim() });
+    if (!r.ok) {
+      accountNotice.className = 'form-status err';
+      accountNotice.textContent = errorText(r.data, r.status);
+      return;
+    }
+    const d = r.data;
+    if (!d.found) {
+      accountNotice.className = 'form-status';
+      accountNotice.textContent = 'برای این نشانی حسابی پیدا نشد؛ ثبت‌نام جدید باید انجام شود.';
+      return;
+    }
+    if (d.verified) {
+      accountNotice.className = 'form-status ok';
+      accountNotice.textContent = 'حساب وجود دارد و ایمیل آن تأیید شده است؛ ثبت‌نام مجدد لازم نیست.';
+      return;
+    }
+    if (d.status !== 'active') {
+      accountNotice.className = 'form-status err';
+      accountNotice.textContent = 'حساب پیدا شد، اما وضعیت آن فعال نیست؛ بررسی مدیریتی لازم است.';
+      return;
+    }
+    accountNotice.className = `form-status${d.resendAllowed ? '' : ' err'}`;
+    accountNotice.textContent = d.resendAllowed
+      ? 'حساب ساخته شده، اما ایمیل هنوز تأیید نشده است. می‌توانید لینک تازه بفرستید.'
+      : `حساب ساخته شده و تأیید نشده است؛ برای ارسال مجدد ${d.retryAfterSeconds} ثانیه صبر کنید.`;
+    accountResend.disabled = !d.resendAllowed;
+  });
+  accountResend.addEventListener('click', async () => {
+    accountResend.disabled = true;
+    accountNotice.className = 'form-status';
+    accountNotice.textContent = 'در حال ارسال لینک تأیید…';
+    const r = await postJson('/api/admin/mail/account-resend', { email: accountEmail.value.trim() });
+    accountNotice.className = `form-status${r.ok ? ' ok' : ' err'}`;
+    accountNotice.textContent = r.ok
+      ? 'درخواست ارسال لینک تأیید به Resend تحویل شد. دریافت ایمیل را با کاربر بررسی کنید.'
+      : (r.data?.error === 'RESEND_COOLDOWN' ? `برای ارسال مجدد ${r.data.retryAfterSeconds} ثانیه صبر کنید.` : (r.data?.hint || errorText(r.data, r.status)));
   });
   const aiNotice = el('p', { class: 'form-status', role: 'status' });
   const aiCheck = el('button', { class: 'btn secondary', type: 'button', text: 'بررسی سرویس هوش مصنوعی' });
@@ -144,6 +191,10 @@ export async function adminPage() {
     el('p', { class: 'muted', text: 'اگر ایمیل تأیید ثبت‌نام نمی‌رسد، از این‌جا علت را ببینید. مقدار Secretها هرگز نمایش داده نمی‌شود.' }),
     el('div', { class: 'row' }, [mailCheck, mailTest]),
     mailNotice,
+    el('h3', { text: 'بررسی ثبت‌نام یک کاربر' }),
+    el('p', { class: 'muted', text: 'این بررسی فقط برای مدیران مجاز است و وجود حساب، وضعیت تأیید ایمیل و امکان ارسال مجدد را نشان می‌دهد.' }),
+    el('div', { class: 'row' }, [accountEmail, accountCheck, accountResend]),
+    accountNotice,
     el('h2', { text: 'تشخیص هوش مصنوعی' }),
     el('div', { class: 'row' }, [aiCheck]),
     aiNotice,

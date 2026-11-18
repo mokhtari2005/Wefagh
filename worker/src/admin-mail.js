@@ -1,30 +1,18 @@
-// تشخیص ارسال ایمیل برای مدیر سامانه: وضعیت Secretها، بررسی توکن Gmail و ارسال ایمیل آزمایشی.
-// مقدار هیچ Secretی در پاسخ یا لاگ نمی‌آید؛ فقط نام متغیرهای خالی و کد ساده‌شدهٔ خطای Google.
-import { json } from './http.js';
-import { currentUser, logError } from './auth/routes.js';
-import { getAccessToken, sendMail } from './email/gmail.js';
+// تشخیص واقعی مسیر ایمیل ثبت‌نام (Resend) و بررسی وضعیت حساب فقط برای مدیر مجاز.
+import { json, readJsonBody } from './http.js';
+import { currentUser, logError, resendVerification } from './auth/routes.js';
+import { normalizeEmail } from './validate.js';
+import { sendMail } from './email/resend.js';
 
-const REQUIRED = ['GMAIL_CLIENT_ID', 'GMAIL_CLIENT_SECRET', 'GMAIL_REFRESH_TOKEN', 'GMAIL_FROM'];
+const REQUIRED = ['RESEND_API_KEY'];
 
-/** راهنمای فارسی برای کدهای رایج خطا؛ فقط متن ثابت. */
 export function hintFor(err) {
-  if (err?.message === 'MAIL_NOT_CONFIGURED') {
-    return `این Secretها در Worker تعریف نشده‌اند: ${(err.missing || []).join('، ')}.`;
-  }
-  const reason = err?.reason;
-  if (reason === 'invalid_grant') {
-    return 'Refresh token باطل یا منقضی شده است. اگر برنامهٔ OAuth در Google Cloud در حالت Testing است، توکن بعد از ۷ روز باطل می‌شود: برنامه را به Production ببرید و توکن تازه بسازید.';
-  }
-  if (reason === 'invalid_client' || reason === 'unauthorized_client') {
-    return 'GMAIL_CLIENT_ID یا GMAIL_CLIENT_SECRET درست نیست یا با توکن همخوانی ندارد.';
-  }
-  if (err?.message === 'GMAIL_SEND_FAILED' && (err.status === 403 || err.status === 401)) {
-    return 'دسترسی ارسال رد شد: Gmail API را در پروژهٔ Google Cloud فعال کنید و scope مربوط به gmail.send را هنگام ساخت توکن بدهید.';
-  }
-  if (err?.message === 'GMAIL_SEND_FAILED' && err.status === 400) {
-    return 'پیام رد شد: نشانی GMAIL_FROM باید همان حساب مجاز (یا یک alias تأییدشده) باشد.';
-  }
-  return 'علت دقیق‌تر در لاگ Worker (auth.send_verification یا admin.mail) ثبت شده است.';
+  if (err?.message === 'MAIL_NOT_CONFIGURED') return 'Secret با نام RESEND_API_KEY در تنظیمات همین Cloudflare Worker تعریف نشده است.';
+  if (err?.message === 'RESEND_SEND_FAILED' && (err.status === 401 || err.status === 403)) return 'Resend کلید API را نپذیرفت؛ اعتبار کلید و دسترسی آن را در داشبورد Resend بررسی کنید.';
+  if (err?.message === 'RESEND_SEND_FAILED' && err.status === 422) return 'Resend پیام را نپذیرفت؛ دامنهٔ فرستنده و تأیید دامنه در Resend و نشانی گیرنده را بررسی کنید.';
+  if (err?.message === 'RESEND_SEND_FAILED' && err.status === 429) return 'محدودیت نرخ یا سهمیهٔ ارسال Resend فعال شده است؛ کمی بعد دوباره تلاش کنید.';
+  if (err?.message === 'RESEND_SEND_FAILED' && err.status >= 500) return 'سرویس Resend موقتاً پاسخ‌گو نیست؛ کمی بعد دوباره تلاش کنید.';
+  return 'جزئیات امن خطا در لاگ Worker با عنوان admin.mail ثبت شده است.';
 }
 
 function failure(err) {
@@ -46,57 +34,85 @@ export async function requireMailAdmin(request, env) {
   return { user };
 }
 
+async function readAccount(env, email) {
+  return env.DB.prepare('SELECT id, status, email_verified_at AS emailVerifiedAt FROM users WHERE email = ?1').bind(email).first();
+}
+async function verificationCooldown(env, userId) {
+  const recent = await env.DB.prepare("SELECT created_at AS createdAt FROM email_tokens WHERE user_id = ?1 AND purpose = 'verify_email' AND used_at IS NULL ORDER BY created_at DESC LIMIT 1").bind(userId).first();
+  if (!recent) return { allowed: true, retryAfterSeconds: 0, lastSentAt: null };
+  const elapsed = Date.now() - Date.parse(recent.createdAt);
+  const retryAfterSeconds = Math.max(0, Math.ceil((60_000 - elapsed) / 1000));
+  return { allowed: retryAfterSeconds === 0, retryAfterSeconds, lastSentAt: recent.createdAt };
+}
+
 /**
- * GET  /api/admin/mail/status[?probe=1] ← وضعیت تنظیمات و (اختیاری) بررسی دریافت access token
- * POST /api/admin/mail/test             ← ارسال ایمیل آزمایشی به نشانی خود مدیر
+ * GET  /api/admin/mail/status
+ * POST /api/admin/mail/test
+ * POST /api/admin/mail/account-status  {email}
+ * POST /api/admin/mail/account-resend {email}
  */
 export async function handleAdminMail(request, env, path) {
-  if (path !== '/api/admin/mail/status' && path !== '/api/admin/mail/test') return null;
+  const paths = ['/api/admin/mail/status', '/api/admin/mail/test', '/api/admin/mail/account-status', '/api/admin/mail/account-resend'];
+  if (!paths.includes(path)) return null;
   const wantsGet = path === '/api/admin/mail/status';
-  if (request.method !== (wantsGet ? 'GET' : 'POST')) {
-    return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: wantsGet ? 'GET' : 'POST' });
-  }
+  if (request.method !== (wantsGet ? 'GET' : 'POST')) return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: wantsGet ? 'GET' : 'POST' });
   const access = await requireMailAdmin(request, env);
   if (access.response) return access.response;
   const fetchImpl = env.fetchImpl ?? fetch;
 
-  if (wantsGet) {
+  if (path === '/api/admin/mail/status') {
     const missing = REQUIRED.filter((n) => !env[n]);
-    const out = {
+    return json({
       ok: true,
       configured: missing.length === 0,
       missing,
+      senderConfigured: Boolean(env.RESEND_FROM),
       baseUrl: env.PUBLIC_BASE_URL || env.BASE_URL || 'https://mokhtari.ir',
-    };
-    if (missing.length === 0 && new URL(request.url).searchParams.get('probe') === '1') {
-      try {
-        await getAccessToken({
-          clientId: env.GMAIL_CLIENT_ID,
-          clientSecret: env.GMAIL_CLIENT_SECRET,
-          refreshToken: env.GMAIL_REFRESH_TOKEN,
-          fetchImpl,
-        });
-        out.probe = { ok: true };
-      } catch (err) {
-        logError('admin.mail.probe', err);
-        out.probe = failure(err);
-      }
-    } else if (missing.length > 0) {
-      out.hint = `این Secretها در Worker تعریف نشده‌اند: ${missing.join('، ')}.`;
-    }
-    return json(out);
+      hint: missing.length ? `Secretهای لازم در Worker موجود نیست: ${missing.join('، ')}.` : 'کلید Resend در Worker موجود است؛ برای اطمینان از اعتبار کلید و دامنه، ایمیل آزمایشی ارسال کنید.',
+    });
   }
 
-  try {
-    const send = env.mailer ?? ((args) => sendMail({ env, fetchImpl, ...args }));
-    await send({
-      to: access.user.email,
-      subject: 'ایمیل آزمایشی وِفاق',
-      text: 'اگر این پیام را می‌بینید، ارسال ایمیل از سامانه درست کار می‌کند.',
-    });
-    return json({ ok: true });
-  } catch (err) {
-    logError('admin.mail.test', err);
-    return json(failure(err), 502);
+  if (path === '/api/admin/mail/test') {
+    try {
+      const send = env.mailer ?? ((args) => sendMail({ env, fetchImpl, ...args }));
+      await send({ to: access.user.email, subject: 'ایمیل آزمایشی آکادمی وکالت', text: 'اگر این پیام را می‌بینید، مسیر واقعی ارسال ایمیل ثبت‌نام (Resend) درست کار می‌کند.' });
+      return json({ ok: true, provider: 'Resend' });
+    } catch (err) {
+      logError('admin.mail.test', err);
+      return json(failure(err), 502);
+    }
   }
+
+  const parsed = await readJsonBody(request);
+  if (parsed.error) return parsed.error;
+  const email = normalizeEmail(parsed.body?.email);
+  if (!email) return json({ ok: false, error: 'VALIDATION_FAILED' }, 422);
+
+  if (!env.DB) return json({ ok: false, error: 'DB_NOT_CONFIGURED' }, 503);
+  const account = await readAccount(env, email);
+  if (path === '/api/admin/mail/account-status') {
+    if (!account) return json({ ok: true, found: false });
+    const cooldown = await verificationCooldown(env, account.id);
+    return json({
+      ok: true,
+      found: true,
+      status: account.status,
+      verified: Boolean(account.emailVerifiedAt),
+      resendAllowed: account.status === 'active' && !account.emailVerifiedAt && cooldown.allowed,
+      retryAfterSeconds: cooldown.retryAfterSeconds,
+      lastSentAt: cooldown.lastSentAt,
+    });
+  }
+
+  if (!account) return json({ ok: false, error: 'ACCOUNT_NOT_FOUND' }, 404);
+  if (account.status !== 'active') return json({ ok: false, error: 'ACCOUNT_INACTIVE' }, 409);
+  if (account.emailVerifiedAt) return json({ ok: false, error: 'EMAIL_ALREADY_VERIFIED' }, 409);
+  const cooldown = await verificationCooldown(env, account.id);
+  if (!cooldown.allowed) return json({ ok: false, error: 'RESEND_COOLDOWN', retryAfterSeconds: cooldown.retryAfterSeconds }, 429);
+  const internalRequest = new Request('https://internal.invalid/api/auth/resend-verification', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  return resendVerification(internalRequest, env);
 }

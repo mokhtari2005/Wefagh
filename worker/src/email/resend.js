@@ -14,7 +14,7 @@ export async function sendMail({ env, to, subject, text, fetchImpl = fetch }) {
     throw err;
   }
   const from = env.RESEND_FROM || DEFAULT_FROM;
-  if (/[\\r\\n]/.test(from) || /[\\r\\n]/.test(to) || /[\\r\\n]/.test(subject)) {
+  if (/[\r\n]/.test(from) || /[\r\n]/.test(to) || /[\r\n]/.test(subject)) {
     throw new Error('INVALID_MAIL_HEADER');
   }
   const res = await fetchImpl(SEND_URL, {

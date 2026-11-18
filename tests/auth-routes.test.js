@@ -134,6 +134,20 @@ test('ثبت‌نام با ایمیل تکراری همان پاسخ عمومی 
   assert.equal(sent.length, 1, 'ایمیل دوم نباید ارسال شود');
 });
 
+test('ثبت‌نام دوباره برای حساب تأییدنشده پس از پایان مهلت، لینک تازه می‌فرستد', { skip }, async () => {
+  const { db, env, sent } = setup();
+  await call(env, '/api/auth/register', { body: validUser });
+  const oldToken = tokenFromMail(sent);
+  ageTokens(db, 2);
+  const retry = await call(env, '/api/auth/register', { body: validUser });
+  assert.equal(retry.status, 202);
+  assert.equal(sent.length, 2);
+  const newToken = tokenFromMail(sent);
+  assert.notEqual(newToken, oldToken);
+  assert.equal((await call(env, '/api/auth/verify-email', { body: { token: oldToken } })).status, 400);
+  assert.equal((await call(env, '/api/auth/verify-email', { body: { token: newToken } })).status, 200);
+});
+
 test('ورودی نامعتبر در ثبت‌نام با ۴۲۲ و خطاهای فیلدی رد می‌شود', { skip }, async () => {
   const { db, env } = setup();
   const res = await call(env, '/api/auth/register', { body: { email: 'bad', password: 'short', displayName: 'ا' } });
