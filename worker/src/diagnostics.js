@@ -2,7 +2,7 @@
 import { json, readJsonBody } from './http.js';
 import { requireAdmin } from './admin.js';
 
-const CATEGORIES = new Set(['api', 'network', 'javascript', 'promise', 'manual']);
+const CATEGORIES = new Set(['api', 'network', 'javascript', 'promise']);
 const COMPONENTS = new Set(['site', 'auth', 'academy', 'assistant', 'calculator', 'regional-map', 'voice-typing', 'calendar', 'cases', 'media', 'unknown']);
 const ROUTE_RE = /^\/[a-zA-Z0-9/_.-]{0,100}$/;
 const CODE_RE = /^[A-Z0-9_:-]{1,48}$/;
@@ -32,7 +32,7 @@ export async function handleDiagnostics(request, env, path) {
     const body = parsed.body || {};
     const component = COMPONENTS.has(body.component) ? body.component : null;
     const description = typeof body.description === 'string'
-      ? body.description.replace(/[\\u0000-\\u001f\\u007f]/g, ' ').replace(/\\s+/g, ' ').trim().slice(0, 1200)
+      ? body.description.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 1200)
       : '';
     const route = cleanRoute(body.route);
     if (!component || description.length < 10) return json({ ok: false, error: 'VALIDATION_FAILED', hint: 'بخش مشکل را انتخاب کنید و توضیحی دست‌کم ۱۰ نویسه‌ای بنویسید.' }, 422);
