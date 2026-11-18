@@ -173,7 +173,6 @@ export function regionalValueTool() {
     };
     regionalMap.on('click', event => { regionalMarker.setLatLng(event.latlng); setPoint(event.latlng); });
     regionalMarker.on('dragend', () => setPoint(regionalMarker.getLatLng()));
-    mapStatus.textContent = 'نقشه آماده است؛ محل ملک را انتخاب کنید.';
     [150, 500, 1200].forEach(delay => setTimeout(() => regionalMap?.invalidateSize(), delay));
     window.addEventListener('resize', () => regionalMap?.invalidateSize());
   }).catch(error => {
