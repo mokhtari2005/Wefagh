@@ -162,13 +162,13 @@ export async function register(request, env) {
  * @returns {Promise<boolean>} true اگر ایمیل با موفقیت به سرویس ارسال داده شد.
  */
 const POSITION_LABELS = Object.freeze({
-  lawyer: 'وکیل دادگستری',
-  trainee: 'کارآموز وکالت',
-  law_student: 'دانشجوی حقوق',
-  law_graduate: 'فارغ‌التحصیل حقوق',
-  professor: 'استاد دانشگاه',
-  researcher: 'پژوهشگر حقوق',
-  other: 'فعال حوزه حقوق',
+  lawyer: 'وکیل محترم دادگستری',
+  trainee: 'کارآموز محترم وکالت',
+  law_student: 'دانشجوی محترم حقوق',
+  law_graduate: 'فارغ‌التحصیل محترم رشته حقوق',
+  professor: 'استاد محترم دانشگاه',
+  researcher: 'پژوهشگر محترم حقوق',
+  other: 'فعال محترم حوزه حقوق',
 });
 
 export function buildVerificationEmailText({ displayName, gender, position, link }) {
@@ -176,7 +176,7 @@ export function buildVerificationEmailText({ displayName, gender, position, link
   const honorific = gender === 'male' ? 'جناب آقای' : gender === 'female' ? 'سرکار خانم' : '';
   const positionLabel = POSITION_LABELS[position] || cleanText(position);
   const salutation = [honorific, name].filter(Boolean).join(' ');
-  const professionalLine = positionLabel ? `${positionLabel} محترم` : 'عضو ارجمند آکادمی';
+  const professionalLine = positionLabel || 'عضو ارجمند آکادمی';
   return [
     'با سلام و احترام،',
     '',
