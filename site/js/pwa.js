@@ -67,3 +67,94 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
       .catch((error) => console.warn('PWA service worker registration failed.', error));
   }, { once: true });
 }
+
+
+// Offer Push activation on the first standalone launch (permission remains user-controlled).
+function decodePushKey(value) {
+  const padded = value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - value.length % 4) % 4);
+  return Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));
+}
+async function offerPushActivation() {
+  if (!isStandalone() || !('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
+  if (Notification.permission === 'denied' || localStorage.getItem('mla-push-onboarding-enabled') === '1') return;
+  const snoozeUntil = Number(localStorage.getItem('mla-push-onboarding-snooze-until') || 0);
+  if (snoozeUntil > Date.now()) return;
+  try {
+    const me = await fetch('/api/me', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+    if (!me.ok) return;
+    const keyResponse = await fetch('/api/push/public-key', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+    if (!keyResponse.ok) return;
+    const keyData = await keyResponse.json();
+    if (!keyData?.publicKey) return;
+    const registration = await navigator.serviceWorker.ready;
+    const existing = await registration.pushManager.getSubscription();
+    if (existing) {
+      const check = await fetch('/api/push/subscription?endpoint=' + encodeURIComponent(existing.endpoint), { credentials: 'same-origin' });
+      if (check.ok && (await check.json()).active) return;
+    }
+
+    const panel = document.createElement('section');
+    panel.className = 'pwa-push-onboarding';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-label', 'فعال‌سازی اعلان‌های آکادمی');
+    const heading = document.createElement('strong');
+    heading.textContent = 'اعلان‌های آکادمی را فعال کنید';
+    const copy = document.createElement('p');
+    copy.textContent = 'برای دریافت یادآوری مواعد و اعلان‌های مهم، اجازهٔ ارسال اعلان را صادر کنید.';
+    const enable = document.createElement('button');
+    enable.type = 'button';
+    enable.textContent = 'فعال‌سازی اعلان‌ها';
+    const later = document.createElement('button');
+    later.type = 'button';
+    later.className = 'pwa-push-later';
+    later.textContent = 'بعداً';
+    const status = document.createElement('small');
+    status.setAttribute('role', 'status');
+    panel.append(heading, copy, enable, later, status);
+    document.body.append(panel);
+
+    const close = () => panel.remove();
+    later.addEventListener('click', () => {
+      localStorage.setItem('mla-push-onboarding-snooze-until', String(Date.now() + 24 * 60 * 60 * 1000));
+      close();
+    });
+    enable.addEventListener('click', async () => {
+      enable.disabled = true;
+      status.textContent = 'در حال فعال‌سازی…';
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          status.textContent = 'اجازهٔ اعلان صادر نشد. می‌توانید بعداً از تنظیمات مرورگر آن را تغییر دهید.';
+          enable.disabled = false;
+          return;
+        }
+        const subscription = await registration.pushManager.getSubscription() || await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: decodePushKey(keyData.publicKey)
+        });
+        const saved = await fetch('/api/push/subscription', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(subscription.toJSON())
+        });
+        if (!saved.ok) throw new Error('subscription-save-failed');
+        status.textContent = 'اعلان‌های آکادمی با موفقیت فعال شد.';
+        localStorage.setItem('mla-push-onboarding-enabled', '1');
+        window.setTimeout(close, 1400);
+      } catch {
+        status.textContent = 'فعال‌سازی کامل نشد. از صفحهٔ مواعد دوباره تلاش کنید.';
+        enable.disabled = false;
+      }
+    });
+  } catch (error) {
+    console.warn('Push onboarding could not be initialized.', error);
+  }
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => window.setTimeout(offerPushActivation, 900), { once: true });
+} else {
+  window.setTimeout(offerPushActivation, 900);
+}
+
+window.addEventListener('hashchange', () => window.setTimeout(offerPushActivation, 700));

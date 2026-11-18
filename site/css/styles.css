@@ -3399,3 +3399,13 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
 .pwa-guide-close{width:100%;border:0;border-radius:12px;padding:.8rem;background:var(--accent,#134e44);color:#fff;font:inherit;font-weight:700;cursor:pointer}
 @media(max-width:640px){.pwa-install-button{font-size:.75rem;padding:.48rem .7rem}.header-inner{gap:.55rem}.pwa-install-dialog{padding:1.1rem}}
 @media(display-mode:standalone){.pwa-install-button{display:none}}
+
+
+/* First-launch push permission prompt for installed web/PWA clients. */
+.pwa-push-onboarding{position:fixed;z-index:1200;inset:auto 1rem calc(1rem + env(safe-area-inset-bottom)) 1rem;margin-inline:auto;width:min(100% - 2rem,440px);padding:1.1rem;border:1px solid var(--line,var(--border));border-radius:18px;background:var(--surface,var(--paper));color:var(--text);box-shadow:0 12px 42px #0003;display:grid;gap:.65rem}
+.pwa-push-onboarding strong{font-size:1rem}
+.pwa-push-onboarding p{margin:0;color:var(--muted);font-size:.9rem;line-height:1.8}
+.pwa-push-onboarding button{border:0;border-radius:12px;padding:.75rem;background:var(--accent,#134e44);color:#fff;font:inherit;font-weight:700;cursor:pointer}
+.pwa-push-onboarding button:disabled{opacity:.65;cursor:wait}
+.pwa-push-onboarding .pwa-push-later{background:transparent;color:var(--muted);border:1px solid var(--line,var(--border))}
+.pwa-push-onboarding small{line-height:1.7;color:var(--muted)}
