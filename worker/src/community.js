@@ -31,9 +31,10 @@ export async function handleCommunity(request, env, path) {
         FROM community_groups g WHERE g.status='active' AND (g.visibility='public' OR EXISTS
         (SELECT 1 FROM community_group_members m WHERE m.group_id=g.id AND m.user_id=?1))
         ORDER BY g.created_at DESC LIMIT 100`).bind(user.id).all();
-      return json({ok:true,groups:rows.results||[]});
+      return json({ok:true,groups:rows.results||[],canCreate:manager(user)});
     }
     if (section==='groups' && parts.length===1 && method==='POST') {
+      if (!manager(user)) return json({ok:false,error:'FORBIDDEN',message:'ایجاد گروه فقط برای مدیر آکادمی مجاز است.'},403);
       const p=await readJsonBody(request); if(p.error)return p.error;
       const name=clean(p.body?.name,80), description=clean(p.body?.description,500), visibility=p.body?.visibility==='private'?'private':'public';
       if(name.length<3)return json({ok:false,error:'VALIDATION_FAILED',message:'نام گروه باید حداقل ۳ نویسه باشد.'},422);
@@ -65,7 +66,7 @@ export async function handleCommunity(request, env, path) {
       const p=await readJsonBody(request);if(p.error)return p.error;
       const title=clean(p.body?.title,160),body=String(p.body?.body??'').trim(),groupId=p.body?.groupId?idOf(String(p.body.groupId)):0;
       if(title.length<8||body.length<20||body.length>10000)return json({ok:false,error:'VALIDATION_FAILED',message:'عنوان باید ۸ تا ۱۶۰ و متن پرسش ۲۰ تا ۱۰۰۰۰ نویسه باشد.'},422);
-      if(groupId){const g=await visibleGroup(env.DB,groupId,user.id);if(!g||!(await membership(env.DB,groupId,user.id)))return json({ok:false,error:'FORBIDDEN'},403);}
+      if(groupId){const g=await visibleGroup(env.DB,groupId,user.id);if(!g)return json({ok:false,error:'FORBIDDEN'},403);if(g.visibility==='private'&&!(await membership(env.DB,groupId,user.id)))return json({ok:false,error:'FORBIDDEN'},403);if(g.visibility==='public')await env.DB.prepare("INSERT OR IGNORE INTO community_group_members(group_id,user_id,role) VALUES(?1,?2,'member')").bind(groupId,user.id).run();}
       const r=await env.DB.prepare('INSERT INTO community_topics(group_id,author_id,title,body) VALUES(?1,?2,?3,?4) RETURNING id').bind(groupId||null,user.id,title,body).first();
       return json({ok:true,id:r.id},201);
     }
