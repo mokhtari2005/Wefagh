@@ -18,7 +18,7 @@ export async function postJson(path, payload, { timeoutMs = 15000 } = {}) {
     } catch {
       data = null;
     }
-    return { status: res.status, ok: res.ok, data };
+    return { status: res.status, ok: res.ok, data, url: res.url, redirected: res.redirected, allow: res.headers.get('allow'), contentType: res.headers.get('content-type') };
   } catch {
     return { status: 0, ok: false, data: null, networkError: true, timeoutError: timedOut };
   } finally {
