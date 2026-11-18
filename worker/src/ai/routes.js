@@ -57,8 +57,12 @@ function aiFailure(err, stage = 'unknown') {
     console.error(JSON.stringify({ where: 'ai', stage, error: err.name, code: err.code, status: err.status }));
     return fail(err.code, err.status, err.details || {});
   }
-  console.error(JSON.stringify({ where: 'ai', stage, error: err?.name || 'Error' }));
-  return fail('AI_UNAVAILABLE', 503, { stage });
+  // خطای ناشناخته قبلاً به AI_UNAVAILABLE تبدیل می‌شد و نوع واقعی خطا از دید کاربر و لاگ پنهان می‌ماند.
+  // فقط نام/کد شمارشی خطا ثبت و ارسال می‌شود؛ پیام خام ممکن است حاوی دادهٔ کاربر یا جزئیات حساس باشد.
+  const errorType = typeof err?.name === 'string' && /^[A-Za-z][A-Za-z0-9]{0,39}$/.test(err.name) ? err.name : 'Error';
+  const errorCode = typeof err?.code === 'string' && /^[A-Z][A-Z0-9_]{1,39}$/.test(err.code) ? err.code : undefined;
+  console.error(JSON.stringify({ where: 'ai', stage, error: errorType, ...(errorCode ? { errorCode } : {}) }));
+  return fail('AI_UNAVAILABLE', 503, { stage, errorType, ...(errorCode ? { errorCode } : {}) });
 }
 
 function cleanText(value, max) {
