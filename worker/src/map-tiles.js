@@ -15,9 +15,11 @@ export async function handleMapTiles(request) {
     return new Response('Method not allowed', { status: 405, headers: { Allow: 'GET, HEAD' } });
   }
   const url = new URL(request.url);
-  const match = url.pathname.match(/^\\/api\\/map\\/tiles\\/(\\d{1,2})\\/(\\d+)\\/(\\d+)\\.png$/);
-  if (!match) return new Response('Not found', { status: 404 });
-  const z = Number(match[1]), x = Number(match[2]), y = Number(match[3]);
+  const parts = url.pathname.split('/');
+  if (parts.length !== 7 || parts[1] !== 'api' || parts[2] !== 'map' || parts[3] !== 'tiles' || !/^\\d{1,2}$/.test(parts[4]) || !/^\\d+$/.test(parts[5]) || !/^\\d+\\.png$/.test(parts[6])) {
+    return new Response('Not found', { status: 404 });
+  }
+  const z = Number(parts[4]), x = Number(parts[5]), y = Number(parts[6].slice(0, -4));
   const limit = 2 ** z;
   if (z < 1 || z > 19 || x < 0 || y < 0 || x >= limit || y >= limit) {
     return new Response('Invalid tile coordinates', { status: 400 });
