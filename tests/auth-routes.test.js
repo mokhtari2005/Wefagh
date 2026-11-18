@@ -47,6 +47,8 @@ function setup({ adminEmail } = {}) {
   db.exec(migration('0002_auth.sql'));
   db.exec(migration('0008_registration_profile.sql'));
   db.exec(migration('0014_member_identity.sql'));
+  db.exec(migration('0024_membership_approval.sql'));
+  db.exec(migration('0025_registration_contact_details.sql'));
   const sent = [];
   const env = {
     DB: d1Like(db),
@@ -132,6 +134,31 @@ test('ثبت‌نام با ایمیل تکراری همان پاسخ عمومی 
   assert.equal((await second.json()).message, (await first.json()).message);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM users').get().n, 1);
   assert.equal(sent.length, 1, 'ایمیل دوم نباید ارسال شود');
+});
+
+test('متقاضی ردشده می‌تواند با همان ایمیل درخواست تازه ثبت کند', { skip }, async () => {
+  const { db, env, sent } = setup();
+  const firstBody = { ...validUser, gender: 'male', position: 'lawyer', phone: '09123456789' };
+  await call(env, '/api/auth/register', { body: firstBody });
+  const firstToken = tokenFromMail(sent);
+  const original = db.prepare('SELECT id, membership_no FROM users WHERE email=?').get('shahram@example.com');
+  db.prepare("UPDATE users SET membership_status='rejected' WHERE id=?").run(original.id);
+
+  const secondBody = { ...firstBody, displayName: 'شهرام مختاری جدید', gender: 'male' };
+  const retry = await call(env, '/api/auth/register', { body: secondBody });
+  assert.equal(retry.status, 202);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM users').get().n, 1);
+  const updated = db.prepare('SELECT id, display_name, membership_status, email_verified_at, membership_no FROM users').get();
+  assert.equal(updated.id, original.id);
+  assert.equal(updated.display_name, secondBody.displayName);
+  assert.equal(updated.membership_status, 'pending');
+  assert.equal(updated.email_verified_at, null);
+  assert.equal(updated.membership_no, original.membership_no);
+  assert.equal(sent.length, 2);
+  const secondToken = tokenFromMail(sent);
+  assert.notEqual(secondToken, firstToken);
+  assert.equal((await call(env, '/api/auth/verify-email', { body: { token: firstToken } })).status, 400);
+  assert.equal((await call(env, '/api/auth/verify-email', { body: { token: secondToken } })).status, 200);
 });
 
 test('ثبت‌نام دوباره برای حساب تأییدنشده پس از پایان مهلت، لینک تازه می‌فرستد', { skip }, async () => {
