@@ -339,3 +339,13 @@ test('تایپ صوتی: صدا با زبان انتخاب‌شده به Gemini 
     assert.ok(JSON.parse(calls[1].init.body).contents[0].parts[0].text.includes('فارسی'));
   });
 });
+
+test('خطای پیش‌بینی‌نشده در مسیر هوش مصنوعی (مثل خطای D1) پاسخ JSON با کد AI_UNAVAILABLE می‌دهد، نه استثنای خام', async () => {
+  const brokenDb = { prepare() { throw new Error('D1_ERROR secret-detail'); } };
+  const res = await worker.fetch(req('/api/ai/transcribe', { body: { mimeType: 'audio/mp4', data: 'AAAA' }, cookie: 'tok' }), { DB: brokenDb, GEMINI_API_KEY: KEY });
+  const text = await res.text();
+  assert.equal(res.status, 503);
+  assert.equal(JSON.parse(text).error, 'AI_UNAVAILABLE');
+  assert.ok(!text.includes('secret-detail'));
+  assert.equal(JSON.parse(text).stage, 'router');
+});

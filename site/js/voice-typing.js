@@ -340,9 +340,13 @@ export function voiceTypingPage() {
       setStatus('متنی از صدا تشخیص داده نشد؛ در محیط آرام‌تر دوباره ضبط کنید.', 'error');
       return;
     }
-    const code = res?.data?.error || 'AI_UNAVAILABLE';
+    let code = res?.data?.error;
+    if (!code) code = res?.networkError ? (res.timeoutError ? 'AI_REQUEST_TIMEOUT' : 'NETWORK') : `HTTP_${res?.status || 0}`;
     console.error('[voice-typing] transcription failed', code, res?.status);
-    setStatus(`${errorText(code)} (کد: ${code})`, 'error');
+    const base = code.startsWith('HTTP_')
+      ? 'پاسخ نامعتبر از سرور دریافت شد؛ احتمالاً خطای موقت سرور است.'
+      : errorText(code);
+    setStatus(`${base} (کد: ${code}${res?.status && !code.startsWith('HTTP_') ? ` · HTTP ${res.status}` : ''}${res?.data?.stage ? ` · ${res.data.stage}` : ''})`, 'error');
     if (code !== 'UNAUTHENTICATED') {
       retry.hidden = false;
       localFallback.hidden = false;
