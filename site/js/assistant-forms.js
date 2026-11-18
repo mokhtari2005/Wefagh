@@ -101,9 +101,10 @@ const CONTRACT_BASE = [
 
 function fieldNode(field) {
  const name=field[0], label=field[1], kind=field[2], required=field[3];
+ const attrs={name,required:required?true:undefined};
  const control=kind==='area'
-  ? h('textarea',{name,rows:'3',required,placeholder:'اطلاعات مربوط به این بخش را وارد کنید.'})
-  : h('input',{name,type:'text',required,placeholder:'وارد کنید'});
+  ? h('textarea',{name,rows:'3',...(required?{required:''}:{}),placeholder:'اطلاعات مربوط به این بخش را وارد کنید.'})
+  : h('input',{name,type:'text',...(required?{required:''}:{}),placeholder:'وارد کنید'});
  return h('div',{class:'field assistant-form-field'},[h('label',{text:label}),control]);
 }
 function formSection(title, description, fields) {
@@ -174,7 +175,7 @@ export function assistantDocumentPage(params={}) {
    } else fieldsHost.append(formSection('اطلاعات سند',schema[1].length+' بخش اطلاعاتی',schema[1]));
   }
   if(contract){
-   contractSelect=h('select',{name:'contractType',required:true},[
+   contractSelect=h('select',{name:'contractType',required:''},[
     h('option',{value:'',text:'نوع قرارداد را انتخاب کنید…'}),
     ...CONTRACT_TYPES.map(x=>h('option',{value:x[0],text:x[1]}))
    ]);
@@ -201,7 +202,7 @@ export function assistantDocumentPage(params={}) {
     const label=control?.closest('.field')?.querySelector('label')?.textContent||key;
     parts.push(label+': '+String(value).trim());
    }
-   const message=parts.join('\\n\\n');
+   const message=parts.join('\n\n');
    submit.disabled=true;submit.textContent='در حال تولید پیش‌نویس…';status.textContent='درخواست ارسال شد؛ اطلاعات فرم حفظ می‌شود.';
    result.hidden=true;
    const res=await postJson('/api/ai/assistant',{mode:'draft',docType:type,message,history:[]},{timeoutMs:100000});
@@ -211,7 +212,7 @@ export function assistantDocumentPage(params={}) {
     status.textContent=errorText(code)+' (کد: '+code+'). اطلاعات فرم حفظ شده است.';return;
    }
    output.textContent=res.data.status==='need_info'
-    ? 'برای تکمیل پیش‌نویس، اطلاعات زیر لازم است:\\n'+(res.data.questions||[]).map((q,i)=>(i+1)+'. '+q).join('\\n')
+    ? 'برای تکمیل پیش‌نویس، اطلاعات زیر لازم است:\n'+(res.data.questions||[]).map((q,i)=>(i+1)+'. '+q).join('\n')
     : res.data.text||'پاسخی از سرویس دریافت نشد.';
    result.hidden=false;
    status.textContent=res.data.status==='need_info'?'اطلاعات تکمیلی لازم است؛ آن‌ها را در فیلدهای مربوط وارد و دوباره ارسال کنید.':'پیش‌نویس آماده شد. پیش از استفاده، متن را با اسناد و قوانین جاری تطبیق دهید.';
