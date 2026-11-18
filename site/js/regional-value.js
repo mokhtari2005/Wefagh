@@ -454,10 +454,11 @@ export function regionalValueTool() {
       ]),
       h('div',{class:'result-head'},[h('h3',{text:'ارزش معاملاتی برآوردشده ملک'})]),
       h('div',{class:'amount-block'},[h('span',{class:'amount-label',text:'جمع ارزش عرصه و اعیانی'}),h('strong',{class:'amount-value',text:money(total)})]),
-      h('dl',{class:'facts'},facts.flatMap(([k,v])=>[h('dt',{text:k}),h('dd',{text:v})])),
+      h('dl',{class:'facts'},facts.map(([k,v])=>h('div',{class:'regional-fact-item'},[h('dt',{text:k}),h('dd',{text:v})]))),
       h('p',{class:'muted',text:'مبنای محاسبه: دفترچه ارزش معاملاتی ۱۴۰۵ اداره کل امور مالیاتی فارس، صفحات ۱۴ تا ۱۶ و جدول بلوک‌های شیراز، صفحات ۲۰ تا ۲۳۵.'}),
       h('p',{class:'muted',text:'فضاهای غیرمسقف و مشاعات منظور نشده‌اند. در املاک چندبر، معبر دارای راه عبور با بالاترین ارزش مبناست. اگر ملک مجاور بزرگراه یا مسیل است اما دسترسی از معبر دیگری دارد، عرض و نرخ همان معبر دسترسی را وارد کنید.'}),
       h('p',{class:'notice',text:'این خروجی ارزش معاملاتی مالیاتی است، نه قیمت روز بازار یا قیمت کارشناسی ملک. پیش از استفاده رسمی، بلوک و کاربری را با سند و موقعیت دقیق ملک تطبیق دهید.'}),
+      h('footer',{class:'regional-report-footer',text:'آکادمی وکالت شهرام مختاری | mokhtari.ir — گزارش تولیدشده از سامانه محاسبات ارزش معاملاتی'}),
       h('button',{class:'btn secondary',type:'button',text:'چاپ گزارش'})
     ]);
     result.querySelector('button').addEventListener('click',()=>{
@@ -475,35 +476,44 @@ export function regionalValueTool() {
         @media print {
           html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
           body > *:not(.regional-print-sheet):not(style) { display: none !important; }
-          .regional-print-sheet {
-            display: block !important; position: fixed !important; top: 0 !important; right: 0 !important;
-            width: 248mm !important; margin: 0 !important; padding: 0 !important;
-            transform: scale(.78); transform-origin: top right;
-            direction: rtl !important; color: #172b27 !important;
-            font: 8.5pt/1.35 Vazirmatn, Tahoma, sans-serif !important;
-          }
-          .regional-print-sheet, .regional-print-sheet * { visibility: visible !important; box-sizing: border-box !important; }
+          .regional-print-sheet { display:block !important; position:fixed !important; inset:0 auto auto 0 !important;
+            width:194mm !important; margin:0 !important; padding:0 !important; direction:rtl !important;
+            color:#1d302c !important; font:7.6pt/1.32 Vazirmatn,Tahoma,sans-serif !important; }
+          .regional-print-sheet, .regional-print-sheet * { visibility:visible !important; box-sizing:border-box !important; }
           .regional-print-sheet .regional-result { display:block !important; width:100% !important; margin:0 !important;
-            padding:0 !important; border:0 !important; box-shadow:none !important; break-inside:avoid !important; }
-          .regional-print-sheet .regional-print-header { display:flex !important; flex-direction:column; align-items:center;
-            gap:1px; padding:0 0 5px; margin:0 0 6px; border-bottom:2px solid #315e55; text-align:center; }
-          .regional-print-sheet .regional-academy-name { font-size:13pt; font-weight:800; }
-          .regional-print-sheet .regional-academy-domain { font-size:7.5pt; direction:ltr; }
-          .regional-print-sheet .regional-print-header h2 { font-size:11pt; margin:3px 0 0; }
-          .regional-print-sheet .regional-report-meta { display:grid !important; grid-template-columns:75px 1fr;
-            gap:1px 6px; padding:5px 7px; margin:0 0 6px; border:1px solid #d5dfda; border-radius:5px; font-size:7.5pt; }
-          .regional-print-sheet .regional-report-meta dt { font-weight:700; }
-          .regional-print-sheet .regional-report-meta dd { margin:0; overflow-wrap:anywhere; }
-          .regional-print-sheet .result-head h3 { font-size:9.5pt; margin:4px 0; }
-          .regional-print-sheet .amount-block { padding:5px 8px; margin:4px 0; background:#f1f5f2 !important;
-            border:1px solid #cbd8d1 !important; color:#173b37 !important; print-color-adjust:exact; }
-          .regional-print-sheet .amount-label { font-size:7.5pt; }
-          .regional-print-sheet .amount-value { font-size:14pt; }
-          .regional-print-sheet .facts { display:grid; grid-template-columns:1fr 1fr; gap:0 12px; margin:4px 0; }
-          .regional-print-sheet .facts dt, .regional-print-sheet .facts dd { padding:1px 0; margin:0;
-            border-bottom:1px solid #e5ebe7; font-size:7.2pt; line-height:1.3; }
-          .regional-print-sheet .muted, .regional-print-sheet .notice { margin:4px 0; padding:4px 6px;
-            font-size:7pt; line-height:1.35; }
+            padding:0 !important; border:0 !important; border-radius:0 !important; box-shadow:none !important;
+            background:#fff !important; break-inside:avoid !important; }
+          .regional-print-sheet .regional-print-header { position:relative; display:flex !important; flex-direction:column;
+            align-items:center; gap:1px; padding:5px 0 7px; margin:0 0 7px;
+            border-top:3px solid #b28a45; border-bottom:1.5px solid #244f49; text-align:center; }
+          .regional-print-sheet .regional-academy-name { color:#173b37; font-size:13pt; font-weight:800; letter-spacing:-.2px; }
+          .regional-print-sheet .regional-academy-domain { color:#667b74; font-size:7pt; direction:ltr; }
+          .regional-print-sheet .regional-print-header h2 { color:#173b37; font-size:10.5pt; margin:3px 0 0; font-weight:800; }
+          .regional-print-sheet .regional-report-meta { display:grid !important; grid-template-columns:68px 1fr 68px 1fr;
+            gap:3px 6px; padding:6px 8px; margin:0 0 7px; border:1px solid #d8e1dc;
+            border-right:3px solid #b28a45; border-radius:4px; background:#f8faf8 !important;
+            font-size:7.1pt; print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+          .regional-print-sheet .regional-report-meta dt { color:#426058; font-weight:800; }
+          .regional-print-sheet .regional-report-meta dd { min-width:0; margin:0; overflow-wrap:anywhere; }
+          .regional-print-sheet .result-head h3 { color:#244f49; font-size:9pt; margin:5px 0 3px; }
+          .regional-print-sheet .amount-block { display:flex; align-items:center; justify-content:space-between; gap:10px;
+            padding:7px 10px; margin:4px 0 7px; border:1px solid #cbd8d1 !important;
+            border-radius:5px; background:#edf3ef !important; color:#173b37 !important;
+            print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+          .regional-print-sheet .amount-label { font-size:7.4pt; font-weight:700; }
+          .regional-print-sheet .amount-value { color:#173b37; font-size:15pt; font-weight:900; }
+          .regional-print-sheet .facts { display:grid !important; grid-template-columns:1fr 1fr; gap:4px 9px; margin:5px 0 7px; }
+          .regional-print-sheet .regional-fact-item { display:flex; align-items:baseline; justify-content:space-between; gap:6px;
+            min-width:0; padding:3px 5px; border-bottom:1px solid #e4eae6; background:#fff; break-inside:avoid; }
+          .regional-print-sheet .regional-fact-item dt { color:#536a62; font-size:7pt; font-weight:700; }
+          .regional-print-sheet .regional-fact-item dd { margin:0; color:#203b34; font-size:7.1pt; font-weight:800; text-align:left; overflow-wrap:anywhere; }
+          .regional-print-sheet .muted, .regional-print-sheet .notice { margin:4px 0; padding:5px 7px;
+            border-radius:4px; font-size:6.7pt; line-height:1.35; }
+          .regional-print-sheet .muted { color:#53645e; background:#f7f9f7 !important; }
+          .regional-print-sheet .notice { color:#6b512a; border:1px solid #e5d7b9; background:#fbf7ee !important;
+            print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+          .regional-print-sheet .regional-report-footer { margin-top:6px; padding-top:4px; border-top:1px solid #d8e1dc;
+            color:#718079; text-align:center; font-size:6.2pt; }
         }
         @media screen { .regional-print-sheet { display:none !important; } }
       `;
