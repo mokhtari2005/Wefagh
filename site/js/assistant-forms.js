@@ -10,12 +10,12 @@ const DOCS = [
  ['appeal','تجدیدنظرخواهی','scale','اعتراض به رأی و بیان جهات تجدیدنظر'],
  ['cassation','فرجام‌خواهی','landmark','درخواست و لایحه فرجامی'],
  ['enforcement','درخواست اجرایی','gavel','درخواست‌های اجرای احکام و عملیات اجرایی'],
- ['notice','اظهارنامه','mail','اعلام رسمی مطالبه، اخطار یا اراده'],
- ['criminal_complaint','شکواییه کیفری','alert-circle','شرح واقعه، طرفین و ادله شکایت'],
- ['reply','پاسخ به سند طرف مقابل','message-square','پاسخ به دادخواست، لایحه یا دفاعیات'],
+ ['notice','اظهارنامه','file-text','اعلام رسمی مطالبه، اخطار یا اراده'],
+ ['criminal_complaint','شکواییه کیفری','gavel','شرح واقعه، طرفین و ادله شکایت'],
+ ['reply','پاسخ به سند طرف مقابل','edit','پاسخ به دادخواست، لایحه یا دفاعیات'],
  ['judicial_request','درخواست قضایی','clipboard-list','درخواست متناسب با موضوع پرونده'],
  ['letter','نامه حقوقی','file-text','مکاتبه رسمی با اشخاص و مراجع'],
- ['other','سایر اسناد','files','تنظیم یا تحلیل سند با قالب اختصاصی']
+ ['other','سایر اسناد','folder','تنظیم یا تحلیل سند با قالب اختصاصی']
 ];
 
 // هر فیلد: [نام، عنوان، نوع کنترل، ضروری]
@@ -116,7 +116,7 @@ function card(doc) {
  return h('a',{class:'assistant-document-card',href:'#/assistant/doc/'+doc[0]},[
   h('span',{class:'assistant-document-icon'},[icon(doc[2],{size:22})]),
   h('span',{class:'assistant-document-copy'},[h('strong',{text:doc[1]}),h('small',{text:doc[3]})]),
-  icon('chevron-left',{size:18})
+  icon('arrow-left',{size:18})
  ]);
 }
 
@@ -131,7 +131,7 @@ export function assistantMenuPage() {
    h('a',{class:'assistant-document-card assistant-consult-card',href:'#/assistant/consult'},[
     h('span',{class:'assistant-document-icon'},[icon('scale',{size:22})]),
     h('span',{class:'assistant-document-copy'},[h('strong',{text:'مشاوره حقوقی و تحلیل پرونده'}),h('small',{text:'پرسش حقوقی، تحلیل و بررسی متن'})]),
-    icon('chevron-left',{size:18})
+    icon('arrow-left',{size:18})
    ])
   ]),
   h('section',{class:'assistant-menu-section'},[h('h2',{text:'تنظیم اسناد قضایی و حقوقی'}),h('div',{class:'assistant-document-grid'},docs)]),
