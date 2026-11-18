@@ -106,7 +106,7 @@ def parse_judgment(html: str, source_url: str) -> dict:
         headings = [line for line in text.splitlines() if re.match(r"^(?:رأی|رای)\s+", line)]
         title = headings[0] if headings else None
     if not title:
-        raise ValueError("judgment title or heading not found")
+        raise ValueError("judgment title or heading not found; visible_text_preview=" + repr(text[:800]))
 
     summary = field(text, r"پیام")
     number = field(text, r"شماره\s+دادنامه\s+قطعی|شماره\s+دادنامه|شماره\s+نهایی")
