@@ -2380,6 +2380,17 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
 .voice-typing-mic[data-state="connected"] .voice-typing-mic-icon { background: rgba(40,115,77,.14); }
 .voice-typing-mic[data-state="connecting"], .voice-typing-mic[data-state="disconnected"], .voice-typing-mic[data-state="unavailable"] { color: #a33a2a; background: rgba(163,58,42,.08); }
 .voice-typing-mic[data-state="waiting"] { color: #946a24; background: rgba(148,106,36,.09); }
+.voice-typing-waveform { --wave-color: var(--teal, #168b82); --wave-muted: #b9c4c2; margin-top: .65rem; padding: .7rem .85rem .55rem; border: 1px solid var(--sand-line); border-radius: 14px; background: var(--paper); }
+.voice-typing-waveform-heading { display: flex; justify-content: space-between; align-items: center; gap: .6rem; color: var(--ink-soft); font-size: .82rem; }
+.voice-typing-waveform-hint { font-size: .76rem; opacity: .8; }
+.voice-typing-waveform-canvas { display: block; width: 100%; height: 76px; margin-top: .25rem; }
+.voice-typing-waveform[data-state="recording"] { border-color: color-mix(in srgb, var(--wave-color) 48%, var(--sand-line)); background: color-mix(in srgb, var(--wave-color) 4%, var(--paper)); }
+.voice-typing-waveform[data-state="recording"] .voice-typing-waveform-hint { color: var(--wave-color); font-weight: 650; }
+.voice-typing-waveform[data-state="unavailable"] .voice-typing-waveform-hint { color: var(--ink-soft); }
+@media (max-width: 640px) {
+  .voice-typing-waveform { padding: .6rem .7rem .45rem; }
+  .voice-typing-waveform-canvas { height: 64px; }
+}
 .voice-typing-actions { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1rem; }
 .voice-typing-actions > button { border-radius: 11px; }
 .voice-typing-meta { display: flex; justify-content: space-between; gap: .7rem; flex-wrap: wrap; margin-top: .65rem; color: var(--ink-soft); font-size: .85rem; }

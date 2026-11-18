@@ -121,6 +121,15 @@ export function voiceTypingPage() {
     h('span', { text: 'آمادهٔ شروع؛ برای تایپ صوتی، دکمهٔ شروع ضبط را بزنید.' }),
   ]);
   const micIndicator = h('div', { class: 'voice-typing-mic', 'data-state': 'unknown', role: 'status', 'aria-live': 'polite' }, [h('span', { class: 'voice-typing-mic-icon', 'aria-hidden': 'true', text: '●' }), h('span', { text: 'وضعیت میکروفون: بررسی‌نشده' })]);
+  const waveform = h('div', { class: 'voice-typing-waveform', 'data-state': 'idle', 'aria-label': 'نمایش زنده موج صدای میکروفون' }, [
+    h('div', { class: 'voice-typing-waveform-heading' }, [
+      h('span', { text: 'نمایش زنده صدای ورودی' }),
+      h('span', { class: 'voice-typing-waveform-hint', text: 'هنگام ضبط فعال می‌شود' }),
+    ]),
+    h('canvas', { class: 'voice-typing-waveform-canvas', role: 'img', 'aria-label': 'موج زنده صدای ورودی میکروفون' }),
+  ]);
+  const waveformCanvas = waveform.querySelector('canvas');
+  const waveformContext = waveformCanvas.getContext('2d');
   const language = h('select', { 'aria-label': 'زبان تشخیص گفتار' }, [
     h('option', { value: 'fa-IR', text: 'فارسی' }),
     h('option', { value: 'en-US', text: 'English' }),
@@ -151,6 +160,7 @@ export function voiceTypingPage() {
     h('div', { class: 'row' }, [prepare, start, stop, language]),
     status,
     micIndicator,
+    waveform,
     toolbar,
     editor,
     h('div', { class: 'voice-typing-meta' }, [count, interim]),
@@ -167,6 +177,10 @@ export function voiceTypingPage() {
   let transcriberPromise = null;
   let permissionStatus = null;
   let recordingTimeout = null;
+  let audioContextForMeter = null;
+  let analyser = null;
+  let meterSource = null;
+  let waveformFrame = 0;
   const MAX_RECORDING_MS = 30 * 60 * 1000;
   const RETRYABLE = new Set(['AI_UNAVAILABLE', 'AI_PROVIDER_ERROR', 'AI_NETWORK_ERROR', 'AI_PROVIDER_BAD_RESPONSE', 'AI_EMPTY', 'NETWORK']);
   const MODEL_ID = 'onnx-community/whisper-tiny';
@@ -178,6 +192,92 @@ export function voiceTypingPage() {
   function setStatus(message, state = 'idle') {
     status.dataset.state = state;
     status.lastElementChild.textContent = message;
+  }
+
+  function paintIdleWaveform() {
+    if (!waveformContext || !waveformCanvas) return;
+    const width = Math.max(1, waveformCanvas.clientWidth);
+    const height = Math.max(1, waveformCanvas.clientHeight);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    waveformCanvas.width = Math.round(width * dpr);
+    waveformCanvas.height = Math.round(height * dpr);
+    waveformContext.setTransform(dpr, 0, 0, dpr, 0, 0);
+    waveformContext.clearRect(0, 0, width, height);
+    waveformContext.strokeStyle = getComputedStyle(waveform).getPropertyValue('--wave-muted').trim() || '#b9c4c2';
+    waveformContext.lineWidth = 1.5;
+    waveformContext.beginPath();
+    waveformContext.moveTo(0, height / 2);
+    waveformContext.lineTo(width, height / 2);
+    waveformContext.stroke();
+  }
+
+  function stopWaveform() {
+    if (waveformFrame) cancelAnimationFrame(waveformFrame);
+    waveformFrame = 0;
+    try { meterSource?.disconnect(); } catch { /* ignore */ }
+    try { analyser?.disconnect(); } catch { /* ignore */ }
+    meterSource = null;
+    analyser = null;
+    if (audioContextForMeter && audioContextForMeter.state !== 'closed') audioContextForMeter.close().catch(() => {});
+    audioContextForMeter = null;
+    waveform.dataset.state = 'idle';
+    waveform.querySelector('.voice-typing-waveform-hint').textContent = 'هنگام ضبط فعال می‌شود';
+    paintIdleWaveform();
+  }
+
+  async function startWaveform(stream) {
+    stopWaveform();
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass || !waveformContext) {
+      waveform.dataset.state = 'unavailable';
+      waveform.querySelector('.voice-typing-waveform-hint').textContent = 'نمایش موج در این مرورگر پشتیبانی نمی‌شود';
+      return;
+    }
+    try {
+      audioContextForMeter = new AudioContextClass();
+      await audioContextForMeter.resume();
+      analyser = audioContextForMeter.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.78;
+      meterSource = audioContextForMeter.createMediaStreamSource(stream);
+      meterSource.connect(analyser);
+      const samples = new Uint8Array(analyser.fftSize);
+      waveform.dataset.state = 'recording';
+      waveform.querySelector('.voice-typing-waveform-hint').textContent = 'میکروفون در حال دریافت صداست';
+      const draw = () => {
+        if (!analyser || !waveformContext) return;
+        const width = Math.max(1, waveformCanvas.clientWidth);
+        const height = Math.max(1, waveformCanvas.clientHeight);
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        if (waveformCanvas.width !== Math.round(width * dpr) || waveformCanvas.height !== Math.round(height * dpr)) {
+          waveformCanvas.width = Math.round(width * dpr);
+          waveformCanvas.height = Math.round(height * dpr);
+        }
+        waveformContext.setTransform(dpr, 0, 0, dpr, 0, 0);
+        waveformContext.clearRect(0, 0, width, height);
+        analyser.getByteTimeDomainData(samples);
+        waveformContext.lineWidth = 2;
+        waveformContext.lineJoin = 'round';
+        waveformContext.lineCap = 'round';
+        waveformContext.strokeStyle = getComputedStyle(waveform).getPropertyValue('--wave-color').trim() || '#168b82';
+        waveformContext.beginPath();
+        const slice = width / samples.length;
+        for (let i = 0; i < samples.length; i++) {
+          const x = i * slice;
+          const y = (samples[i] / 255) * height;
+          if (i === 0) waveformContext.moveTo(x, y);
+          else waveformContext.lineTo(x, y);
+        }
+        waveformContext.stroke();
+        waveformFrame = requestAnimationFrame(draw);
+      };
+      draw();
+    } catch (error) {
+      console.warn('[voice-typing] live waveform unavailable', error?.name || 'Error');
+      stopWaveform();
+      waveform.dataset.state = 'unavailable';
+      waveform.querySelector('.voice-typing-waveform-hint').textContent = 'ضبط فعال است؛ نمایش موج در این دستگاه در دسترس نیست';
+    }
   }
   if (navigator.permissions?.query) {
     navigator.permissions.query({ name: 'microphone' }).then((permission) => {
@@ -424,6 +524,7 @@ export function voiceTypingPage() {
     audioChunks = [];
     if (recordingTimeout) window.clearTimeout(recordingTimeout);
     recordingTimeout = null;
+    stopWaveform();
     mediaStream?.getTracks().forEach((track) => track.stop());
     mediaStream = null;
     recorder = null;
@@ -469,6 +570,7 @@ export function voiceTypingPage() {
         });
         recorder.addEventListener('error', () => {
           recording = false;
+          stopWaveform();
           mediaStream?.getTracks().forEach((track) => track.stop());
           mediaStream = null;
           recorder = null;
@@ -482,6 +584,7 @@ export function voiceTypingPage() {
         // ضبط را بدون timeslice آغاز می‌کنیم تا مرورگر یک فایل نهایی سالم تحویل دهد.
         recorder.start();
         recording = true;
+        startWaveform(mediaStream);
         recordingTimeout = window.setTimeout(() => {
           if (recording) {
             setStatus('حداکثر زمان هر نوبت ضبط ۳۰ دقیقه است؛ ضبط متوقف و تبدیل آغاز می‌شود.', 'starting');
@@ -513,6 +616,7 @@ export function voiceTypingPage() {
 
   window.addEventListener('beforeunload', () => {
     if (recordingTimeout) window.clearTimeout(recordingTimeout);
+    stopWaveform();
     if (recording) {
       try { recorder?.stop(); } catch { /* ignore */ }
       mediaStream?.getTracks().forEach((track) => track.stop());
