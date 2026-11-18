@@ -168,3 +168,20 @@
   .regional-result .facts dt,.regional-result .facts dd{padding:1px 0!important;font-size:7pt!important;line-height:1.3!important}
   .regional-result .muted,.regional-result .notice{font-size:6.8pt!important;line-height:1.35!important;margin:4px 0!important;padding:4px 6px!important}
 }
+
+
+/* جست‌وجوی کد پستی و وضعیت نقشه ابزار ارزش معاملاتی */
+.regional-postal-field{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:.5rem}
+.regional-postal-field label,.regional-postal-status{grid-column:1/-1}
+.regional-postal-field input{min-width:0}
+.regional-postal-search{min-height:46px;white-space:nowrap}
+.regional-postal-search:disabled{opacity:.65;cursor:wait}
+.regional-postal-status{margin:0;font-size:.8rem;line-height:1.8}
+.regional-property-map{position:relative;min-height:280px;isolation:isolate}
+.regional-property-map .leaflet-pane,
+.regional-property-map .leaflet-top,
+.regional-property-map .leaflet-bottom{z-index:1}
+@media(max-width:600px){
+  .regional-postal-field{grid-template-columns:minmax(0,1fr)}
+  .regional-postal-search{width:100%}
+}
