@@ -317,15 +317,11 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
       caseId, role: step.speaker, stage: step.stage, difficulty, history: historyForApi(history),
     }, { timeoutMs: 45000 });
     if (!res.ok || !res.data?.reply) {
-      // اختلال موقت مدل نباید جلسه را متوقف کند؛ نوبت ناموفق شفاف ثبت می‌شود و کاربر می‌تواند ادامه دهد.
       const code = res.data?.error || (res.networkError ? 'NETWORK' : 'AI_UNAVAILABLE');
-      const fallback = `به علت اختلال موقت سرویس هوش مصنوعی، پاسخ ${SPEAKER_LABEL[step.speaker]} در این نوبت تولید نشد. برای جلوگیری از توقف جلسه، رسیدگی ادامه می‌یابد؛ این بخش ارزیابی محتوایی محسوب نمی‌شود.`;
-      addLine(step.speaker, fallback);
-      setBanner(`${errorText(code)} نوبت به‌صورت موقت ثبت شد؛ جلسه متوقف نمی‌شود.`);
+      setBanner(`${errorText(code)} پاسخ این نوبت تولید نشد؛ جلسه را متوقف کردیم تا پاسخ ساختگی وارد صورت‌جلسه نشود. برای تلاش مجدد دکمه را بزنید.`);
       setBusy(false);
       nextBtn.disabled = false;
-      nextBtn.textContent = 'ادامه رسیدگی';
-      scheduleAutoAdvance();
+      nextBtn.textContent = 'تلاش دوباره';
       return;
     }
     nextBtn.textContent = 'ادامه رسیدگی';
@@ -450,20 +446,9 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
     }, { timeoutMs: 60000 });
     if (!assessed.ok || !assessed.data?.assessment) {
       const code = assessed.data?.error || (assessed.networkError ? 'NETWORK' : 'AI_UNAVAILABLE');
-      // متن دفاعیه همین حالا در حافظهٔ جلسه ثبت می‌شود؛ ارزیابی مدل یک قابلیت تکمیلی است، نه شرط عبور از مرحله.
-      if (assessed.status === 401 || assessed.status === 422) {
-        setBusy(false);
-        submitBtn.disabled = false;
-        audioStatus.textContent = `${errorText(code)} متن دفاعیه حفظ شد؛ پس از اصلاح مشکل دوباره ارسال کنید.`;
-        return;
-      }
-      addLine(userSide, v.text, true);
-      addLine('judge', 'به علت اختلال موقت در سرویس ارزیابی، امکان نمره‌دهی خودکار این دفاعیه فراهم نشد. متن دفاعیه در صورت‌جلسه ثبت شد و رسیدگی ادامه می‌یابد؛ ارزیابی این نوبت نیازمند بررسی بعدی است.');
-      answer.value = '';
-      renderInput(false);
       setBusy(false);
-      audioStatus.textContent = `${errorText(code)} دفاعیه در صورت‌جلسه حفظ شد و جلسه بدون ارزیابی خودکار ادامه یافت.`;
-      advance();
+      submitBtn.disabled = false;
+      audioStatus.textContent = `${errorText(code)} متن دفاعیه حفظ شده است؛ ارزیابی انجام نشد و جلسه جلو نمی‌رود. پس از تلاش مجدد ادامه دهید.`;
       return;
     }
     const result = assessed.data.assessment;
