@@ -157,7 +157,7 @@ test('تنظیم یادآوری اختصاصی موعد در ایجاد و وی�
 
 test('اشتراک اعلان Push فقط به حساب مالک متصل است و قابل حذف است', { skip }, async () => {
   const {env,a,b}=await setup();
-  const sub={endpoint:'https://push.example.net/subscription/abc',keys:{p256dh:'BElongKey',auth:'authSecret'}};
+  const sub={endpoint:'https://fcm.googleapis.com/fcm/send/test-subscription',keys:{p256dh:'BElongKey',auth:'authSecret'}};
   assert.equal((await call(env,'/api/push/subscription',{method:'POST',body:sub,cookie:a.cookie})).status,200);
   assert.equal((await (await call(env,'/api/push/subscription',{cookie:a.cookie})).json()).active,true);
   assert.equal((await (await call(env,'/api/push/subscription',{cookie:b.cookie})).json()).active,false);

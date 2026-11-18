@@ -73,6 +73,7 @@ export async function handleDeadlines(request, env, path) {
         .prepare('UPDATE deadlines SET title = ?1, case_no = ?2, due_date = ?3, due_time = ?4, kind = ?5, note = ?6, reminder_enabled = ?7, reminder_days = ?8, reminder_time = ?9 WHERE id = ?10 AND user_id = ?11')
         .bind(v.value.title, v.value.caseNo, v.value.dueDate, v.value.dueTime, v.value.kind, v.value.note, v.value.reminderEnabled ? 1 : 0, v.value.reminderDays, v.value.reminderTime, id, user.id)
         .run();
+      await env.DB.prepare('DELETE FROM push_reminders_sent WHERE deadline_id = ?1').bind(id).run();
       return json({ ok: true });
     }
     if (request.method === 'PATCH') {

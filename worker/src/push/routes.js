@@ -18,7 +18,9 @@ export async function handlePush(request, env, path) {
   const body=parsed.body||{};
   if(request.method==='POST'){
     const endpoint=body.endpoint, p256dh=body.keys?.p256dh, auth=body.keys?.auth;
-    if(typeof endpoint!=='string'||!endpoint.startsWith('https://')||endpoint.length>2048||typeof p256dh!=='string'||p256dh.length>256||typeof auth!=='string'||auth.length>128)return json({ok:false,error:'VALIDATION_FAILED'},422);
+    let host=''; try { const parsedEndpoint=new URL(endpoint); host=parsedEndpoint.hostname; if(parsedEndpoint.protocol!=='https:'||parsedEndpoint.username||parsedEndpoint.password) throw new Error('invalid endpoint'); } catch { return json({ok:false,error:'VALIDATION_FAILED'},422); }
+    const allowedHost=host==='fcm.googleapis.com'||host==='web.push.apple.com'||host==='updates.push.services.mozilla.com'||host.endsWith('.notify.windows.com');
+    if(!allowedHost||endpoint.length>2048||typeof p256dh!=='string'||p256dh.length>256||typeof auth!=='string'||auth.length>128)return json({ok:false,error:'VALIDATION_FAILED'},422);
     await env.DB.prepare(`INSERT INTO push_subscriptions(user_id,endpoint,p256dh,auth,updated_at) VALUES(?1,?2,?3,?4,?5) ON CONFLICT(endpoint) DO UPDATE SET user_id=excluded.user_id,p256dh=excluded.p256dh,auth=excluded.auth,updated_at=excluded.updated_at`).bind(user.id,endpoint,p256dh,auth,new Date().toISOString()).run();
     return json({ok:true});
   }
