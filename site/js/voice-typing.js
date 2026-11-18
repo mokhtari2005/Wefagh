@@ -110,9 +110,7 @@ function downloadBlob(blob, filename) {
 
 export function voiceTypingPage() {
   const root = h('section', { class: 'voice-typing' }, [
-    h('span', { class: 'section-kicker', text: 'ابزار نگارش آکادمی' }),
     h('h1', { text: 'تایپ صوتی' }),
-    h('p', { class: 'voice-typing-intro', text: 'متن خود را به فارسی یا زبان دلخواه بیان کنید؛ گفتار شما به نوشته تبدیل می‌شود و می‌توانید همان‌جا آن را ویرایش و آماده استفاده کنید.' }),
   ]);
 
   const panel = h('section', { class: 'tool voice-typing-panel', 'aria-label': 'محیط تایپ صوتی' });
@@ -156,14 +154,18 @@ export function voiceTypingPage() {
   const clear = h('button', { class: 'btn secondary', type: 'button', text: 'پاک‌کردن متن' });
   actions.append(copy, download, word, pdf, clear);
   const help = h('p', { class: 'muted', text: 'صدای ضبط‌شده فقط برای تبدیل به متن به سرویس هوش مصنوعی ارسال می‌شود و در این سامانه ذخیره نمی‌شود؛ برای استفاده باید وارد حساب خود باشید. هر نوبت ضبط حداکثر ۳۰ دقیقه است. برای دقت بهتر در محیطی کم‌صدا صحبت کنید.' });
+  const controls = h('div', { class: 'voice-typing-controls' }, [
+    h('div', { class: 'voice-typing-main-controls' }, [start, stop]),
+    language,
+  ]);
   panel.append(
-    h('div', { class: 'row' }, [prepare, start, stop, language]),
+    controls,
     status,
-    micIndicator,
     waveform,
-    toolbar,
     editor,
-    h('div', { class: 'voice-typing-meta' }, [count, interim]),
+    interim,
+    toolbar,
+    h('div', { class: 'voice-typing-meta' }, [count, micIndicator]),
     actions,
     help
   );
@@ -177,6 +179,8 @@ export function voiceTypingPage() {
   let transcriberPromise = null;
   let permissionStatus = null;
   let recordingTimeout = null;
+  let speechRecognition = null;
+  let recognitionShouldRun = false;
   let audioContextForMeter = null;
   let analyser = null;
   let meterSource = null;
@@ -291,6 +295,68 @@ export function voiceTypingPage() {
       refresh();
       permission.addEventListener?.('change', refresh);
     }).catch(() => setMicState('unknown', 'وضعیت میکروفون هنگام شروع ضبط مشخص می‌شود'));
+  }
+
+  function startLiveRecognition() {
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Recognition) {
+      interim.textContent = 'تایپ زنده در این مرورگر پشتیبانی نمی‌شود؛ صدا ضبط و پس از توقف تبدیل خواهد شد.';
+      interim.dataset.state = 'unsupported';
+      return;
+    }
+    try {
+      recognitionShouldRun = true;
+      speechRecognition = new Recognition();
+      speechRecognition.lang = language.value;
+      speechRecognition.continuous = true;
+      speechRecognition.interimResults = true;
+      speechRecognition.maxAlternatives = 1;
+      speechRecognition.onresult = (event) => {
+        let confirmed = '';
+        let pending = '';
+        for (let i = event.resultIndex; i < event.results.length; i += 1) {
+          const value = event.results[i][0]?.transcript || '';
+          if (event.results[i].isFinal) confirmed += value;
+          else pending += value;
+        }
+        if (confirmed.trim()) insertTextAtCursor(editor, confirmed.trim());
+        interim.textContent = pending ? 'در حال تشخیص: ' + pending : (recording ? 'گفتار شما به‌صورت زنده در متن ثبت می‌شود.' : '');
+        interim.dataset.state = pending ? 'pending' : 'live';
+        updateCount();
+      };
+      speechRecognition.onerror = (event) => {
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          interim.textContent = 'دسترسی تشخیص زنده داده نشد؛ ضبط ادامه دارد و پس از توقف تبدیل می‌شود.';
+          interim.dataset.state = 'unsupported';
+          recognitionShouldRun = false;
+        } else if (event.error !== 'no-speech' && event.error !== 'aborted') {
+          interim.textContent = 'تشخیص زنده موقتاً متوقف شد؛ فایل ضبط‌شده پس از پایان پردازش می‌شود.';
+        }
+      };
+      speechRecognition.onend = () => {
+        if (recognitionShouldRun && recording) {
+          try { speechRecognition.start(); } catch { /* مرورگر ممکن است شروع مجدد را نپذیرد */ }
+        }
+      };
+      speechRecognition.start();
+      interim.textContent = 'گفتار شما به‌صورت زنده در متن ثبت می‌شود.';
+      interim.dataset.state = 'live';
+    } catch (error) {
+      recognitionShouldRun = false;
+      interim.textContent = 'تایپ زنده در این مرورگر فعال نشد؛ ضبط و تبدیل پس از توقف همچنان در دسترس است.';
+      interim.dataset.state = 'unsupported';
+      console.info('[voice-typing] live recognition unavailable', error?.name || 'Error');
+    }
+  }
+
+  function stopLiveRecognition() {
+    recognitionShouldRun = false;
+    if (speechRecognition) {
+      speechRecognition.onend = null;
+      try { speechRecognition.stop(); } catch { /* ignore */ }
+      speechRecognition = null;
+    }
+    interim.textContent = '';
   }
 
   function updateCount() {
@@ -525,6 +591,7 @@ export function voiceTypingPage() {
     if (recordingTimeout) window.clearTimeout(recordingTimeout);
     recordingTimeout = null;
     stopWaveform();
+    stopLiveRecognition();
     mediaStream?.getTracks().forEach((track) => track.stop());
     mediaStream = null;
     recorder = null;
@@ -537,6 +604,7 @@ export function voiceTypingPage() {
   function stopRecording() {
     if (!recording || !recorder) return;
     recording = false;
+    stopLiveRecognition();
     if (recordingTimeout) window.clearTimeout(recordingTimeout);
     recordingTimeout = null;
     stop.disabled = true;
@@ -585,6 +653,7 @@ export function voiceTypingPage() {
         recorder.start();
         recording = true;
         startWaveform(mediaStream);
+        startLiveRecognition();
         recordingTimeout = window.setTimeout(() => {
           if (recording) {
             setStatus('حداکثر زمان هر نوبت ضبط ۳۰ دقیقه است؛ ضبط متوقف و تبدیل آغاز می‌شود.', 'starting');
