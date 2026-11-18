@@ -349,7 +349,8 @@ export async function adminPage() {
   });
   const membersView = el('section', { class: 'admin-view card', 'data-admin-view': 'members', hidden: 'hidden' }, [
     el('h2', { text: 'مدیریت اعضا و درخواست‌های عضویت' }),
-    el('h3', { text: 'اعلان درخواست‌های جدید' }), el('p', { class: 'muted', text: 'با فعال‌سازی اعلان، هنگام ثبت‌نام متقاضی جدید روی این دستگاه پیام دریافت می‌کنید. برای دریافت اعلان روی آیفون، سایت باید به صفحهٔ اصلی افزوده شده باشد.' }), pushEnable, pushNotice,\n    membersNotice, el('h3', { text: 'فهرست کاربران و درخواست‌ها' }), membersSearch, membersList,
+    el('h3', { text: 'اعلان درخواست‌های جدید' }), el('p', { class: 'muted', text: 'با فعال‌سازی اعلان، هنگام ثبت‌نام متقاضی جدید روی این دستگاه پیام دریافت می‌کنید. برای دریافت اعلان روی آیفون، سایت باید به صفحهٔ اصلی افزوده شده باشد.' }), pushEnable, pushNotice,
+    membersNotice, el('h3', { text: 'فهرست کاربران و درخواست‌ها' }), membersSearch, membersList,
     el('h3', { text: 'ثبت‌نام دستی عضو' }), el('p', { class: 'muted', text: 'رمز عبور موقت را امن به کاربر تحویل دهید؛ کاربر برای فعال‌سازی ورود باید ایمیل خود را نیز تأیید کند.' }), manualMemberForm,
   ]);
   const rejectedMembersView = el('section', { class: 'admin-view card', 'data-admin-view': 'rejected-members', hidden: 'hidden' }, [
