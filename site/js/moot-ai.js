@@ -317,10 +317,15 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
       caseId, role: step.speaker, stage: step.stage, difficulty, history: historyForApi(history),
     }, { timeoutMs: 45000 });
     if (!res.ok || !res.data?.reply) {
-      setBanner(`${errorText(res.data?.error || (res.networkError ? 'NETWORK' : 'AI_UNAVAILABLE'))} برای ادامه دوباره تلاش کنید.`);
+      // اختلال موقت مدل نباید جلسه را متوقف کند؛ نوبت ناموفق شفاف ثبت می‌شود و کاربر می‌تواند ادامه دهد.
+      const code = res.data?.error || (res.networkError ? 'NETWORK' : 'AI_UNAVAILABLE');
+      const fallback = `به علت اختلال موقت سرویس هوش مصنوعی، پاسخ ${SPEAKER_LABEL[step.speaker]} در این نوبت تولید نشد. برای جلوگیری از توقف جلسه، رسیدگی ادامه می‌یابد؛ این بخش ارزیابی محتوایی محسوب نمی‌شود.`;
+      addLine(step.speaker, fallback);
+      setBanner(`${errorText(code)} نوبت به‌صورت موقت ثبت شد؛ جلسه متوقف نمی‌شود.`);
       setBusy(false);
       nextBtn.disabled = false;
-      nextBtn.textContent = 'تلاش دوباره';
+      nextBtn.textContent = 'ادامه رسیدگی';
+      scheduleAutoAdvance();
       return;
     }
     nextBtn.textContent = 'ادامه رسیدگی';
@@ -337,7 +342,7 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
     autoAdvanceTimer = window.setTimeout(() => {
       autoAdvanceTimer = null;
       if (!busy && !finished && !userTurn()) advance();
-    }, 4200);
+    }, 1100);
     audioStatus.textContent = 'ادامه خودکار تا چند لحظه دیگر؛ برای رفتن فوری «ادامه رسیدگی» را بزنید.';
   }
 
@@ -444,9 +449,21 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
       answer: v.text, history: historyForApi(history),
     }, { timeoutMs: 60000 });
     if (!assessed.ok || !assessed.data?.assessment) {
+      const code = assessed.data?.error || (assessed.networkError ? 'NETWORK' : 'AI_UNAVAILABLE');
+      // متن دفاعیه همین حالا در حافظهٔ جلسه ثبت می‌شود؛ ارزیابی مدل یک قابلیت تکمیلی است، نه شرط عبور از مرحله.
+      if (assessed.status === 401 || assessed.status === 422) {
+        setBusy(false);
+        submitBtn.disabled = false;
+        audioStatus.textContent = `${errorText(code)} متن دفاعیه حفظ شد؛ پس از اصلاح مشکل دوباره ارسال کنید.`;
+        return;
+      }
+      addLine(userSide, v.text, true);
+      addLine('judge', 'به علت اختلال موقت در سرویس ارزیابی، امکان نمره‌دهی خودکار این دفاعیه فراهم نشد. متن دفاعیه در صورت‌جلسه ثبت شد و رسیدگی ادامه می‌یابد؛ ارزیابی این نوبت نیازمند بررسی بعدی است.');
+      answer.value = '';
+      renderInput(false);
       setBusy(false);
-      submitBtn.disabled = false;
-      audioStatus.textContent = `${errorText(assessed.data?.error || (assessed.networkError ? 'NETWORK' : 'AI_UNAVAILABLE'))} دفاعیه ثبت نشد و جلسه جلو نمی‌رود؛ دوباره تلاش کنید.`;
+      audioStatus.textContent = `${errorText(code)} دفاعیه در صورت‌جلسه حفظ شد و جلسه بدون ارزیابی خودکار ادامه یافت.`;
+      advance();
       return;
     }
     const result = assessed.data.assessment;
