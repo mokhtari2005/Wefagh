@@ -68,6 +68,9 @@ function pdfLinks() {
 }
 
 export async function ekhtebarPage() {
+  document.title = 'بانک سؤالات اختبار کانون‌های وکلای دادگستری | آکادمی وکالت شهرام مختاری';
+  const description = document.querySelector('meta[name="description"]');
+  if (description) description.setAttribute('content', 'آرشیو سؤالات اختبار کانون‌های وکلای دادگستری با دسته‌بندی حقوق مدنی، آیین دادرسی مدنی، حقوق کیفری، آیین دادرسی کیفری، تجارت و ثبت؛ همراه با فیلتر کانون، سال و سطح دشواری.');
   const root = h('section', { class: 'ekhtebar-page', dir: 'rtl' });
   root.append(
     h('a', { class: 'ekhtebar-back', href: '#/academy', text: '← بازگشت به آکادمی' }),
@@ -117,7 +120,7 @@ export async function ekhtebarPage() {
       });
       list.replaceChildren(...filtered.map(questionCard));
       empty.hidden = filtered.length > 0;
-      stats.textContent = 'نمایش ' + faNum(filtered.length) + ' از ' + faNum(records.length) + ' سؤال ثبت‌شده';
+      stats.textContent = 'نمایش ' + faNum(filtered.length) + ' از ' + faNum(records.length) + ' رکورد ثبت‌شده';
     };
     [search,subject,bars,years,levels].forEach((control) => control.addEventListener('input', update));
     reset.addEventListener('click', () => {
