@@ -7,8 +7,8 @@ self.addEventListener('push', (event) => {
   try { data = event.data ? event.data.json() : { body: event.data?.text() || '' }; } catch {}
   event.waitUntil(self.registration.showNotification(data.title || 'آکادمی وکالت', {
     body: data.body || 'یادآوری جدید دارید.',
-    icon: '/assets/favicon.svg',
-    badge: '/assets/favicon.svg',
+    icon: '/assets/pwa-icon.svg',
+    badge: '/assets/pwa-icon.svg',
     data: { url: data.url || '/#/deadlines' },
     dir: 'rtl', lang: 'fa', tag: 'mokhtari-calendar-reminder', renotify: true
   }));
