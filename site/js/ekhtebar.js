@@ -84,6 +84,7 @@ export async function ekhtebarPage() {
     const response = await fetch(DATA_URL, { cache: 'no-cache' });
     if (!response.ok) throw new Error('BANK_UNAVAILABLE');
     const data = await response.json();
+    loading.remove();
     const records = Array.isArray(data.records) ? data.records : [];
     const filters = h('div', { class: 'ekhtebar-filters panel' });
     const search = h('input', { type: 'search', placeholder: 'جست‌وجو در عنوان، متن سؤال، موضوع و کلیدواژه‌ها…', 'aria-label': 'جست‌وجو در سؤالات' });
