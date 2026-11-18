@@ -6,7 +6,7 @@ import { generateText, aiConfigured } from './ai/gemini.js';
 const OWNER = 'mokhtari2005';
 const REPOSITORY = 'Wefagh';
 const API = 'https://api.github.com';
-const COMPONENT_FILES = Object.freeze({
+export const COMPONENT_FILES = Object.freeze({
   'regional-map': 'site/js/regional-value.js',
   calculator: 'site/js/regional-value.js',
   'voice-typing': 'site/js/voice-typing.js',
@@ -41,7 +41,7 @@ function decodeBase64(value) {
 function safeBranch() {
   return `ai-repair/diagnostic-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
 }
-function validReplacement(path, content, original) {
+export function validReplacement(path, content, original) {
   return path === original.path
     && typeof content === 'string'
     && content.length > 0
