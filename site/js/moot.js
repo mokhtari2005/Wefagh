@@ -69,6 +69,16 @@ function buildWorksheet(CASE, persistable) {
     h('h1', { text: 'موت‌کورت' }),
     h('p', { class: 'lead', text: persistable ? 'پروندهٔ انتخاب‌شده را مرحله‌به‌مرحله تحلیل کنید. در صورت ورود به حساب، پاسخ‌ها ذخیره می‌شود و بعداً می‌توانید ادامه دهید.' : 'یک تمرین آموزشی بدون ذخیرهٔ پایدار. برای ذخیرهٔ پاسخ‌ها، یک پروندهٔ منتشرشده را از بانک پرونده‌ها باز کنید.' }),
   ]);
+  if (!persistable) {
+    const caseStart = h('section', { class: 'case-panel moot-case-start', 'aria-labelledby': 'moot-case-start-title' }, [
+      h('span', { class: 'section-kicker', text: 'گام نخست' }),
+      h('h2', { id: 'moot-case-start-title', text: 'ابتدا پروندهٔ تمرین را انتخاب کنید' }),
+      h('p', { class: 'muted', text: 'برای شروع یک تمرین واقعی و ذخیرهٔ پاسخ‌ها، ابتدا یکی از پرونده‌های منتشرشده در بانک را انتخاب کنید.' }),
+      h('a', { class: 'btn', href: '#/moot-court/cases', text: 'انتخاب پرونده از بانک پرونده‌ها' }),
+    ]);
+    wrap.prepend(caseStart);
+  }
+
   const accountBar = h('section', { class: 'case-panel', 'aria-label': 'ذخیره و بازیابی تمرین' }, [h('h2', { text: 'تمرین‌های من' })]);
   const accountStatus = h('p', { class: 'muted', role: 'status', 'aria-live': 'polite', text: 'در حال بررسی وضعیت حساب…' });
   const sessionSelect = h('select', { 'aria-label': 'انتخاب تمرین ذخیره‌شده' });
@@ -76,7 +86,7 @@ function buildWorksheet(CASE, persistable) {
   const saveStatus = h('p', { class: 'muted', role: 'status', 'aria-live': 'polite', text: 'هنوز تمرینی انتخاب نشده است.' });
   accountBar.append(accountStatus, h('div', { class: 'row' }, [sessionSelect, newSession]), saveStatus);
   wrap.append(accountBar, h('div', { class: 'notice', role: 'note', text: persistable ? 'این تمرین آموزشی است و جایگزین مشاورهٔ حقوقی نیست. اگر وارد حساب نشده‌اید، پاسخ‌ها فقط تا وقتی صفحه باز است نگه داشته می‌شوند.' : 'این تمرین فرضی و آموزشی است و جایگزین مشاورهٔ حقوقی نیست؛ پاسخ‌های آن ذخیره نمی‌شود.' }));
-  if (!persistable) wrap.append(h('p', {}, [h('a', { class: 'btn secondary', href: '#/moot-court/cases', text: 'انتخاب پروندهٔ منتشرشده از بانک' })]));
+
 
   const stepItems = STAGES.map((st, i) => h('li', { 'data-stage': st.id }, [h('span', { class: 'num', text: String(i + 1) }), h('span', { text: st.title })]));
   const stepper = h('ol', { class: 'stepper', 'aria-label': 'مراحل تمرین' }, stepItems);
