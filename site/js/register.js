@@ -285,6 +285,15 @@ export function registerForm({ onSuccess } = {}) {
       onSuccess?.(v.email);
       return;
     }
+    if (res.status === 409 && res.data?.errors) {
+      clearErrors();
+      for (const [key, msg] of Object.entries(res.data.errors)) setError(key, msg);
+      renderStep(0);
+      status.className = 'form-status err';
+      status.textContent = 'شماره تلفن همراه قبلاً ثبت شده است؛ شماره دیگری وارد کنید.';
+      C.phone.focus();
+      return;
+    }
     if (res.status === 422 && res.data?.errors) {
       clearErrors();
       const errors = res.data.errors;
