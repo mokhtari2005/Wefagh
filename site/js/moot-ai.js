@@ -228,7 +228,8 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
         h('p', { class: 'pre-wrap', text: m.text }),
       ]);
     }));
-    log.lastElementChild?.scrollIntoView?.({ block: 'nearest' });
+    // فقط پنل مذاکرات را به انتها ببریم؛ scrollIntoView صفحه را هم جابه‌جا می‌کرد و صندلی‌ها را از دید خارج می‌ساخت.
+    log.scrollTop = log.scrollHeight;
   }
 
   function renderInput(show) {
