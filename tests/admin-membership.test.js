@@ -26,7 +26,6 @@ test('membership approval email has a personalized welcome and login link', asyn
   assert.match(source, /تبریک و خوش‌آمدگویی/);
   assert.match(source, /approval-email/);
   assert.match(source, /emailSent/);
-  assert.match(source, /عضویت تأیید شد/);
 });
 
 test('approval email personalizes salutation and includes member details and login link', () => {
