@@ -14,7 +14,7 @@ test('درخواست کاشی نقشه به سرویس پایه منتقل و ب
     assert.equal(response.status, 200);
     assert.match(response.headers.get('content-type'), /image\/png/);
     assert.match(response.headers.get('cache-control'), /max-age=86400/);
-    assert.match(requested, /basemaps\\.cartocdn\\.com/);
+    assert.match(requested, /basemaps\.cartocdn\.com/);
   } finally { globalThis.fetch = originalFetch; }
 });
 
