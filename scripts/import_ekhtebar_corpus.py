@@ -210,9 +210,9 @@ def audit_database():
     return {"laws":laws[0] if laws else {},"articles":articles[0] if articles else {},"law_type_status":types}
 
 def normalize_title(value):
-    value = value.replace("\\u200c", " ").replace("\\u200f", " ").translate(DIGITS)
-    value = re.sub(r"[\\u064b-\\u065f\\u0670]", "", value)
-    value = re.sub(r"[\\s\\u200c]+", " ", value).strip()
+    value = value.replace("\u200c", " ").replace("\u200f", " ").translate(DIGITS)
+    value = re.sub(r"[\u064b-\u065f\u0670]", "", value)
+    value = re.sub(r"[\s\u200c]+", " ", value).strip()
     return value
 
 
