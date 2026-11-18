@@ -2815,3 +2815,80 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
   font-weight:850;
 }
 .registration-success-title-label { margin:0; color:#31534d; font-weight:750; }
+
+
+/* Moot court: clear status notices and a visible speaking order. */
+.court-audio { align-items: center; gap: .65rem; }
+.court-audio-info { flex: 1 1 60%; }
+.court-audio-status {
+  font-size: 1.08rem;
+  font-weight: 800;
+  line-height: 1.75;
+  color: #fff;
+  padding: .5rem .8rem;
+  border-inline-start: 4px solid var(--gold);
+  border-radius: 10px;
+  background: rgb(255 255 255 / .09);
+}
+.court-audio .court-next { flex: 0 0 auto; }
+.court-seat.current-turn {
+  background: #fff0c2;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px rgb(190 145 48 / .2), 0 8px 22px rgb(35 31 24 / .1);
+}
+.court-seat.current-turn .court-pill {
+  background: var(--deep);
+  color: var(--gold);
+  font-weight: 900;
+}
+.court-seat.current-turn .court-avatar {
+  background: var(--gold);
+  color: var(--deep);
+}
+.court-turn-order {
+  display: grid;
+  gap: .55rem;
+  padding: .8rem 1rem;
+  border: 1px solid var(--sand-line);
+  border-radius: 16px;
+  background: var(--paper);
+}
+.court-turn-order-title { color: var(--deep); font-size: .95rem; }
+.court-turn-order ol {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.court-turn-item {
+  display: grid;
+  align-content: center;
+  gap: .2rem;
+  min-width: 0;
+  padding: .55rem .65rem;
+  border: 1px solid var(--sand-line);
+  border-radius: 12px;
+  background: #f5f1e7;
+  color: var(--ink);
+}
+.court-turn-role { font-weight: 850; font-size: .88rem; }
+.court-turn-stage { color: var(--ink-soft); font-size: .78rem; overflow-wrap: anywhere; }
+.court-turn-state { color: var(--ink-soft); font-size: .72rem; }
+.court-turn-item.current {
+  background: var(--deep);
+  border-color: var(--gold);
+  color: var(--gold);
+  box-shadow: 0 0 0 2px rgb(190 145 48 / .2);
+}
+.court-turn-item.current .court-turn-stage,
+.court-turn-item.current .court-turn-state { color: #fff2c8; }
+@media (max-width: 860px) {
+  .court-main { padding-bottom: 8rem; }
+  .court-audio { display: grid; grid-template-columns: 1fr; }
+  .court-audio-info { display: block; }
+  .court-audio-status { font-size: 1rem; }
+  .court-audio .court-next { width: 100%; }
+  .court-turn-order ol { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
