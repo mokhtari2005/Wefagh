@@ -74,6 +74,7 @@ export async function handleDeadlines(request, env, path) {
         .bind(v.value.title, v.value.caseNo, v.value.dueDate, v.value.dueTime, v.value.kind, v.value.note, v.value.reminderEnabled ? 1 : 0, v.value.reminderDays, v.value.reminderTime, id, user.id)
         .run();
       await env.DB.prepare('DELETE FROM push_reminders_sent WHERE deadline_id = ?1').bind(id).run();
+      await env.DB.prepare('DELETE FROM deadline_email_reminders_sent WHERE deadline_id = ?1').bind(id).run();
       return json({ ok: true });
     }
     if (request.method === 'PATCH') {
