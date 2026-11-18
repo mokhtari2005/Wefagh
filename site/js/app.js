@@ -293,6 +293,43 @@ const ROUTES = {
   '/deadlines': (params) => lazy(() => deadlinesPage(params)),
 };
 
+
+/** دسترسی سریع موبایل: مسیرهای پرکاربرد در ابتدای هر صفحه. */
+function mobileQuickAccess(path) {
+  if (path === '/' || path === '/moot-court/hearing') return null;
+  const calculatorLinks = [
+    { icon: 'map-pin', title: 'ارزش منطقه‌ای', href: '#/calculators/regional' },
+    { icon: 'landmark', title: 'هزینه دادرسی', href: '#/calculators/court' },
+    { icon: 'briefcase', title: 'حق‌الوکاله', href: '#/calculators/attorney' },
+    { icon: 'calculator', title: 'تأخیر تأدیه', href: '#/calculators/delay' },
+  ];
+  const generalLinks = [
+    { icon: 'graduation-cap', title: 'آکادمی', href: '#/academy' },
+    { icon: 'scale', title: 'دستیار وکیل', href: '#/assistant' },
+    { icon: 'calculator', title: 'محاسبه‌گرها', href: '#/calculators' },
+    { icon: 'calendar', title: 'تقویم مواعد', href: '#/deadlines' },
+    { icon: 'folder', title: 'پرونده‌ها', href: '#/cases' },
+    { icon: 'mic', title: 'تایپ صوتی', href: '#/voice-typing' },
+  ];
+  const items = path.startsWith('/calculators/') || path === '/calculators'
+    ? calculatorLinks
+    : generalLinks;
+  const nav = h('nav', { class: 'mobile-quick-access', 'aria-label': 'دسترسی سریع به ابزارها' });
+  nav.append(h('span', { class: 'mobile-quick-access-label', text: 'دسترسی سریع' }));
+  const list = h('div', { class: 'mobile-quick-access-list' });
+  for (const item of items) {
+    const link = h('a', { class: 'mobile-quick-access-item', href: item.href });
+    if (item.href === `#${path}`) link.setAttribute('aria-current', 'page');
+    link.append(
+      h('span', { class: 'mobile-quick-access-icon', 'aria-hidden': 'true' }, [icon(item.icon, { size: 20 })]),
+      h('span', { class: 'mobile-quick-access-title', text: item.title }),
+    );
+    list.append(link);
+  }
+  nav.append(list);
+  return nav;
+}
+
 function render() {
   const { path, params } = currentRoute();
   renderNav(path);
@@ -309,7 +346,8 @@ function render() {
   else content = pageNotFound();
 
   document.body.classList.toggle('immersive', path === '/moot-court/hearing');
-  main.replaceChildren(content);
+  const quickAccess = mobileQuickAccess(path);
+  main.replaceChildren(...(quickAccess ? [quickAccess, content] : [content]));
   const EXTRA_TITLES = { '/admin': 'مدیریت محتوا', '/dashboard': 'داشبورد من', '/verify': 'تأیید ایمیل', '/moot-court': 'موت کورت', '/cases': 'بانک پرونده‌ها', '/assistant': 'دستیار هوشمند وکیل', '/assistant/history': 'سوابق گفت‌وگوهای دستیار', '/academy/courses': 'دوره‌های آموزشی', '/courses': 'دوره‌های آموزشی', '/academy/exams': 'مرکز آزمون هوشمند', '/moot-court/hearing': 'اتاق دادگاه', '/moot-court/cases': 'انتخاب پرونده' };
   const navTitle = NAV.find((n) => n.path === path)?.title;
   const title = navTitle ?? EXTRA_TITLES[path] ?? (path.startsWith('/academy/') ? 'آکادمی' : 'صفحه پیدا نشد');
