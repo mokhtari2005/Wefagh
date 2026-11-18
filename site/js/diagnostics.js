@@ -45,15 +45,28 @@ export function installDiagnostics() {
     const isApi = url.startsWith('/api/') || url.startsWith(location.origin + '/api/');
     const isReport = url.includes('/api/diagnostics/report');
     const component = componentFor(url);
-    try {
-      const response = await originalFetch(...args);
-      if (isApi && !isReport && (response.status === 429 || response.status >= 500)) {
-        report({ category: 'api', component, errorCode: response.status === 429 ? 'RATE_LIMITED' : 'SERVER_ERROR', httpStatus: response.status });
+    const method = String(args[1]?.method || input?.method || 'GET').toUpperCase();
+    const canRetry = (method === 'GET' || method === 'HEAD') && isApi && !isReport;
+    let lastError;
+    for (let attempt = 0; attempt <= (canRetry ? 2 : 0); attempt += 1) {
+      try {
+        const response = await originalFetch(...args);
+        const retryable = response.status === 429 || [500, 502, 503, 504].includes(response.status);
+        if (retryable && canRetry && attempt < 2) {
+          const retryAfter = Number(response.headers.get('retry-after'));
+          const delay = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000, 2000) : 350 * (attempt + 1);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+        if (isApi && !isReport && retryable) report({ category: 'api', component, errorCode: response.status === 429 ? 'RATE_LIMITED' : 'SERVER_ERROR', httpStatus: response.status });
+        return response;
+      } catch (error) {
+        lastError = error;
+        if (!canRetry || attempt >= 2 || error?.name === 'AbortError') break;
+        await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));
       }
-      return response;
-    } catch (error) {
-      if (isApi && !isReport) report({ category: 'network', component, errorCode: error?.name === 'AbortError' ? 'REQUEST_TIMEOUT' : 'NETWORK_FAILURE' });
-      throw error;
     }
+    if (isApi && !isReport) report({ category: 'network', component, errorCode: lastError?.name === 'AbortError' ? 'REQUEST_TIMEOUT' : 'NETWORK_FAILURE' });
+    throw lastError;
   };
 }
