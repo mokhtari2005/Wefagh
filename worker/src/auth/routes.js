@@ -71,11 +71,13 @@ export async function register(request, env) {
   const pol = validatePasswordPolicy(body.password);
   if (!pol.ok) errors.password = pol.error;
   if (displayName.length < 2 || displayName.length > 100) errors.displayName = 'نام و نام خانوادگی باید بین ۲ و ۱۰۰ نویسه باشد.';
-  if (professionalTitle && (professionalTitle.length < 2 || professionalTitle.length > 100)) errors.professionalTitle = 'عنوان حرفه‌ای باید بین ۲ و ۱۰۰ نویسه باشد.';
-  if (!['male', 'female'].includes(gender)) errors.gender = 'جنسیت را انتخاب کنید.';
-  if (!['lawyer', 'trainee', 'law_student', 'law_graduate', 'professor', 'researcher', 'other'].includes(position)) errors.position = 'سمت را از فهرست انتخاب کنید.';
-  if (!['academy_member', 'academy_instructor', 'academy_researcher', 'guest_member', 'other'].includes(professionalTitle)) errors.professionalTitle = 'عنوان را از فهرست انتخاب کنید.';
-  if (!/^09\\d{9}$/.test(phone)) errors.phone = 'شماره همراه باید ۱۱ رقم و با ۰۹ شروع شود.';
+  const hasRegistrationDetails = ['gender', 'phone', 'professionalTitle', 'position'].some((key) => body[key] !== undefined);
+  if (hasRegistrationDetails) {
+    if (!['male', 'female'].includes(gender)) errors.gender = 'جنسیت را انتخاب کنید.';
+    if (!['lawyer', 'trainee', 'law_student', 'law_graduate', 'professor', 'researcher', 'other'].includes(position)) errors.position = 'سمت را از فهرست انتخاب کنید.';
+    if (!['academy_member', 'academy_instructor', 'academy_researcher', 'guest_member', 'other'].includes(professionalTitle)) errors.professionalTitle = 'عنوان را از فهرست انتخاب کنید.';
+    if (!/^09\d{9}$/.test(phone)) errors.phone = 'شماره همراه باید ۱۱ رقم و با ۰۹ شروع شود.';
+  }
   if (Object.keys(errors).length > 0) return json({ ok: false, error: 'VALIDATION_FAILED', errors }, 422);
 
   const existing = await env.DB.prepare('SELECT id, status, email_verified_at FROM users WHERE email = ?1').bind(email).first();
