@@ -209,6 +209,8 @@ export async function adminPage() {
   const membersNotice = el('p', { class: 'form-status', role: 'status' });
   const membersList = el('div', { class: 'admin-content-list' });
   const membersSearch = el('input', { type: 'search', placeholder: 'جست‌وجو بر اساس نام، ایمیل یا شماره عضویت', 'aria-label': 'جست‌وجوی اعضا' });
+  const rejectedMembersList = el('div', { class: 'admin-content-list' });
+  const rejectedMembersSearch = el('input', { type: 'search', placeholder: 'جست‌وجو در درخواست‌های ردشده', 'aria-label': 'جست‌وجو در درخواست‌های ردشده' });
   const manualMemberForm = el('form', { class: 'admin-form card' });
   const manualName = field('نام و نام خانوادگی', 'memberName');
   const manualEmail = field('ایمیل', 'memberEmail', '', 'email');
@@ -217,11 +219,11 @@ export async function adminPage() {
   const manualPassword = field('رمز عبور موقت (حداقل مطابق سیاست رمز عبور)', 'memberPassword', '', 'password');
   const manualSubmit = el('button', { class: 'btn', type: 'submit', text: 'ثبت عضو و ارسال ایمیل تأیید' });
   manualMemberForm.append(manualName, manualEmail, manualTitle, manualPosition, manualPassword, manualSubmit);
-  function renderMembers(items) {
-    membersList.replaceChildren();
-    const q = membersSearch.value.trim().toLocaleLowerCase();
+  function renderMembers(items, targetList = membersList, searchInput = membersSearch) {
+    targetList.replaceChildren();
+    const q = searchInput.value.trim().toLocaleLowerCase();
     const filtered = items.filter(x => !q || [x.displayName,x.email,x.membershipNo,x.mobile].some(v => String(v || '').toLocaleLowerCase().includes(q)));
-    if (!filtered.length) { membersList.append(el('p', { class: 'muted', text: 'عضوی با این مشخصات پیدا نشد.' })); return; }
+    if (!filtered.length) { targetList.append(el('p', { class: 'muted', text: 'عضوی با این مشخصات پیدا نشد.' })); return; }
     for (const item of filtered) {
       const statusLabel = item.membershipStatus === 'pending' ? 'در انتظار تأیید' : item.membershipStatus === 'approved' ? 'عضویت تأییدشده' : 'درخواست ردشده';
       const row = el('article', { class: 'admin-content-row card' }, [
@@ -243,7 +245,7 @@ export async function adminPage() {
         reject.addEventListener('click', () => { if (window.confirm('درخواست عضویت این کاربر رد شود؟')) decide(item.id,'rejected'); });
         row.append(reject);
       }
-      membersList.append(row);
+      targetList.append(row);
     }
   }
   let memberItems = [];
@@ -252,9 +254,12 @@ export async function adminPage() {
     const r = await getJson('/api/admin/members');
     if (!r.ok) { membersNotice.className = 'form-status err'; membersNotice.textContent = errorText(r.data,r.status); return; }
     memberItems = r.data.items || [];
-    const pending = memberItems.filter(x => x.membershipStatus === 'pending').length;
-    membersNotice.textContent = memberItems.length + ' کاربر · ' + pending + ' درخواست در انتظار بررسی';
-    renderMembers(memberItems);
+    const activeMembers = memberItems.filter(x => x.membershipStatus !== 'rejected');
+    const rejectedMembers = memberItems.filter(x => x.membershipStatus === 'rejected');
+    const pending = activeMembers.filter(x => x.membershipStatus === 'pending').length;
+    membersNotice.textContent = activeMembers.length + ' کاربر · ' + pending + ' درخواست در انتظار بررسی';
+    renderMembers(activeMembers);
+    renderMembers(rejectedMembers, rejectedMembersList, rejectedMembersSearch);
   }
   async function decide(userId, decision) {
     const r = await postJson('/api/admin/members/decision',{userId,decision});
@@ -262,7 +267,8 @@ export async function adminPage() {
     membersNotice.textContent = r.ok ? (decision === 'approved' ? 'عضویت تأیید شد. کاربر پس از تأیید ایمیل می‌تواند وارد شود.' : 'درخواست رد شد و نشست‌های فعال کاربر بسته شد.') : errorText(r.data,r.status);
     if (r.ok) await refreshMembers();
   }
-  membersSearch.addEventListener('input', () => renderMembers(memberItems));
+  membersSearch.addEventListener('input', () => renderMembers(memberItems.filter(x => x.membershipStatus !== 'rejected')));
+  rejectedMembersSearch.addEventListener('input', () => renderMembers(memberItems.filter(x => x.membershipStatus === 'rejected'), rejectedMembersList, rejectedMembersSearch));
   manualMemberForm.addEventListener('submit', async event => {
     event.preventDefault(); manualSubmit.disabled = true;
     const r = await postJson('/api/admin/members/manual',{
@@ -277,9 +283,11 @@ export async function adminPage() {
   });
   const membersView = el('section', { class: 'admin-view card', 'data-admin-view': 'members', hidden: 'hidden' }, [
     el('h2', { text: 'مدیریت اعضا و درخواست‌های عضویت' }),
-    el('p', { class: 'muted', text: 'ثبت‌نام‌های جدید تا تصمیم مدیر در وضعیت انتظار می‌مانند. تأیید عضویت جایگزین تأیید ایمیل نیست؛ ورود کاربر پس از انجام هر دو مرحله ممکن می‌شود.' }),
     membersNotice, el('h3', { text: 'فهرست کاربران و درخواست‌ها' }), membersSearch, membersList,
     el('h3', { text: 'ثبت‌نام دستی عضو' }), el('p', { class: 'muted', text: 'رمز عبور موقت را امن به کاربر تحویل دهید؛ کاربر برای فعال‌سازی ورود باید ایمیل خود را نیز تأیید کند.' }), manualMemberForm,
+  ]);
+  const rejectedMembersView = el('section', { class: 'admin-view card', 'data-admin-view': 'rejected-members', hidden: 'hidden' }, [
+    el('h2', { text: 'درخواست‌های ردشده' }), rejectedMembersSearch, rejectedMembersList,
   ]);
   await refreshMembers();
 
@@ -1026,13 +1034,14 @@ export async function adminPage() {
     ['dashboard', 'داشبورد', '⌂'],
     ['content', 'دوره‌ها و پرونده‌ها', '▤'],
     ['members', 'مدیریت اعضا', '♙'],
+    ['rejected-members', 'درخواست‌های ردشده', '⊘'], 
     ['imports', 'بانک پرونده و بارگذاری', '⇧'],
     ['legal-bank', 'بانک قوانین', '§'],
     ['media', 'رسانه و اندیشه', '▧'],
     ['services', 'سلامت و عیب‌یابی', '⚙'],
   ];
   const menuToggle = el('button', { class: 'admin-menu-toggle btn secondary', type: 'button', 'aria-expanded': 'false', 'aria-controls': 'admin-sidebar' }, [el('span', { text: '☰' }), el('span', { text: ' منوی مدیریت' })]);
-  const views = { dashboard: dashboardView, members: membersView, content: contentView, imports: importView, 'legal-bank': legalBankView, media: mediaView, services: servicesView };
+  const views = { dashboard: dashboardView, members: membersView, 'rejected-members': rejectedMembersView, content: contentView, imports: importView, 'legal-bank': legalBankView, media: mediaView, services: servicesView };
   function selectView(key) {
     if (key === 'dashboard') updateDashboard();
     if (key === 'members') refreshMembers();
@@ -1059,7 +1068,7 @@ export async function adminPage() {
     const open = nav.classList.toggle('open');
     menuToggle.setAttribute('aria-expanded', String(open));
   });
-  const workspace = el('div', { class: 'admin-workspace admin-workspace-redesigned' }, [nav, el('div', { class: 'admin-main-column' }, [menuToggle, dashboardView, membersView, contentView, importView, legalBankView, mediaView, servicesView])]);
+  const workspace = el('div', { class: 'admin-workspace admin-workspace-redesigned' }, [nav, el('div', { class: 'admin-main-column' }, [menuToggle, dashboardView, membersView, rejectedMembersView, contentView, importView, legalBankView, mediaView, servicesView])]);
   wrap.append(workspace);
   return wrap;
 }
