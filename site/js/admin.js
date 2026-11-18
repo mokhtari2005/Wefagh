@@ -339,7 +339,7 @@ export async function adminPage() {
               : proposed.networkError || proposed.status === 0
                 ? 'ارتباط با سرویس تحلیل برقرار نشد؛ وضعیت Worker و GitHub را بررسی کنید.'
                 : proposed.data?.hint || proposed.data?.error
-                  ? `${proposed.data.hint || proposed.data.error} (HTTP ${proposed.status})`
+                  ? `${proposed.data.hint || proposed.data.error}${proposed.data.reason ? ` · علت: ${proposed.data.reason}` : ''}${proposed.data.stage ? ` · مرحله: ${proposed.data.stage}` : ''} (HTTP ${proposed.status})`
                   : errorText(proposed.data, proposed.status);
             analysisPanel.replaceChildren(el('h4', { text: 'تحلیل ناموفق بود' }), el('p', { class: 'form-status err', text: message }));
             repair.disabled = false;
