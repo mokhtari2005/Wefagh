@@ -11,7 +11,7 @@ const TYPES = new Set([
   'administrative_court_unified_precedent', 'administrative_court_general_board',
   'administrative_court_specialized_board', 'judicial_advisory_opinion',
   'judicial_circular', 'executive_circular', 'executive_regulation',
-  'treaty', 'guardian_council_opinion', 'parliamentary_research'
+  'treaty', 'guardian_council_opinion', 'parliamentary_research', 'judicial_decision'
 ]);
 
 async function readLargeJson(request, maxBytes = 4 * 1024 * 1024) {
