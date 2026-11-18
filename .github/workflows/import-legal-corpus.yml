@@ -1,6 +1,9 @@
 name: Import public Iranian legal corpus
 
 on:
+  schedule:
+    # همگام‌سازی دوره‌ای پیکره عمومی؛ اسناد تازه نیز تا بررسی رسمی needs_review می‌مانند.
+    - cron: '17 2 * * 1'
   push:
     branches: [main]
     paths:
