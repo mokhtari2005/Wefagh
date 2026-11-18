@@ -7,7 +7,7 @@ import { currentUser } from '../auth/routes.js';
 import { registrationRequired } from '../access.js';
 import { handleThreads } from './threads.js';
 import { AiError, aiConfigured, transcribeAudio, synthesizeLongSpeech } from './gemini.js';
-import { generateTextWithFallback } from './fallback.js';
+import { generateTextWithFallback, stripResponseFormatting } from './fallback.js';
 import { groqConfigured } from './groq.js';
 import { clampReply } from './speech.js';
 import { reviewLegalDraft, groqReviewNotes, groqReviewShortNote } from './groq.js';
@@ -495,7 +495,7 @@ async function ekhtebarAnswer(request, env) {
     if (legalBankUnavailable) notes.push('بانک قوانین در دسترس نبود؛ استنادهای پاسخ باید مستقلاً با متن رسمی قوانین تطبیق داده شوند.');
     if (!legalSources.length) notes.push('ماده قانونی تأییدشده‌ای از بانک قوانین بازیابی نشد؛ شماره مواد و مقررات ذکرشده در متن پاسخ را پیش از استفاده با منبع رسمی بررسی کنید.');
     if (truncated) notes.push('پاسخ به سقف طول رسید و ممکن است نیاز به درخواست ادامه داشته باشد.');
-    return json({ ok: true, answer: answer.trim(), legalSources, notes, disclaimer: LEGAL_DISCLAIMER });
+    return json({ ok: true, answer: stripResponseFormatting(answer), legalSources, notes, disclaimer: LEGAL_DISCLAIMER });
   } catch (err) {
     return aiFailure(err, 'ekhtebar_answer');
   }
