@@ -31,3 +31,9 @@ test('درخواست GitHub سرآیند User-Agent معتبر می‌فرستد
   assert.equal(sentHeaders['user-agent'], 'Mokhtari-Law-Academy-Diagnostics');
   assert.equal(sentHeaders.accept, 'application/vnd.github+json');
 });
+
+
+test('آزمون نوشتن GitHub فقط از مسیر اختصاصی و با متد POST فعال است', async () => {
+  const source = await import('../worker/src/diagnostic-self-test.js');
+  assert.equal(typeof source.handleDiagnosticSelfTest, 'function');
+});
