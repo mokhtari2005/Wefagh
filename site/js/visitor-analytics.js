@@ -59,9 +59,10 @@ export async function visitorAnalyticsPage() {
   const status = el('div', { class: 'va-status', role: 'status', text: 'در حال دریافت آمار…' });
   const metrics = el('div', { class: 'va-metrics' });
   const charts = el('div', { class: 'va-charts' });
+  const membersPanel = el('section', { class: 'va-panel va-members-panel' });
   const onlinePanel = el('section', { class: 'va-panel va-online-panel' });
   const popularPanel = el('section', { class: 'va-panel va-popular-panel' });
-  root.append(header, status, metrics, charts, onlinePanel, popularPanel);
+  root.append(header, status, metrics, charts, membersPanel, onlinePanel, popularPanel);
 
   async function load() {
     const button = header.querySelector('button');
@@ -88,6 +89,25 @@ export async function visitorAnalyticsPage() {
       );
       const logged = online.filter(x => Boolean(x.user_id)).length;
       const anonymous = online.length - logged;
+      const academyMembers = online.filter(x => Boolean(x.user_id));
+      membersPanel.replaceChildren(el('div', { class: 'va-panel-heading' }, [
+        el('div', {}, [el('h2', { text: 'اعضای آکادمی آنلاین' }), el('p', { class: 'va-muted', text: 'اعضایی که با حساب کاربری خود وارد شده‌اند و در دو دقیقهٔ اخیر فعال بوده‌اند' })]),
+        el('span', { class: 'va-live-count', text: number(academyMembers.length) + ' عضو آنلاین' })
+      ]));
+      if (!academyMembers.length) {
+        membersPanel.append(el('div', { class: 'va-empty', text: 'در حال حاضر عضو واردشده و فعالی ثبت نشده است.' }));
+      } else {
+        const memberList = el('div', { class: 'va-member-list' });
+        academyMembers.forEach(member => memberList.append(el('article', { class: 'va-member-card' }, [
+          el('span', { class: 'va-member-avatar', text: String(member.display_name || 'ع').trim().slice(0, 1) }),
+          el('div', { class: 'va-member-info' }, [
+            el('strong', { text: member.display_name || 'عضو آکادمی' }),
+            el('span', { text: 'آنلاین · ' + (member.current_path || '/') })
+          ]),
+          el('span', { class: 'va-member-pulse', text: 'فعال' })
+        ])));
+        membersPanel.append(memberList);
+      }
       const mobile = online.filter(x => deviceType(x.user_agent) === 'موبایل').length;
       const desktop = online.filter(x => deviceType(x.user_agent) === 'رایانه').length;
       const unknown = online.length - mobile - desktop;
