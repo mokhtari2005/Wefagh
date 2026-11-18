@@ -31,6 +31,19 @@ class NationalJudgmentParserTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_judgment(SAMPLE, "https://example.com/Judge/Text/34496")
 
+    def test_body_reference_to_unified_precedent_does_not_change_document_type(self):
+        html = SAMPLE.replace(
+            "به دادسرای ناحیه 4 تهران تقدیم",
+            "با توجه به رأی وحدت رویه دیوان عالی کشور، به دادسرای ناحیه 4 تهران تقدیم",
+        )
+        result = parse_judgment(html, "https://ara.jri.ac.ir/Judge/Text/34496")
+        self.assertEqual(result["lawType"], "judicial_decision")
+
+    def test_explicit_unified_precedent_title_is_classified(self):
+        html = SAMPLE.replace("عنوان: مصداق خلاف بیّن شرع", "عنوان: رأی وحدت رویه شماره ۸۲۱")
+        result = parse_judgment(html, "https://ara.jri.ac.ir/Judge/Text/34496")
+        self.assertEqual(result["lawType"], "supreme_court_unified_precedent")
+
     def test_rejects_page_without_required_metadata(self):
         with self.assertRaises(ValueError):
             parse_judgment("<h1>صفحه ناقص</h1>", "https://ara.jri.ac.ir/Judge/Text/34496")
