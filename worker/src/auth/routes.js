@@ -118,6 +118,7 @@ export async function register(request, env) {
     }
   } catch (err) {
     // ثبت همزمان دو درخواست با یک ایمیل: پاسخ عمومی؛ سایر خطاها به کاربر نشان داده نمی‌شوند.
+    if (String(err?.message || '').includes('users.phone')) return json({ ok: false, error: 'PHONE_ALREADY_EXISTS', errors: { phone: 'این شماره تلفن همراه قبلاً ثبت شده است.' } }, 409);
     if (String(err?.message || '').includes('UNIQUE')) return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
     logError('register.insert_user', err);
     return json({ ok: false, error: 'INTERNAL_ERROR' }, 500);
