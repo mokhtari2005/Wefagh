@@ -21,7 +21,7 @@ export function json(data, status = 200, extraHeaders = {}) {
 
 export async function readJsonBody(request) {
   const type = request.headers.get('content-type') || '';
-  if (!/^application\\/json(?:\\s*;|$)/i.test(type)) {
+  if (!/^application\/json(?:\s*;|$)/i.test(type)) {
     return { error: json({ ok: false, error: 'UNSUPPORTED_MEDIA_TYPE' }, 415) };
   }
 
