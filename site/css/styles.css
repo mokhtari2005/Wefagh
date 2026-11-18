@@ -2785,3 +2785,33 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
  .registration-success-mark { width:58px; height:58px; }
  .registration-success-lead { font-size:.9rem; }
 }
+
+
+/* نشان آکادمی در صفحهٔ موفقیت ثبت‌نام */
+.registration-success-logo {
+  display:grid;
+  justify-items:center;
+  gap:.35rem;
+  margin:.15rem 0 0;
+  padding:.8rem 1.4rem .55rem;
+  border-top:1px solid #e5ece8;
+}
+.registration-success-logo-mark {
+  display:grid;
+  place-items:center;
+  width:58px;
+  height:58px;
+  border:1px solid #c7d9d1;
+  border-radius:50%;
+  background:linear-gradient(145deg,#f8fbf9,#eaf3ef);
+  color:#245d52;
+  font-family:serif;
+  font-size:2.25rem;
+  line-height:1;
+}
+.registration-success-logo-name {
+  color:#31534d;
+  font-size:.8rem;
+  font-weight:850;
+}
+.registration-success-title-label { margin:0; color:#31534d; font-weight:750; }
