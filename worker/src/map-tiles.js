@@ -1,9 +1,11 @@
 // Same-origin raster tile proxy for the regional property map.
 // Client requests are constrained to valid Web Mercator tile coordinates.
 const TILE_HOSTS = [
-  // OpenStreetMap public raster tiles are the primary source. CARTO's
-  // current tile endpoint can return an API KEY REQUIRED watermark.
+  // Primary: OpenStreetMap standard raster tiles.
   (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`,
+  // Per-tile fallback: Esri World Street Map public tile endpoint.
+  // Esri uses the XYZ path order z/y/x (not z/x/y).
+  (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${z}/${y}/${x}`,
 ];
 
 const TILE_HEADERS = {
@@ -31,6 +33,7 @@ export async function handleMapTiles(request) {
       const upstream = await fetch(makeUrl(z, x, y), {
         method: request.method,
         headers: TILE_HEADERS,
+        signal: AbortSignal.timeout(8000),
         cf: { cacheTtl: 86400, cacheEverything: true },
       });
       if (!upstream.ok) continue;
