@@ -163,7 +163,7 @@ export function voiceTypingPage() {
   let transcriber = null;
   let transcriberPromise = null;
   let permissionStatus = null;
-  let recordedAt = 0;
+  let recordingTimeout = null;
   const MAX_RECORDING_MS = 5 * 60 * 1000;
   const MODEL_ID = 'onnx-community/whisper-tiny';
 
@@ -214,12 +214,11 @@ export function voiceTypingPage() {
     prepare.textContent = 'در حال آماده‌سازی…';
     setStatus('در حال بارگذاری موتور تشخیص گفتار؛ در اولین بار ممکن است چند دقیقه طول بکشد…', 'starting');
     transcriberPromise = (async () => {
-      const module = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.2');
+      const module = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1');
       module.env.allowLocalModels = false;
       module.env.allowRemoteModels = true;
       module.env.useBrowserCache = true;
       const pipe = await module.pipeline('automatic-speech-recognition', MODEL_ID, {
-        device: 'wasm',
         dtype: 'q8',
         progress_callback: (event) => {
           if (event.status === 'progress' && Number.isFinite(event.progress)) {
@@ -323,6 +322,8 @@ export function voiceTypingPage() {
     const mimeType = recorder?.mimeType || audioChunks[0]?.type || 'audio/mp4';
     const blob = new Blob(audioChunks, { type: mimeType });
     audioChunks = [];
+    if (recordingTimeout) window.clearTimeout(recordingTimeout);
+    recordingTimeout = null;
     mediaStream?.getTracks().forEach((track) => track.stop());
     mediaStream = null;
     recorder = null;
@@ -335,6 +336,8 @@ export function voiceTypingPage() {
   function stopRecording() {
     if (!recording || !recorder) return;
     recording = false;
+    if (recordingTimeout) window.clearTimeout(recordingTimeout);
+    recordingTimeout = null;
     stop.disabled = true;
     start.disabled = true;
     setMicState('waiting', 'ضبط پایان یافت · در حال آماده‌سازی فایل');
@@ -377,7 +380,12 @@ export function voiceTypingPage() {
         recorder.addEventListener('stop', finishRecording, { once: true });
         recorder.start(1000);
         recording = true;
-        recordedAt = Date.now();
+        recordingTimeout = window.setTimeout(() => {
+          if (recording) {
+            setStatus('حداکثر زمان هر نوبت ضبط ۵ دقیقه است؛ ضبط متوقف و تبدیل آغاز می‌شود.', 'starting');
+            stopRecording();
+          }
+        }, MAX_RECORDING_MS);
         start.disabled = true;
         stop.disabled = false;
         setMicState('connected', 'میکروفون فعال است · در حال ضبط');
@@ -401,14 +409,8 @@ export function voiceTypingPage() {
     stop.addEventListener('click', stopRecording);
   }
 
-  const recordingGuard = window.setInterval(() => {
-    if (recording && Date.now() - recordedAt >= 5 * 60 * 1000) {
-      setStatus('حداکثر زمان هر نوبت ضبط ۵ دقیقه است؛ ضبط متوقف و تبدیل آغاز می‌شود.', 'starting');
-      stopRecording();
-    }
-  }, 1000);
   window.addEventListener('beforeunload', () => {
-    window.clearInterval(recordingGuard);
+    if (recordingTimeout) window.clearTimeout(recordingTimeout);
     if (recording) {
       try { recorder?.stop(); } catch { /* ignore */ }
       mediaStream?.getTracks().forEach((track) => track.stop());
