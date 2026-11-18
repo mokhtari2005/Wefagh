@@ -60,44 +60,70 @@ export function regionalValueTool() {
   province.el.readOnly = true;
   city.el.readOnly = true;
   const address = input('rv-address', 'نشانی دقیق ملک');
-  const postalCode = input('rv-postal-code', 'کد پستی (در صورت وجود)');
+  const postalCode = input('rv-postal-code', 'کد پستی ده‌رقمی');
   postalCode.el.maxLength = 10;
   postalCode.el.inputMode = 'numeric';
+  postalCode.el.autocomplete = 'postal-code';
+  postalCode.el.addEventListener('input', () => {
+    postalCode.el.value = postalCode.el.value.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/\\D/g, '').slice(0, 10);
+  });
+  const postalSearchButton = h('button', { type: 'button', class: 'btn secondary regional-postal-search', text: 'یافتن موقعیت روی نقشه' });
+  const postalSearchStatus = h('p', { class: 'muted regional-postal-status', role: 'status', 'aria-live': 'polite' });
   const coordinates = input('rv-coordinates', 'مختصات جغرافیایی (عرض، طول)');
   coordinates.el.readOnly = true;
   const mapStatus = h('p', { class: 'muted regional-map-status', role: 'status', text: 'برای تعیین موقعیت، روی نقشه کلیک کنید یا نشانگر را جابه‌جا کنید.' });
   const mapCanvas = h('div', { id: 'rv-map', class: 'regional-property-map', role: 'application', 'aria-label': 'نقشه تعیین موقعیت ملک در شیراز' });
   const locationFields = h('section', { class: 'regional-location-fields' }, [
     h('h3', { text: 'موقعیت و نشانی ملک' }),
-    province.node, city.node, address.node, postalCode.node,
+    province.node, city.node, address.node,
+    h('div', { class: 'field regional-postal-field' }, [h('label', { for: 'rv-postal-code', text: 'کد پستی ده‌رقمی (اختیاری)' }), postalCode.el, postalSearchButton, postalSearchStatus]),
     h('div', { class: 'field regional-map-field' }, [h('label', { text: 'نقشه شهر و تعیین موقعیت ملک' }), mapCanvas, mapStatus]),
     coordinates.node
   ]);
+  let regionalMap = null;
+  let regionalMarker = null;
+  const defaultPoint = [29.5918, 52.5837];
+  function loadScript(url) {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = url;
+      script.onload = () => window.L ? resolve(window.L) : reject(new Error('Leaflet global missing'));
+      script.onerror = () => reject(new Error('Leaflet script failed'));
+      document.head.append(script);
+    });
+  }
   function loadLeaflet() {
     if (window.L) return Promise.resolve(window.L);
     if (window.__regionalLeafletPromise) return window.__regionalLeafletPromise;
-    window.__regionalLeafletPromise = new Promise((resolve, reject) => {
+    window.__regionalLeafletPromise = (async () => {
+      const cssUrls = [
+        'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
+        'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css'
+      ];
       if (!document.querySelector('link[data-regional-leaflet]')) {
         const link = document.createElement('link');
         link.rel = 'stylesheet';
-        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        link.href = cssUrls[0];
         link.dataset.regionalLeaflet = '1';
+        link.onerror = () => { link.href = cssUrls[1]; };
         document.head.append(link);
       }
-      const script = document.createElement('script');
-      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      script.onload = () => window.L ? resolve(window.L) : reject(new Error('Leaflet unavailable'));
-      script.onerror = reject;
-      document.head.append(script);
-    });
+      try { return await loadScript('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'); }
+      catch (_) { return await loadScript('https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js'); }
+    })();
     return window.__regionalLeafletPromise;
   }
   loadLeaflet().then(L => {
-    const map = L.map(mapCanvas, { scrollWheelZoom: false }).setView([29.5918, 52.5837], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    regionalMap = L.map(mapCanvas, { scrollWheelZoom: false }).setView(defaultPoint, 13);
+    const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19, attribution: '&copy; OpenStreetMap'
-    }).addTo(map);
-    const marker = L.marker([29.5918, 52.5837], { draggable: true }).addTo(map);
+    }).addTo(regionalMap);
+    let tileErrors = 0;
+    tiles.on('tileerror', () => {
+      tileErrors++;
+      if (tileErrors >= 2) mapStatus.textContent = 'نقشه ساخته شد، اما دریافت تصاویر نقشه از OpenStreetMap با خطا روبه‌روست. اتصال اینترنت یا محدودیت شبکه را بررسی کنید؛ تعیین مختصات دستی همچنان ممکن است.';
+    });
+    regionalMarker = L.marker(defaultPoint, { draggable: true }).addTo(regionalMap);
     const setPoint = async point => {
       const lat = Number(point.lat).toFixed(6), lon = Number(point.lng).toFixed(6);
       coordinates.el.value = `${lat}, ${lon}`;
@@ -107,16 +133,62 @@ export function regionalValueTool() {
         if (response.ok) {
           const data = await response.json();
           if (!address.el.value && data.display_name) address.el.value = data.display_name;
-          if (!postalCode.el.value && data.address?.postcode) postalCode.el.value = data.address.postcode;
+          if (!postalCode.el.value && data.address?.postcode) postalCode.el.value = String(data.address.postcode).replace(/\\D/g, '').slice(0, 10);
         }
       } catch (_) { /* ورود دستی نشانی همچنان ممکن است. */ }
     };
-    map.on('click', event => { marker.setLatLng(event.latlng); setPoint(event.latlng); });
-    marker.on('dragend', () => setPoint(marker.getLatLng()));
+    regionalMap.on('click', event => { regionalMarker.setLatLng(event.latlng); setPoint(event.latlng); });
+    regionalMarker.on('dragend', () => setPoint(regionalMarker.getLatLng()));
     mapStatus.textContent = 'نقشه آماده است؛ محل ملک را انتخاب کنید.';
-    setTimeout(() => map.invalidateSize(), 100);
-  }).catch(() => {
-    mapStatus.textContent = 'بارگذاری نقشه ممکن نشد؛ نشانی ملک را در کادر بالا به‌صورت دستی وارد کنید.';
+    [150, 500, 1200].forEach(delay => setTimeout(() => regionalMap?.invalidateSize(), delay));
+    window.addEventListener('resize', () => regionalMap?.invalidateSize());
+  }).catch(error => {
+    console.error('[regional-value] map library failed', error);
+    mapStatus.textContent = 'کتابخانه نقشه بارگذاری نشد. نشانی را دستی وارد کنید یا بعداً دوباره تلاش کنید.';
+  });
+  postalSearchButton.addEventListener('click', async () => {
+    const code = postalCode.el.value.replace(/\\D/g, '');
+    if (!/^\\d{10}$/.test(code)) {
+      postalSearchStatus.textContent = 'کد پستی باید دقیقاً ۱۰ رقم باشد.';
+      postalCode.el.focus();
+      return;
+    }
+    if (!regionalMap || !regionalMarker) {
+      postalSearchStatus.textContent = 'نقشه هنوز آماده نیست؛ چند لحظه دیگر دوباره تلاش کنید.';
+      return;
+    }
+    postalSearchButton.disabled = true;
+    postalSearchButton.textContent = 'در حال جست‌وجو…';
+    postalSearchStatus.textContent = 'در حال جست‌وجوی کد پستی در داده‌های نقشه عمومی…';
+    try {
+      const params = new URLSearchParams({
+        format: 'jsonv2', postalcode: code, country: 'Iran', addressdetails: '1', limit: '5'
+      });
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+        headers: { Accept: 'application/json' }
+      });
+      if (!response.ok) throw new Error(`Geocoder HTTP ${response.status}`);
+      const results = await response.json();
+      if (!Array.isArray(results) || !results.length) {
+        postalSearchStatus.textContent = 'برای این کد پستی در نقشه عمومی نتیجه‌ای پیدا نشد. نشانی را وارد کنید یا محل ملک را روی نقشه مشخص کنید.';
+        return;
+      }
+      const result = results[0];
+      const point = { lat: Number(result.lat), lng: Number(result.lon) };
+      if (!Number.isFinite(point.lat) || !Number.isFinite(point.lng)) throw new Error('Invalid geocoder coordinates');
+      regionalMarker.setLatLng(point);
+      regionalMap.setView(point, 17);
+      regionalMap.invalidateSize();
+      coordinates.el.value = `${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}`;
+      if (!address.el.value && result.display_name) address.el.value = result.display_name;
+      postalSearchStatus.textContent = 'موقعیت پیشنهادی پیدا شد. لطفاً نشانگر را با محل واقعی ملک تطبیق دهید؛ کد پستی به‌تنهایی نشانی پلاک را تضمین نمی‌کند.';
+    } catch (error) {
+      console.error('[regional-value] postal lookup failed', error);
+      postalSearchStatus.textContent = 'جست‌وجوی کد پستی موقتاً ناموفق بود. اتصال اینترنت را بررسی کنید یا موقعیت را دستی روی نقشه انتخاب کنید.';
+    } finally {
+      postalSearchButton.disabled = false;
+      postalSearchButton.textContent = 'یافتن موقعیت روی نقشه';
+    }
   });
   function updateBlocks() {
     const rows = SHIRAZ_BLOCKS.filter(x=>x[0]===Number(zone.el.value));
