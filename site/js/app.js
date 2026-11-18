@@ -324,7 +324,7 @@ const ROUTES = {
   '/moot-court': (params) => lazy(async () => (await import('./moot.js')).mootCourtPage(params)),
   '/assistant': (params) => lazy(async () => (await import('./assistant.js?v=20261119-contract-mode')).assistantPage(params)),
   '/voice-typing': () => lazy(async () => (await import('./voice-typing.js')).voiceTypingPage()),
-  '/assistant/history': () => lazy(async () => (await import('./assistant.js?v=20261119-contract-mode)).assistantHistoryPage()),
+  '/assistant/history': () => lazy(async () => (await import('./assistant.js?v=20261119-contract-mode')).assistantHistoryPage()),
   '/moot-court/hearing': (params) => lazy(async () => (await import('./moot-ai.js')).courtRoomPage(params)),
   '/moot-court/cases': (params) => lazy(async () => (await import('./moot-cases.js')).casePickerPage(params)),
   '/calculators': (params) => lazy(async () => (await import('./calc/page.js')).calculatorsPage(params)),

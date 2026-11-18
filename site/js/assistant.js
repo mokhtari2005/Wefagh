@@ -183,7 +183,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
   // ---------- حالت و نوع سند ----------
   let mode = 'consult';
   const modeGroup = h('div', { class: 'ai-seg', role: 'group', 'aria-label': 'نوع کار' });
-  const modeIcons = { consult: 'scale', draft: 'file-pen-line', analyze: 'search-check', review: 'clipboard-check' };
+  const modeIcons = { consult: 'scale', draft: 'edit', analyze: 'search', review: 'clipboard-list' };
   const modeButtons = MODES.map(([value, label]) => {
     const b = h('button', { class: 'ai-seg-btn', type: 'button', 'aria-label': label }, [
       h('span', { class: 'ai-mode-icon', 'aria-hidden': 'true' }, [icon(modeIcons[value], { size: 19 })]),
@@ -197,7 +197,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     return b;
   });
   const contractModeButton = h('button', { class: 'ai-seg-btn ai-contract-mode', type: 'button', 'aria-label': 'تنظیم قرارداد' }, [
-    h('span', { class: 'ai-mode-icon', 'aria-hidden': 'true' }, [icon('file-signature', { size: 19 })]),
+    h('span', { class: 'ai-mode-icon', 'aria-hidden': 'true' }, [icon('file-text', { size: 19 })]),
     h('span', { class: 'ai-mode-label', text: 'تنظیم قراردادها' }),
   ]);
   contractModeButton.addEventListener('click', () => {
