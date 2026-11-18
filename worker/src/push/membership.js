@@ -49,7 +49,7 @@ export async function notifyMembershipAdmins(env, applicant = {}) {
           '',
           'برای بررسی و تأیید یا رد درخواست وارد پنل مدیریت شوید:',
           (env.PUBLIC_BASE_URL || env.BASE_URL || 'https://mokhtari.ir') + '/#/admin',
-        ].join('\\n'),
+        ].join('\n'),
       });
       emailSent = true;
     } catch (err) {
