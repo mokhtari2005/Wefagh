@@ -49,3 +49,17 @@ test("legal corpus import defaults to laws and separates the regulations phase",
   assert.ok(workflow.includes("LEGAL_IMPORT_PHASE:"));
   assert.ok(!workflow.includes("- all"));
 });
+
+
+test('legal corpus importer classifies statute titles before embedded regulation words and audits actual inserts', () => {
+  const importer = readFileSync(new URL('../scripts/import_ekhtebar_corpus.py', import.meta.url), 'utf8');
+  const statuteRule = importer.indexOf('if re.match(r"^(?:قانون|قوانین)');
+  const bylawRule = importer.indexOf('if "آیین نامه" in text or "آیین‌نامه" in text');
+  assert.ok(statuteRule >= 0 && bylawRule > statuteRule, 'a statute title must not become a bylaw merely because it mentions آیین‌نامه');
+  assert.ok(importer.includes('def send(statements, inserted):'));
+  assert.ok(importer.includes('inserted["laws"]+=changes'));
+  assert.ok(importer.includes('inserted["articles"]+=changes'));
+  assert.ok(importer.includes('"documents_inserted":inserted["laws"]'));
+  assert.ok(importer.includes('"articles_inserted":inserted["articles"]'));
+  assert.ok(!importer.includes('"documents_submitted":done'));
+});

@@ -51,7 +51,8 @@ def get_files():
     return [x["path"] for x in rows if x.get("type")=="file" and x.get("name","").endswith(".md")]
 
 def classify(t):
-    text=t.replace("\u200c"," ")
+    text=re.sub(r"\\s+"," ",t.replace("\\u200c"," ").strip())
+    # Specific document families take precedence over generic title words.
     if "دیوان عالی کشور" in text and "اصراری" in text: return "supreme_court_insistence_precedent"
     if "دیوان عالی کشور" in text and "وحدت رویه" in text: return "supreme_court_unified_precedent"
     if "دیوان عدالت اداری" in text and "وحدت رویه" in text: return "administrative_court_unified_precedent"
@@ -59,53 +60,19 @@ def classify(t):
     if "هیئت تخصصی دیوان عدالت اداری" in text: return "administrative_court_specialized_board"
     if "نظریه مشورتی" in text and ("اداره کل حقوقی" in text or "قوه قضائیه" in text): return "judicial_advisory_opinion"
     if "نظریه مشورتی" in text: return "advisory_opinion"
+    if "شورای نگهبان" in text and ("تفسیر" in text or "نظریه" in text): return "guardian_council_opinion"
+    if "مرکز پژوهش های مجلس" in text or "مرکز پژوهش‌های مجلس" in text: return "parliamentary_research"
+    # A statute approving a treaty is indexed as a treaty, not a bylaw.
+    if "کنوانسیون" in text or "معاهده" in text: return "treaty"
+    # A title beginning with قانون remains a statute even when it mentions
+    # آیین‌نامه داخلی مجلس or another regulation in its title.
+    if re.match(r"^(?:قانون|قوانین)\\b", text): return "law"
     if "بخشنامه" in text and ("قوه قضائیه" in text or "رئیس قوه" in text): return "judicial_circular"
     if "بخشنامه" in text or "دستورالعمل" in text: return "executive_circular"
     if "آیین نامه" in text or "آیین‌نامه" in text: return "bylaw"
     if "تصویب نامه" in text or "تصویب‌نامه" in text: return "executive_regulation"
-    if "کنوانسیون" in text or "معاهده" in text: return "treaty"
-    if "شورای نگهبان" in text and ("تفسیر" in text or "نظریه" in text): return "guardian_council_opinion"
-    if "مرکز پژوهش های مجلس" in text or "مرکز پژوهش‌های مجلس" in text: return "parliamentary_research"
     if "قانون" in text or "اساسی" in text: return "law"
     return "other"
-
-def parse_doc(path, index):
-    raw=get(RAW+path).text
-    lines=raw.replace("\r\n","\n").replace("\r","\n").replace("\u200c"," ").split("\n")
-    title=""
-    for line in lines[:12]:
-        m=re.match(r"^\s*#\s+(.+?)\s*$",line)
-        if m: title=m.group(1).strip(); break
-    if not title: return None,"missing-title"
-    source=""
-    for line in lines[:12]:
-        m=re.search(r"https://www\.ekhtebar\.ir/[^\s)>]+",line)
-        if m: source=m.group(0).rstrip(".,؛)"); break
-    stem=path.rsplit("/",1)[-1][:-3]
-    item=index.get(stem)
-    if not source and item: source=item.get("url") or ""
-    if not source: return None,"missing-source-url"
-    starts=[]
-    for i,line in enumerate(lines):
-        m=ARTICLE.match(line)
-        if m:
-            starts.append((i,m.group(2).translate(DIGITS).replace(" ",""),(m.group(3) or "").strip(" -*#\t"),m.group(1)))
-        else:
-            m=SINGLE.match(line)
-            if m: starts.append((i,"واحده",(m.group(1) or "").strip(),"ماده"))
-    if not starts: return None,"no-article-structure"
-    articles=[]; seen=set()
-    for n,(pos,num,heading,kind) in enumerate(starts):
-        end=starts[n+1][0] if n+1<len(starts) else len(lines)
-        body="\n".join(lines[pos+1:end]).strip()
-        if heading: body=(heading+"\n"+body).strip()
-        body=re.sub(r"\n{3,}","\n\n",body)
-        if not body or len(body)>100000 or num in seen: continue
-        seen.add(num); articles.append({"number":num,"heading":f"{kind} {num}","body":body})
-    if not articles: return None,"no-valid-articles"
-    slug="ekhtebar-"+hashlib.sha1(source.encode()).hexdigest()[:20]
-    return {"slug":slug,"title":title[:240],"lawType":classify(title),"sourceName":"پایگاه خبری اختبار (منبع ثانویه؛ نیازمند مقابله رسمی)","sourceUrl":source[:1000],"notes":"ورود خودکار از پیکره عمومی مبتنی بر اختبار؛ وضعیت اولیه needs_review؛ پیش از استناد باید متن و نسخه جاری با روزنامه رسمی یا سامانه ملی قوانین مقابله شود.","articles":articles},None
-
 def lit(v): return "'"+str(v).replace("'","''")+"'"
 def sql_for(d):
     vals=[lit(d["slug"]),lit(d["title"]),lit(d["lawType"]),"NULL","NULL","NULL","NULL","'needs_review'",lit(d["sourceName"]),lit(d["sourceUrl"]),lit(d["notes"]),"NULL"]
@@ -141,8 +108,8 @@ def sql_for(d):
     return statements
 
 
-def send(statements):
-    """Submit a bounded batch of idempotent, parameterized statements to Cloudflare D1."""
+def send(statements, inserted):
+    """Submit a bounded batch and count actual D1 row changes, not attempted inserts."""
     if not statements:
         return
     response=requests.post(
@@ -154,10 +121,18 @@ def send(statements):
     if response.status_code!=200:
         raise RuntimeError(f"D1 HTTP {response.status_code}: {response.text[:1000]}")
     result=response.json()
-    if not result.get("success") or any(not item.get("success",True) for item in result.get("result",[])):
-        details=result.get("errors",result.get("result",[]))
+    items=result.get("result") or []
+    if not result.get("success") or any(not item.get("success",True) for item in items):
+        details=result.get("errors",items)
         raise RuntimeError("D1 import batch failed: "+json.dumps(details,ensure_ascii=False)[:1200])
-
+    if len(items)!=len(statements):
+        raise RuntimeError(f"D1 returned {len(items)} batch results for {len(statements)} statements")
+    for (sql,_), item in zip(statements,items):
+        changes=int((item.get("meta") or {}).get("changes") or 0)
+        if sql.startswith("INSERT OR IGNORE INTO legal_laws"):
+            inserted["laws"]+=changes
+        elif sql.startswith("INSERT OR IGNORE INTO legal_articles"):
+            inserted["articles"]+=changes
 
 
 def d1_query(sql, params=None):
@@ -216,15 +191,18 @@ def main():
     docs.sort(key=lambda x:x["slug"])
     print(f"Phase: {IMPORT_PHASE}; parsed {parsed_count}; selected {len(docs)}; excluded by phase {len(phase_skipped)}; parse-skipped {skipped}.")
     batch=[]; size=0; done=0
+    inserted={"laws":0,"articles":0}
     for d in docs:
         for statement, params in sql_for(d):
             n=len(statement.encode("utf-8"))+len(json.dumps(params,ensure_ascii=False).encode("utf-8"))
             if batch and (len(batch)>=90 or size+n>3_500_000):
-                send(batch); batch=[]; size=0
+                send(batch,inserted); batch=[]; size=0
             batch.append((statement, params)); size+=n
         done+=1
         if done%25==0: print(f"Prepared: {done}/{len(docs)} documents")
-    if batch: send(batch)
+    if batch: send(batch,inserted)
+    type_counts={}
+    for d in docs: type_counts[d["lawType"]]=type_counts.get(d["lawType"],0)+1
     os.makedirs("artifacts",exist_ok=True)
     try:
         database_audit=audit_database()
@@ -233,7 +211,7 @@ def main():
         print("WARNING: database audit failed: "+str(e)[:500])
     from collections import Counter
     skip_reason_counts=dict(Counter(x["reason"] for x in errors))
-    report={"source":"https://github.com/SaeedAqamiri/laws-mcp","index_source":"https://www.ekhtebar.ir/قوانین/","files_found":len(files),"phase":IMPORT_PHASE,"documents_parsed":parsed_count,"documents_selected":len(docs),"documents_excluded_by_phase":len(phase_skipped),"documents_submitted":done,"documents_skipped":skipped,"skip_reason_counts":skip_reason_counts,"database_audit":database_audit,"status":"needs_review","selected_types":sorted(PHASE_TYPES[IMPORT_PHASE]),"phase_excluded_sample":[{"slug":d["slug"],"title":d["title"],"type":d["lawType"]} for d in phase_skipped[:100]],"skip_sample":errors[:200]}
+    report={"source":"https://github.com/SaeedAqamiri/laws-mcp","index_source":"https://www.ekhtebar.ir/قوانین/","files_found":len(files),"phase":IMPORT_PHASE,"documents_parsed":parsed_count,"documents_selected":len(docs),"documents_excluded_by_phase":len(phase_skipped),"documents_processed":done,"documents_inserted":inserted["laws"],"articles_inserted":inserted["articles"],"selected_type_counts":type_counts,"documents_skipped":skipped,"skip_reason_counts":skip_reason_counts,"database_audit":database_audit,"status":"needs_review","selected_types":sorted(PHASE_TYPES[IMPORT_PHASE]),"phase_excluded_sample":[{"slug":d["slug"],"title":d["title"],"type":d["lawType"]} for d in phase_skipped[:100]],"skip_sample":errors[:200]}
     with open("artifacts/legal-bank-import-report.json","w",encoding="utf-8") as f: json.dump(report,f,ensure_ascii=False,indent=2)
     print(json.dumps({k:v for k,v in report.items() if k!="skip_sample"},ensure_ascii=False))
 
