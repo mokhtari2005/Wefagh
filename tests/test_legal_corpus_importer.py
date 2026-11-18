@@ -22,6 +22,10 @@ class LegalCorpusImporterTests(unittest.TestCase):
         self.assertEqual(importer.classify("قانون آیین‌نامه داخلی مجلس شورای اسلامی"), "law")
         self.assertEqual(importer.classify("قانون اصلاح آیین نامه داخلی مجلس"), "law")
 
+    def test_treaty_statutes_are_in_laws_phase(self):
+        self.assertIn("treaty", importer.PHASE_TYPES["laws"])
+        self.assertNotIn("bylaw", importer.PHASE_TYPES["laws"])
+
     def test_specific_document_families_keep_precedence(self):
         self.assertEqual(importer.classify("رأی وحدت رویه دیوان عالی کشور"), "supreme_court_unified_precedent")
         self.assertEqual(importer.classify("نظریه مشورتی اداره کل حقوقی قوه قضائیه"), "judicial_advisory_opinion")
