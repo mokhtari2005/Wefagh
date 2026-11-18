@@ -89,8 +89,7 @@ jobs:
           echo "Cloudflare token could not be verified"
           exit 1
 
-      - name: Apply remote D1 migrations
-        if: github.event_name == 'workflow_dispatch' && inputs.apply_migrations
+      - name: Apply pending remote D1 migrations
         working-directory: worker
         run: wrangler d1 migrations apply wefagh-db --remote --config wrangler.toml
 

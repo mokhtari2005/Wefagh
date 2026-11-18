@@ -19,6 +19,7 @@ import { dashboardPage } from './dashboard.js';
 import { adminPage } from './admin.js';
 import { ekhtebarPage } from './ekhtebar.js';
 import { voiceTypingPage } from './voice-typing.js';
+import { installDiagnostics } from './diagnostics.js';
 
 /** صفحه‌ای که داده‌اش ناهمگام است: یک جای نگه‌دار می‌سازد و بعد پر می‌کند. */
 function lazy(fn) {
@@ -361,6 +362,7 @@ toggle?.addEventListener('click', () => {
   toggle.setAttribute('aria-expanded', String(open));
 });
 
+installDiagnostics();
 mountIcons();
 const bottomMore = document.getElementById('bottom-more');
 bottomMore?.addEventListener('click', () => {
