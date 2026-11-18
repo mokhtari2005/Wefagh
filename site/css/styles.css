@@ -3387,3 +3387,15 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
 .assistant-generated-result{margin-top:1.5rem;padding:1.2rem;border:1px solid var(--line,var(--border));border-radius:16px;background:var(--surface,var(--paper))}
 .assistant-generated-text{white-space:pre-wrap;line-height:2;overflow-wrap:anywhere;margin-block:1rem}
 @media(max-width:640px){.assistant-form-grid{grid-template-columns:1fr}.assistant-form-field:has(textarea){grid-column:auto}.assistant-generate-btn{width:100%}.assistant-document-card{padding:.85rem}}
+
+/* Native-like PWA install affordance and iOS installation guide. */
+.pwa-install-button{border:1px solid var(--accent,#134e44);border-radius:999px;padding:.55rem .9rem;background:var(--accent,#134e44);color:#fff;font:inherit;font-size:.82rem;font-weight:700;white-space:nowrap;cursor:pointer}
+.pwa-install-dialog{width:min(92vw,440px);max-height:80vh;overflow:auto;border:1px solid var(--line,var(--border));border-radius:20px;padding:1.4rem;background:var(--surface,var(--paper));color:var(--text);box-shadow:0 20px 70px #0004}
+.pwa-install-dialog::backdrop{background:#101a18a8;backdrop-filter:blur(3px)}
+.pwa-install-dialog h2{font-size:1.12rem;margin:0 0 1rem}
+.pwa-install-dialog ol{padding-inline-start:1.35rem;line-height:2}
+.pwa-install-dialog li{padding-inline-start:.2rem;margin:.35rem 0}
+.pwa-install-dialog p{line-height:1.9;color:var(--muted)}
+.pwa-guide-close{width:100%;border:0;border-radius:12px;padding:.8rem;background:var(--accent,#134e44);color:#fff;font:inherit;font-weight:700;cursor:pointer}
+@media(max-width:640px){.pwa-install-button{font-size:.75rem;padding:.48rem .7rem}.header-inner{gap:.55rem}.pwa-install-dialog{padding:1.1rem}}
+@media(display-mode:standalone){.pwa-install-button{display:none}}
