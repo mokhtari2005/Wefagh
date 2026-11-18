@@ -318,6 +318,7 @@ const ROUTES = {
   '/academy/ekhtebar': () => lazy(async () => (await import('./ekhtebar.js')).ekhtebarPage()),
   '/dashboard': () => lazy(async () => (await import('./dashboard.js')).dashboardPage()),
   '/admin': () => lazy(async () => (await import('./admin.js')).adminPage()),
+  '/admin/traffic': () => lazy(async () => (await import('./visitor-analytics.js')).visitorAnalyticsPage()),
   '/cases': () => lazy(async () => (await import('./cases.js')).casesPage()),
   '/moot-court': (params) => lazy(async () => (await import('./moot.js')).mootCourtPage(params)),
   '/assistant': (params) => lazy(async () => (await import('./assistant.js')).assistantPage(params)),
@@ -389,7 +390,7 @@ function render() {
   document.body.classList.toggle('immersive', path === '/moot-court/hearing');
   const quickAccess = mobileQuickAccess(path);
   main.replaceChildren(...(quickAccess ? [quickAccess, content] : [content]));
-  const EXTRA_TITLES = { '/admin': 'مدیریت محتوا', '/dashboard': 'داشبورد من', '/verify': 'تأیید ایمیل', '/moot-court': 'موت کورت', '/cases': 'بانک پرونده‌ها', '/assistant': 'دستیار هوشمند وکیل', '/assistant/history': 'سوابق گفت‌وگوهای دستیار', '/academy/courses': 'دوره‌های آموزشی', '/courses': 'دوره‌های آموزشی', '/academy/exams': 'مرکز آزمون هوشمند', '/moot-court/hearing': 'اتاق دادگاه', '/moot-court/cases': 'انتخاب پرونده' };
+  const EXTRA_TITLES = { '/admin': 'مدیریت محتوا', '/admin/traffic': 'پایش زنده بازدیدکنندگان', '/dashboard': 'داشبورد من', '/verify': 'تأیید ایمیل', '/moot-court': 'موت کورت', '/cases': 'بانک پرونده‌ها', '/assistant': 'دستیار هوشمند وکیل', '/assistant/history': 'سوابق گفت‌وگوهای دستیار', '/academy/courses': 'دوره‌های آموزشی', '/courses': 'دوره‌های آموزشی', '/academy/exams': 'مرکز آزمون هوشمند', '/moot-court/hearing': 'اتاق دادگاه', '/moot-court/cases': 'انتخاب پرونده' };
   const navTitle = NAV.find((n) => n.path === path)?.title;
   const title = navTitle ?? EXTRA_TITLES[path] ?? (path.startsWith('/academy/') ? 'آکادمی' : 'صفحه پیدا نشد');
   document.title = `${title} | آکادمی وکالت شهرام مختاری`;
@@ -404,6 +405,7 @@ toggle?.addEventListener('click', () => {
 
 // ابزارهای تشخیصی پس از آماده‌شدن رابط اصلی و به‌صورت جداگانه بارگذاری می‌شوند.
 import('./diagnostics.js').then(({ installDiagnostics }) => installDiagnostics()).catch(() => {});
+import('./visitor-tracking.js').then(({ installVisitorTracking }) => installVisitorTracking()).catch(() => {});
 mountIcons();
 const bottomMore = document.getElementById('bottom-more');
 bottomMore?.addEventListener('click', () => {
