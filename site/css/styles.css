@@ -3359,3 +3359,31 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
 .community-reply { box-shadow:none; }
 .community-accepted { display:inline-block; color:var(--ok); font-weight:700; font-size:.85rem; }
 @media(max-width:600px) { .community-topic,.community-group,.community-reply { padding:.9rem; } .community-tabs > button { flex:1 1 auto; } }
+
+
+/* Structured legal-document forms */
+.assistant-document-menu,.assistant-document-page{max-width:1080px;margin-inline:auto;padding:clamp(1rem,3vw,2rem)}
+.assistant-menu-section{margin-block:1.8rem}
+.assistant-menu-section h2,.assistant-form-section h2{font-size:1.12rem;margin:0 0 .9rem}
+.assistant-document-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:.85rem}
+.assistant-document-card{display:flex;align-items:center;gap:.85rem;min-width:0;padding:1rem;border:1px solid var(--line,var(--border));border-radius:16px;background:var(--surface,var(--paper));color:inherit;text-decoration:none;transition:border-color .15s,transform .15s}
+.assistant-document-card:hover{border-color:var(--accent);transform:translateY(-1px)}
+.assistant-document-icon{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;border-radius:12px;background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--accent)}
+.assistant-document-copy{display:grid;gap:.2rem;flex:1;min-width:0}
+.assistant-document-copy strong{font-size:.98rem}
+.assistant-document-copy small{color:var(--muted);line-height:1.7}
+.assistant-consult-card{max-width:620px}
+.assistant-back-link{display:inline-flex;margin-bottom:1rem;text-decoration:none}
+.assistant-structured-form{display:grid;gap:1.2rem;margin-top:1.4rem}
+.assistant-form-section{padding:1.1rem;border:1px solid var(--line,var(--border));border-radius:16px;background:var(--surface,var(--paper))}
+.assistant-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}
+.assistant-form-field{min-width:0}
+.assistant-form-field:has(textarea){grid-column:span 2}
+.assistant-form-field input,.assistant-form-field textarea,.assistant-contract-type select{width:100%;box-sizing:border-box}
+.assistant-form-field textarea{min-height:92px}
+.assistant-contract-type{max-width:560px;margin-top:1.2rem}
+.assistant-selected-contract{padding:.75rem 1rem;border-radius:10px;background:color-mix(in srgb,var(--accent) 9%,transparent);font-weight:700}
+.assistant-generate-btn{justify-self:start;min-width:220px}
+.assistant-generated-result{margin-top:1.5rem;padding:1.2rem;border:1px solid var(--line,var(--border));border-radius:16px;background:var(--surface,var(--paper))}
+.assistant-generated-text{white-space:pre-wrap;line-height:2;overflow-wrap:anywhere;margin-block:1rem}
+@media(max-width:640px){.assistant-form-grid{grid-template-columns:1fr}.assistant-form-field:has(textarea){grid-column:auto}.assistant-generate-btn{width:100%}.assistant-document-card{padding:.85rem}}
