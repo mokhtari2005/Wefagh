@@ -89,6 +89,59 @@ export async function deadlinesPage(params = {}) {
   }
   loggedIn = true;
 
+  const notificationBox = h('section', { class: 'deadline-card notification-center', 'aria-labelledby': 'notification-center-title' }, [
+    h('h2', { id: 'notification-center-title', text: 'یادآوری‌ها و اعلان‌ها' }),
+    h('p', { class: 'muted', text: 'برای موعدهای ثبت‌شده، سه روز قبل، یک روز قبل و روز موعد اعلان داخلی ثبت می‌شود.' }),
+  ]);
+  const notificationStatus = h('p', { class: 'form-status', role: 'status', 'aria-live': 'polite' });
+  const notificationList = h('div');
+  const preferenceLabel = h('label', { class: 'check-row' });
+  const preference = h('input', { type: 'checkbox' });
+  preferenceLabel.append(preference, document.createTextNode('فعال بودن اعلان‌های داخلی'));
+  notificationBox.append(preferenceLabel, notificationList, notificationStatus);
+  wrap.append(notificationBox);
+
+  async function loadNotifications() {
+    const response = await getJson('/api/notifications');
+    notificationList.replaceChildren();
+    if (!response.ok) {
+      notificationStatus.textContent = messageFor(response.networkError ? 'NETWORK' : response.data?.error);
+      return;
+    }
+    preference.checked = response.data.preferences?.inAppEnabled !== false;
+    const items = response.data.notifications || [];
+    if (!items.length) notificationList.append(h('p', { class: 'muted', text: 'هنوز اعلانی ثبت نشده است.' }));
+    for (const item of items) {
+      const row = h('article', { class: 'notification-item' }, [
+        h('strong', { text: item.title }),
+        h('p', { text: item.body }),
+        h('small', { class: 'muted', text: new Date(item.createdAt).toLocaleString('fa-IR') }),
+      ]);
+      if (!item.readAt) {
+        const read = h('button', { class: 'btn small secondary', type: 'button', text: 'خوانده شد' });
+        read.addEventListener('click', async () => {
+          read.disabled = true;
+          const result = await sendJson('PATCH', '/api/notifications', { id: item.id });
+          if (result.ok) loadNotifications();
+          else { read.disabled = false; notificationStatus.textContent = 'ثبت وضعیت اعلان ناموفق بود.'; }
+        });
+        row.append(read);
+      }
+      notificationList.append(row);
+    }
+  }
+
+  preference.addEventListener('change', async () => {
+    preference.disabled = true;
+    const result = await sendJson('PUT', '/api/notifications/preferences', { inAppEnabled: preference.checked });
+    preference.disabled = false;
+    if (!result.ok) {
+      preference.checked = !preference.checked;
+      notificationStatus.textContent = 'ذخیره تنظیمات اعلان ناموفق بود.';
+    } else notificationStatus.textContent = 'تنظیمات اعلان ذخیره شد.';
+  });
+  await loadNotifications();
+
   function showAddForm() {
     form = addForm(() => { showAddForm(); refresh(); }, null);
     formArea.replaceChildren(form);
