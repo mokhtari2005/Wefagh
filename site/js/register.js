@@ -1,5 +1,5 @@
 // فرم ثبت‌نام: مرحلهٔ حساب کاربری ← بررسی و تأیید.
-// ثبت‌نام فعلاً شماره تلفن و پروفایل را نمی‌گیرد و کنترل شماره تکراری ندارد (تصمیم مالک).
+// فرم ثبت‌نام، اطلاعات هویتی و راه‌های تماس اولیه را دریافت می‌کند.
 // DOM امن (بدون innerHTML با داده). اعتبارسنجی سمت کاربر؛ سرور همچنان مرجع نهایی است.
 import { postJson } from './api.js';
 import { messageFor } from './auth-messages.js';
@@ -257,7 +257,7 @@ export function registerForm({ onSuccess } = {}) {
         h('div', { class: 'registration-success-mark', 'aria-hidden': 'true', text: '✓' }),
         h('span', { class: 'registration-success-kicker', text: 'آکادمی وکالت شهرام مختاری' }),
         h('h1', { id: 'registration-success-title', text: 'ثبت‌نام شما با موفقیت انجام شد' }),
-        h('p', { class: 'registration-success-lead', text: 'حساب کاربری شما ایجاد شد. ابتدا ایمیل خود را تأیید کنید؛ سپس درخواست عضویت شما توسط مدیریت آکادمی بررسی و نتیجه اعلام می‌شود.' }),
+        h('p', { class: 'registration-success-lead', text: 'حساب کاربری شما ایجاد شد. منتظر دریافت ایمیل تأیید باشید؛ ابتدا نشانی ایمیل را تأیید کنید و سپس درخواست عضویت شما توسط مدیریت آکادمی بررسی و نتیجه اعلام می‌شود.' }),
         h('div', { class: 'registration-success-note' }, [
           h('strong', { text: 'مرحلهٔ بعد: تأیید نشانی ایمیل' }),
           h('p', { text: 'صندوق ورودی ایمیل خود را بررسی کنید. اگر پیام را پیدا نکردید، پوشه‌های هرزنامه (Spam) و تبلیغات (Promotions) را هم ببینید.' }),
