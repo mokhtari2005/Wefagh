@@ -17,7 +17,7 @@ GH = {"Accept":"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28"
 if os.getenv("GITHUB_TOKEN"): GH["Authorization"] = f"Bearer {os.environ['GITHUB_TOKEN']}"
 DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩","01234567890123456789")
 ARTICLE = re.compile(r"^\s*(?:#{1,6}\s*)?(ماده|اصل)\s*[\(（]?\s*([0-9۰-۹٠-٩]+(?:\s*(?:مکرر|الحاقی))?)\s*[\)）]?\s*(?:[ـ\-–—:：]\s*)?(.*)$")
-SINGLE = re.compile(r"^\s*(?:#{1,6}\s*)?ماده\s+واحده\s*(?:[ـ\-–—:：]\s*)?(.*)$")
+SINGLE = re.compile(r"^\s*(?:#{1,6}\s*)?ماده[\s‌ـ\-]*واحده\s*(?:[ـ\-–—:：]\s*)?(.*)$")
 
 def get(url, github=False):
     for attempt in range(5):
@@ -54,7 +54,7 @@ def classify(t):
 
 def parse_doc(path, index):
     raw=get(RAW+path).text
-    lines=raw.replace("\r\n","\n").replace("\r","\n").split("\n")
+    lines=raw.replace("\r\n","\n").replace("\r","\n").replace("\u200c"," ").split("\n")
     title=""
     for line in lines[:12]:
         m=re.match(r"^\s*#\s+(.+?)\s*$",line)
@@ -142,6 +142,44 @@ def send(statements):
         raise RuntimeError("D1 import batch failed: "+json.dumps(details,ensure_ascii=False)[:1200])
 
 
+
+def d1_query(sql, params=None):
+    response=requests.post(
+        D1,
+        headers={"Authorization":f"Bearer {TOKEN}","Content-Type":"application/json"},
+        json={"sql":sql,"params":params or []},
+        timeout=120,
+    )
+    if response.status_code!=200:
+        raise RuntimeError(f"D1 audit HTTP {response.status_code}: {response.text[:800]}")
+    payload=response.json()
+    if not payload.get("success"):
+        raise RuntimeError("D1 audit query failed: "+json.dumps(payload.get("errors",[]),ensure_ascii=False)[:800])
+    result=payload.get("result") or []
+    if isinstance(result,list) and result:
+        return result[0].get("results") or []
+    if isinstance(result,dict):
+        return result.get("results") or []
+    return []
+
+
+def audit_database():
+    laws=d1_query("""SELECT COUNT(*) AS total,
+        SUM(CASE WHEN status='needs_review' THEN 1 ELSE 0 END) AS needs_review,
+        SUM(CASE WHEN status='verified' THEN 1 ELSE 0 END) AS verified,
+        SUM(CASE WHEN status='amended' THEN 1 ELSE 0 END) AS amended,
+        SUM(CASE WHEN status='repealed' THEN 1 ELSE 0 END) AS repealed,
+        SUM(CASE WHEN source_name LIKE 'پایگاه خبری اختبار%' THEN 1 ELSE 0 END) AS ekhtebar_source
+        FROM legal_laws""")
+    articles=d1_query("""SELECT COUNT(*) AS total,
+        SUM(CASE WHEN status='needs_review' THEN 1 ELSE 0 END) AS needs_review,
+        SUM(CASE WHEN status='verified' THEN 1 ELSE 0 END) AS verified,
+        SUM(CASE WHEN status='amended' THEN 1 ELSE 0 END) AS amended,
+        SUM(CASE WHEN status='repealed' THEN 1 ELSE 0 END) AS repealed
+        FROM legal_articles""")
+    types=d1_query("SELECT law_type AS type,status,COUNT(*) AS count FROM legal_laws GROUP BY law_type,status ORDER BY law_type,status")
+    return {"laws":laws[0] if laws else {},"articles":articles[0] if articles else {},"law_type_status":types}
+
 def main():
     index=get_index(); files=get_files()
     print(f"Source mirror: {len(files)} Markdown files; parsing...")
@@ -168,7 +206,14 @@ def main():
         if done%25==0: print(f"Prepared: {done}/{len(docs)} documents")
     if batch: send(batch)
     os.makedirs("artifacts",exist_ok=True)
-    report={"source":"https://github.com/SaeedAqamiri/laws-mcp","index_source":"https://www.ekhtebar.ir/قوانین/","files_found":len(files),"documents_parsed":len(docs),"documents_submitted":done,"documents_skipped":skipped,"status":"needs_review","skip_sample":errors[:100]}
+    try:
+        database_audit=audit_database()
+    except Exception as e:
+        database_audit={"error":str(e)[:500]}
+        print("WARNING: database audit failed: "+str(e)[:500])
+    from collections import Counter
+    skip_reason_counts=dict(Counter(x["reason"] for x in errors))
+    report={"source":"https://github.com/SaeedAqamiri/laws-mcp","index_source":"https://www.ekhtebar.ir/قوانین/","files_found":len(files),"documents_parsed":len(docs),"documents_submitted":done,"documents_skipped":skipped,"skip_reason_counts":skip_reason_counts,"database_audit":database_audit,"status":"needs_review","skip_sample":errors[:200]}
     with open("artifacts/legal-bank-import-report.json","w",encoding="utf-8") as f: json.dump(report,f,ensure_ascii=False,indent=2)
     print(json.dumps({k:v for k,v in report.items() if k!="skip_sample"},ensure_ascii=False))
 
