@@ -2918,3 +2918,73 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
   }
   .court-log { max-height: 48vh; }
 }
+
+
+/* Moot court: compact participant cards so the hearing transcript gets more room. */
+.court-seats {
+  gap: .35rem;
+  padding: .4rem;
+}
+.court-seat-row { gap: .35rem; }
+.court-seat {
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  grid-template-areas:
+    "avatar role pill"
+    "avatar name pill";
+  align-items: center;
+  justify-items: stretch;
+  column-gap: .5rem;
+  row-gap: .05rem;
+  padding: .35rem .5rem;
+  border-width: 1px;
+  border-radius: 12px;
+  text-align: start;
+}
+.court-avatar {
+  grid-area: avatar;
+  width: 30px;
+  height: 30px;
+  font-size: .8rem;
+}
+.court-avatar svg { width: 16px; height: 16px; }
+.court-seat strong {
+  grid-area: role;
+  font-size: .82rem;
+  line-height: 1.35;
+}
+.court-seat small {
+  grid-area: name;
+  font-size: .68rem;
+  line-height: 1.3;
+}
+.court-pill {
+  grid-area: pill;
+  justify-self: end;
+  font-size: .62rem;
+  padding: .12rem .38rem;
+  white-space: nowrap;
+}
+.court-seat.speaking { box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 22%, transparent); }
+.court-seat.current-turn { box-shadow: 0 0 0 2px rgb(190 145 48 / .16); }
+@media (max-width: 640px) {
+  .court-seats { gap: .3rem; padding: .3rem; }
+  .court-seat-row { gap: .3rem; }
+  .court-seat {
+    grid-template-columns: 26px minmax(0, 1fr);
+    grid-template-areas:
+      "avatar role"
+      "avatar name"
+      "avatar pill";
+    column-gap: .35rem;
+    padding: .3rem .35rem;
+  }
+  .court-avatar { width: 25px; height: 25px; }
+  .court-avatar svg { width: 14px; height: 14px; }
+  .court-seat strong { font-size: .72rem; }
+  .court-seat small { font-size: .62rem; }
+  .court-pill {
+    justify-self: start;
+    font-size: .58rem;
+    padding: .08rem .3rem;
+  }
+}
