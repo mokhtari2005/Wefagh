@@ -284,7 +284,7 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
       if (item) item.audioPlaying = false;
       renderSeats();
       const detail = err?.name === 'AbortError' ? 'مهلت تولید صدا پایان یافت' : 'ارتباط با سرویس صوتی برقرار نشد';
-      audioStatus.textContent = `${detail؛} متن گوینده ثبت شده است و جلسه به‌صورت متنی ادامه می‌یابد.`;
+      audioStatus.textContent = `${detail}؛ متن گوینده ثبت شده است و جلسه به‌صورت متنی ادامه می‌یابد.`;
       renderLog();
       return false;
     }
