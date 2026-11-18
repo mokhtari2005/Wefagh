@@ -207,7 +207,7 @@ export async function adminPage() {
     diagnosticsNotice.className = 'form-status';
     diagnosticsNotice.textContent = 'در حال بررسی اعتبارسنجی، D1، Gemini و دسترسی خواندن GitHub…';
     try {
-      const result = await postJson('/api/admin/diagnostics/self-test', {});
+      const result = await postJson('/api/admin/diagnostics/self-test', {}, { timeoutMs: 60000 });
       if (!result.ok) {
         diagnosticsNotice.className = 'form-status err';
         diagnosticsNotice.textContent = errorText(result.data, result.status);
@@ -226,7 +226,7 @@ export async function adminPage() {
       diagnosticsNotice.textContent = `نتیجهٔ آزمون: ${result.data.passed} از ${result.data.total} مرحله موفق بود. ${result.data.note}`;
     } catch {
       diagnosticsNotice.className = 'form-status err';
-      diagnosticsNotice.textContent = 'ارتباط با سرویس آزمون برقرار نشد؛ دوباره تلاش کنید.';
+      diagnosticsNotice.textContent = result.timeoutError ? 'پاسخ آزمون در مهلت ۶۰ ثانیه‌ای نرسید؛ ممکن است بررسی سرور هنوز کامل نشده باشد. گزارش رخدادهای Worker را بررسی کنید.' : 'ارتباط با سرویس آزمون برقرار نشد؛ اتصال شبکه یا پاسخ Worker را بررسی کنید.';
     } finally {
       diagnosticsSelfTest.disabled = false;
       diagnosticsSelfTest.textContent = 'اجرای دوبارهٔ آزمون سلامت';
