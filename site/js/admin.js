@@ -175,6 +175,30 @@ export async function adminPage() {
   const diagnosticsList = el('div', { class: 'admin-content-list' });
   const diagnosticsRefresh = el('button', { class: 'btn secondary', type: 'button', text: 'به‌روزرسانی گزارش خطاها' });
   const diagnosticsSelfTest = el('button', { class: 'btn', type: 'button', text: 'اجرای آزمون سلامت سیستم' });
+  const diagnosticsWriteTest = el('button', { class: 'btn secondary', type: 'button', text: 'آزمون واقعی ساخت و پاک‌سازی PR در GitHub' });
+  diagnosticsWriteTest.addEventListener('click', async () => {
+    if (!window.confirm('این آزمون یک شاخه و Pull Request موقت در GitHub می‌سازد، سپس PR را می‌بندد و شاخه را حذف می‌کند. هیچ تغییری روی main اعمال نمی‌شود. ادامه می‌دهید؟')) return;
+    diagnosticsWriteTest.disabled = true;
+    diagnosticsWriteTest.textContent = 'در حال آزمون مجوز نوشتن GitHub…';
+    diagnosticsNotice.className = 'form-status';
+    diagnosticsNotice.textContent = 'در حال ساخت موقت شاخه و Pull Request و پاک‌سازی آن…';
+    try {
+      const result = await postJson('/api/admin/diagnostics/write-test', {});
+      if (!result.ok) {
+        diagnosticsNotice.className = 'form-status err';
+        diagnosticsNotice.textContent = `${result.data?.message || errorText(result.data, result.status)} ${result.data?.githubMessage || ''} ${result.data?.pullRequestNumber ? `شماره PR: ${result.data.pullRequestNumber}.` : ''} وضعیت پاک‌سازی: ${result.data?.pullRequestClosed ? 'PR بسته شد' : 'PR بسته نشد'}؛ ${result.data?.branchDeleted ? 'شاخه حذف شد' : 'شاخه حذف نشد'}.`;
+        return;
+      }
+      diagnosticsNotice.className = 'form-status ok';
+      diagnosticsNotice.textContent = `${result.data.message} شماره PR آزمایشی: ${result.data.pullRequestNumber}.`;
+    } catch {
+      diagnosticsNotice.className = 'form-status err';
+      diagnosticsNotice.textContent = 'ارتباط با آزمون نوشتن GitHub برقرار نشد؛ وضعیت نهایی باید از GitHub بررسی شود.';
+    } finally {
+      diagnosticsWriteTest.disabled = false;
+      diagnosticsWriteTest.textContent = 'اجرای دوبارهٔ آزمون نوشتن GitHub';
+    }
+  });
   const diagnosticsTestResults = el('div', { class: 'admin-content-list', 'aria-live': 'polite' });
   diagnosticsSelfTest.addEventListener('click', async () => {
     diagnosticsSelfTest.disabled = true;
@@ -291,7 +315,7 @@ export async function adminPage() {
   const diagnosticsPanel = el('section', { class: 'card admin-import' }, [
     el('h2', { text: 'مرکز سلامت و عیب‌یابی خودکار' }),
     el('p', { class: 'muted', text: 'خطاهای JavaScript، وعده‌های ردشده، قطع شبکه، پاسخ‌های ۴۲۹ و خطاهای ۵xx به‌صورت ناشناس ثبت می‌شوند. این مرکز علت و الگوی خطا را نشان می‌دهد؛ اصلاح کد نیازمند آزمون و انتشار کنترل‌شده است.' }),
-    diagnosticsRefresh, diagnosticsSelfTest, diagnosticsNotice, diagnosticsTestResults, diagnosticsList,
+    diagnosticsRefresh, diagnosticsSelfTest, diagnosticsWriteTest, diagnosticsNotice, diagnosticsTestResults, diagnosticsList,
   ]);
   servicesView.append(diagnosticsPanel);
   diagnosticsRefresh.addEventListener('click', refreshDiagnostics);
