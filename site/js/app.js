@@ -154,7 +154,15 @@ function pageHome() {
     ]),
     lazy(async () => { const { shamsiCalendar } = await import('./calendar.js'); return shamsiCalendar({ onSelect: (iso) => { window.location.hash = `#/deadlines?date=${encodeURIComponent(iso)}`; } }); }),
   ]);
-  root.append(hero, calendarSection, quick, stats, lower, cta);
+  const profileSpot = h('section', { class: 'home-profile-spot', hidden: '' });
+  fetch('/api/me', { credentials: 'same-origin', headers: { Accept: 'application/json' } }).then(r => r.ok ? r.json() : null).then(data => {
+    const user = data?.user;
+    if (!user) return;
+    const avatar = user.profile?.avatarDataUrl ? h('img', { class: 'home-profile-avatar', src: user.profile.avatarDataUrl, alt: 'تصویر پروفایل' }) : h('span', { class: 'home-profile-avatar home-profile-placeholder', text: '👤', 'aria-hidden': 'true' });
+    profileSpot.replaceChildren(avatar, h('div', {}, [h('strong', { text: user.displayName }), h('small', { text: 'عضو آکادمی وکالت شهرام مختاری' })]), h('a', { href: '#/account', text: 'مدیریت پروفایل' }));
+    profileSpot.hidden = false;
+  }).catch(() => {});
+  root.append(profileSpot, hero, calendarSection, quick, stats, lower, cta);
   return root;
 }
 
