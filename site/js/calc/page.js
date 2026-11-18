@@ -9,7 +9,7 @@ import { shamsiField } from '../shamsi-field.js';
 import { normalizeLimitations, formatNumbersInLine, formatRial, statusLabel } from './result-format.js';
 import { indexedDelayDamage, planDelayPeriod, periodLabel, periodKeyOfIso } from './indexation.js';
 import { computeAttorneyForm } from './attorney-form.js';
-import { icon } from '../icons.js';
+import { icon } from '../icons.js?v=20261119-2';
 import { regionalValueTool } from '../regional-value.js';
 
 function h(tag, attrs = {}, children = []) {
