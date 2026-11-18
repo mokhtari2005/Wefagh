@@ -239,6 +239,10 @@ export async function adminPage() {
         const approve = el('button', { class: 'btn secondary', type: 'button', text: 'تأیید عضویت' });
         approve.addEventListener('click', () => decide(item.id,'approved'));
         row.append(approve);
+      } else {
+        const resendApproval = el('button', { class: 'btn secondary', type: 'button', text: 'ارسال مجدد ایمیل پذیرش' });
+        resendApproval.addEventListener('click', () => resendMembershipApproval(item.id, resendApproval));
+        row.append(resendApproval);
       }
       if (item.membershipStatus !== 'rejected') {
         const reject = el('button', { class: 'btn danger', type: 'button', text: 'رد درخواست' });
@@ -263,9 +267,24 @@ export async function adminPage() {
   }
   async function decide(userId, decision) {
     const r = await postJson('/api/admin/members/decision',{userId,decision});
-    membersNotice.className = 'form-status' + (r.ok ? '' : ' err');
-    membersNotice.textContent = r.ok ? (decision === 'approved' ? 'عضویت تأیید شد. کاربر پس از تأیید ایمیل می‌تواند وارد شود.' : 'درخواست رد شد و نشست‌های فعال کاربر بسته شد.') : errorText(r.data,r.status);
+    membersNotice.className = 'form-status' + (r.ok && (decision !== 'approved' || r.data?.emailSent) ? '' : ' err');
+    membersNotice.textContent = !r.ok ? errorText(r.data,r.status)
+      : decision === 'rejected' ? 'درخواست رد شد و نشست‌های فعال کاربر بسته شد.'
+      : r.data?.alreadyApproved ? 'این عضویت قبلاً تأیید شده است؛ برای ارسال دوباره ایمیل از گزینهٔ مربوط به همان عضو استفاده کنید.'
+      : r.data?.emailSent ? 'عضویت تأیید شد و ایمیل تبریک و خوش‌آمدگویی برای متقاضی ارسال شد.'
+      : 'عضویت تأیید شد، اما ارسال ایمیل پذیرش ناموفق بود. می‌توانید از گزینهٔ «ارسال مجدد ایمیل پذیرش» استفاده کنید.';
     if (r.ok) await refreshMembers();
+  }
+  async function resendMembershipApproval(userId, button) {
+    button.disabled = true;
+    const original = button.textContent;
+    button.textContent = 'در حال ارسال…';
+    const r = await postJson('/api/admin/members/approval-email',{userId});
+    button.disabled = false;
+    button.textContent = original;
+    membersNotice.className = 'form-status' + (r.ok && r.data?.emailSent ? '' : ' err');
+    membersNotice.textContent = r.ok && r.data?.emailSent ? 'ایمیل پذیرش و خوش‌آمدگویی با موفقیت ارسال شد.'
+      : 'ارسال ایمیل پذیرش انجام نشد؛ تنظیمات سرویس ایمیل را بررسی و دوباره تلاش کنید.';
   }
   membersSearch.addEventListener('input', () => renderMembers(memberItems.filter(x => x.membershipStatus !== 'rejected')));
   rejectedMembersSearch.addEventListener('input', () => renderMembers(memberItems.filter(x => x.membershipStatus === 'rejected'), rejectedMembersList, rejectedMembersSearch));
