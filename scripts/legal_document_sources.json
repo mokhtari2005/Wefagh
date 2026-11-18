@@ -91,9 +91,10 @@
         "executive_regulation",
         "executive_circular"
       ],
-      "mode": "discovery_only",
+      "mode": "manual",
       "authoritative": false,
-      "note": "User-provided discovery index; automated access may be unavailable due to site challenge. Do not treat as an authoritative legal publication source."
+      "note": "User-provided discovery index; automated access may be unavailable due to site challenge. Do not treat as an authoritative legal publication source.",
+      "discovery_only": true
     }
   ]
 }
