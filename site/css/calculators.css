@@ -381,3 +381,34 @@
 @media(prefers-reduced-motion:reduce){
   .calculators-page:not(.calculator-detail-page) .calculator-card{transition:none}
 }
+
+
+/* خروجی محاسبه‌گرها: گزارش مستقل و حداکثر یک برگ A4 */
+@media print {
+  @page { size: A4 portrait; margin: 9mm; }
+  body:has(.calculator-detail-page) .site-header,
+  body:has(.calculator-detail-page) .site-footer,
+  body:has(.calculator-detail-page) .bottom-nav,
+  body:has(.calculator-detail-page) .calculator-detail-page > :not(.calculator-workspace),
+  body:has(.calculator-detail-page) .tool-toolbar,
+  body:has(.calculator-detail-page) .calculator-workspace > :not(.tool-out) { display:none!important; }
+  body:has(.calculator-detail-page) .calculator-detail-page,
+  body:has(.calculator-detail-page) .calculator-workspace,
+  body:has(.calculator-detail-page) .tool-out,
+  body:has(.calculator-detail-page) .tool-out > * {
+    display:block!important; visibility:visible!important; position:static!important;
+    width:100%!important; max-width:none!important; max-height:270mm!important;
+    overflow:hidden!important; margin:0!important; padding:0!important;
+    border:0!important; box-shadow:none!important; background:#fff!important;
+    color:#172b27!important; font-size:8pt!important; line-height:1.35!important;
+    break-inside:avoid!important;
+  }
+  body:has(.calculator-detail-page) .tool-out h2,
+  body:has(.calculator-detail-page) .tool-out h3 { font-size:10pt!important; margin:2mm 0!important; }
+  body:has(.calculator-detail-page) .tool-out table { width:100%!important; font-size:7pt!important; }
+  body:has(.calculator-detail-page) .tool-out td,
+  body:has(.calculator-detail-page) .tool-out th { padding:1mm!important; }
+  body:has(.calculator-detail-page) .tool-out button,
+  body:has(.calculator-detail-page) .tool-out .no-print { display:none!important; }
+  * { -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; }
+}
