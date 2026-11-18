@@ -273,12 +273,25 @@ export async function adminPage() {
           repair.textContent = 'در حال تحلیل کد و ساخت اصلاحیه…';
           diagnosticsNotice.className = 'form-status';
           diagnosticsNotice.textContent = 'در حال بررسی گزارش و فایل کد مرتبط با هوش مصنوعی…';
-          const proposed = await postJson('/api/admin/diagnostics/repair', { fingerprint: item.fingerprint });
+          let proposed;
+          try {
+            // تحلیل Gemini ممکن است تا ۶۵ ثانیه (مدل اصلی و جایگزین) طول بکشد؛
+            // مهلت پیش‌فرض ۱۵ ثانیه‌ای API برای این عملیات کافی نیست.
+            proposed = await postJson('/api/admin/diagnostics/repair', { fingerprint: item.fingerprint }, { timeoutMs: 120000 });
+          } catch {
+            proposed = { ok: false, status: 0, networkError: true };
+          }
           if (!proposed.ok) {
             repair.disabled = false;
             repair.textContent = 'تلاش دوباره برای تحلیل و ساخت PR';
             diagnosticsNotice.className = 'form-status err';
-            diagnosticsNotice.textContent = proposed.data?.hint || errorText(proposed.data, proposed.status);
+            diagnosticsNotice.textContent = proposed.timeoutError
+              ? 'زمان پاسخ‌گویی تحلیل هوشمند بیش از مهلت مجاز شد؛ هیچ نتیجه‌ای از ساخت PR دریافت نشد. دوباره تلاش کنید و در صورت تکرار، وضعیت Worker بررسی شود.'
+              : proposed.networkError || proposed.status === 0
+                ? 'ارتباط با سرویس تحلیل برقرار نشد؛ ممکن است درخواست پیش از دریافت پاسخ قطع شده باشد. وضعیت GitHub را نیز بررسی کنید.'
+                : proposed.data?.hint || proposed.data?.error
+                  ? `تحلیل ناموفق بود: ${proposed.data.hint || proposed.data.error} (HTTP ${proposed.status})`
+                  : errorText(proposed.data, proposed.status);
             return;
           }
           if (proposed.data.created && proposed.data.pullRequest) {
