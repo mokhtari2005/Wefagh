@@ -96,7 +96,7 @@ export async function register(request, env) {
     let row;
     try {
       row = await env.DB
-        .prepare('INSERT INTO users (email, password_hash, display_name, gender, phone, professional_title, position, membership_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'pending') RETURNING id')
+        .prepare("INSERT INTO users (email, password_hash, display_name, gender, phone, professional_title, position, membership_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'pending') RETURNING id")
         .bind(email, passwordHash, displayName, gender || null, phone || null, professionalTitle, position)
         .first();
     } catch (schemaError) {
