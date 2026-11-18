@@ -100,6 +100,7 @@ export async function handleDiagnosticRepair(request, env, path) {
   const filePath = COMPONENT_FILES[event.component];
   if (!filePath) return json({ ok: false, error: 'COMPONENT_NOT_SUPPORTED', hint: 'برای این بخش هنوز مسیر کد مجاز تعریف نشده است؛ اصلاحیهٔ عمومی ساخته نمی‌شود.' }, 422);
 
+  let stage = 'github_read';
   try {
     const source = await github(env, `/repos/${OWNER}/${REPOSITORY}/contents/${filePath}?ref=main`);
     const original = { path: filePath, sha: source.sha, content: decodeBase64(source.content) };
@@ -123,6 +124,7 @@ export async function handleDiagnosticRepair(request, env, path) {
       json: true,
       timeoutMs: 40_000,
     };
+    stage = 'ai_analysis';
     const generated = await generateText(env, prompt);
     const proposal = generated.data;
     if (!proposal || typeof proposal.summary !== 'string' || !['low', 'medium', 'high'].includes(proposal.confidence) || !Array.isArray(proposal.patches)) {
@@ -134,6 +136,7 @@ export async function handleDiagnosticRepair(request, env, path) {
       return json({ ok: false, error: 'PATCH_REJECTED', hint: 'اصلاحیه از محدودهٔ فایل مجاز خارج بود یا اعتبارسنجی ایمنی را نگذرانْد.' }, 422);
     }
 
+    stage = 'github_write';
     const base = await github(env, `/repos/${OWNER}/${REPOSITORY}/git/ref/heads/main`);
     const branch = safeBranch();
     await github(env, `/repos/${OWNER}/${REPOSITORY}/git/refs`, {
@@ -180,7 +183,22 @@ export async function handleDiagnosticRepair(request, env, path) {
       throw error;
     }
   } catch (error) {
-    console.error(JSON.stringify({ where: 'diagnostics.repair', error: error?.message === 'GITHUB_API_FAILED' ? 'GITHUB_API_FAILED' : error?.name || 'Error', status: error?.status || 0 }));
-    return json({ ok: false, error: error?.message === 'GITHUB_API_FAILED' ? 'GITHUB_API_FAILED' : 'REPAIR_FAILED', status: error?.status || undefined }, 502);
+    const code = typeof error?.code === 'string' && /^[A-Z][A-Z0-9_]{1,39}$/.test(error.code)
+      ? error.code
+      : error?.message === 'GITHUB_API_FAILED' ? 'GITHUB_API_FAILED' : 'UNEXPECTED_ERROR';
+    const status = Number.isInteger(error?.status) && error.status >= 400 && error.status <= 599 ? error.status : undefined;
+    console.error(JSON.stringify({ where: 'diagnostics.repair', stage, code, status: status || 0 }));
+    return json({
+      ok: false,
+      error: stage === 'ai_analysis' ? 'AI_ANALYSIS_FAILED' : 'REPAIR_FAILED',
+      stage,
+      reason: code,
+      status,
+      hint: stage === 'ai_analysis'
+        ? 'مدل هوش مصنوعی نتوانست تحلیل را کامل کند. کد علت در همین گزارش آمده است؛ در صورت خطای موقت، کمی بعد دوباره تلاش کنید.'
+        : stage === 'github_read'
+          ? 'دریافت فایل کد از GitHub ناموفق بود؛ دسترسی مخزن و مسیر فایل را بررسی کنید.'
+          : 'ثبت شاخه یا Pull Request در GitHub ناموفق بود؛ مجوز نوشتن و وضعیت API را بررسی کنید.',
+    }, 502);
   }
 }
