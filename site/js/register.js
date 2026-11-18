@@ -146,7 +146,7 @@ export function registerForm({ onSuccess } = {}) {
       if (!['male','female'].includes(v.gender)) e.gender = 'لطفاً جنسیت را انتخاب کنید.';
       if (!['lawyer','trainee','law_student','law_graduate','professor','researcher','other'].includes(v.position)) e.position = 'لطفاً سمت را از فهرست انتخاب کنید.';
       if (!['academy_member','academy_instructor','academy_researcher','guest_member','other'].includes(v.professionalTitle)) e.professionalTitle = 'لطفاً عنوان را از فهرست انتخاب کنید.';
-      if (!/^09\\d{9}$/.test(v.phone)) e.phone = 'شماره همراه باید ۱۱ رقم و با ۰۹ شروع شود.';
+      if (!/^09\d{9}$/.test(v.phone)) e.phone = 'شماره همراه باید ۱۱ رقم و با ۰۹ شروع شود.';
       if (!EMAIL_RE.test(v.email) || v.email.length > 254) e.email = 'نشانی ایمیل معتبر نیست.';
       if (v.password.length < 10 || v.password.length > 128) e.password = 'رمز عبور باید بین ۱۰ و ۱۲۸ نویسه باشد.';
       else if (v.password !== v.passwordConfirm) e.passwordConfirm = 'تکرار رمز با رمز عبور یکی نیست.';
