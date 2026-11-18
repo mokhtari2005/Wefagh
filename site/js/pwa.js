@@ -156,3 +156,5 @@ if (document.readyState === 'loading') {
 } else {
   window.setTimeout(offerPushActivation, 900);
 }
+
+window.addEventListener('hashchange', () => window.setTimeout(offerPushActivation, 700));
