@@ -247,7 +247,7 @@ function addForm(onSaved, existing = null, onCancel = null) {
     field('dl-kind', 'نوع', kind),
     due.node,
     field('dl-time', 'ساعت موعد (اختیاری)', time),
-    h('fieldset', { class: 'checklist' }, [h('legend', { text: 'یادآوری اختصاصی این موعد' }), h('label', { class: 'check-row' }, [reminderEnabled, document.createTextNode('ارسال اعلان روی گوشی برای این موعد')]), field('dl-reminder-days', 'زمان یادآوری', reminderDays), field('dl-reminder-time', 'ساعت تقریبی ارسال اعلان (به وقت تهران)', reminderTime), h('p', { class: 'muted', text: 'برای دریافت اعلان در پس‌زمینه، اعلان گوشی را نیز در بخش بالای تقویم فعال کنید.' })]),
+    h('fieldset', { class: 'checklist' }, [h('legend', { text: 'یادآوری اختصاصی این موعد' }), h('label', { class: 'check-row' }, [reminderEnabled, document.createTextNode('ارسال یادآوری ایمیلی و اعلان گوشی (در صورت فعال‌سازی)')]), field('dl-reminder-days', 'زمان یادآوری', reminderDays), field('dl-reminder-time', 'ساعت تقریبی ارسال اعلان (به وقت تهران)', reminderTime), h('p', { class: 'muted', text: 'یادآوری ایمیلی به نشانی ثبت‌شده در حساب ارسال می‌شود؛ برای دریافت اعلان گوشی نیز آن را در بخش بالای تقویم فعال کنید.' })]),
     h('fieldset', { class: 'checklist' }, [
       h('legend', { text: 'محاسبه از تاریخ ابلاغ (اختیاری)' }),
       notice.node,
