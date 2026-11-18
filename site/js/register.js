@@ -256,6 +256,8 @@ export function registerForm({ onSuccess } = {}) {
       const successPage = h('section', { class: 'registration-success', 'aria-labelledby': 'registration-success-title' }, [
         h('div', { class: 'registration-success-mark', 'aria-hidden': 'true', text: '✓' }),
         h('span', { class: 'registration-success-kicker', text: 'آکادمی وکالت شهرام مختاری' }),
+        h('p', { class: 'registration-success-greeting', text: `${v.gender === 'male' ? 'جناب آقای' : 'سرکار خانم'} ${v.displayName}` }),
+        h('p', { class: 'registration-success-title-label', text: `عنوان: ${C.professionalTitle.selectedOptions[0]?.textContent || '—'}` }),
         h('h1', { id: 'registration-success-title', text: 'ثبت‌نام شما با موفقیت انجام شد' }),
         h('p', { class: 'registration-success-lead', text: 'حساب کاربری شما ایجاد شد. منتظر دریافت ایمیل تأیید باشید؛ ابتدا نشانی ایمیل را تأیید کنید و سپس درخواست عضویت شما توسط مدیریت آکادمی بررسی و نتیجه اعلام می‌شود.' }),
         h('div', { class: 'registration-success-note' }, [
