@@ -474,78 +474,90 @@ export function regionalValueTool() {
       h('p',{class:'muted',text:'فضاهای غیرمسقف و مشاعات منظور نشده‌اند. در املاک چندبر، معبر دارای راه عبور با بالاترین ارزش مبناست. اگر ملک مجاور بزرگراه یا مسیل است اما دسترسی از معبر دیگری دارد، عرض و نرخ همان معبر دسترسی را وارد کنید.'}),
       h('p',{class:'notice',text:'این خروجی ارزش معاملاتی مالیاتی است، نه قیمت روز بازار یا قیمت کارشناسی ملک. پیش از استفاده رسمی، بلوک و کاربری را با سند و موقعیت دقیق ملک تطبیق دهید.'}),
       h('footer',{class:'regional-report-footer',text:'آکادمی وکالت شهرام مختاری | mokhtari.ir — گزارش تولیدشده از سامانه محاسبات ارزش معاملاتی'}),
-      h('button',{class:'btn secondary',type:'button',text:'چاپ گزارش'})
+      h('div',{class:'regional-report-actions'},[
+        h('button',{class:'btn secondary',type:'button',text:'چاپ / ذخیره PDF'}),
+        h('button',{class:'btn secondary',type:'button',text:'دانلود فایل گزارش'})
+      ])
     ]);
-    result.querySelector('button').addEventListener('click',()=>{
-      // Print an isolated copy so page layout, sticky headers and calculator styles
-      // cannot push the report onto a second sheet.
-      const sheet = document.createElement('main');
-      sheet.className = 'regional-print-sheet';
+    const reportCss = `
+      *{box-sizing:border-box}
+      html,body{margin:0;padding:0;background:#fff;color:#20332e;direction:rtl}
+      body{font-family:Vazirmatn,Tahoma,Arial,sans-serif;font-size:10pt;line-height:1.65}
+      .regional-result{display:block;width:100%;max-width:194mm;margin:0 auto;padding:0;border:0;background:#fff;color:#20332e}
+      .regional-print-header{display:flex;flex-direction:column;align-items:center;gap:2px;padding:5mm 0 3mm;margin:0 0 4mm;border-top:3px solid #b28a45;border-bottom:1.5px solid #244f49;text-align:center}
+      .regional-academy-name{font-size:16pt;font-weight:800;color:#173b37}
+      .regional-academy-domain{font-size:8pt;color:#667b74;direction:ltr}
+      .regional-print-header h2{font-size:13pt;margin:2mm 0 0;color:#173b37}
+      .regional-report-meta{display:grid;grid-template-columns:22mm minmax(0,1fr) 22mm minmax(0,1fr);gap:2mm 3mm;padding:3mm;margin:0 0 4mm;border:1px solid #d8e1dc;border-right:3px solid #b28a45;background:#f8faf8;font-size:8.5pt}
+      .regional-report-meta dt{font-weight:700;color:#426058}
+      .regional-report-meta dd{min-width:0;margin:0;overflow-wrap:anywhere}
+      .result-head h3{font-size:11pt;color:#244f49;margin:3mm 0 2mm}
+      .amount-block{display:flex;align-items:center;justify-content:space-between;gap:4mm;padding:3mm 4mm;margin:2mm 0 4mm;border:1px solid #cbd8d1;border-radius:2mm;background:#edf3ef;color:#173b37}
+      .amount-label{font-size:9pt;font-weight:700}
+      .amount-value{font-size:16pt;font-weight:900;white-space:nowrap}
+      .facts{display:grid;grid-template-columns:1fr 1fr;gap:1.5mm 3mm;margin:3mm 0 4mm;padding:0}
+      .regional-fact-item{display:flex;align-items:flex-start;justify-content:space-between;gap:2mm;min-width:0;padding:2mm;border-bottom:1px solid #e4eae6;break-inside:avoid}
+      .regional-fact-item dt{font-size:8pt;color:#536a62;font-weight:700}
+      .regional-fact-item dd{margin:0;font-size:8.2pt;font-weight:800;text-align:left;overflow-wrap:anywhere}
+      .muted,.notice{margin:2mm 0;padding:2.5mm 3mm;border-radius:1mm;font-size:7.8pt;line-height:1.65}
+      .muted{color:#53645e;background:#f7f9f7}
+      .notice{color:#6b512a;border:1px solid #e5d7b9;background:#fbf7ee}
+      .regional-report-footer{margin-top:3mm;padding-top:2mm;border-top:1px solid #d8e1dc;color:#718079;text-align:center;font-size:7pt}
+      .regional-report-actions{display:flex;gap:8px;justify-content:center;margin-top:14px}
+      .regional-report-actions button{padding:9px 16px;border:1px solid #b8c8c0;border-radius:8px;background:#f4f7f5;color:#173b37;font:inherit;cursor:pointer}
+      @page{size:A4 portrait;margin:8mm}
+      @media print{
+        html,body{width:194mm!important;margin:0!important;padding:0!important;background:#fff!important}
+        body{font-size:7.6pt!important;line-height:1.38!important}
+        .regional-result{width:194mm!important;max-width:none!important;margin:0!important}
+        .regional-report-actions{display:none!important}
+        .regional-print-header{padding:2mm 0 2.5mm;margin-bottom:2.5mm}
+        .regional-academy-name{font-size:13pt}.regional-academy-domain{font-size:7pt}
+        .regional-print-header h2{font-size:10.5pt}
+        .regional-report-meta{grid-template-columns:18mm minmax(0,1fr) 18mm minmax(0,1fr);gap:1mm 2mm;padding:2mm;margin-bottom:2.5mm;font-size:7.1pt}
+        .result-head h3{font-size:9pt;margin:1.5mm 0}
+        .amount-block{padding:2mm 3mm;margin:1mm 0 2mm}
+        .amount-value{font-size:14pt}
+        .facts{gap:1mm 2mm;margin:2mm 0}
+        .regional-fact-item{padding:1mm 1.5mm}
+        .regional-fact-item dt,.regional-fact-item dd{font-size:7pt}
+        .muted,.notice{margin:1mm 0;padding:1.5mm 2mm;font-size:6.8pt;line-height:1.45}
+        .regional-report-footer{margin-top:2mm;padding-top:1.5mm;font-size:6.2pt}
+        *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      }
+    `;
+    const actions = result.querySelector('.regional-report-actions');
+    const printButton = actions.querySelectorAll('button')[0];
+    const downloadButton = actions.querySelectorAll('button')[1];
+    const buildStandaloneHtml = () => {
       const copy = result.cloneNode(true);
-      copy.querySelector('button')?.remove();
-      sheet.append(copy);
-      const printStyle = document.createElement('style');
-      printStyle.dataset.regionalPrint = '1';
-      printStyle.textContent = `
-        @page { size: A4 portrait; margin: 8mm; }
-        @media print {
-          html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
-          body > *:not(.regional-print-sheet):not(style) { display: none !important; }
-          .regional-print-sheet { display:block !important; position:fixed !important; inset:0 auto auto 0 !important;
-            width:194mm !important; margin:0 !important; padding:0 !important; direction:rtl !important;
-            color:#1d302c !important; font:7.6pt/1.32 Vazirmatn,Tahoma,sans-serif !important; }
-          .regional-print-sheet, .regional-print-sheet * { visibility:visible !important; box-sizing:border-box !important; }
-          .regional-print-sheet .regional-result { display:block !important; width:100% !important; margin:0 !important;
-            padding:0 !important; border:0 !important; border-radius:0 !important; box-shadow:none !important;
-            background:#fff !important; break-inside:avoid !important; }
-          .regional-print-sheet .regional-print-header { position:relative; display:flex !important; flex-direction:column;
-            align-items:center; gap:1px; padding:5px 0 7px; margin:0 0 7px;
-            border-top:3px solid #b28a45; border-bottom:1.5px solid #244f49; text-align:center; }
-          .regional-print-sheet .regional-academy-name { color:#173b37; font-size:13pt; font-weight:800; letter-spacing:-.2px; }
-          .regional-print-sheet .regional-academy-domain { color:#667b74; font-size:7pt; direction:ltr; }
-          .regional-print-sheet .regional-print-header h2 { color:#173b37; font-size:10.5pt; margin:3px 0 0; font-weight:800; }
-          .regional-print-sheet .regional-report-meta { display:grid !important; grid-template-columns:68px 1fr 68px 1fr;
-            gap:3px 6px; padding:6px 8px; margin:0 0 7px; border:1px solid #d8e1dc;
-            border-right:3px solid #b28a45; border-radius:4px; background:#f8faf8 !important;
-            font-size:7.1pt; print-color-adjust:exact; -webkit-print-color-adjust:exact; }
-          .regional-print-sheet .regional-report-meta dt { color:#426058; font-weight:800; }
-          .regional-print-sheet .regional-report-meta dd { min-width:0; margin:0; overflow-wrap:anywhere; }
-          .regional-print-sheet .result-head h3 { color:#244f49; font-size:9pt; margin:5px 0 3px; }
-          .regional-print-sheet .amount-block { display:flex; align-items:center; justify-content:space-between; gap:10px;
-            padding:7px 10px; margin:4px 0 7px; border:1px solid #cbd8d1 !important;
-            border-radius:5px; background:#edf3ef !important; color:#173b37 !important;
-            print-color-adjust:exact; -webkit-print-color-adjust:exact; }
-          .regional-print-sheet .amount-label { font-size:7.4pt; font-weight:700; }
-          .regional-print-sheet .amount-value { color:#173b37; font-size:15pt; font-weight:900; }
-          .regional-print-sheet .facts { display:grid !important; grid-template-columns:1fr 1fr; gap:4px 9px; margin:5px 0 7px; }
-          .regional-print-sheet .regional-fact-item { display:flex; align-items:baseline; justify-content:space-between; gap:6px;
-            min-width:0; padding:3px 5px; border-bottom:1px solid #e4eae6; background:#fff; break-inside:avoid; }
-          .regional-print-sheet .regional-fact-item dt { color:#536a62; font-size:7pt; font-weight:700; }
-          .regional-print-sheet .regional-fact-item dd { margin:0; color:#203b34; font-size:7.1pt; font-weight:800; text-align:left; overflow-wrap:anywhere; }
-          .regional-print-sheet .muted, .regional-print-sheet .notice { margin:4px 0; padding:5px 7px;
-            border-radius:4px; font-size:6.7pt; line-height:1.35; }
-          .regional-print-sheet .muted { color:#53645e; background:#f7f9f7 !important; }
-          .regional-print-sheet .notice { color:#6b512a; border:1px solid #e5d7b9; background:#fbf7ee !important;
-            print-color-adjust:exact; -webkit-print-color-adjust:exact; }
-          .regional-print-sheet .regional-report-footer { margin-top:6px; padding-top:4px; border-top:1px solid #d8e1dc;
-            color:#718079; text-align:center; font-size:6.2pt; }
-        }
-        @media screen { .regional-print-sheet { display:none !important; } }
-      `;
-      document.head.append(printStyle);
-      document.body.append(sheet);
-      let cleaned = false;
-      const cleanup = () => {
-        if (cleaned) return;
-        cleaned = true;
-        sheet.remove();
-        printStyle.remove();
-        window.removeEventListener('afterprint', cleanup);
-      };
-      window.addEventListener('afterprint', cleanup);
-      window.print();
-      // Safari may not reliably fire afterprint when the print dialog is dismissed.
-      setTimeout(cleanup, 30000);
+      copy.querySelector('.regional-report-actions')?.remove();
+      return '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>گزارش ارزش معاملاتی ملک</title><style>'+reportCss+'</style></head><body>'+copy.outerHTML+'</body></html>';
+    };
+    printButton.addEventListener('click',()=>{
+      const popup = window.open('', '_blank');
+      if (!popup) {
+        const blob = new Blob([buildStandaloneHtml()], {type:'text/html;charset=utf-8'});
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url; link.download = 'gozaresh-arzesh-moamelati.html';
+        document.body.append(link); link.click(); link.remove();
+        setTimeout(()=>URL.revokeObjectURL(url),15000);
+        return;
+      }
+      popup.document.open();
+      popup.document.write(buildStandaloneHtml());
+      popup.document.close();
+      popup.onload = () => { popup.focus(); setTimeout(()=>popup.print(),350); };
+    });
+    downloadButton.addEventListener('click',()=>{
+      const blob = new Blob([buildStandaloneHtml()], {type:'text/html;charset=utf-8'});
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `gozaresh-arzesh-moamelati-${inquiryId}.html`;
+      document.body.append(link); link.click(); link.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),15000);
     });
     out.replaceChildren(result);
   });
