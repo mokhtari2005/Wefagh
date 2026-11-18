@@ -29,6 +29,7 @@ import { handleMapTiles } from './map-tiles.js';
 import { handleDiagnostics } from './diagnostics.js';
 import { handleDiagnosticRepair } from './diagnostic-repair.js';
 import { handleDiagnosticSelfTest } from './diagnostic-self-test.js';
+import { handleVisitorAnalytics } from './visitor-analytics.js';
 
 // برای سازگاری با تست‌های قبلی، json را از اینجا هم صادر می‌کنیم.
 export { json };
@@ -71,6 +72,11 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, '') || '/';
+
+    if (path === '/api/analytics/heartbeat' || path === '/api/admin/analytics/overview') {
+      try { const res = await handleVisitorAnalytics(request, env, path); if (res) return res; }
+      catch (err) { console.error(JSON.stringify({ where: 'visitor-analytics', error: err?.name || 'Error' })); return json({ ok: false, error: 'INTERNAL_ERROR' }, 500); }
+    }
 
     if (path.startsWith('/api/map/tiles/')) return handleMapTiles(request);
     if (path === '/api/admin/diagnostics/self-test' || path === '/api/admin/diagnostics/write-test') return handleDiagnosticSelfTest(request, env, path);
