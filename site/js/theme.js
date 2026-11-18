@@ -2,7 +2,7 @@
    انتخاب کاربر فقط در مرورگر همین دستگاه ذخیره می‌شود؛ هیچ داده‌ای به سرور نمی‌رود. */
 (function () {
   var KEY = 'wefagh-theme';
-  var THEMES = { green: '#134e44', navy: '#1b2a4a', pencil: '#4b4b48' };
+  var THEMES = { green: '#134e44', navy: '#1b2a4a', pencil: '#9b2335' };
 
   function read() {
     try {
