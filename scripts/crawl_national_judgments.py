@@ -21,7 +21,10 @@ from urllib.robotparser import RobotFileParser
 
 import requests
 
-from parse_national_judgment import parse_judgment
+try:
+    from .parse_national_judgment import parse_judgment
+except ImportError:  # direct script execution in GitHub Actions
+    from parse_national_judgment import parse_judgment
 
 BASE = "https://ara.jri.ac.ir/"
 HOST = "ara.jri.ac.ir"
