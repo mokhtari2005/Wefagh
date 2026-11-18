@@ -71,8 +71,10 @@ export async function register(request, env) {
   const pol = validatePasswordPolicy(body.password);
   if (!pol.ok) errors.password = pol.error;
   if (displayName.length < 2 || displayName.length > 100) errors.displayName = 'نام و نام خانوادگی باید بین ۲ و ۱۰۰ نویسه باشد.';
-  const hasRegistrationDetails = ['gender', 'phone', 'professionalTitle', 'position'].some((key) => body[key] !== undefined);
-  if (hasRegistrationDetails) {
+  const hasContactDetails = body.gender !== undefined || body.phone !== undefined;
+  if (professionalTitle && (professionalTitle.length < 2 || professionalTitle.length > 100)) errors.professionalTitle = 'عنوان معتبر نیست.';
+  if (position && (position.length < 2 || position.length > 100)) errors.position = 'سمت معتبر نیست.';
+  if (hasContactDetails) {
     if (!['male', 'female'].includes(gender)) errors.gender = 'جنسیت را انتخاب کنید.';
     if (!['lawyer', 'trainee', 'law_student', 'law_graduate', 'professor', 'researcher', 'other'].includes(position)) errors.position = 'سمت را از فهرست انتخاب کنید.';
     if (!['academy_member', 'academy_instructor', 'academy_researcher', 'guest_member', 'other'].includes(professionalTitle)) errors.professionalTitle = 'عنوان را از فهرست انتخاب کنید.';
@@ -95,7 +97,7 @@ export async function register(request, env) {
     try {
       row = await env.DB
         .prepare('INSERT INTO users (email, password_hash, display_name, gender, phone, professional_title, position) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) RETURNING id')
-        .bind(email, passwordHash, displayName, gender, phone, professionalTitle, position)
+        .bind(email, passwordHash, displayName, gender || null, phone || null, professionalTitle, position)
         .first();
     } catch (schemaError) {
       // سازگاری با نسخه‌های قدیمی دیتابیس تا اجرای مهاجرت ۰۰۲۵.
