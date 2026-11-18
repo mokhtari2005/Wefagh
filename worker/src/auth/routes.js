@@ -318,15 +318,17 @@ export async function getProfile(env, userId) {
     logError('me.profile_lookup', err);
     return null;
   }
-  let avatar = null;
+  // فقط وجود عکس در پاسخ پروفایل اعلام می‌شود؛ بایت‌های تصویر جداگانه و هنگام نیاز دریافت می‌شوند.
+  let hasAvatar = false;
   try {
-    avatar = await env.DB.prepare('SELECT data_url FROM user_avatars WHERE user_id = ?1').bind(userId).first();
+    const avatar = await env.DB.prepare('SELECT 1 AS present FROM user_avatars WHERE user_id = ?1 LIMIT 1').bind(userId).first();
+    hasAvatar = Boolean(avatar?.present);
   } catch (err) {
     logError('me.avatar_lookup', err);
   }
-  if (!row) return avatar?.data_url ? { avatarDataUrl: avatar.data_url } : null;
+  if (!row) return hasAvatar ? { avatarUrl: '/api/me/avatar' } : null;
   return {
-    avatarDataUrl: avatar?.data_url || null,
+    avatarUrl: hasAvatar ? '/api/me/avatar' : null,
     phone: row.phone,
     province: row.province,
     city: row.city,
