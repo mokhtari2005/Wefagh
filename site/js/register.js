@@ -1,14 +1,14 @@
 // فرم ثبت‌نام: مرحلهٔ حساب کاربری ← بررسی و تأیید.
-// ثبت‌نام فعلاً شماره تلفن و پروفایل را نمی‌گیرد و کنترل شماره تکراری ندارد (تصمیم مالک).
+// فرم ثبت‌نام، اطلاعات هویتی و راه‌های تماس اولیه را دریافت می‌کند.
 // DOM امن (بدون innerHTML با داده). اعتبارسنجی سمت کاربر؛ سرور همچنان مرجع نهایی است.
 import { postJson } from './api.js';
 import { messageFor } from './auth-messages.js';
 
 const STEP_TITLES = ['حساب کاربری', 'بررسی و تأیید'];
-const STEP_KEYS = [['displayName', 'professionalTitle', 'position', 'email', 'password', 'passwordConfirm']];
+const STEP_KEYS = [['displayName', 'gender', 'position', 'professionalTitle', 'phone', 'email', 'password', 'passwordConfirm']];
 /** نام فارسی هر فیلد برای پیام خطای سرور. */
 const FIELD_LABELS = {
-  displayName: 'نام و نام خانوادگی', professionalTitle: 'عنوان حرفه‌ای', position: 'سمت', email: 'ایمیل', password: 'رمز عبور', passwordConfirm: 'تکرار رمز عبور',
+  displayName: 'نام و نام خانوادگی', gender: 'جنسیت', professionalTitle: 'عنوان', position: 'سمت', phone: 'شماره تلفن همراه', email: 'ایمیل', password: 'رمز عبور', passwordConfirm: 'تکرار رمز عبور',
 };
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -47,8 +47,10 @@ export function registerForm({ onSuccess } = {}) {
   // ---------- کنترل‌ها ----------
   const C = {
     displayName: h('input', { type: 'text', name: 'displayName', autocomplete: 'name', maxlength: '100' }),
-    professionalTitle: h('input', { type: 'text', name: 'professionalTitle', maxlength: '100', placeholder: 'مثلاً وکیل دادگستری، کارآموز وکالت، دانشجوی حقوق' }),
-    position: h('input', { type: 'text', name: 'position', maxlength: '100', placeholder: 'مثلاً عضو، مدیر، پژوهشگر، کارشناس' }),
+    gender: h('select', { name: 'gender', required: 'required' }, [h('option', { value: '', text: 'انتخاب کنید' }), h('option', { value: 'male', text: 'آقا' }), h('option', { value: 'female', text: 'خانم' })]),
+    position: h('select', { name: 'position', required: 'required' }, [h('option', { value: '', text: 'انتخاب سمت' }), ...[['lawyer','وکیل دادگستری'],['trainee','کارآموز وکالت'],['law_student','دانشجوی حقوق'],['law_graduate','فارغ‌التحصیل حقوق'],['professor','استاد دانشگاه'],['researcher','پژوهشگر حقوق'],['other','سایر']].map(([value,label]) => h('option',{value,text:label}))]),
+    professionalTitle: h('select', { name: 'professionalTitle', required: 'required' }, [h('option', { value: '', text: 'انتخاب عنوان' }), ...[['academy_member','عضو آکادمی'],['academy_instructor','مدرس آکادمی'],['academy_researcher','پژوهشگر آکادمی'],['guest_member','عضو مهمان'],['other','سایر']].map(([value,label]) => h('option',{value,text:label}))]),
+    phone: h('input', { type: 'tel', name: 'phone', inputmode: 'numeric', autocomplete: 'tel-national', dir: 'ltr', maxlength: '11', placeholder: '09123456789' }),
     email: h('input', { type: 'email', name: 'email', autocomplete: 'email', dir: 'ltr', maxlength: '254' }),
     password: h('input', { type: 'password', name: 'password', autocomplete: 'new-password', maxlength: '128' }),
     passwordConfirm: h('input', { type: 'password', name: 'passwordConfirm', autocomplete: 'new-password', maxlength: '128' }),
@@ -68,8 +70,10 @@ export function registerForm({ onSuccess } = {}) {
   const panels = [
     h('section', { class: 'reg-step-body', 'aria-label': STEP_TITLES[0] }, [
       field('reg-displayname', 'نام و نام خانوادگی', C.displayName, { required: true }), E.displayName,
-      field('reg-professionaltitle', 'عنوان حرفه‌ای', C.professionalTitle, { required: true, hint: 'عنوان حرفه‌ای یا تحصیلی خود را وارد کنید.' }), E.professionalTitle,
-      field('reg-position', 'سمت', C.position, { required: true, hint: 'سمت یا مسئولیت سازمانی خود را وارد کنید.' }), E.position,
+      field('reg-gender', 'جنسیت', C.gender, { required: true }), E.gender,
+      field('reg-position', 'سمت', C.position, { required: true, hint: 'برای نمونه: وکیل دادگستری یا کارآموز وکالت.' }), E.position,
+      field('reg-professionaltitle', 'عنوان', C.professionalTitle, { required: true, hint: 'برای نمونه: عضو آکادمی.' }), E.professionalTitle,
+      field('reg-phone', 'شماره تلفن همراه', C.phone, { required: true, hint: 'شماره همراه را به صورت ۱۱ رقم و با ۰۹ وارد کنید.' }), E.phone,
       field('reg-email', 'نشانی ایمیل', C.email, { required: true, hint: 'لینک تأیید حساب به این نشانی ارسال می‌شود.' }), E.email,
       field('reg-password', 'رمز عبور (حداقل ۱۰ نویسه)', C.password, { required: true }), E.password,
       field('reg-passwordconfirm', 'تکرار رمز عبور', C.passwordConfirm, { required: true }), E.passwordConfirm,
@@ -125,8 +129,10 @@ export function registerForm({ onSuccess } = {}) {
   // ---------- منطق ----------
   const val = () => ({
     displayName: C.displayName.value.trim(),
-    professionalTitle: C.professionalTitle.value.trim(),
-    position: C.position.value.trim(),
+    gender: C.gender.value,
+    professionalTitle: C.professionalTitle.value,
+    position: C.position.value,
+    phone: C.phone.value.trim(),
     email: C.email.value.trim(),
     password: C.password.value,
     passwordConfirm: C.passwordConfirm.value,
@@ -137,8 +143,10 @@ export function registerForm({ onSuccess } = {}) {
     const e = {};
     if (index === 0) {
       if (v.displayName.length < 2 || v.displayName.length > 100) e.displayName = 'نام و نام خانوادگی باید بین ۲ و ۱۰۰ نویسه باشد.';
-      if (v.professionalTitle.length < 2 || v.professionalTitle.length > 100) e.professionalTitle = 'عنوان حرفه‌ای باید بین ۲ و ۱۰۰ نویسه باشد.';
-      if (v.position.length < 2 || v.position.length > 100) e.position = 'سمت باید بین ۲ و ۱۰۰ نویسه باشد.';
+      if (!['male','female'].includes(v.gender)) e.gender = 'لطفاً جنسیت را انتخاب کنید.';
+      if (!['lawyer','trainee','law_student','law_graduate','professor','researcher','other'].includes(v.position)) e.position = 'لطفاً سمت را از فهرست انتخاب کنید.';
+      if (!['academy_member','academy_instructor','academy_researcher','guest_member','other'].includes(v.professionalTitle)) e.professionalTitle = 'لطفاً عنوان را از فهرست انتخاب کنید.';
+      if (!/^09\d{9}$/.test(v.phone)) e.phone = 'شماره همراه باید ۱۱ رقم و با ۰۹ شروع شود.';
       if (!EMAIL_RE.test(v.email) || v.email.length > 254) e.email = 'نشانی ایمیل معتبر نیست.';
       if (v.password.length < 10 || v.password.length > 128) e.password = 'رمز عبور باید بین ۱۰ و ۱۲۸ نویسه باشد.';
       else if (v.password !== v.passwordConfirm) e.passwordConfirm = 'تکرار رمز با رمز عبور یکی نیست.';
@@ -170,8 +178,10 @@ export function registerForm({ onSuccess } = {}) {
     const v = val();
     const rows = [
       ['نام و نام خانوادگی', v.displayName],
-      ['عنوان حرفه‌ای', v.professionalTitle],
-      ['سمت', v.position],
+      ['جنسیت', v.gender === 'male' ? 'آقا' : 'خانم'],
+      ['سمت', C.position.selectedOptions[0]?.textContent || v.position],
+      ['عنوان', C.professionalTitle.selectedOptions[0]?.textContent || v.professionalTitle],
+      ['شماره تلفن همراه', v.phone],
       ['ایمیل', v.email],
     ];
     summary.replaceChildren(...rows.map(([k, val2]) => h('div', { class: 'review-row' }, [
@@ -232,7 +242,7 @@ export function registerForm({ onSuccess } = {}) {
       return;
     }
     const v = val();
-    const payload = { displayName: v.displayName, professionalTitle: v.professionalTitle, position: v.position, email: v.email, password: v.password };
+    const payload = { displayName: v.displayName, gender: v.gender, professionalTitle: v.professionalTitle, position: v.position, phone: v.phone, email: v.email, password: v.password };
     submitBtn.disabled = true;
     backBtn.disabled = true;
     status.className = 'form-status';
@@ -247,7 +257,7 @@ export function registerForm({ onSuccess } = {}) {
         h('div', { class: 'registration-success-mark', 'aria-hidden': 'true', text: '✓' }),
         h('span', { class: 'registration-success-kicker', text: 'آکادمی وکالت شهرام مختاری' }),
         h('h1', { id: 'registration-success-title', text: 'ثبت‌نام شما با موفقیت انجام شد' }),
-        h('p', { class: 'registration-success-lead', text: 'حساب کاربری شما ایجاد شد. ابتدا ایمیل خود را تأیید کنید؛ سپس درخواست عضویت شما توسط مدیریت آکادمی بررسی و نتیجه اعلام می‌شود.' }),
+        h('p', { class: 'registration-success-lead', text: 'حساب کاربری شما ایجاد شد. منتظر دریافت ایمیل تأیید باشید؛ ابتدا نشانی ایمیل را تأیید کنید و سپس درخواست عضویت شما توسط مدیریت آکادمی بررسی و نتیجه اعلام می‌شود.' }),
         h('div', { class: 'registration-success-note' }, [
           h('strong', { text: 'مرحلهٔ بعد: تأیید نشانی ایمیل' }),
           h('p', { text: 'صندوق ورودی ایمیل خود را بررسی کنید. اگر پیام را پیدا نکردید، پوشه‌های هرزنامه (Spam) و تبلیغات (Promotions) را هم ببینید.' }),
