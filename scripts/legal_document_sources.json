@@ -79,6 +79,21 @@
         "executive_circular"
       ],
       "mode": "manual"
+    },
+    {
+      "key": "ekhtebar-laws-index-amp",
+      "url": "https://www.ekhtebar.ir/%D9%82%D9%88%D8%A7%D9%86%DB%8C%D9%86/?amp",
+      "authority": "پایگاه خبری اختبار (منبع ثانویه مورد تأیید کاربر برای کشف و مقابله)",
+      "types": [
+        "law",
+        "treaty",
+        "bylaw",
+        "executive_regulation",
+        "executive_circular"
+      ],
+      "mode": "discovery_only",
+      "authoritative": false,
+      "note": "User-provided discovery index; automated access may be unavailable due to site challenge. Do not treat as an authoritative legal publication source."
     }
   ]
 }
