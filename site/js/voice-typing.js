@@ -356,7 +356,7 @@ export function voiceTypingPage() {
     const base = code.startsWith('HTTP_')
       ? 'پاسخ نامعتبر از سرور دریافت شد؛ احتمالاً خطای موقت سرور است.'
       : errorText(code);
-    setStatus(`${base} (کد: ${code}${res?.status && !code.startsWith('HTTP_') ? ` · HTTP ${res.status}` : ''}${res?.data?.stage ? ` · ${res.data.stage}` : ''})`, 'error');
+    setStatus(`${base} (کد: ${code}${res?.status && !code.startsWith('HTTP_') ? ` · HTTP ${res.status}` : ''}${res?.data?.stage ? ` · مرحله: ${res.data.stage}` : ''}${res?.data?.errorType ? ` · نوع خطا: ${res.data.errorType}` : ''}${res?.data?.errorCode ? ` · جزئیات: ${res.data.errorCode}` : ''})`, 'error');
     if (code !== 'UNAUTHENTICATED') {
       retry.hidden = false;
       localFallback.hidden = false;
