@@ -25,6 +25,7 @@ import { collectLegalNews } from './media/news.js';
 import { handleNotifications, createDueNotifications } from './notifications.js';
 import { handlePush } from './push/routes.js';
 import { sendDuePushReminders } from './push/reminders.js';
+import { sendDueEmailReminders } from './email/deadline-reminders.js';
 import { handleMapTiles } from './map-tiles.js';
 import { handleDiagnostics } from './diagnostics.js';
 import { handleDiagnosticRepair } from './diagnostic-repair.js';
@@ -237,6 +238,7 @@ export default {
   async scheduled(event, env, ctx) {
     if (event.cron === '*/5 * * * *') {
       ctx.waitUntil(sendDuePushReminders(env).catch((err) => console.error(JSON.stringify({ where: 'push.cron', error: err?.name || 'Error' }))));
+      ctx.waitUntil(sendDueEmailReminders(env).catch((err) => console.error(JSON.stringify({ where: 'email.deadline.cron', error: err?.name || 'Error' }))));
     }
     if (event.cron === '30 1 * * *') {
       ctx.waitUntil(collectLegalNews(env).catch((err) => console.error(JSON.stringify({ where: 'media.news.cron', error: err?.name || 'Error' }))));
