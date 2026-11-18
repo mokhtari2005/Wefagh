@@ -1,0 +1,19 @@
+{
+  "name": "آکادمی وکالت شهرام مختاری",
+  "short_name": "آکادمی وکالت",
+  "lang": "fa",
+  "dir": "rtl",
+  "start_url": "/#/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fff",
+  "theme_color": "#134e44",
+  "icons": [
+    {
+      "src": "/assets/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

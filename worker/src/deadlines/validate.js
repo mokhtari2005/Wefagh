@@ -37,6 +37,11 @@ export function validateDeadline(body) {
     else errors.dueTime = 'ساعت باید به شکل HH:MM باشد.';
   }
 
+  const reminderEnabled = body.reminderEnabled === true;
+  const reminderDays = body.reminderDays === undefined ? 1 : Number(body.reminderDays);
+  if (![1,3,7].includes(reminderDays)) errors.reminderDays = 'زمان یادآوری باید یک، سه یا هفت روز باشد.';
+  const reminderTime = body.reminderTime === undefined || body.reminderTime === '' ? '08:00' : body.reminderTime;
+  if (typeof reminderTime !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(reminderTime)) errors.reminderTime = 'ساعت یادآوری معتبر نیست.';
   const note = typeof body.note === 'string' ? body.note.replace(/\r\n?/g, '\n').trim() : '';
   if (note.length > 1000) errors.note = 'یادداشت بیش از ۱۰۰۰ نویسه است.';
 
@@ -49,6 +54,9 @@ export function validateDeadline(body) {
       dueDate: body.dueDate,
       kind,
       dueTime,
+      reminderEnabled,
+      reminderDays,
+      reminderTime,
       note: note || null,
     },
   };

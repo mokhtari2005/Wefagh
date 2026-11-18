@@ -42,7 +42,7 @@ function d1Like(db) {
 async function setup() {
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON;');
-  for (const f of ['0001_init.sql', '0002_auth.sql', '0003_academy.sql', '0004_deadlines.sql', '0011_deadline_time.sql', '0020_calendar_notifications.sql']) db.exec(migration(f));
+  for (const f of ['0001_init.sql', '0002_auth.sql', '0003_academy.sql', '0004_deadlines.sql', '0011_deadline_time.sql', '0020_calendar_notifications.sql', '0021_calendar_push_reminders.sql']) db.exec(migration(f));
   const env = { DB: d1Like(db) };
   const make = async (email, token) => {
     const u = db
@@ -88,6 +88,16 @@ test('validateDeadline: تاریخ نامعتبر، نوع ناشناخته و �
   }
 });
 
+test('validateDeadline: یادآوری اختصاصی فقط با گزینه‌های مجاز ذخیره می‌شود', () => {
+  const v = validateDeadline({ ...valid, reminderEnabled: true, reminderDays: 7, reminderTime: '09:15' });
+  assert.equal(v.ok, true);
+  assert.equal(v.value.reminderEnabled, true);
+  assert.equal(v.value.reminderDays, 7);
+  assert.equal(v.value.reminderTime, '09:15');
+  assert.equal(validateDeadline({ ...valid, reminderDays: 2 }).ok, false);
+  assert.equal(validateDeadline({ ...valid, reminderTime: '25:00' }).ok, false);
+});
+
 test('validateDeadline: یادداشت و شمارهٔ پرونده اختیاری‌اند', () => {
   const v = validateDeadline({ title: 'مهلت', dueDate: '2026-12-01', kind: 'other' });
   assert.equal(v.ok, true);
@@ -114,6 +124,8 @@ test('ایجاد، فهرست، تغییر وضعیت و حذف با مالکی�
   assert.equal(list.deadlines[0].title, 'جلسه دادگاه');
   assert.equal(list.deadlines[0].done, false);
   assert.equal(list.deadlines[0].caseNo, '123/45');
+  assert.equal(list.deadlines[0].reminderEnabled, false);
+  assert.equal(list.deadlines[0].reminderDays, 1);
 
   const done = await call(env, `/api/deadlines/${id}`, { method: 'PATCH', body: { done: true }, cookie: a.cookie });
   assert.equal(done.status, 200);
@@ -124,6 +136,35 @@ test('ایجاد، فهرست، تغییر وضعیت و حذف با مالکی�
   assert.equal(del.status, 200);
   const empty = await (await call(env, '/api/deadlines', { cookie: a.cookie })).json();
   assert.equal(empty.deadlines.length, 0);
+});
+
+test('تنظیم یادآوری اختصاصی موعد در ایجاد و ویرایش ذخیره می‌شود', { skip }, async () => {
+  const { env, a } = await setup();
+  const created = await call(env, '/api/deadlines', { method:'POST', body:{...valid,reminderEnabled:true,reminderDays:3,reminderTime:'09:45'}, cookie:a.cookie });
+  assert.equal(created.status,201);
+  const {id}=await created.json();
+  let item=(await (await call(env,'/api/deadlines',{cookie:a.cookie})).json()).deadlines[0];
+  assert.equal(item.reminderEnabled,true);
+  assert.equal(item.reminderDays,3);
+  assert.equal(item.reminderTime,'09:45');
+  const edited=await call(env,`/api/deadlines/${id}`,{method:'PUT',body:{...valid,reminderEnabled:false,reminderDays:7,reminderTime:'10:15'},cookie:a.cookie});
+  assert.equal(edited.status,200);
+  item=(await (await call(env,'/api/deadlines',{cookie:a.cookie})).json()).deadlines[0];
+  assert.equal(item.reminderEnabled,false);
+  assert.equal(item.reminderDays,7);
+  assert.equal(item.reminderTime,'10:15');
+});
+
+test('اشتراک اعلان Push فقط به حساب مالک متصل است و قابل حذف است', { skip }, async () => {
+  const {env,a,b}=await setup();
+  const sub={endpoint:'https://fcm.googleapis.com/fcm/send/test-subscription',keys:{p256dh:'BElongKey',auth:'authSecret'}};
+  assert.equal((await call(env,'/api/push/subscription',{method:'POST',body:sub,cookie:a.cookie})).status,200);
+  assert.equal((await (await call(env,'/api/push/subscription?endpoint='+encodeURIComponent(sub.endpoint),{cookie:a.cookie})).json()).active,true);
+  assert.equal((await (await call(env,'/api/push/subscription?endpoint='+encodeURIComponent(sub.endpoint),{cookie:b.cookie})).json()).active,false);
+  assert.equal((await call(env,'/api/push/subscription',{method:'DELETE',body:{endpoint:sub.endpoint},cookie:b.cookie})).status,200);
+  assert.equal((await (await call(env,'/api/push/subscription?endpoint='+encodeURIComponent(sub.endpoint),{cookie:a.cookie})).json()).active,true);
+  assert.equal((await call(env,'/api/push/subscription',{method:'DELETE',body:{endpoint:sub.endpoint},cookie:a.cookie})).status,200);
+  assert.equal((await (await call(env,'/api/push/subscription?endpoint='+encodeURIComponent(sub.endpoint),{cookie:a.cookie})).json()).active,false);
 });
 
 test('کاربر دیگر نمی‌تواند مهلت دیگری را ببیند، تغییر دهد یا حذف کند', { skip }, async () => {
