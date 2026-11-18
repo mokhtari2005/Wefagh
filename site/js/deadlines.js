@@ -247,7 +247,7 @@ function addForm(onSaved, existing = null, onCancel = null) {
     field('dl-kind', 'نوع', kind),
     due.node,
     field('dl-time', 'ساعت موعد (اختیاری)', time),
-    h('fieldset', { class: 'checklist' }, [h('legend', { text: 'یادآوری اختصاصی این موعد' }), h('label', { class: 'check-row' }, [reminderEnabled, document.createTextNode('ارسال اعلان روی گوشی برای این موعد')]), field('dl-reminder-days', 'زمان یادآوری', reminderDays), field('dl-reminder-time', 'ساعت ارسال اعلان (به وقت تهران)', reminderTime), h('p', { class: 'muted', text: 'برای دریافت اعلان در پس‌زمینه، اعلان گوشی را نیز در بخش بالای تقویم فعال کنید.' })]),
+    h('fieldset', { class: 'checklist' }, [h('legend', { text: 'یادآوری اختصاصی این موعد' }), h('label', { class: 'check-row' }, [reminderEnabled, document.createTextNode('ارسال اعلان روی گوشی برای این موعد')]), field('dl-reminder-days', 'زمان یادآوری', reminderDays), field('dl-reminder-time', 'ساعت تقریبی ارسال اعلان (به وقت تهران)', reminderTime), h('p', { class: 'muted', text: 'برای دریافت اعلان در پس‌زمینه، اعلان گوشی را نیز در بخش بالای تقویم فعال کنید.' })]),
     h('fieldset', { class: 'checklist' }, [
       h('legend', { text: 'محاسبه از تاریخ ابلاغ (اختیاری)' }),
       notice.node,
@@ -381,7 +381,9 @@ function deadlineRow(it, st, onChanged, onEdit) {
 }
 
 async function refreshPushState(button, status) {
-  const r = await getJson('/api/push/subscription');
+  const reg = await navigator.serviceWorker?.getRegistration('/');
+  const sub = await reg?.pushManager.getSubscription();
+  const r = sub ? await getJson('/api/push/subscription?endpoint=' + encodeURIComponent(sub.endpoint)) : {ok:true,data:{active:false}};
   button.dataset.active = r.ok && r.data.active ? 'true' : 'false';
   button.textContent = button.dataset.active === 'true' ? 'غیرفعال‌سازی اعلان گوشی' : 'فعال‌سازی اعلان گوشی';
   if (button.dataset.active === 'true') status.textContent = 'اعلان گوشی برای این حساب فعال است.';
@@ -407,7 +409,7 @@ async function disablePushNotifications() {
   try {
     const reg = await navigator.serviceWorker.getRegistration('/');
     const sub = await reg?.pushManager.getSubscription();
-    if (sub) { await sendJson('DELETE','/api/push/subscription',{endpoint:sub.endpoint}); await sub.unsubscribe(); }
+    if (sub) { const removed = await sendJson('DELETE','/api/push/subscription',{endpoint:sub.endpoint}); if (!removed.ok) return {ok:false,message:'حذف اشتراک از سرور ناموفق بود.'}; await sub.unsubscribe(); }
     return {ok:true,message:'اعلان گوشی برای این دستگاه غیرفعال شد.'};
   } catch { return {ok:false,message:'غیرفعال‌سازی اعلان ناموفق بود.'}; }
 }

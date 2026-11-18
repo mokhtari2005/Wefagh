@@ -195,13 +195,16 @@ export default {
 
   // Cron: یادآوری مواعد در تلگرام (هر ۳۰ دقیقه؛ فقط از ساعت ۸ صبح تهران می‌فرستد).
   async scheduled(event, env, ctx) {
+    if (event.cron === '*/5 * * * *') {
+      ctx.waitUntil(sendDuePushReminders(env).catch((err) => console.error(JSON.stringify({ where: 'push.cron', error: err?.name || 'Error' }))));
+    }
     if (event.cron === '30 1 * * *') {
       ctx.waitUntil(collectLegalNews(env).catch((err) => console.error(JSON.stringify({ where: 'media.news.cron', error: err?.name || 'Error' }))));
     }
     if (event.cron === '*/30 * * * *') {
       ctx.waitUntil(sendDueReminders(env).catch((err) => console.error(JSON.stringify({ where: 'telegram.cron', error: err?.name || 'Error' }))));
       ctx.waitUntil(createDueNotifications(env).catch((err) => console.error(JSON.stringify({ where: 'notifications.cron', error: err?.name || 'Error' }))));
-      ctx.waitUntil(sendDuePushReminders(env).catch((err) => console.error(JSON.stringify({ where: 'push.cron', error: err?.name || 'Error' }))));
+
     }
   },
 };

@@ -11,7 +11,9 @@ export async function handlePush(request, env, path) {
   }
   if (path !== '/api/push/subscription') return null;
   if (request.method === 'GET') {
-    const row=await env.DB.prepare('SELECT id FROM push_subscriptions WHERE user_id=?1 LIMIT 1').bind(user.id).first();
+    const endpoint = new URL(request.url).searchParams.get('endpoint');
+    if (!endpoint) return json({ok:true,active:false});
+    const row=await env.DB.prepare('SELECT id FROM push_subscriptions WHERE user_id=?1 AND endpoint=?2 LIMIT 1').bind(user.id,endpoint).first();
     return json({ok:true,active:Boolean(row)});
   }
   const parsed=await readJsonBody(request); if(parsed.error)return parsed.error;

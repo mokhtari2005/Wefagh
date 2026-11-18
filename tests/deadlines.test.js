@@ -159,12 +159,12 @@ test('اشتراک اعلان Push فقط به حساب مالک متصل است
   const {env,a,b}=await setup();
   const sub={endpoint:'https://fcm.googleapis.com/fcm/send/test-subscription',keys:{p256dh:'BElongKey',auth:'authSecret'}};
   assert.equal((await call(env,'/api/push/subscription',{method:'POST',body:sub,cookie:a.cookie})).status,200);
-  assert.equal((await (await call(env,'/api/push/subscription',{cookie:a.cookie})).json()).active,true);
-  assert.equal((await (await call(env,'/api/push/subscription',{cookie:b.cookie})).json()).active,false);
+  assert.equal((await (await call(env,'/api/push/subscription?endpoint='+encodeURIComponent(sub.endpoint),{cookie:a.cookie})).json()).active,true);
+  assert.equal((await (await call(env,'/api/push/subscription?endpoint='+encodeURIComponent(sub.endpoint),{cookie:b.cookie})).json()).active,false);
   assert.equal((await call(env,'/api/push/subscription',{method:'DELETE',body:{endpoint:sub.endpoint},cookie:b.cookie})).status,200);
-  assert.equal((await (await call(env,'/api/push/subscription',{cookie:a.cookie})).json()).active,true);
+  assert.equal((await (await call(env,'/api/push/subscription?endpoint='+encodeURIComponent(sub.endpoint),{cookie:a.cookie})).json()).active,true);
   assert.equal((await call(env,'/api/push/subscription',{method:'DELETE',body:{endpoint:sub.endpoint},cookie:a.cookie})).status,200);
-  assert.equal((await (await call(env,'/api/push/subscription',{cookie:a.cookie})).json()).active,false);
+  assert.equal((await (await call(env,'/api/push/subscription?endpoint='+encodeURIComponent(sub.endpoint),{cookie:a.cookie})).json()).active,false);
 });
 
 test('کاربر دیگر نمی‌تواند مهلت دیگری را ببیند، تغییر دهد یا حذف کند', { skip }, async () => {
