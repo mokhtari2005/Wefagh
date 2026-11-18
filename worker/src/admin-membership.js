@@ -35,10 +35,10 @@ export async function handleAdminMembership(request, env, path) {
   const access = await requireMembershipAdmin(request, env);
   if (access.response) return access.response;
   if (path === allowed[0]) {
-    const rows = await env.DB.prepare(`SELECT u.id,u.email,u.display_name AS displayName,u.membership_no AS membershipNo,
+    const rows = await env.DB.prepare(`SELECT u.id,u.email,u.display_name AS displayName,u.gender,u.phone AS mobile,u.membership_no AS membershipNo,
       u.professional_title AS professionalTitle,u.position,u.status,u.membership_status AS membershipStatus,
       u.email_verified_at AS emailVerifiedAt,u.created_at AS createdAt,
-      p.phone,p.province,p.city,p.professional_status AS professionalStatus,p.bar_association AS barAssociation
+      p.province,p.city,p.professional_status AS professionalStatus,p.bar_association AS barAssociation
       FROM users u LEFT JOIN user_profiles p ON p.user_id=u.id ORDER BY
       CASE u.membership_status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END, u.created_at DESC LIMIT 500`).all();
     return json({ ok: true, items: rows.results || [] });
