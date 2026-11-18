@@ -1,25 +1,8 @@
 // مسیریاب ساده بر پایهٔ hash و رندر صفحات با DOM امن.
 import { NAV, VALUES, ABOUT_SECTIONS } from './pages.js';
-import { mountContactForm } from './contact.js';
 import { formatShamsi } from './shamsi.js';
 import { parseHash } from './route.js';
-import { loginForm, registerForm, verifyPanel, accountPanel } from './account.js';
-import { academyList, academyCoursesPage, academyCourse, academyExamsPage, ACADEMY_TOOLS } from './academy.js';
-import { shamsiCalendar } from './calendar.js';
-import { assistantPage, assistantHistoryPage } from './assistant.js';
 import { icon, mountIcons } from './icons.js';
-import { courtRoomPage } from './moot-ai.js';
-import { casePickerPage } from './moot-cases.js';
-import { mootCourtPage } from './moot.js';
-import { calculatorsPage } from './calc/page.js';
-import { mediaHome, articlePage } from './media.js';
-import { deadlinesPage, upcomingCard } from './deadlines.js';
-import { casesPage } from './cases.js';
-import { dashboardPage } from './dashboard.js';
-import { adminPage } from './admin.js';
-import { ekhtebarPage } from './ekhtebar.js';
-import { voiceTypingPage } from './voice-typing.js';
-import { installDiagnostics } from './diagnostics.js';
 
 /** صفحه‌ای که داده‌اش ناهمگام است: یک جای نگه‌دار می‌سازد و بعد پر می‌کند. */
 function lazy(fn) {
@@ -136,11 +119,14 @@ function pageHome() {
     ]),
   ]);
 
-  const quick = h('section', { class: 'quick-section', 'aria-labelledby': 'quick-title' }, [
-    h('h2', { id: 'quick-title', class: 'block-title', text: 'دسترسی سریع' }),
-    h('div', { class: 'quick-grid' }, ACADEMY_TOOLS.map((item) =>
-      h('a', { class: 'quick-tile', href: item.href }, [h('span', { class: 'quick-icon', 'aria-hidden': 'true' }, [icon(item.icon, { size: 24 })]), h('span', { text: item.title })]))),
-  ]);
+  const quick = lazy(async () => {
+    const { ACADEMY_TOOLS } = await import('./academy.js');
+    return h('section', { class: 'quick-section', 'aria-labelledby': 'quick-title' }, [
+      h('h2', { id: 'quick-title', class: 'block-title', text: 'دسترسی سریع' }),
+      h('div', { class: 'quick-grid' }, ACADEMY_TOOLS.map((item) =>
+        h('a', { class: 'quick-tile', href: item.href }, [h('span', { class: 'quick-icon', 'aria-hidden': 'true' }, [icon(item.icon, { size: 24 })]), h('span', { text: item.title })]))),
+    ]);
+  });
 
   const lower = h('section', { class: 'dashboard-lower' }, [
     h('article', { class: 'panel quote-panel' }, [
@@ -164,9 +150,9 @@ function pageHome() {
   const calendarSection = h('section', { class: 'home-calendar', 'aria-label': 'تقویم و مواعد پیش‌رو' }, [
     h('article', { class: 'panel deadline-panel' }, [
       h('div', { class: 'section-heading' }, [h('h2', { class: 'block-title', text: 'موعدهای پیش‌رو' }), h('a', { href: '#/deadlines', text: 'مشاهدهٔ تقویم کامل ‹' })]),
-      lazy(upcomingCard),
+      lazy(async () => { const { upcomingCard } = await import('./deadlines.js'); return upcomingCard(); }),
     ]),
-    shamsiCalendar({ onSelect: (iso) => { window.location.hash = `#/deadlines?date=${encodeURIComponent(iso)}`; } }),
+    lazy(async () => { const { shamsiCalendar } = await import('./calendar.js'); return shamsiCalendar({ onSelect: (iso) => { window.location.hash = `#/deadlines?date=${encodeURIComponent(iso)}`; } }); }),
   ]);
   root.append(hero, calendarSection, quick, stats, lower, cta);
   return root;
@@ -192,7 +178,7 @@ function pageContact() {
   ]);
   const holder = h('div');
   wrap.append(holder);
-  mountContactForm(holder);
+  holder.replaceChildren(lazy(async () => { const { mountContactForm } = await import('./contact.js'); const form = h('div'); mountContactForm(form); return form; }));
   wrap.append(h('div', { class: 'notice', role: 'note', text: 'توجه: آکادمی به پرسش‌های حقوقی اشخاص پاسخ نمی‌دهد، خدمات مشاوره حقوقی ارائه نمی‌کند و پرونده‌های شخصی را بررسی نمی‌کند. پیام‌های این بخش صرفاً به‌عنوان پیشنهاد یا بازخورد دریافت می‌شوند.' }));
   wrap.append(h('p', { class: 'muted' }, [
     document.createTextNode('یا مستقیماً به ایمیل '),
@@ -218,51 +204,33 @@ function pageNotFound() {
 }
 
 function pageAccount(params) {
-  const wrap = h('div');
-  const area = h('div', { role: 'region', 'aria-live': 'polite' });
-  wrap.append(area);
-
-  const showLogin = () => {
-    area.replaceChildren(
-      h('h1', { text: 'ورود به حساب' }),
-      loginForm({
-        onSuccess: () => {
-          // بعد از ورود، صفحهٔ حساب را دوباره می‌سازیم.
-          window.location.hash = '#/account';
-          render();
-        },
-      })
-    );
-  };
-  const showRegister = () => {
-    area.replaceChildren(h('h1', { text: 'ثبت‌نام' }), registerForm({ onLoginLink: showLogin }));
-  };
-
-  if (params.mode === 'register') {
-    showRegister();
+  return lazy(async () => {
+    const { loginForm, registerForm, accountPanel } = await import('./account.js');
+    const wrap = h('div');
+    const area = h('div', { role: 'region', 'aria-live': 'polite' });
+    wrap.append(area);
+    const showLogin = () => {
+      area.replaceChildren(
+        h('h1', { text: 'ورود به حساب' }),
+        loginForm({ onSuccess: () => { window.location.hash = '#/account'; render(); } })
+      );
+    };
+    const showRegister = () => {
+      area.replaceChildren(h('h1', { text: 'ثبت‌نام' }), registerForm({ onLoginLink: showLogin }));
+    };
+    if (params.mode === 'register') { showRegister(); return wrap; }
+    area.replaceChildren(h('p', { class: 'loading', text: 'در حال بررسی…' }));
+    const panel = await accountPanel({ onLogout: () => render() });
+    if (panel) area.replaceChildren(panel); else showLogin();
     return wrap;
-  }
-
-  // اگر کاربر وارد است، حساب او را نشان بده؛ وگرنه فرم ورود.
-  area.replaceChildren(h('p', { class: 'loading', text: 'در حال بررسی…' }));
-  accountPanel({
-    onLogout: () => {
-      render();
-    },
-  }).then((panel) => {
-    if (panel) {
-      area.replaceChildren(panel);
-    } else {
-      showLogin();
-    }
   });
-  return wrap;
 }
 
 function pageVerify(params) {
-  const holder = h('div');
-  verifyPanel(params.token || '').then((panel) => holder.replaceChildren(panel));
-  return holder;
+  return lazy(async () => {
+    const { verifyPanel } = await import('./account.js');
+    return verifyPanel(params.token || '');
+  });
 }
 
 const ROUTES = {
@@ -271,27 +239,27 @@ const ROUTES = {
   '/contact': () => pageContact(),
   '/account': (params) => pageAccount(params),
   '/verify': (params) => pageVerify(params),
-  '/academy': () => lazy(academyList),
-  '/academy/courses': () => lazy(academyCoursesPage),
-  '/courses': () => lazy(academyCoursesPage),
-  '/academy/exams': () => lazy(academyExamsPage),
-  '/academy/ekhtebar': () => lazy(ekhtebarPage),
-  '/dashboard': () => lazy(dashboardPage),
-  '/admin': () => lazy(adminPage),
-  '/cases': () => lazy(() => casesPage()),
-  '/moot-court': (params) => lazy(() => mootCourtPage(params)),
-  '/assistant': (params) => assistantPage(params),
-  '/voice-typing': () => voiceTypingPage(),
-  '/assistant/history': () => assistantHistoryPage(),
-  '/moot-court/hearing': (params) => courtRoomPage(params),
-  '/moot-court/cases': (params) => casePickerPage(params),
-  '/calculators': (params) => calculatorsPage(params),
-  '/calculators/regional': () => calculatorsPage({ tool: 'regional' }),
-  '/calculators/court': () => calculatorsPage({ tool: 'court' }),
-  '/calculators/attorney': () => calculatorsPage({ tool: 'attorney' }),
-  '/calculators/delay': () => calculatorsPage({ tool: 'delay' }),
-  '/media': () => lazy(mediaHome),
-  '/deadlines': (params) => lazy(() => deadlinesPage(params)),
+  '/academy': () => lazy(async () => (await import('./academy.js')).academyList()),
+  '/academy/courses': () => lazy(async () => (await import('./academy.js')).academyCoursesPage()),
+  '/courses': () => lazy(async () => (await import('./academy.js')).academyCoursesPage()),
+  '/academy/exams': () => lazy(async () => (await import('./academy.js')).academyExamsPage()),
+  '/academy/ekhtebar': () => lazy(async () => (await import('./ekhtebar.js')).ekhtebarPage()),
+  '/dashboard': () => lazy(async () => (await import('./dashboard.js')).dashboardPage()),
+  '/admin': () => lazy(async () => (await import('./admin.js')).adminPage()),
+  '/cases': () => lazy(async () => (await import('./cases.js')).casesPage()),
+  '/moot-court': (params) => lazy(async () => (await import('./moot.js')).mootCourtPage(params)),
+  '/assistant': (params) => lazy(async () => (await import('./assistant.js')).assistantPage(params)),
+  '/voice-typing': () => lazy(async () => (await import('./voice-typing.js')).voiceTypingPage()),
+  '/assistant/history': () => lazy(async () => (await import('./assistant.js')).assistantHistoryPage()),
+  '/moot-court/hearing': (params) => lazy(async () => (await import('./moot-ai.js')).courtRoomPage(params)),
+  '/moot-court/cases': (params) => lazy(async () => (await import('./moot-cases.js')).casePickerPage(params)),
+  '/calculators': (params) => lazy(async () => (await import('./calc/page.js')).calculatorsPage(params)),
+  '/calculators/regional': () => lazy(async () => (await import('./calc/page.js')).calculatorsPage({ tool: 'regional' })),
+  '/calculators/court': () => lazy(async () => (await import('./calc/page.js')).calculatorsPage({ tool: 'court' })),
+  '/calculators/attorney': () => lazy(async () => (await import('./calc/page.js')).calculatorsPage({ tool: 'attorney' })),
+  '/calculators/delay': () => lazy(async () => (await import('./calc/page.js')).calculatorsPage({ tool: 'delay' })),
+  '/media': () => lazy(async () => (await import('./media.js')).mediaHome()),
+  '/deadlines': (params) => lazy(async () => (await import('./deadlines.js')).deadlinesPage(params)),
 };
 
 
@@ -340,9 +308,9 @@ function render() {
   let content;
   const planned = NAV.find((n) => n.path === path && n.status === 'planned');
   if (ROUTES[path]) content = ROUTES[path](params);
-  else if (path.startsWith('/cases/')) content = lazy(() => casesPage(decodeURIComponent(path.slice('/cases/'.length))));
-  else if (path.startsWith('/media/')) content = lazy(() => articlePage(decodeURIComponent(path.slice('/media/'.length))));
-  else if (path.startsWith('/academy/')) content = lazy(() => academyCourse(decodeURIComponent(path.slice('/academy/'.length))));
+  else if (path.startsWith('/cases/')) content = lazy(async () => (await import('./cases.js')).casesPage(decodeURIComponent(path.slice('/cases/'.length))));
+  else if (path.startsWith('/media/')) content = lazy(async () => (await import('./media.js')).articlePage(decodeURIComponent(path.slice('/media/'.length))));
+  else if (path.startsWith('/academy/')) content = lazy(async () => (await import('./academy.js')).academyCourse(decodeURIComponent(path.slice('/academy/'.length))));
   else if (planned) content = pagePlanned(planned);
   else content = pageNotFound();
 
@@ -362,7 +330,8 @@ toggle?.addEventListener('click', () => {
   toggle.setAttribute('aria-expanded', String(open));
 });
 
-installDiagnostics();
+// ابزارهای تشخیصی پس از آماده‌شدن رابط اصلی و به‌صورت جداگانه بارگذاری می‌شوند.
+import('./diagnostics.js').then(({ installDiagnostics }) => installDiagnostics()).catch(() => {});
 mountIcons();
 const bottomMore = document.getElementById('bottom-more');
 bottomMore?.addEventListener('click', () => {
