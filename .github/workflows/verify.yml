@@ -25,11 +25,11 @@ jobs:
           node --test tests/legal-source-registry.test.js
   full-suite:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - name: Run complete repository verification (known baseline failures are reported, not hidden)
+        continue-on-error: true
         run: npm run verify
