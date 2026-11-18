@@ -25,6 +25,7 @@ import { handleNotifications, createDueNotifications } from './notifications.js'
 import { handlePush } from './push/routes.js';
 import { sendDuePushReminders } from './push/reminders.js';
 import { handleMapTiles } from './map-tiles.js';
+import { handleDiagnostics } from './diagnostics.js';
 
 // برای سازگاری با تست‌های قبلی، json را از اینجا هم صادر می‌کنیم.
 export { json };
@@ -68,6 +69,7 @@ export default {
     const path = url.pathname.replace(/\/+$/, '') || '/';
 
     if (path.startsWith('/api/map/tiles/')) return handleMapTiles(request);
+    if (path.startsWith('/api/diagnostics/')) return handleDiagnostics(request, env, path);
 
     if (path === '/api/health') {
       if (request.method !== 'GET' && request.method !== 'HEAD') {
