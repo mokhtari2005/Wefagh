@@ -265,6 +265,8 @@ async function speech(request, env) {
 }
 
 async function transcribe(request, env) {
+  // متد را پیش از احراز هویت بررسی می‌کنیم تا خطای متد با خطای نشست اشتباه نشود.
+  if (request.method !== 'POST') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'POST' });
   let auth;
   try {
     auth = await authorized(request, env);
@@ -275,7 +277,6 @@ async function transcribe(request, env) {
     auth = await authorized(request, env);
   }
   if (auth.error) return auth.error;
-  if (request.method !== 'POST') return fail('METHOD_NOT_ALLOWED', 405);
   const parsed = await readBody(request, LIMITS.audioBytes + 4096);
   if (parsed.error) return parsed.error;
   const mimeType = AUDIO_TYPES.includes(parsed.body?.mimeType) ? parsed.body.mimeType : null;
