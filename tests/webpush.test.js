@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, randomBytes, webcrypto } from 'node:crypto';
 import { sendWebPush } from '../worker/src/push/webpush.js';
+import { notifyMembershipAdmins } from '../worker/src/push/membership.js';
 
 const b64url = (value) => Buffer.from(value).toString('base64url');
 
@@ -41,4 +42,26 @@ test('Web Push builds an encrypted aes128gcm request and signs VAPID', async () 
   } finally {
     globalThis.fetch = previousFetch;
   }
+});
+
+
+test('new membership alert emails the configured academy administrator', async () => {
+  let delivered;
+  const env = {
+    DB: { prepare() { return { all: async () => ({ results: [] }) }; } },
+    ADMIN_EMAIL: 'admin@example.test',
+    mailer: async (message) => { delivered = message; },
+  };
+  const result = await notifyMembershipAdmins(env, {
+    displayName: 'متقاضی آزمایشی',
+    email: 'applicant@example.test',
+    position: 'lawyer',
+  });
+  assert.equal(result.emailSent, true);
+  assert.equal(result.pushSent, 0);
+  assert.equal(delivered.to, 'admin@example.test');
+  assert.match(delivered.subject, /درخواست عضویت جدید/);
+  assert.match(delivered.text, /متقاضی آزمایشی/);
+  assert.match(delivered.text, /applicant@example.test/);
+  assert.match(delivered.text, /https:\/\/mokhtari\.ir\/#\/admin/);
 });
