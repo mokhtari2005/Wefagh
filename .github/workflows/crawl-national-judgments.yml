@@ -1,0 +1,58 @@
+name: Crawl public national judicial decisions
+
+on:
+  schedule:
+    - cron: '43 3 * * *'
+  workflow_dispatch:
+    inputs:
+      max_pages:
+        description: Maximum public judgment pages to process (1-1500)
+        required: true
+        default: '1000'
+        type: string
+      confirm:
+        description: Type CRAWL_PUBLIC_JUDGMENTS to start
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: national-judgments-crawler
+  cancel-in-progress: false
+
+jobs:
+  crawl:
+    if: github.event_name == 'schedule' || inputs.confirm == 'CRAWL_PUBLIC_JUDGMENTS'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install crawler dependency
+        run: python -m pip install requests
+      - name: Verify required credentials
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+      - name: Crawl public index and import discovered judgments
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          LIMIT="${{ github.event.inputs.max_pages || '250' }}"
+          python scripts/crawl_national_judgments.py --max-pages "$LIMIT" --delay 2
+      - name: Upload crawl audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: national-judgments-crawl-report
+          path: artifacts/national-judgments-report.json
+          if-no-files-found: ignore
+          retention-days: 30
