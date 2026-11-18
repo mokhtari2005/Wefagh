@@ -171,7 +171,8 @@ function avatarEditor(currentUrl) {
     const selected = file.files?.[0];
     if (!selected) { setStatus(status, 'ابتدا یک عکس انتخاب کنید.', 'err'); return; }
     if (selected.size > 350 * 1024) { setStatus(status, 'حجم عکس نباید بیشتر از ۳۵۰ کیلوبایت باشد.', 'err'); return; }
-    const optimized = await optimizeAvatar(selected);\n    const data = new FormData(); data.append('avatar', optimized, 'profile.webp');
+    const optimized = await optimizeAvatar(selected);
+    const data = new FormData(); data.append('avatar', optimized, 'profile.webp');
     save.disabled = true; setStatus(status, 'در حال بارگذاری…');
     try {
       const response = await fetch('/api/me/avatar', { method: 'POST', credentials: 'same-origin', body: data, headers: { Accept: 'application/json' } });
