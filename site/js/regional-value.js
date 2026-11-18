@@ -333,11 +333,66 @@ export function regionalValueTool() {
       h('button',{class:'btn secondary',type:'button',text:'چاپ گزارش'})
     ]);
     result.querySelector('button').addEventListener('click',()=>{
-      document.body.classList.add('printing-regional-report');
-      const cleanup=()=>document.body.classList.remove('printing-regional-report');
-      window.addEventListener('afterprint',cleanup,{once:true});
+      // Print an isolated copy so page layout, sticky headers and calculator styles
+      // cannot push the report onto a second sheet.
+      const sheet = document.createElement('main');
+      sheet.className = 'regional-print-sheet';
+      const copy = result.cloneNode(true);
+      copy.querySelector('button')?.remove();
+      sheet.append(copy);
+      const printStyle = document.createElement('style');
+      printStyle.dataset.regionalPrint = '1';
+      printStyle.textContent = `
+        @page { size: A4 portrait; margin: 8mm; }
+        @media print {
+          html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+          body > *:not(.regional-print-sheet):not(style) { display: none !important; }
+          .regional-print-sheet {
+            display: block !important; position: fixed !important; top: 0 !important; right: 0 !important;
+            width: 248mm !important; margin: 0 !important; padding: 0 !important;
+            transform: scale(.78); transform-origin: top right;
+            direction: rtl !important; color: #172b27 !important;
+            font: 8.5pt/1.35 Vazirmatn, Tahoma, sans-serif !important;
+          }
+          .regional-print-sheet, .regional-print-sheet * { visibility: visible !important; box-sizing: border-box !important; }
+          .regional-print-sheet .regional-result { display:block !important; width:100% !important; margin:0 !important;
+            padding:0 !important; border:0 !important; box-shadow:none !important; break-inside:avoid !important; }
+          .regional-print-sheet .regional-print-header { display:flex !important; flex-direction:column; align-items:center;
+            gap:1px; padding:0 0 5px; margin:0 0 6px; border-bottom:2px solid #315e55; text-align:center; }
+          .regional-print-sheet .regional-academy-name { font-size:13pt; font-weight:800; }
+          .regional-print-sheet .regional-academy-domain { font-size:7.5pt; direction:ltr; }
+          .regional-print-sheet .regional-print-header h2 { font-size:11pt; margin:3px 0 0; }
+          .regional-print-sheet .regional-report-meta { display:grid !important; grid-template-columns:75px 1fr;
+            gap:1px 6px; padding:5px 7px; margin:0 0 6px; border:1px solid #d5dfda; border-radius:5px; font-size:7.5pt; }
+          .regional-print-sheet .regional-report-meta dt { font-weight:700; }
+          .regional-print-sheet .regional-report-meta dd { margin:0; overflow-wrap:anywhere; }
+          .regional-print-sheet .result-head h3 { font-size:9.5pt; margin:4px 0; }
+          .regional-print-sheet .amount-block { padding:5px 8px; margin:4px 0; background:#f1f5f2 !important;
+            border:1px solid #cbd8d1 !important; color:#173b37 !important; print-color-adjust:exact; }
+          .regional-print-sheet .amount-label { font-size:7.5pt; }
+          .regional-print-sheet .amount-value { font-size:14pt; }
+          .regional-print-sheet .facts { display:grid; grid-template-columns:1fr 1fr; gap:0 12px; margin:4px 0; }
+          .regional-print-sheet .facts dt, .regional-print-sheet .facts dd { padding:1px 0; margin:0;
+            border-bottom:1px solid #e5ebe7; font-size:7.2pt; line-height:1.3; }
+          .regional-print-sheet .muted, .regional-print-sheet .notice { margin:4px 0; padding:4px 6px;
+            font-size:7pt; line-height:1.35; }
+        }
+        @media screen { .regional-print-sheet { display:none !important; } }
+      `;
+      document.head.append(printStyle);
+      document.body.append(sheet);
+      let cleaned = false;
+      const cleanup = () => {
+        if (cleaned) return;
+        cleaned = true;
+        sheet.remove();
+        printStyle.remove();
+        window.removeEventListener('afterprint', cleanup);
+      };
+      window.addEventListener('afterprint', cleanup);
       window.print();
-      setTimeout(cleanup,1500);
+      // Safari may not reliably fire afterprint when the print dialog is dismissed.
+      setTimeout(cleanup, 30000);
     });
     out.replaceChildren(result);
   });
