@@ -5,7 +5,14 @@ import { requireAdmin } from './admin.js';
 
 const clean = (v, max = 500) => typeof v === 'string' ? v.trim().slice(0, max) : '';
 const STATUSES = new Set(['needs_review', 'verified', 'amended', 'repealed']);
-const TYPES = new Set(['law', 'regulation', 'bylaw', 'circular', 'unified_precedent', 'advisory_opinion', 'other']);
+const TYPES = new Set([
+  'law', 'regulation', 'bylaw', 'circular', 'unified_precedent', 'advisory_opinion', 'other',
+  'supreme_court_unified_precedent', 'supreme_court_insistence_precedent',
+  'administrative_court_unified_precedent', 'administrative_court_general_board',
+  'administrative_court_specialized_board', 'judicial_advisory_opinion',
+  'judicial_circular', 'executive_circular', 'executive_regulation',
+  'treaty', 'guardian_council_opinion', 'parliamentary_research'
+]);
 
 async function readLargeJson(request, maxBytes = 4 * 1024 * 1024) {
   if (!(request.headers.get('content-type') || '').toLowerCase().includes('application/json')) return { error: json({ ok:false, error:'UNSUPPORTED_MEDIA_TYPE' },415) };

@@ -44,12 +44,22 @@ def get_files():
     return [x["path"] for x in rows if x.get("type")=="file" and x.get("name","").endswith(".md")]
 
 def classify(t):
-    if "وحدت رویه" in t and ("رأی" in t or "رای" in t): return "unified_precedent"
-    if "نظریه مشورتی" in t: return "advisory_opinion"
-    if "بخشنامه" in t or "دستورالعمل" in t: return "circular"
-    if "آیین‌نامه" in t or "آیین نامه" in t: return "bylaw"
-    if "تصویب‌نامه" in t or "تصویب نامه" in t: return "regulation"
-    if "قانون" in t or "اساسی" in t: return "law"
+    text=t.replace("\u200c"," ")
+    if "دیوان عالی کشور" in text and "اصراری" in text: return "supreme_court_insistence_precedent"
+    if "دیوان عالی کشور" in text and "وحدت رویه" in text: return "supreme_court_unified_precedent"
+    if "دیوان عدالت اداری" in text and "وحدت رویه" in text: return "administrative_court_unified_precedent"
+    if "هیئت عمومی دیوان عدالت اداری" in text: return "administrative_court_general_board"
+    if "هیئت تخصصی دیوان عدالت اداری" in text: return "administrative_court_specialized_board"
+    if "نظریه مشورتی" in text and ("اداره کل حقوقی" in text or "قوه قضائیه" in text): return "judicial_advisory_opinion"
+    if "نظریه مشورتی" in text: return "advisory_opinion"
+    if "بخشنامه" in text and ("قوه قضائیه" in text or "رئیس قوه" in text): return "judicial_circular"
+    if "بخشنامه" in text or "دستورالعمل" in text: return "executive_circular"
+    if "آیین نامه" in text or "آیین‌نامه" in text: return "bylaw"
+    if "تصویب نامه" in text or "تصویب‌نامه" in text: return "executive_regulation"
+    if "کنوانسیون" in text or "معاهده" in text: return "treaty"
+    if "شورای نگهبان" in text and ("تفسیر" in text or "نظریه" in text): return "guardian_council_opinion"
+    if "مرکز پژوهش های مجلس" in text or "مرکز پژوهش‌های مجلس" in text: return "parliamentary_research"
+    if "قانون" in text or "اساسی" in text: return "law"
     return "other"
 
 def parse_doc(path, index):
