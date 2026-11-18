@@ -168,6 +168,7 @@ export function voiceTypingPage() {
   let permissionStatus = null;
   let recordingTimeout = null;
   const MAX_RECORDING_MS = 4 * 60 * 1000;
+  const RETRYABLE = new Set(['AI_UNAVAILABLE', 'AI_PROVIDER_ERROR', 'AI_NETWORK_ERROR', 'AI_PROVIDER_BAD_RESPONSE', 'AI_EMPTY', 'NETWORK']);
   const MODEL_ID = 'onnx-community/whisper-tiny';
 
   function setMicState(state, message) {
@@ -323,7 +324,16 @@ export function voiceTypingPage() {
     let res;
     try {
       const data = await blobToBase64(blob);
-      res = await postJson('/api/ai/transcribe', { mimeType: type, data, language: language.value.slice(0, 2) }, { timeoutMs: 90000 });
+      const send = () => postJson('/api/ai/transcribe', { mimeType: type, data, language: language.value.slice(0, 2) }, { timeoutMs: 90000 });
+      res = await send();
+      // خطاهای موقت سرویس (قطع لحظه‌ای، پاسخ غیر JSON، خطای 5xx) یک بار خودکار تکرار می‌شوند.
+      const code = res?.data?.error;
+      const transient = !res.ok && (res.networkError || !code ? res.status !== 401 && res.status !== 413 && res.status !== 422 : RETRYABLE.has(code));
+      if (transient) {
+        setStatus('ارتباط با سرویس تبدیل گفتار قطع شد؛ در حال تلاش دوباره…', 'processing');
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        res = await send();
+      }
     } catch (error) {
       console.error('[voice-typing] upload failed', error);
       res = { ok: false, data: { error: 'NETWORK' } };
@@ -451,7 +461,7 @@ export function voiceTypingPage() {
         });
         const mimeType = chooseMimeType();
         recorder = mimeType
-          ? new MediaRecorder(mediaStream, { mimeType, audioBitsPerSecond: 64000 })
+          ? new MediaRecorder(mediaStream, { mimeType, audioBitsPerSecond: 32000 })
           : new MediaRecorder(mediaStream);
         audioChunks = [];
         recorder.addEventListener('dataavailable', (event) => {
