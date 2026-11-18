@@ -322,7 +322,8 @@ const ROUTES = {
   '/community': () => lazy(async () => (await import('./community.js')).communityPage()),
   '/cases': () => lazy(async () => (await import('./cases.js')).casesPage()),
   '/moot-court': (params) => lazy(async () => (await import('./moot.js')).mootCourtPage(params)),
-  '/assistant': (params) => lazy(async () => (await import('./assistant.js?v=20261119-contract-mode')).assistantPage(params)),
+  '/assistant': () => lazy(async () => (await import('./assistant-forms.js?v=20261119-forms-1')).assistantMenuPage()),
+  '/assistant/consult': (params) => lazy(async () => (await import('./assistant.js?v=20261119-contract-mode')).assistantPage(params)),
   '/voice-typing': () => lazy(async () => (await import('./voice-typing.js')).voiceTypingPage()),
   '/assistant/history': () => lazy(async () => (await import('./assistant.js?v=20261119-contract-mode')).assistantHistoryPage()),
   '/moot-court/hearing': (params) => lazy(async () => (await import('./moot-ai.js')).courtRoomPage(params)),
@@ -382,6 +383,7 @@ function render() {
   let content;
   const planned = NAV.find((n) => n.path === path && n.status === 'planned');
   if (ROUTES[path]) content = ROUTES[path](params);
+  else if (path.startsWith('/assistant/doc/')) content = lazy(async () => (await import('./assistant-forms.js?v=20261119-forms-1')).assistantDocumentPage({ type: decodeURIComponent(path.slice('/assistant/doc/'.length)) }));
   else if (path.startsWith('/cases/')) content = lazy(async () => (await import('./cases.js')).casesPage(decodeURIComponent(path.slice('/cases/'.length))));
   else if (path.startsWith('/media/')) content = lazy(async () => (await import('./media.js')).articlePage(decodeURIComponent(path.slice('/media/'.length))));
   else if (path.startsWith('/academy/')) content = lazy(async () => (await import('./academy.js')).academyCourse(decodeURIComponent(path.slice('/academy/'.length))));
@@ -391,7 +393,7 @@ function render() {
   document.body.classList.toggle('immersive', path === '/moot-court/hearing');
   const quickAccess = mobileQuickAccess(path);
   main.replaceChildren(...(quickAccess ? [quickAccess, content] : [content]));
-  const EXTRA_TITLES = { '/community': 'تالار گفت‌وگوی اعضا', '/admin': 'مدیریت محتوا', '/admin/traffic': 'پایش زنده بازدیدکنندگان', '/dashboard': 'داشبورد من', '/verify': 'تأیید ایمیل', '/moot-court': 'موت کورت', '/cases': 'بانک پرونده‌ها', '/assistant': 'دستیار هوشمند وکیل', '/assistant/history': 'سوابق گفت‌وگوهای دستیار', '/academy/courses': 'دوره‌های آموزشی', '/courses': 'دوره‌های آموزشی', '/academy/exams': 'مرکز آزمون هوشمند', '/moot-court/hearing': 'اتاق دادگاه', '/moot-court/cases': 'انتخاب پرونده' };
+  const EXTRA_TITLES = { '/assistant/consult': 'مشاوره حقوقی', '/community': 'تالار گفت‌وگوی اعضا', '/admin': 'مدیریت محتوا', '/admin/traffic': 'پایش زنده بازدیدکنندگان', '/dashboard': 'داشبورد من', '/verify': 'تأیید ایمیل', '/moot-court': 'موت کورت', '/cases': 'بانک پرونده‌ها', '/assistant': 'دستیار هوشمند وکیل', '/assistant/history': 'سوابق گفت‌وگوهای دستیار', '/academy/courses': 'دوره‌های آموزشی', '/courses': 'دوره‌های آموزشی', '/academy/exams': 'مرکز آزمون هوشمند', '/moot-court/hearing': 'اتاق دادگاه', '/moot-court/cases': 'انتخاب پرونده' };
   const navTitle = NAV.find((n) => n.path === path)?.title;
   const title = navTitle ?? EXTRA_TITLES[path] ?? (path.startsWith('/academy/') ? 'آکادمی' : 'صفحه پیدا نشد');
   document.title = `${title} | آکادمی وکالت شهرام مختاری`;
