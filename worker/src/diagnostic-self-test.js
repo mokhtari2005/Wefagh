@@ -18,17 +18,29 @@ export function validateSyntheticDiagnostic(payload) {
 }
 
 async function githubRead(env, path) {
+  const token = env.GH_REPAIR_TOKEN.trim();
   const response = await (env.fetchImpl || fetch)(`${API}${path}`, {
     headers: {
       accept: 'application/vnd.github+json',
-      authorization: `Bearer ${env.GH_REPAIR_TOKEN.trim()}`,
+      authorization: `Bearer ${token}`,
       'x-github-api-version': '2022-11-28',
     },
     signal: AbortSignal.timeout(12_000),
   });
   if (!response.ok) {
+    let message = '';
+    try {
+      const body = await response.json();
+      if (typeof body?.message === 'string') message = body.message;
+    } catch { /* پاسخ غیر JSON */ }
     const error = new Error('GITHUB_READ_FAILED');
     error.status = response.status;
+    error.githubMessage = message
+      .replaceAll(token, '[پنهان]')
+      .replace(/[\u0000-\u001f\u007f]/g, ' ')
+      .slice(0, 180);
+    error.requestId = response.headers.get('x-github-request-id') || '';
+    error.rateLimitRemaining = response.headers.get('x-ratelimit-remaining') || '';
     throw error;
   }
   return response.json();
@@ -75,7 +87,7 @@ export async function handleDiagnosticSelfTest(request, env, path) {
   }
 
   if (!env.GH_REPAIR_TOKEN || env.GH_REPAIR_TOKEN.trim().length < 20) {
-    checks.push({ id: 'github-read', label: 'دسترسی GitHub به مخزن', ok: false, detail: 'Secret با نام GH_REPAIR_TOKEN تنظیم نشده است.' });
+    checks.push({ id: 'github-read', label: 'دسترسی GitHub به مخزن', ok: false, detail: 'Secret با نام GH_REPAIR_TOKEN تنظیم نشده است یا مقدار آن کوتاه است.' });
   } else {
     try {
       const [repository, source] = await Promise.all([
@@ -90,15 +102,25 @@ export async function handleDiagnosticSelfTest(request, env, path) {
       });
     } catch (error) {
       const status = Number.isInteger(error?.status) ? error.status : 0;
+      const reason = typeof error?.githubMessage === 'string' && error.githubMessage
+        ? ` پاسخ GitHub: «${error.githubMessage}».`
+        : '';
+      const request = error?.requestId ? ` شناسه درخواست: ${error.requestId}.` : '';
+      const rate = error?.rateLimitRemaining === '0' ? ' سهمیه درخواست API گیت‌هاب تمام شده است.' : '';
+      const explanation = status === 401
+        ? 'کد 401: GitHub توکن را معتبر نمی‌شناسد؛ مقدار Secret، فعال‌بودن توکن و کپی‌شدن کامل آن را بررسی کنید.'
+        : status === 403
+          ? 'کد 403: GitHub درخواست را از نظر مجوز، محدودیت امنیتی یا سهمیه رد کرده است؛ متن پاسخ را بررسی کنید.'
+          : status === 404
+            ? 'کد 404: مخزن یا فایل آزمون پیدا نشد؛ دسترسی مخزن و نام مسیر را بررسی کنید.'
+            : status
+              ? `GitHub با کد HTTP ${status} پاسخ داد.`
+              : 'ارتباط با GitHub برقرار نشد؛ تنظیمات شبکه و دسترسی خروجی Worker را بررسی کنید.';
       checks.push({
         id: 'github-read',
         label: 'دسترسی GitHub به مخزن',
         ok: false,
-        detail: status === 401 || status === 403
-          ? 'GitHub دسترسی توکن را رد کرد؛ مجوزهای مخزن و Secret را بررسی کنید.'
-          : status === 404
-            ? 'مخزن یا فایل آزمون پیدا نشد؛ دسترسی Contents را بررسی کنید.'
-            : 'ارتباط با GitHub برقرار نشد؛ بعداً دوباره تلاش کنید.',
+        detail: `${explanation}${reason}${rate}${request}`,
       });
     }
   }
