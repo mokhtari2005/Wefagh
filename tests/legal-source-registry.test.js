@@ -11,7 +11,7 @@ test('legal source access modes match the D1 registry constraint', () => {
   assert.ok(check, 'D1 access_mode CHECK constraint must exist');
   const allowed = new Set([...check[1].matchAll(/'([^']+)'/g)].map((m) => m[1]));
   for (const source of registry.sources) {
-    assert.ok(allowed.has(source.mode), \`unsupported access mode for \${source.key}: \${source.mode}\`);
+    assert.ok(allowed.has(source.mode), 'unsupported access mode for ' + source.key + ': ' + source.mode);
   }
 });
 
@@ -21,7 +21,7 @@ test('all configured source document types are accepted by the legal-bank API', 
   const allowed = new Set([...block[1].matchAll(/'([^']+)'/g)].map((m) => m[1]));
   for (const source of registry.sources) {
     for (const type of source.types) {
-      assert.ok(allowed.has(type), \`unsupported document type for \${source.key}: \${type}\`);
+      assert.ok(allowed.has(type), 'unsupported document type for ' + source.key + ': ' + type);
     }
   }
 });
@@ -30,8 +30,8 @@ test('source keys are unique and every source has an official authority and URL'
   const keys = registry.sources.map((source) => source.key);
   assert.equal(new Set(keys).size, keys.length);
   for (const source of registry.sources) {
-    assert.ok(source.authority?.trim(), \`missing authority: \${source.key}\`);
-    assert.match(source.url, /^https:\/\//, \`source URL must use HTTPS: \${source.key}\`);
-    assert.ok(Array.isArray(source.types) && source.types.length > 0, \`missing document types: \${source.key}\`);
+    assert.ok(source.authority && source.authority.trim(), 'missing authority: ' + source.key);
+    assert.match(source.url, /^https:\/\//, 'source URL must use HTTPS: ' + source.key);
+    assert.ok(Array.isArray(source.types) && source.types.length > 0, 'missing document types: ' + source.key);
   }
 });
