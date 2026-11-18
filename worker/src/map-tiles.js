@@ -2,7 +2,7 @@
 // Client requests are constrained to valid Web Mercator tile coordinates.
 const TILE_HOSTS = [
   (z, x, y) => `https://a.basemaps.cartocdn.com/light_all/${z}/${x}/${y}.png`,
-  (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${z}/${y}/${x}`,
+  (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`,
 ];
 
 const TILE_HEADERS = {
