@@ -83,7 +83,6 @@ export function regionalValueTool() {
   ]);
   let regionalMap = null;
   let regionalMarker = null;
-  let fallbackMapFrame = null;
   const defaultPoint = [29.5918, 52.5837];
   function loadScript(url) {
     return new Promise((resolve, reject) => {
@@ -100,7 +99,6 @@ export function regionalValueTool() {
     mapCanvas.replaceChildren();
     regionalMap = null;
     regionalMarker = null;
-    fallbackMapFrame = null;
     const panel = h('div', { class: 'regional-map-offline', role: 'img', 'aria-label': 'نمای شماتیک شهر شیراز؛ نقشه آنلاین در دسترس نیست' });
     panel.innerHTML = `
       <svg viewBox="0 0 900 430" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
@@ -199,9 +197,9 @@ export function regionalValueTool() {
         options: { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }
       },
       {
-        name: 'Esri',
-        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-        options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
+        name: 'OpenStreetMap (backup)',
+        url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        options: { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }
       }
     ];
     let activeTiles = null;
@@ -272,7 +270,6 @@ export function regionalValueTool() {
         const result = results[0];
         const lat = Number(result.lat), lon = Number(result.lon);
         if (!Number.isFinite(lat) || !Number.isFinite(lon)) throw new Error('Invalid geocoder coordinates');
-        if (fallbackMapFrame) fallbackMapFrame.src = `https://maps.google.com/maps?q=${lat},${lon}&z=17&output=embed`;
         coordinates.el.value = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
         if (!address.el.value && result.display_name) address.el.value = result.display_name;
         postalSearchStatus.textContent = 'مختصات پیشنهادی پیدا شد و در گزارش ثبت می‌شود؛ چون نقشه آنلاین در دسترس نیست، موقعیت را با نشانی ملک تطبیق دهید.';
