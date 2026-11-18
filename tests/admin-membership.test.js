@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { buildMembershipApprovalEmail } from '../worker/src/admin-membership.js';
 
 test('membership management is routed and guarded by membership roles', async () => {
   const source = await readFile(new URL('../worker/src/admin-membership.js', import.meta.url), 'utf8');
@@ -26,4 +27,19 @@ test('membership approval email has a personalized welcome and login link', asyn
   assert.match(source, /approval-email/);
   assert.match(source, /emailSent/);
   assert.match(source, /عضویت تأیید شد/);
+});
+
+test('approval email personalizes salutation and includes member details and login link', () => {
+  const text = buildMembershipApprovalEmail({
+    displayName: 'سارا احمدی',
+    gender: 'female',
+    position: 'lawyer',
+    membershipNo: 'MLA-2042',
+    loginUrl: 'https://mokhtari.ir/#/login',
+  });
+  assert.match(text, /سرکار خانم سارا احمدی/);
+  assert.match(text, /وکیل محترم دادگستری/);
+  assert.match(text, /MLA-2042/);
+  assert.match(text, /https:\/\/mokhtari\.ir\/#\/login/);
+  assert.match(text, /مورد تأیید مدیر آکادمی قرار گرفته است/);
 });
