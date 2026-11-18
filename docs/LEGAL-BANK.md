@@ -45,3 +45,15 @@
 - وضعیت `verified` سند به‌تنهایی هیچ ماده‌ای را تأیید نمی‌کند؛ تأیید مواد باید جداگانه و پس از تطبیق انجام شود.
 - Migration `0017_legal_article_status_and_relations.sql` ستون‌های مستندات وضعیت ماده و جدول رابطه مواد را اضافه می‌کند.
 - نسخه نخست از جست‌وجوی متنی D1 استفاده می‌کند؛ در حجم بزرگ می‌توان FTS را جداگانه اضافه کرد.
+
+
+## طبقه‌بندی جامع انواع سند
+مقادیر شناسه‌ای نوع سند در ورود گروهی:
+- قوانین و مقررات: `law`, `regulation`, `bylaw`, `executive_regulation`, `treaty`
+- بخشنامه‌ها و دستورالعمل‌ها: `circular`, `judicial_circular`, `executive_circular`
+- دیوان عالی کشور: `supreme_court_unified_precedent`, `supreme_court_insistence_precedent`
+- دیوان عدالت اداری: `administrative_court_unified_precedent`, `administrative_court_general_board`, `administrative_court_specialized_board`
+- نظریات حقوقی: `judicial_advisory_opinion`, `advisory_opinion`
+- سایر مراجع: `guardian_council_opinion`, `parliamentary_research`, `other`
+
+آرای قضایی و نظریات مشورتی به‌عنوان قانون یا مقرره نمایش داده نمی‌شوند. دسته‌بندی خودکار فقط پیشنهاد نوع است و هر رکورد تا تأیید مرجع، شماره، تاریخ، متن و منبع در وضعیت `needs_review` باقی می‌ماند.
