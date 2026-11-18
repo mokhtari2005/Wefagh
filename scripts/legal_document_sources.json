@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "policy": "official-first; all imported documents remain needs_review",
+  "sources": [
+    {"key":"judiciary-portal","url":"https://eadil.com/","authority":"قوه قضائیه","types":["judicial_advisory_opinion","judicial_circular","supreme_court_unified_precedent","administrative_court_general_board","administrative_court_specialized_board"],"mode":"discovery"},
+    {"key":"national-judgments","url":"https://ara.jri.ac.ir/","authority":"پژوهشگاه قوه قضائیه","types":["judicial_decision","supreme_court_unified_precedent","administrative_court_general_board"],"mode":"public-search"},
+    {"key":"legal-directorate","url":"https://edarehoquqy.eadl.ir/","authority":"اداره کل حقوقی قوه قضائیه","types":["judicial_advisory_opinion"],"mode":"official-site"},
+    {"key":"administrative-justice","url":"https://divan-edalat.ir/","authority":"دیوان عدالت اداری","types":["administrative_court_unified_precedent","administrative_court_general_board","administrative_court_specialized_board"],"mode":"official-site"},
+    {"key":"administrative-justice-saeed","url":"https://ara.divan-edalat.ir/","authority":"دیوان عدالت اداری","types":["administrative_court_general_board","administrative_court_specialized_board"],"mode":"official-search"},
+    {"key":"official-gazette","url":"https://www.rrk.ir/","authority":"روزنامه رسمی کشور","types":["law","bylaw","executive_regulation","executive_circular"],"mode":"official-publication"},
+    {"key":"national-regulations","url":"https://qavanin.ir/","authority":"سامانه ملی قوانین و مقررات","types":["law","bylaw","executive_regulation","executive_circular"],"mode":"official-registry"}
+  ]
+}
