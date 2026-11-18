@@ -118,6 +118,13 @@ function pdfLinks() {
 }
 
 export async function ekhtebarPage() {
+  if (!document.querySelector('link[data-page-style="ekhtebar"]')) {
+    const style = document.createElement('link');
+    style.rel = 'stylesheet';
+    style.href = '/css/ekhtebar.css';
+    style.dataset.pageStyle = 'ekhtebar';
+    document.head.append(style);
+  }
   document.title = 'بانک سؤالات اختبار کانون‌های وکلای دادگستری | آکادمی وکالت شهرام مختاری';
   const description = document.querySelector('meta[name="description"]');
   if (description) description.setAttribute('content', 'آرشیو سؤالات اختبار کانون‌های وکلای دادگستری با دسته‌بندی حقوق مدنی، آیین دادرسی مدنی، حقوق کیفری، آیین دادرسی کیفری، تجارت و ثبت؛ همراه با فیلتر کانون، سال و سطح دشواری.');

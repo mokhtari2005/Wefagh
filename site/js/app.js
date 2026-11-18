@@ -4,13 +4,37 @@ import { formatShamsi } from './shamsi.js';
 import { parseHash } from './route.js';
 import { icon, mountIcons } from './icons.js';
 
-/** صفحه‌ای که داده‌اش ناهمگام است: یک جای نگه‌دار می‌سازد و بعد پر می‌کند. */
+/** بارگذاری ماژول‌های سنگین فقط وقتی بخش مربوط به صفحه نزدیک دید کاربر شد. */
+const lazyObserver = 'IntersectionObserver' in window
+  ? new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const holder = entry.target;
+        lazyObserver.unobserve(holder);
+        const load = holder.__loadLazy;
+        delete holder.__loadLazy;
+        load?.();
+      }
+    }, { rootMargin: '480px 0px' })
+  : null;
+
 function lazy(fn) {
   const holder = h('div', {}, [h('p', { class: 'loading', role: 'status', text: 'در حال بارگذاری…' })]);
-  Promise.resolve()
-    .then(fn)
-    .then((node) => holder.replaceChildren(node))
-    .catch(() => holder.replaceChildren(h('p', { class: 'form-status err', role: 'alert', text: 'بارگذاری صفحه ناموفق بود.' })));
+  let started = false;
+  const load = () => {
+    if (started) return;
+    started = true;
+    Promise.resolve()
+      .then(fn)
+      .then((node) => holder.replaceChildren(node))
+      .catch(() => holder.replaceChildren(h('p', { class: 'form-status err', role: 'alert', text: 'بارگذاری صفحه ناموفق بود.' })));
+  };
+  if (lazyObserver) {
+    holder.__loadLazy = load;
+    lazyObserver.observe(holder);
+  } else {
+    load();
+  }
   return holder;
 }
 
