@@ -41,6 +41,11 @@ async function githubRead(env, path) {
       .slice(0, 180);
     error.requestId = response.headers.get('x-github-request-id') || '';
     error.rateLimitRemaining = response.headers.get('x-ratelimit-remaining') || '';
+    error.rateLimitReset = response.headers.get('x-ratelimit-reset') || '';
+    error.retryAfter = response.headers.get('retry-after') || '';
+    error.oauthScopes = response.headers.get('x-oauth-scopes') || '';
+    error.acceptedScopes = response.headers.get('x-accepted-oauth-scopes') || '';
+    error.githubSso = response.headers.get('x-github-sso') || '';
     throw error;
   }
   return response.json();
@@ -106,7 +111,13 @@ export async function handleDiagnosticSelfTest(request, env, path) {
         ? ` پاسخ GitHub: «${error.githubMessage}».`
         : '';
       const request = error?.requestId ? ` شناسه درخواست: ${error.requestId}.` : '';
-      const rate = error?.rateLimitRemaining === '0' ? ' سهمیه درخواست API گیت‌هاب تمام شده است.' : '';
+      const rate = error?.rateLimitRemaining === '0'
+        ? ` سهمیه API تمام شده است؛ زمان بازنشانی: ${error.rateLimitReset || 'نامشخص'}.`
+        : '';
+      const retry = error?.retryAfter ? ` زمان انتظار پیشنهادی GitHub: ${error.retryAfter} ثانیه.` : '';
+      const sso = error?.githubSso ? ' GitHub محدودیت SSO را در پاسخ اعلام کرده است؛ دسترسی SSO توکن را بررسی کنید.' : '';
+      const scopes = error?.oauthScopes ? ` دامنه‌های توکن: ${error.oauthScopes}.` : '';
+      const accepted = error?.acceptedScopes ? ` دامنه‌های پذیرفته‌شده برای این مسیر: ${error.acceptedScopes}.` : '';
       const explanation = status === 401
         ? 'کد 401: GitHub توکن را معتبر نمی‌شناسد؛ مقدار Secret، فعال‌بودن توکن و کپی‌شدن کامل آن را بررسی کنید.'
         : status === 403
@@ -120,7 +131,7 @@ export async function handleDiagnosticSelfTest(request, env, path) {
         id: 'github-read',
         label: 'دسترسی GitHub به مخزن',
         ok: false,
-        detail: `${explanation}${reason}${rate}${request}`,
+        detail: `${explanation}${reason}${rate}${retry}${sso}${scopes}${accepted}${request}`,
       });
     }
   }
