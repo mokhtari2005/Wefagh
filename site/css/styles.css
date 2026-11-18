@@ -2892,3 +2892,29 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
   .court-audio .court-next { width: 100%; }
   .court-turn-order ol { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+
+/* Moot court: keep the participant rail visible while the transcript advances. */
+.court-seats {
+  position: sticky;
+  top: .5rem;
+  z-index: 6;
+  padding: .55rem;
+  border: 1px solid var(--sand-line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--paper) 94%, white);
+  box-shadow: 0 8px 24px rgb(25 45 48 / .12);
+}
+.court-log {
+  max-height: min(52vh, 560px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+}
+@media (max-width: 640px) {
+  .court-seats {
+    top: .25rem;
+    padding: .4rem;
+  }
+  .court-log { max-height: 48vh; }
+}
