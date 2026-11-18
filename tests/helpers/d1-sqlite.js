@@ -16,7 +16,7 @@ class Statement {
     return row;
   }
   markFixtureUserApproved() {
-    if (!/^\\s*INSERT\\s+INTO\\s+users\\b/i.test(this.sql) || /\\bmembership_status\\b/i.test(this.sql)) return;
+    if (!/^\s*INSERT\s+INTO\s+users\b/i.test(this.sql) || /\bmembership_status\b/i.test(this.sql)) return;
     try { this.db.prepare("UPDATE users SET membership_status='approved' WHERE id=last_insert_rowid()").run(); } catch {}
   }
   async all() { return { results: this.db.prepare(this.sql).all(...this.args), success: true }; }
