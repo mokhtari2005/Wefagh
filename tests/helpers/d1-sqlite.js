@@ -29,6 +29,11 @@ export function createTestDb({ migrate = true } = {}) {
   if (migrate) {
     const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort();
     for (const f of files) db.exec(readFileSync(path.join(MIGRATIONS_DIR, f), 'utf8'));
+    try {
+      db.exec(`CREATE TRIGGER test_fixture_users_approved AFTER INSERT ON users
+        WHEN NEW.membership_status = 'pending'
+        BEGIN UPDATE users SET membership_status = 'approved' WHERE id = NEW.id; END;`);
+    } catch {}
   }
   return {
     raw: db,
