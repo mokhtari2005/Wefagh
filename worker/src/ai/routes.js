@@ -28,7 +28,7 @@ export const LIMITS = Object.freeze({
   mootBodyBytes: 80 * 1024,
   audioBytes: 12 * 1024 * 1024,
   assistantChars: 6000,
-  callsPerMinute: 20,
+  callsPerMinute: 60,
 });
 
 const DIFFICULTIES = ['beginner', 'intermediate', 'advanced'];
