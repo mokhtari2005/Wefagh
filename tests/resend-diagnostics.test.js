@@ -37,7 +37,7 @@ test('اعتبارسنجی سربرگ فقط CR و LF واقعی را رد می�
   assert.equal(called, true);
   await assert.rejects(sendMail({
     env: { RESEND_API_KEY: KEY },
-    to: 'user@example.com\\r\\nBcc:bad@example.com',
+    to: 'user@example.com\r\nBcc:bad@example.com',
     subject: 'test',
     text: 'x',
     fetchImpl: async () => { throw new Error('network must not be called'); },
