@@ -3124,3 +3124,14 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
  .va-page-label { grid-template-columns:24px minmax(0,1fr); }
  .va-page-label strong { grid-column:2; }
 }
+
+
+/* Authenticated academy members currently online */
+.va-member-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:.65rem; }
+.va-member-card { display:flex; align-items:center; gap:.7rem; min-width:0; padding:.8rem; border:1px solid #e3ece7; border-radius:13px; background:linear-gradient(135deg,#fff,#f7faf8); }
+.va-member-avatar { display:grid; place-items:center; flex:none; width:40px; height:40px; border-radius:50%; background:#e7f2ed; color:#236657; font-weight:900; font-size:1rem; }
+.va-member-info { display:grid; gap:.16rem; min-width:0; flex:1; }
+.va-member-info strong { color:#244940; font-size:.88rem; overflow-wrap:anywhere; }
+.va-member-info span { color:#7b8982; font-size:.7rem; direction:ltr; text-align:right; overflow-wrap:anywhere; }
+.va-member-pulse { flex:none; padding:.2rem .5rem; border-radius:99px; background:#e8f6ed; color:#26734e; font-size:.68rem; font-weight:850; }
+.va-member-pulse::before { content:""; display:inline-block; width:6px; height:6px; margin-left:.3rem; border-radius:50%; background:#2c9b62; vertical-align:middle; }
