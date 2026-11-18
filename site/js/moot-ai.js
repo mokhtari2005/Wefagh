@@ -139,18 +139,8 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
   const submitBtn = h('button', { class: 'btn', type: 'button', text: 'ارسال پاسخ' });
   const audioStatus = h('p', { class: 'court-audio-status', role: 'status', 'aria-live': 'polite', text: 'آماده' });
   const nextBtn = h('button', { class: 'btn court-next', type: 'button', text: 'ادامه رسیدگی', disabled: '' });
-  const stopBtn = h('button', { class: 'btn secondary', type: 'button', text: '■ توقف', 'aria-label': 'توقف صدا' });
-  const replayBtn = h('button', { class: 'btn secondary', type: 'button', text: '↻ تکرار', 'aria-label': 'تکرار آخرین صدا', disabled: '' });
-  const speedSelect = h('select', { class: 'court-speed', 'aria-label': 'سرعت صدا' }, SPEED_OPTIONS.map(([v, t]) => h('option', { value: String(v), text: t })));
-  speedSelect.value = String(initialRate);
-  const volume = h('input', { type: 'range', min: '0', max: '1', step: '0.05', value: String(initialVolume), class: 'court-volume', 'aria-label': 'حجم صدا' });
-  if (!player.volumeSupported) {
-    volume.disabled = true;
-    volume.title = 'در این دستگاه حجم صدا را با دکمه‌های کنار دستگاه تنظیم کنید.';
-  }
-  const speakToggle = h('input', { type: 'checkbox', checked: Boolean(speechOn), disabled: '' });
-  const autoContinue = h('input', { type: 'checkbox', checked: '' });
-  autoContinue.addEventListener('change', () => { if (!autoContinue.checked) clearAutoAdvance(); });
+  // ادامهٔ خودکار بخشی از جریان رسیدگی است؛ کنترل‌های فنی صدا در نوار اعلان نمایش داده نمی‌شوند.
+  const autoContinue = { checked: true };
   const micSupported = Boolean(navigator.mediaDevices?.getUserMedia) && typeof MediaRecorder !== 'undefined';
   if (!micSupported || !speechOn) { micBtn.disabled = true; setMicLabel(!speechOn ? 'ورودی صوتی خاموش' : 'میکروفون در دسترس نیست'); }
   const micIndicator = h('span', { class: 'court-mic-state', text: !speechOn ? 'ورودی صوتی غیرفعال' : micSupported ? 'میکروفون آماده' : 'میکروفون ندارد' });
@@ -190,9 +180,10 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
 
   function seatCard(key, name, roleText) {
     const speaking = activeSpeaker === key;
+    const isCurrent = currentStep()?.speaker === key;
     const isUser = key === userSide;
-    const status = isUser ? 'شما' : (speaking ? 'در حال صحبت' : 'منتظر');
-    return h('div', { class: `court-seat ${speaking ? 'speaking' : ''} ${isUser ? 'you' : ''}`, 'data-seat': key }, [
+    const status = speaking ? 'در حال صحبت' : isCurrent ? (isUser ? 'نوبت شما' : 'نوبت فعلی') : 'در انتظار';
+    return h('div', { class: `court-seat ${speaking ? 'speaking' : ''} ${isCurrent ? 'current-turn' : ''} ${isUser ? 'you' : ''}`, 'data-seat': key }, [
       h('span', { class: 'court-avatar', 'aria-hidden': 'true' }, [icon(key === 'judge' ? 'gavel' : key === 'clerk' ? 'clipboard-list' : 'user-round', { size: 22 })]),
       h('strong', { text: roleText }),
       h('small', { text: name }),
@@ -208,6 +199,23 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
         seatCard('defendant', 'وکیل خوانده', 'وکیل خوانده'),
       ]),
       seatCard('clerk', 'منشی دادگاه', 'منشی'),
+    );
+  }
+
+  const turnOrder = h('section', { class: 'court-turn-order', 'aria-label': 'ترتیب نوبت‌های پیش رو' });
+  function renderTurnOrder() {
+    const upcoming = script.slice(index, index + 4);
+    turnOrder.replaceChildren(
+      h('strong', { class: 'court-turn-order-title', text: 'ترتیب نوبت‌های پیش رو' }),
+      h('ol', {}, upcoming.map((step, offset) => {
+        const isCurrent = offset === 0;
+        const role = step.speaker === userSide ? `شما · ${SPEAKER_LABEL[step.speaker]}` : SPEAKER_LABEL[step.speaker];
+        return h('li', { class: `court-turn-item ${isCurrent ? 'current' : ''}`, ...(isCurrent ? { 'aria-current': 'step' } : {}) }, [
+          h('span', { class: 'court-turn-role', text: role }),
+          h('span', { class: 'court-turn-stage', text: GROUP_LABELS[step.group - 1] }),
+          h('span', { class: 'court-turn-state', text: isCurrent ? 'اکنون' : 'بعدی' }),
+        ]);
+      }))
     );
   }
 
@@ -243,7 +251,6 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
 
   function setBusy(on) {
     busy = on;
-    replayBtn.disabled = on || !lastText;
     nextBtn.disabled = on || userTurn() || finished;
     submitBtn.disabled = on;
   }
@@ -251,7 +258,7 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
   // ---- صدا ----
   async function speak(text, speaker, item) {
     if (item) item.audioPlaying = false;
-    if (!speechOn || !speakToggle.checked) {
+    if (!speechOn) {
       audioStatus.textContent = 'جلسه در حالت متنی برگزار می‌شود.';
       return false;
     }
@@ -303,6 +310,7 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
   function refresh() {
     renderStages();
     renderSeats();
+    renderTurnOrder();
   }
 
   async function runCurrent() {
@@ -499,20 +507,6 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
     audioStatus.textContent = played.ok ? 'در حال پخش…' : playFailureText(played.error);
   });
 
-  replayBtn.addEventListener('click', async () => {
-    if (lastBlob) {
-      const played = await player.play(lastBlob);
-      audioStatus.textContent = played.ok ? 'در حال پخش…' : playFailureText(played.error);
-      return;
-    }
-    player.unlock();
-    if (lastText && lastSpeaker) await speak(lastText, lastSpeaker);
-  });
-
-  stopBtn.addEventListener('click', () => { clearAutoAdvance(); player.stop(); activeSpeaker = null; renderSeats(); audioStatus.textContent = 'صدا متوقف شد؛ برای ادامه از دکمهٔ ادامه رسیدگی استفاده کنید.'; });
-  speedSelect.addEventListener('change', () => { player.setRate(Number(speedSelect.value)); });
-  volume.addEventListener('input', () => { player.setVolume(Number(volume.value)); });
-
   // ضبط: سقف زمانی دارد؛ متن تشخیص‌داده‌شده در کادر می‌آید تا پیش از ارسال اصلاح شود.
   micBtn.addEventListener('click', async () => {
     if (!speechOn) { audioStatus.textContent = 'برای استفاده از ورودی صوتی باید از ابتدا حالت صوتی را انتخاب کنید.'; return; }
@@ -586,19 +580,15 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
     h('div', { class: 'court-main' }, [
       banner,
       seats,
+      turnOrder,
       tabList,
       transcriptPanel,
       reportPanel,
       inputArea,
     ]),
-    h('footer', { class: 'court-audio', 'aria-label': 'کنترل صدا و ادامه رسیدگی' }, [
-      h('div', { class: 'court-audio-info' }, [h('span', { class: 'court-audio-label', text: 'وضعیت صدا' }), audioStatus, micIndicator]),
-      h('div', { class: 'court-audio-controls' }, [
-        ...(speechOn ? [replayBtn, stopBtn, speedSelect, h('label', { class: 'court-volume-wrap' }, [h('span', { text: 'حجم' }), volume])] : []),
-        h('label', { class: 'court-toggle' }, [autoContinue, document.createTextNode(' ادامه خودکار')]),
-        h('span', { class: 'court-mode-label', text: speechOn ? 'حالت صوتی' : 'حالت متنی · بدون مصرف سرویس صوتی' }),
-        nextBtn,
-      ]),
+    h('footer', { class: 'court-audio', 'aria-label': 'اعلان‌های جلسه و ادامه رسیدگی' }, [
+      h('div', { class: 'court-audio-info' }, [audioStatus]),
+      nextBtn,
     ]),
   ]);
 }
