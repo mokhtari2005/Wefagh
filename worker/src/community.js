@@ -84,8 +84,12 @@ export async function handleCommunity(request, env, path) {
       const topicId=idOf(parts[1]);const p=await readJsonBody(request);if(p.error)return p.error;
       const body=String(p.body?.body??'').trim();
       if(body.length<2||body.length>6000)return json({ok:false,error:'VALIDATION_FAILED',message:'پاسخ باید بین ۲ تا ۶۰۰۰ نویسه باشد.'},422);
-      const topic=await env.DB.prepare("SELECT id FROM community_topics WHERE id=?1 AND status='active'").bind(topicId).first();
+      const topic=await env.DB.prepare("SELECT id,group_id FROM community_topics WHERE id=?1 AND status='active'").bind(topicId).first();
       if(!topic)return json({ok:false,error:'NOT_FOUND'},404);
+      if(topic.group_id){
+        const group=await visibleGroup(env.DB,topic.group_id,user.id);
+        if(!group || !(await membership(env.DB,topic.group_id,user.id)))return json({ok:false,error:'NOT_FOUND'},404);
+      }
       const r=await env.DB.prepare('INSERT INTO community_replies(topic_id,author_id,body) VALUES(?1,?2,?3) RETURNING id').bind(topicId,user.id,body).first();
       return json({ok:true,id:r.id},201);
     }
