@@ -56,8 +56,10 @@ def field(text: str, labels: str) -> str | None:
     return match.group(1).strip(" :：") if match else None
 
 
-def classify(text: str) -> str:
-    value = text[:2500]
+def classify(title: str, group: str | None) -> str:
+    # Classification must rely on explicit record metadata, not incidental
+    # references inside the reasoning/body of an ordinary judgment.
+    value = normalize(" ".join(part for part in (title, group or "") if part)).replace("ي", "ی")
     if "رأی وحدت رویه" in value or "رای وحدت رویه" in value:
         return "supreme_court_unified_precedent"
     if "رأی اصراری" in value or "رای اصراری" in value:
@@ -96,19 +98,20 @@ def parse_judgment(html: str, source_url: str) -> dict:
         raise ValueError("judgment text is unexpectedly short")
 
     source_id = match.group(1)
+    group = field(text, r"گروه رأی|گروه رای")
     metadata = {
         "source": "سامانه ملی آرای قضایی پژوهشگاه قوه قضائیه",
         "source_id": source_id,
         "judgment_number": number.translate(PERSIAN_DIGITS),
         "judgment_date": date.translate(PERSIAN_DIGITS),
         "summary": summary,
-        "group": field(text, r"گروه رأی|گروه رای"),
+        "group": group,
         "classification_is_provisional": True,
     }
     return {
         "slug": f"ara-jri-{source_id}",
         "title": title,
-        "lawType": classify(text),
+        "lawType": classify(title, group),
         "issuingAuthority": "مرجع مندرج در متن رأی؛ نیازمند تطبیق",
         "approvedDate": metadata["judgment_date"],
         "sourceName": metadata["source"],
