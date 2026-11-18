@@ -9,7 +9,7 @@ test('ایمیل تأیید برای وکیل مرد با نام کامل و س�
     position: 'lawyer',
     link: 'https://mokhtari.ir/#/verify?token=test-token',
   });
-  assert.match(text, /جناب آقای علی رضایی، وکیل دادگستری محترم/);
+  assert.match(text, /جناب آقای علی رضایی، وکیل محترم دادگستری/);
   assert.match(text, /روی پیوند زیر کلیک کنید/);
   assert.match(text, /تا اعلام نتیجه و تأیید نهایی عضویت از سوی مدیر آکادمی/);
   assert.match(text, /https:\/\/mokhtari\.ir/);
@@ -22,7 +22,7 @@ test('ایمیل تأیید برای خانم کارآموز وکالت خطاب
     position: 'trainee',
     link: 'https://example.test/verify',
   });
-  assert.match(text, /سرکار خانم مریم احمدی، کارآموز وکالت محترم/);
+  assert.match(text, /سرکار خانم مریم احمدی، کارآموز محترم وکالت/);
 });
 
 test('برای داده‌های قدیمی فاقد جنسیت یا سمت، خطاب محترمانه و امن می‌ماند', () => {
