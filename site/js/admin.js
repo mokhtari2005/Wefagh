@@ -171,9 +171,17 @@ export async function adminPage() {
   servicesView.append(accessPanel);
 
   // مرکز سلامت و عیب‌یابی: گزارش‌های ناشناس مرورگر و API فقط برای مدیر مجاز.
-  const diagnosticsNotice = el('p', { class: 'form-status', role: 'status' });
-  const diagnosticsList = el('div', { class: 'admin-content-list' });
-  const diagnosticsRefresh = el('button', { class: 'btn secondary', type: 'button', text: 'به‌روزرسانی گزارش خطاها' });
+  const diagnosticsNotice = el('p', { class: 'form-status diagnostics-live-status', role: 'status' });
+  const diagnosticsList = el('div', { class: 'admin-content-list diagnostics-list' });
+  const diagnosticsSummary = el('div', { class: 'diagnostics-summary', 'aria-live': 'polite' });
+  const diagnosticsToolbar = el('div', { class: 'diagnostics-toolbar' });
+  const diagnosticsFilter = el('select', { 'aria-label': 'فیلتر وضعیت گزارش‌ها' }, [
+    el('option', { value: 'all', text: 'همهٔ گزارش‌ها' }),
+    el('option', { value: 'open', text: 'نیازمند رسیدگی' }),
+    el('option', { value: 'closed', text: 'بررسی‌شده' }),
+  ]);
+  const diagnosticsSearch = el('input', { type: 'search', placeholder: 'جست‌وجو در گزارش‌ها…', 'aria-label': 'جست‌وجو در گزارش‌های عیب‌یابی' });
+  const diagnosticsRefresh = el('button', { class: 'btn secondary', type: 'button', text: 'تازه‌سازی گزارش‌ها' });
   const diagnosticsSelfTest = el('button', { class: 'btn', type: 'button', text: 'اجرای آزمون سلامت سیستم' });
   const diagnosticsWriteTest = el('button', { class: 'btn secondary', type: 'button', text: 'آزمون واقعی ساخت و پاک‌سازی PR در GitHub' });
   const manualReportToggle = el('button', { class: 'btn secondary', type: 'button', text: 'گزارش دستی مشکل' });
@@ -274,6 +282,45 @@ export async function adminPage() {
       diagnosticsSelfTest.textContent = 'اجرای دوبارهٔ آزمون سلامت';
     }
   });
+  let diagnosticItems = [];
+  function renderDiagnosticSummary(items = []) {
+    const open = items.filter((item) => item.status === 'open');
+    const repeated = items.filter((item) => Number(item.occurrences) > 1);
+    const latest = items[0]?.lastSeen ? new Date(items[0].lastSeen).toLocaleString('fa-IR') : '—';
+    diagnosticsSummary.replaceChildren(
+      ...[
+        ['گزارش‌های ثبت‌شده', items.length, 'در بازهٔ گزارش‌های اخیر'],
+        ['نیازمند رسیدگی', open.length, 'مواردی که هنوز بسته نشده‌اند'],
+        ['رخدادهای تکرارشونده', repeated.length, 'دارای بیش از یک تکرار'],
+        ['آخرین گزارش', latest, 'زمان تازه‌ترین رخداد'],
+      ].map(([label, value, hint]) => el('article', { class: 'diagnostics-stat' }, [
+        el('span', { class: 'diagnostics-stat-label', text: label }),
+        el('strong', { class: 'diagnostics-stat-value', text: String(value) }),
+        el('small', { text: hint }),
+      ])),
+    );
+  }
+  function renderDiagnosticList() {
+    const query = diagnosticsSearch.value.trim().toLocaleLowerCase();
+    const state = diagnosticsFilter.value;
+    const filtered = diagnosticItems.filter((item) => {
+      if (state !== 'all' && item.status !== state) return false;
+      const haystack = [item.errorCode, item.component, item.route, item.category, item.detail].join(' ').toLocaleLowerCase();
+      return !query || haystack.includes(query);
+    });
+    diagnosticsList.replaceChildren();
+    if (!filtered.length) {
+      diagnosticsList.append(el('div', { class: 'diagnostics-empty' }, [
+        el('strong', { text: diagnosticItems.length ? 'گزارشی با این مشخصات پیدا نشد.' : 'هنوز گزارشی ثبت نشده است.' }),
+        el('p', { class: 'muted', text: diagnosticItems.length ? 'فیلتر یا عبارت جست‌وجو را تغییر دهید.' : 'در صورت مشاهدهٔ مشکل، گزارش دستی ثبت کنید یا کمی بعد دوباره بررسی کنید.' }),
+      ]));
+      return;
+    }
+    for (const item of filtered) appendDiagnosticCard(item);
+  }
+  diagnosticsFilter.addEventListener('change', renderDiagnosticList);
+  diagnosticsSearch.addEventListener('input', renderDiagnosticList);
+
   async function refreshDiagnostics() {
     diagnosticsRefresh.disabled = true;
     diagnosticsNotice.className = 'form-status';
@@ -286,21 +333,21 @@ export async function adminPage() {
       diagnosticsList.replaceChildren();
       return;
     }
-    diagnosticsNotice.className = 'form-status';
-    diagnosticsNotice.textContent = `${result.data.openCount} مورد باز از ${result.data.items.length} الگوی خطا (حداکثر ۱۵۰ مورد اخیر).`;
-    diagnosticsList.replaceChildren();
+    diagnosticItems = Array.isArray(result.data.items) ? result.data.items : [];
+    renderDiagnosticSummary(diagnosticItems);
+    diagnosticsNotice.className = 'form-status diagnostics-live-status';
+    diagnosticsNotice.textContent = `${result.data.openCount} گزارش نیازمند رسیدگی از ${diagnosticItems.length} گزارش اخیر.`;
     const repairStatus = await getJson('/api/admin/diagnostics/repair/status');
     const repairConfigured = repairStatus.ok && repairStatus.data.configured;
     const repairHint = repairConfigured
       ? 'عامل هوشمند آمادهٔ ساخت PR پیشنهادی است؛ هیچ تغییری خودکار روی main منتشر نمی‌شود.'
       : 'برای ساخت PR خودکار، Secret با نام GH_REPAIR_TOKEN در Cloudflare Worker لازم است؛ کلید Gemini نیز باید فعال باشد.';
-    if (!result.data.items.length) diagnosticsList.append(el('p', { class: 'muted', text: 'هنوز خطایی از مرورگرها یا API ثبت نشده است.' }));
-    for (const item of result.data.items) {
-      const row = el('article', { class: 'admin-content-row card' });
+    for (const item of diagnosticItems) {
+      const row = el('article', { class: `admin-content-row card admin-diagnostic-card ${item.status === 'open' ? 'is-open' : 'is-closed'}` });
       const heading = el('div');
       heading.append(
-        el('span', { class: 'badge', text: item.status === 'open' ? 'در انتظار بررسی' : 'بسته‌شده' }),
-        el('h3', { text: `${item.errorCode} · ${item.component}` }),
+        el('span', { class: `diagnostics-state ${item.status === 'open' ? 'is-open' : 'is-closed'}`, text: item.status === 'open' ? 'نیازمند رسیدگی' : 'بررسی‌شده' }),
+        el('h3', { class: 'diagnostics-card-title', text: `${item.errorCode} · ${item.component}` }),
         el('p', { class: 'muted', text: `مسیر: ${item.route} · نوع: ${item.category} · HTTP: ${item.httpStatus || '—'}` }),
         el('p', { class: 'muted', text: `تکرار: ${item.occurrences} · آخرین رخداد: ${new Date(item.lastSeen).toLocaleString('fa-IR')}` }),
       );
@@ -379,11 +426,44 @@ export async function adminPage() {
       }
       diagnosticsList.append(row);
     }
+    renderDiagnosticList();
   }
-  const diagnosticsPanel = el('section', { class: 'card admin-import' }, [
-    el('h2', { text: 'مرکز سلامت و عیب‌یابی خودکار' }),
-    el('p', { class: 'muted', text: 'خطاهای JavaScript، وعده‌های ردشده، قطع شبکه، پاسخ‌های ۴۲۹ و خطاهای ۵xx به‌صورت ناشناس ثبت می‌شوند. این مرکز علت و الگوی خطا را نشان می‌دهد؛ اصلاح کد نیازمند آزمون و انتشار کنترل‌شده است.' }),
-    diagnosticsRefresh, manualReportToggle, manualReportForm, diagnosticsSelfTest, diagnosticsWriteTest, diagnosticsNotice, diagnosticsTestResults, diagnosticsList,
+  const diagnosticsPanel = el('section', { class: 'diagnostics-page' }, [
+    el('header', { class: 'diagnostics-page-header' }, [
+      el('div', {}, [
+        el('span', { class: 'section-kicker', text: 'پایش و نگهداری سامانه' }),
+        el('h2', { text: 'سلامت و عیب‌یابی سایت' }),
+        el('p', { class: 'muted', text: 'وضعیت خطاها، سرویس‌های اصلی و گزارش‌های کاربران را در یک نمای روشن و یکپارچه دنبال کنید.' }),
+      ]),
+      el('span', { class: 'diagnostics-page-mark', text: '● پایش سامانه' }),
+    ]),
+    diagnosticsSummary,
+    el('section', { class: 'diagnostics-actions-panel' }, [
+      el('div', { class: 'diagnostics-section-heading' }, [
+        el('div', {}, [el('h3', { text: 'ابزارهای بررسی' }), el('p', { class: 'muted', text: 'آزمون‌ها را هنگام نیاز اجرا کنید؛ هیچ تغییری خودکار روی سایت منتشر نمی‌شود.' })]),
+      ]),
+      el('div', { class: 'diagnostics-action-groups' }, [
+        el('div', { class: 'diagnostics-action-group' }, [
+          el('strong', { text: 'گزارش و پایش' }),
+          diagnosticsRefresh, manualReportToggle,
+        ]),
+        el('div', { class: 'diagnostics-action-group' }, [
+          el('strong', { text: 'آزمون سرویس‌ها' }),
+          diagnosticsSelfTest, diagnosticsWriteTest,
+        ]),
+      ]),
+      manualReportForm,
+      diagnosticsNotice,
+      diagnosticsTestResults,
+    ]),
+    el('section', { class: 'diagnostics-reports-section' }, [
+      el('div', { class: 'diagnostics-section-heading' }, [
+        el('div', {}, [el('h3', { text: 'گزارش‌های ثبت‌شده' }), el('p', { class: 'muted', text: 'برای دیدن جزئیات، تحلیل هوشمند یا بستن هر گزارش، همان کارت را بازبینی کنید.' })]),
+        el('span', { class: 'diagnostics-count-label', text: 'حداکثر ۱۵۰ گزارش اخیر' }),
+      ]),
+      el('div', { class: 'diagnostics-filters' }, [diagnosticsSearch, diagnosticsFilter]),
+      diagnosticsList,
+    ]),
   ]);
   servicesView.append(diagnosticsPanel);
   diagnosticsRefresh.addEventListener('click', refreshDiagnostics);
