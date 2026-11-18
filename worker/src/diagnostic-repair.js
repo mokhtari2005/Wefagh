@@ -2,6 +2,7 @@
 import { json, readJsonBody } from './http.js';
 import { requireMailAdmin } from './admin-mail.js';
 import { aiConfigured } from './ai/gemini.js';
+import { groqConfigured } from './ai/groq.js';
 import { generateTextWithFallback } from './ai/fallback.js';
 
 const OWNER = 'mokhtari2005';
@@ -82,13 +83,13 @@ export async function handleDiagnosticRepair(request, env, path) {
   const access = await requireMailAdmin(request, env);
   if (access.response) return access.response;
 
-  const configured = Boolean(aiConfigured(env) && typeof env.GH_REPAIR_TOKEN === 'string' && env.GH_REPAIR_TOKEN.trim().length > 20);
+  const configured = Boolean((aiConfigured(env) || groqConfigured(env)) && typeof env.GH_REPAIR_TOKEN === 'string' && env.GH_REPAIR_TOKEN.trim().length > 20);
   if (path.endsWith('/status')) {
     if (request.method !== 'GET') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'GET' });
-    return json({ ok: true, configured, aiConfigured: aiConfigured(env), githubConfigured: Boolean(env.GH_REPAIR_TOKEN) });
+    return json({ ok: true, configured, aiConfigured: aiConfigured(env), groqConfigured: groqConfigured(env), githubConfigured: Boolean(env.GH_REPAIR_TOKEN) });
   }
   if (request.method !== 'POST') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'POST' });
-  if (!configured) return json({ ok: false, error: 'REPAIR_NOT_CONFIGURED', hint: 'برای فعال‌سازی اصلاحیهٔ خودکار، Secret با نام GH_REPAIR_TOKEN را در Cloudflare Worker تعریف کنید؛ GEMINI_API_KEY نیز باید فعال باشد.' }, 503);
+  if (!configured) return json({ ok: false, error: 'REPAIR_NOT_CONFIGURED', hint: 'برای فعال‌سازی اصلاحیهٔ خودکار، Secret با نام GH_REPAIR_TOKEN را در Cloudflare Worker تعریف کنید؛ حداقل یکی از Secretهای GEMINI_API_KEY یا GROQ_API_KEY باید فعال باشد.' }, 503);
   if (!env.DB) return json({ ok: false, error: 'DB_NOT_CONFIGURED' }, 503);
   const parsed = await readJsonBody(request);
   if (parsed.error) return parsed.error;
