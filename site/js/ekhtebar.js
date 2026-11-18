@@ -1,3 +1,4 @@
+import { postJson } from './api.js';
 import { icon } from './icons.js';
 
 const DATA_URL = '/data/ekhtebar-questions.json';
@@ -30,11 +31,60 @@ function select(options, value = '') {
 function questionCard(item) {
   const tags = h('div', { class: 'ekhtebar-tags' }, item.tags.map((tag) => h('span', { class: 'ekhtebar-tag', text: tag })));
   const source = h('p', { class: 'ekhtebar-source', text: item.source_bar + (item.source_page ? ' · ' + item.source_page : '') });
+  const answerButton = h('button', { class: 'btn secondary small ekhtebar-answer-button', type: 'button', text: 'دریافت پاسخ تشریحی و مستند' });
+  const answerStatus = h('p', { class: 'ekhtebar-answer-status', role: 'status', text: '' });
+  const answerContent = h('div', { class: 'ekhtebar-answer-content' });
+  answerContent.hidden = true;
+  answerButton.addEventListener('click', async () => {
+    answerButton.disabled = true;
+    answerButton.textContent = 'در حال تهیه پاسخ…';
+    answerStatus.textContent = 'در حال تحلیل سؤال و جست‌وجوی مواد مرتبط در بانک قوانین آکادمی هستیم.';
+    answerContent.hidden = true;
+    answerContent.replaceChildren();
+    const result = await postJson('/api/ai/ekhtebar/answer', {
+      title: item.question_title,
+      question: item.question_text,
+      category: item.category,
+      source: item.source_bar + (item.source_page ? ' · ' + item.source_page : ''),
+    }, { timeoutMs: 60000 });
+    answerButton.disabled = false;
+    answerButton.textContent = 'تلاش دوباره برای دریافت پاسخ';
+    if (!result.ok || !result.data?.ok) {
+      const error = result.data?.error;
+      answerStatus.textContent = error === 'UNAUTHENTICATED'
+        ? 'برای دریافت پاسخ هوشمند ابتدا وارد حساب کاربری شوید.'
+        : error === 'AI_NOT_CONFIGURED'
+          ? 'سرویس هوش مصنوعی در حال حاضر روی سرور فعال نیست.'
+          : error === 'AI_RATE_LIMITED'
+            ? 'تعداد درخواست‌ها زیاد است؛ کمی بعد دوباره تلاش کنید.'
+            : 'تهیه پاسخ ممکن نشد. لطفاً دوباره تلاش کنید.';
+      return;
+    }
+    answerStatus.textContent = 'پاسخ آموزشی آماده شد.';
+    const answer = h('pre', { class: 'ekhtebar-answer-text', text: result.data.answer || '' });
+    answerContent.append(h('h3', { text: 'پاسخ تشریحی و مستدل' }), answer);
+    if (Array.isArray(result.data.legalSources) && result.data.legalSources.length) {
+      const refs = h('div', { class: 'ekhtebar-answer-sources' }, [h('strong', { text: 'مواد بازیابی‌شده از بانک قوانین آکادمی' })]);
+      for (const ref of result.data.legalSources) {
+        const label = [ref.law, ref.article ? 'ماده ' + ref.article : '', ref.heading].filter(Boolean).join(' ـ ');
+        refs.append(ref.url
+          ? h('p', {}, [h('a', { href: ref.url, target: '_blank', rel: 'noopener noreferrer', text: label + (ref.source ? ' (' + ref.source + ')' : '') })])
+          : h('p', { text: label }));
+      }
+      answerContent.append(refs);
+    }
+    for (const note of (result.data.notes || [])) answerContent.append(h('p', { class: 'ekhtebar-answer-note', text: note }));
+    answerContent.append(h('p', { class: 'ekhtebar-answer-disclaimer', text: result.data.disclaimer || 'پاسخ صرفاً آموزشی است؛ پیش از استناد، قوانین و منابع رسمی روز بررسی شوند.' }));
+    answerContent.hidden = false;
+    answerButton.textContent = 'بازسازی پاسخ';
+  });
   const body = h('div', { class: 'ekhtebar-question-body' }, [
     h('p', { class: 'ekhtebar-question-text', text: item.question_text }),
     tags,
     source,
     h('p', {}, [h('a', { href: item.source_url, target: '_blank', rel: 'noopener noreferrer', text: 'مشاهده منبع اصلی سؤال' })]),
+    h('div', { class: 'ekhtebar-answer-tools' }, [answerButton, answerStatus]),
+    answerContent,
   ]);
   const details = h('details', { class: 'ekhtebar-question' }, [
     h('summary', {}, [
