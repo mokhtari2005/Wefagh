@@ -250,29 +250,44 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
 
   // ---- صدا ----
   async function speak(text, speaker, item) {
-    if (!speechOn || !speakToggle.checked) { audioStatus.textContent = 'جلسه در حالت متنی برگزار می‌شود.'; if (item) item.audioPlaying = false; return; }
-    audioStatus.textContent = 'در حال تولید صدا…';
-    const res = await postForBlob('/api/ai/speech', { text, voice: VOICE_FOR[speaker] || 'Kore' }, { timeoutMs: 40000 });
-    if (!res.ok) {
-      if (item) item.audioPlaying = false;
-      audioStatus.textContent = `${errorText(res.error)} متن را بخوانید و ادامه دهید.`;
-      return;
+    if (item) item.audioPlaying = false;
+    if (!speechOn || !speakToggle.checked) {
+      audioStatus.textContent = 'جلسه در حالت متنی برگزار می‌شود.';
+      return false;
     }
-    if (item) item.blob = res.blob;
-    lastBlob = res.blob;
-    activeSpeaker = speaker;
-    renderSeats();
-    const played = await player.play(res.blob);
-    if (item) item.audioPlaying = played.ok;
-    if (played.ok) {
-      autoAdvancePending = autoContinue.checked;
-      audioStatus.textContent = 'در حال پخش؛ پس از پایان، رسیدگی خودکار ادامه می‌یابد.';
-    } else {
+    audioStatus.textContent = 'در حال تولید صدا…';
+    try {
+      const res = await postForBlob('/api/ai/speech', { text, voice: VOICE_FOR[speaker] || 'Kore' }, { timeoutMs: 40000 });
+      if (!res.ok) {
+        audioStatus.textContent = `تولید صدا با مشکل مواجه شد (${errorText(res.error)}). جلسه به‌صورت متنی ادامه می‌یابد.`;
+        return false;
+      }
+      if (item) item.blob = res.blob;
+      lastBlob = res.blob;
+      activeSpeaker = speaker;
+      renderSeats();
+      const played = await player.play(res.blob);
+      if (item) item.audioPlaying = played.ok;
+      if (played.ok) {
+        autoAdvancePending = autoContinue.checked;
+        audioStatus.textContent = 'در حال پخش؛ پس از پایان، رسیدگی خودکار ادامه می‌یابد.';
+        renderLog();
+        return true;
+      }
       activeSpeaker = null;
       renderSeats();
-      audioStatus.textContent = playFailureText(played.error);
+      audioStatus.textContent = `${playFailureText(played.error)} جلسه به‌صورت متنی ادامه می‌یابد.`;
+      renderLog();
+      return false;
+    } catch (err) {
+      activeSpeaker = null;
+      if (item) item.audioPlaying = false;
+      renderSeats();
+      const detail = err?.name === 'AbortError' ? 'مهلت تولید صدا پایان یافت' : 'ارتباط با سرویس صوتی برقرار نشد';
+      audioStatus.textContent = `${detail؛} متن گوینده ثبت شده است و جلسه به‌صورت متنی ادامه می‌یابد.`;
+      renderLog();
+      return false;
     }
-    renderLog();
   }
 
   // ---- گام‌ها ----
