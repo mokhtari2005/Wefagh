@@ -349,3 +349,20 @@ test('خطای پیش‌بینی‌نشده در مسیر هوش مصنوعی (�
   assert.ok(!text.includes('secret-detail'));
   assert.equal(JSON.parse(text).stage, 'router');
 });
+
+test('تایپ صوتی: خطای موقت Gemini یک بار تکرار می‌شود ولی سهمیه تکرار نمی‌شود', async () => {
+  const env = { DB: fakeDb({ loggedIn: true }), GEMINI_API_KEY: KEY };
+  const ok = jsonRes(200, { candidates: [{ content: { parts: [{ text: 'سلام' }] }, finishReason: 'STOP' }] });
+  let n = 0;
+  await withFetch(async () => (++n === 1 ? jsonRes(503, { error: { status: 'UNAVAILABLE' } }) : ok.clone()), async (calls) => {
+    const res = await worker.fetch(req('/api/ai/transcribe', { body: { mimeType: 'audio/mp4', data: 'AAAA' }, cookie: 'tok' }), env);
+    assert.equal(res.status, 200);
+    assert.equal((await res.json()).text, 'سلام');
+    assert.equal(calls.length, 2);
+  });
+  await withFetch(async () => jsonRes(429, { error: { status: 'RESOURCE_EXHAUSTED' } }), async (calls) => {
+    const res = await worker.fetch(req('/api/ai/transcribe', { body: { mimeType: 'audio/mp4', data: 'AAAA' }, cookie: 'tok' }), env);
+    assert.equal(res.status, 429);
+    assert.equal(calls.length, 1);
+  });
+});

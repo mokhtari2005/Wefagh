@@ -324,7 +324,7 @@ export function voiceTypingPage() {
     let res;
     try {
       const data = await blobToBase64(blob);
-      const send = () => postJson('/api/ai/transcribe', { mimeType: type, data, language: language.value.slice(0, 2) }, { timeoutMs: 90000 });
+      const send = () => postJson('/api/ai/transcribe', { mimeType: type, data, language: language.value.slice(0, 2) }, { timeoutMs: 120000 });
       res = await send();
       // خطاهای موقت سرویس (قطع لحظه‌ای، پاسخ غیر JSON، خطای 5xx) یک بار خودکار تکرار می‌شوند.
       const code = res?.data?.error;
