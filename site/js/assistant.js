@@ -84,7 +84,7 @@ export function assistantPage(params = {}) {
   wrap.append(body);
 
   (async () => {
-    const [me, status, settings] = await Promise.all([getJson('/api/me'), aiStatus(), getJson('/api/access-settings')]);
+    const [me, status, settings] = await Promise.all([getJson('/api/me'), aiStatus(), getJson('/api/access-settings').catch(() => ({ ok: false }))]);
     const guestMode = !me.ok && settings.ok && settings.data?.registrationRequired === false;
     if (!me.ok && !guestMode) {
       body.replaceChildren(h('div', { class: 'notice', role: 'note' }, [
