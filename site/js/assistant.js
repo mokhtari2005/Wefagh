@@ -1,6 +1,7 @@
 // دستیار هوشمند وکیل: گفت‌وگوی حرفه‌ای با تاریخچه، کادر ارسال ثابت و بارگذاری متن سند.
 // فقط برای کاربر واردشده و وقتی سرویس روی سرور فعال است. هر دکمه‌ای که نشان داده می‌شود عملکرد واقعی دارد.
 import { h } from './dom.js';
+import { icon } from './icons.js';
 import { getJson, postJson, postForm, sendJson } from './api.js';
 import { aiStatus, errorText } from './ai-client.js';
 import { formatShamsi } from './shamsi.js';
@@ -182,8 +183,12 @@ function assistantWorkspace(initialThread, guestMode = false) {
   // ---------- حالت و نوع سند ----------
   let mode = 'consult';
   const modeGroup = h('div', { class: 'ai-seg', role: 'group', 'aria-label': 'نوع کار' });
+  const modeIcons = { consult: 'scale', draft: 'file-pen-line', analyze: 'search-check', review: 'clipboard-check' };
   const modeButtons = MODES.map(([value, label]) => {
-    const b = h('button', { class: 'ai-seg-btn', type: 'button', text: label });
+    const b = h('button', { class: 'ai-seg-btn', type: 'button', 'aria-label': label }, [
+      h('span', { class: 'ai-mode-icon', 'aria-hidden': 'true' }, [icon(modeIcons[value], { size: 19 })]),
+      h('span', { class: 'ai-mode-label', text: label }),
+    ]);
     b.setAttribute('aria-pressed', value === mode ? 'true' : 'false');
     b.addEventListener('click', () => {
       mode = value;
@@ -191,7 +196,16 @@ function assistantWorkspace(initialThread, guestMode = false) {
     });
     return b;
   });
-  modeGroup.append(...modeButtons.map((b, i) => b));
+  const contractModeButton = h('button', { class: 'ai-seg-btn ai-contract-mode', type: 'button', 'aria-label': 'تنظیم قرارداد' }, [
+    h('span', { class: 'ai-mode-icon', 'aria-hidden': 'true' }, [icon('file-signature', { size: 19 })]),
+    h('span', { class: 'ai-mode-label', text: 'تنظیم قراردادها' }),
+  ]);
+  contractModeButton.addEventListener('click', () => {
+    mode = 'draft';
+    docSelect.value = 'contract';
+    syncMode();
+  });
+  modeGroup.append(...modeButtons, contractModeButton);
   const docSelect = h('select', { 'aria-label': 'نوع سند' }, DOC_TYPES.map(([v, t]) => h('option', { value: v, text: t })));
   const docWrap = h('label', { class: 'ai-doc-picker' }, [h('span', { text: 'نوع سند' }), docSelect]);
   const contractSelect = h('select', { 'aria-label': 'نوع قرارداد' }, [
@@ -201,16 +215,23 @@ function assistantWorkspace(initialThread, guestMode = false) {
   const contractWrap = h('label', { class: 'ai-doc-picker ai-contract-picker', hidden: '' }, [
     h('span', { text: 'نوع قرارداد' }), contractSelect,
   ]);
-  docSelect.addEventListener('change', syncContractPicker);
+  docSelect.addEventListener('change', () => {
+    syncContractPicker();
+    syncContractModeButton();
+  });
+  function syncContractModeButton() {
+    contractModeButton.setAttribute('aria-pressed', mode !== 'consult' && docSelect.value === 'contract' ? 'true' : 'false');
+  }
   function syncContractPicker() {
     contractWrap.hidden = mode === 'consult' || docSelect.value !== 'contract';
+    syncContractModeButton();
   }
   const PLACEHOLDERS = {
     consult: 'پرسش حقوقی یا قضایی خود را بنویسید؛ هرچه جزئیات (مرجع، مرحله، تاریخ‌ها) دقیق‌تر باشد پاسخ دقیق‌تر است…',
     other: 'موضوع دعوا، سمت موکل، مرجع رسیدگی، مرحله، خواسته، وقایع و دلایل موجود…',
   };
   function syncMode() {
-    modeButtons.forEach((x, i) => x.setAttribute('aria-pressed', MODES[i][0] === mode ? 'true' : 'false'));
+    modeButtons.forEach((x, i) => x.setAttribute('aria-pressed', MODES[i][0] === mode && docSelect.value !== 'contract' ? 'true' : 'false'));
     docWrap.hidden = mode === 'consult';
     composerText.placeholder = mode === 'consult' ? PLACEHOLDERS.consult : PLACEHOLDERS.other;
     syncContractPicker();
