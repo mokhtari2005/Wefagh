@@ -64,13 +64,18 @@ export async function register(request, env) {
   const displayName = cleanText(body.displayName);
   const professionalTitle = cleanText(body.professionalTitle);
   const position = cleanText(body.position);
+  const gender = body.gender;
+  const phone = String(body.phone || '').replace(/[۰-۹٠-٩]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d) >= 0 ? '۰۱۲۳۴۵۶۷۸۹'.indexOf(d) : '٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[\s\-‌()]/g, '');
   const errors = {};
   if (!email) errors.email = 'نشانی ایمیل معتبر نیست.';
   const pol = validatePasswordPolicy(body.password);
   if (!pol.ok) errors.password = pol.error;
   if (displayName.length < 2 || displayName.length > 100) errors.displayName = 'نام و نام خانوادگی باید بین ۲ و ۱۰۰ نویسه باشد.';
   if (professionalTitle && (professionalTitle.length < 2 || professionalTitle.length > 100)) errors.professionalTitle = 'عنوان حرفه‌ای باید بین ۲ و ۱۰۰ نویسه باشد.';
-  if (position && (position.length < 2 || position.length > 100)) errors.position = 'سمت باید بین ۲ و ۱۰۰ نویسه باشد.';
+  if (!['male', 'female'].includes(gender)) errors.gender = 'جنسیت را انتخاب کنید.';
+  if (!['lawyer', 'trainee', 'law_student', 'law_graduate', 'professor', 'researcher', 'other'].includes(position)) errors.position = 'سمت را از فهرست انتخاب کنید.';
+  if (!['academy_member', 'academy_instructor', 'academy_researcher', 'guest_member', 'other'].includes(professionalTitle)) errors.professionalTitle = 'عنوان را از فهرست انتخاب کنید.';
+  if (!/^09\\d{9}$/.test(phone)) errors.phone = 'شماره همراه باید ۱۱ رقم و با ۰۹ شروع شود.';
   if (Object.keys(errors).length > 0) return json({ ok: false, error: 'VALIDATION_FAILED', errors }, 422);
 
   const existing = await env.DB.prepare('SELECT id, status, email_verified_at FROM users WHERE email = ?1').bind(email).first();
@@ -85,8 +90,8 @@ export async function register(request, env) {
   let userId;
   try {
     const row = await env.DB
-      .prepare('INSERT INTO users (email, password_hash, display_name) VALUES (?1, ?2, ?3) RETURNING id')
-      .bind(email, passwordHash, displayName)
+      .prepare('INSERT INTO users (email, password_hash, display_name, gender, phone, professional_title, position) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) RETURNING id')
+      .bind(email, passwordHash, displayName, gender, phone, professionalTitle, position)
       .first();
     userId = row?.id;
     if (userId) {
@@ -103,7 +108,7 @@ export async function register(request, env) {
       }
       const membershipNo = `MLA-${membershipSequence}`;
       try {
-        await env.DB.prepare('UPDATE users SET membership_no=?1, professional_title=?2, position=?3 WHERE id=?4').bind(membershipNo, professionalTitle, position, userId).run();
+        await env.DB.prepare('UPDATE users SET membership_no=?1 WHERE id=?2').bind(membershipNo, userId).run();
       } catch (identityError) {
         // سازگاری با محیط‌های آزمایشی یا نسخه‌های قدیمی DB تا زمان اجرای مهاجرت ۰۰۱۴.
         if (!String(identityError?.message || '').includes('no such column')) throw identityError;
