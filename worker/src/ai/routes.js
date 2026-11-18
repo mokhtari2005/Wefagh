@@ -24,7 +24,7 @@ export const LIMITS = Object.freeze({
   historyChars: 30000,
   speechChars: 2000,
   mootBodyBytes: 80 * 1024,
-  audioBytes: 2 * 1024 * 1024,
+  audioBytes: 12 * 1024 * 1024,
   assistantChars: 6000,
   callsPerMinute: 20,
 });

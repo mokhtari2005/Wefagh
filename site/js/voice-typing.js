@@ -1,4 +1,4 @@
-// ابزار تایپ صوتی: صدا ضبط و برای تبدیل به متن به سرور وفاق (Gemini) فرستاده می‌شود؛ مدل محلی فقط جایگزین دستی است.
+// ابزار تایپ صوتی: صدا برای تبدیل به متن به سرویس هوش مصنوعی ارسال می‌شود؛ مدل محلی فقط جایگزین دستی است.
 import { postJson } from './api.js';
 import { errorText, blobToBase64, baseMime } from './ai-client.js';
 
@@ -146,7 +146,7 @@ export function voiceTypingPage() {
   const pdf = h('button', { class: 'btn secondary', type: 'button', text: 'چاپ / ذخیره PDF' });
   const clear = h('button', { class: 'btn secondary', type: 'button', text: 'پاک‌کردن متن' });
   actions.append(copy, download, word, pdf, clear);
-  const help = h('p', { class: 'muted', text: 'صدای ضبط‌شده برای تبدیل به متن به سرور وفاق ارسال می‌شود و ذخیره نمی‌شود؛ برای استفاده باید وارد حساب خود باشید. هر نوبت ضبط حداکثر ۴ دقیقه است. برای دقت بهتر در محیطی کم‌صدا صحبت کنید.' });
+  const help = h('p', { class: 'muted', text: 'صدای ضبط‌شده فقط برای تبدیل به متن به سرویس هوش مصنوعی ارسال می‌شود و در این سامانه ذخیره نمی‌شود؛ برای استفاده باید وارد حساب خود باشید. هر نوبت ضبط حداکثر ۳۰ دقیقه است. برای دقت بهتر در محیطی کم‌صدا صحبت کنید.' });
   panel.append(
     h('div', { class: 'row' }, [prepare, start, stop, language]),
     status,
@@ -167,7 +167,7 @@ export function voiceTypingPage() {
   let transcriberPromise = null;
   let permissionStatus = null;
   let recordingTimeout = null;
-  const MAX_RECORDING_MS = 4 * 60 * 1000;
+  const MAX_RECORDING_MS = 30 * 60 * 1000;
   const RETRYABLE = new Set(['AI_UNAVAILABLE', 'AI_PROVIDER_ERROR', 'AI_NETWORK_ERROR', 'AI_PROVIDER_BAD_RESPONSE', 'AI_EMPTY', 'NETWORK']);
   const MODEL_ID = 'onnx-community/whisper-tiny';
 
@@ -297,7 +297,7 @@ export function voiceTypingPage() {
   }
 
   const SERVER_AUDIO_TYPES = ['audio/webm', 'audio/mp4', 'audio/ogg', 'audio/wav'];
-  const MAX_SERVER_AUDIO_BYTES = 2 * 1024 * 1024;
+  const MAX_SERVER_AUDIO_BYTES = 12 * 1024 * 1024;
   let lastBlob = null;
   const retry = h('button', { class: 'btn secondary', type: 'button', text: 'تلاش دوباره' });
   const localFallback = h('button', { class: 'btn secondary', type: 'button', text: 'تبدیل روی دستگاه (آفلاین)' });
@@ -317,7 +317,7 @@ export function voiceTypingPage() {
     let type = baseMime(blob.type);
     if (!SERVER_AUDIO_TYPES.includes(type)) type = 'audio/mp4';
     if (blob.size > MAX_SERVER_AUDIO_BYTES) {
-      setStatus('ضبط بیش از حد بزرگ است (حداکثر حدود ۴ دقیقه). کوتاه‌تر ضبط کنید.', 'error');
+      setStatus('حجم فایل صوتی از حد مجاز بیشتر است. لطفاً ضبط را کوتاه‌تر کنید یا آن را به چند بخش تقسیم کنید.', 'error');
       return;
     }
     setStatus('در حال تبدیل گفتار به متن…', 'processing');
@@ -484,7 +484,7 @@ export function voiceTypingPage() {
         recording = true;
         recordingTimeout = window.setTimeout(() => {
           if (recording) {
-            setStatus('حداکثر زمان هر نوبت ضبط ۴ دقیقه است؛ ضبط متوقف و تبدیل آغاز می‌شود.', 'starting');
+            setStatus('حداکثر زمان هر نوبت ضبط ۳۰ دقیقه است؛ ضبط متوقف و تبدیل آغاز می‌شود.', 'starting');
             stopRecording();
           }
         }, MAX_RECORDING_MS);
