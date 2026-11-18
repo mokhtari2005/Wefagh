@@ -152,7 +152,7 @@
 @media print{
   @page{size:A4 portrait;margin:8mm}
   body.printing-regional-report .regional-result{
-    width:194mm!important;height:281mm!important;max-height:281mm!important;overflow:hidden!important;
+    width:194mm!important;height:auto!important;max-height:none!important;overflow:visible!important;zoom:.88;
     padding:0!important;font-size:8pt!important;line-height:1.35!important
   }
   .regional-print-header{gap:0!important;padding-bottom:5px!important;margin-bottom:6px!important}
