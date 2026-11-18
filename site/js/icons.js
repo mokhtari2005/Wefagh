@@ -16,6 +16,7 @@ const SHAPES = {
   book: [['path', { d: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20' }], ['path', { d: 'M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z' }]],
   home: [['path', { d: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z' }], ['path', { d: 'M9 22V12h6v10' }]],
   search: [['circle', { cx: 11, cy: 11, r: 8 }], ['path', { d: 'M21 21l-4.35-4.35' }]],
+  'map-pin': [['path', { d: 'M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0z' }], ['circle', { cx: 12, cy: 10, r: 2.5 }]],
   grid: [['rect', { x: 3, y: 3, width: 7, height: 7, rx: 1 }], ['rect', { x: 14, y: 3, width: 7, height: 7, rx: 1 }], ['rect', { x: 14, y: 14, width: 7, height: 7, rx: 1 }], ['rect', { x: 3, y: 14, width: 7, height: 7, rx: 1 }]],
   mic: [['rect', { x: 9, y: 2, width: 6, height: 12, rx: 3 }], ['path', { d: 'M19 10v1a7 7 0 0 1-14 0v-1' }], ['path', { d: 'M12 18v4' }], ['path', { d: 'M8 22h8' }]],
   scale: [['path', { d: 'M12 3v18' }], ['path', { d: 'M7 21h10' }], ['path', { d: 'M4 7h16' }], ['path', { d: 'M4 7l-2.5 6a2.8 2.8 0 0 0 5 0z' }], ['path', { d: 'M20 7l-2.5 6a2.8 2.8 0 0 0 5 0z' }]],
