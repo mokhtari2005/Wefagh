@@ -275,7 +275,7 @@ export async function generateGroqText(env, { system, contents, maxOutputTokens 
   const text = payload?.choices?.[0]?.message?.content;
   if (typeof text !== 'string' || !text.trim()) throw Object.assign(new Error('GROQ_EMPTY'), { code: 'GROQ_EMPTY' });
   if (!json) return { text: text.trim(), provider: 'groq', model: selectedModel };
-  const stripped = text.trim().replace(/^\`\`\`(?:json)?\\s*/i, '').replace(/\\s*\`\`\`$/, '');
+  const stripped = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
   let data;
   try { data = JSON.parse(stripped); } catch {
     throw Object.assign(new Error('GROQ_INVALID_JSON'), { code: 'GROQ_INVALID_JSON' });
