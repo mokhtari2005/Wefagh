@@ -2,7 +2,7 @@
 import { generateText } from './gemini.js';
 import { generateGroqText, groqConfigured } from './groq.js';
 
-const FAILOVER_CODES = new Set(['AI_NETWORK_ERROR', 'AI_PROVIDER_ERROR', 'AI_PROVIDER_BAD_RESPONSE', 'AI_MODEL_UNAVAILABLE', 'AI_QUOTA']);
+const FAILOVER_CODES = new Set(['AI_NETWORK_ERROR', 'AI_PROVIDER_ERROR', 'AI_PROVIDER_BAD_RESPONSE', 'AI_MODEL_UNAVAILABLE', 'AI_QUOTA', 'AI_NOT_CONFIGURED', 'AI_KEY_REJECTED']);
 
 export async function generateTextWithFallback(env, prompt, { allowGroq = true } = {}) {
   try {
