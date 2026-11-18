@@ -29,8 +29,8 @@ function d1Like(db) {
             first: async () => stmt.get(...args) ?? null,
             all: async () => ({ success: true, results: stmt.all(...args).map((r) => ({ ...r })) }),
             run: async () => {
-              stmt.run(...args);
-              return { success: true, results: [] };
+              const result = stmt.run(...args);
+              return { success: true, results: [], meta: { changes: Number(result?.changes || 0) } };
             },
           };
         },
