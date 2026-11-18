@@ -46,7 +46,8 @@ export function buildMembershipApprovalEmail({ displayName, gender, position, me
   return [
     'با سلام و احترام،',
     '',
-    `${salutation} عزیز،`,
+    `${salutation}،`,
+    positionLabel,
     '',
     'با خرسندی به اطلاع می‌رسانیم درخواست عضویت شما پس از بررسی، مورد تأیید مدیر آکادمی قرار گرفته است.',
     'پیوستن شما به جمع اعضای آکادمی وکالت شهرام مختاری را صمیمانه تبریک می‌گوییم.',
