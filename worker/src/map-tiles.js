@@ -16,7 +16,7 @@ export async function handleMapTiles(request) {
   }
   const url = new URL(request.url);
   const parts = url.pathname.split('/');
-  if (parts.length !== 7 || parts[1] !== 'api' || parts[2] !== 'map' || parts[3] !== 'tiles' || !/^\\d{1,2}$/.test(parts[4]) || !/^\\d+$/.test(parts[5]) || !/^\\d+\\.png$/.test(parts[6])) {
+  if (parts.length !== 7 || parts[1] !== 'api' || parts[2] !== 'map' || parts[3] !== 'tiles' || !/^\d{1,2}$/.test(parts[4]) || !/^\d+$/.test(parts[5]) || !/^\d+\.png$/.test(parts[6])) {
     return new Response('Not found', { status: 404 });
   }
   const z = Number(parts[4]), x = Number(parts[5]), y = Number(parts[6].slice(0, -4));
