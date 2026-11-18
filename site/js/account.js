@@ -146,9 +146,21 @@ function profileSummary(p) {
 }
 
 
+
+async function optimizeAvatar(file) {
+  if (!('createImageBitmap' in window) || !('OffscreenCanvas' in window)) return file;
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, 512 / Math.max(bitmap.width, bitmap.height));
+  const canvas = new OffscreenCanvas(Math.max(1, Math.round(bitmap.width * scale)), Math.max(1, Math.round(bitmap.height * scale)));
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  return await canvas.convertToBlob({ type: 'image/webp', quality: 0.78 });
+}
+
 function avatarEditor(currentUrl) {
   const wrap = h('section', { class: 'profile-avatar-editor' });
-  const preview = h('img', { class: 'profile-avatar-preview', alt: 'تصویر پروفایل', ...(currentUrl ? { src: currentUrl } : {}) });
+  const preview = h('img', { class: 'profile-avatar-preview', alt: 'تصویر پروفایل', ...(currentUrl ? { src: currentUrl + '?v=' + Date.now() } : {}) });
   if (!currentUrl) preview.hidden = true;
   const file = h('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp', 'aria-label': 'انتخاب عکس پروفایل' });
   const save = h('button', { class: 'btn small', type: 'button', text: 'بارگذاری عکس' });
@@ -159,14 +171,14 @@ function avatarEditor(currentUrl) {
     const selected = file.files?.[0];
     if (!selected) { setStatus(status, 'ابتدا یک عکس انتخاب کنید.', 'err'); return; }
     if (selected.size > 350 * 1024) { setStatus(status, 'حجم عکس نباید بیشتر از ۳۵۰ کیلوبایت باشد.', 'err'); return; }
-    const data = new FormData(); data.append('avatar', selected);
+    const optimized = await optimizeAvatar(selected);\n    const data = new FormData(); data.append('avatar', optimized, 'profile.webp');
     save.disabled = true; setStatus(status, 'در حال بارگذاری…');
     try {
       const response = await fetch('/api/me/avatar', { method: 'POST', credentials: 'same-origin', body: data, headers: { Accept: 'application/json' } });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'بارگذاری عکس ناموفق بود.');
-      preview.src = result.avatarDataUrl; preview.hidden = false;
-      setStatus(status, 'عکس پروفایل ذخیره شد. برای نمایش آن در صفحهٔ اصلی، صفحه را تازه‌سازی کنید.', 'ok');
+      preview.src = '/api/me/avatar?v=' + Date.now(); preview.hidden = false;
+      setStatus(status, 'عکس پروفایل ذخیره شد.', 'ok');
     } catch (err) { setStatus(status, err.message || 'ارتباط با سرور برقرار نشد.', 'err'); }
     finally { save.disabled = false; }
   });

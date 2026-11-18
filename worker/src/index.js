@@ -3,7 +3,7 @@ import { validateContact } from './validate.js';
 import { saveContactMessage } from './contact.js';
 import { json, readJsonBody, isSameOriginMutationAllowed } from './http.js';
 import { register, verifyEmail, resendVerification, login, logout, me } from './auth/routes.js';
-import { changePassword, updateProfile, updateAvatar, deleteAvatar } from './auth/account.js';
+import { changePassword, updateProfile, updateAvatar, deleteAvatar, getAvatar } from './auth/account.js';
 import { handleAcademy } from './academy/routes.js';
 import { handleMedia } from './media/routes.js';
 import { handleDeadlines } from './deadlines/routes.js';
@@ -96,7 +96,7 @@ export default {
       return handleContact(request, env);
     }
 
-    if (path === '/api/me/avatar' && request.method === 'DELETE') {
+    if (path === '/api/me/avatar' && request.method === 'GET') {\n      if (!env.DB) return json({ ok: false, error: 'DB_NOT_CONFIGURED' }, 503);\n      try { return await getAvatar(request, env); }\n      catch (err) { console.error(JSON.stringify({ where: 'route:/api/me/avatar:get', error: err?.name || 'Error' })); return json({ ok: false, error: 'INTERNAL_ERROR' }, 500); }\n    }\n\n    if (path === '/api/me/avatar' && request.method === 'DELETE') {
       if (!env.DB) return json({ ok: false, error: 'DB_NOT_CONFIGURED' }, 503);
       try { return await deleteAvatar(request, env); }
       catch (err) { console.error(JSON.stringify({ where: 'route:/api/me/avatar', error: err?.name || 'Error' })); return json({ ok: false, error: 'INTERNAL_ERROR' }, 500); }

@@ -118,7 +118,7 @@ export async function updateAvatar(request, env) {
   await env.DB.prepare(`INSERT INTO user_avatars (user_id, data_url, updated_at) VALUES (?1, ?2, ?3)
     ON CONFLICT(user_id) DO UPDATE SET data_url=excluded.data_url, updated_at=excluded.updated_at`)
     .bind(user.id, dataUrl, new Date().toISOString()).run();
-  return json({ ok: true, avatarDataUrl: dataUrl });
+  return json({ ok: true });
 }
 
 export async function deleteAvatar(request, env) {
@@ -126,4 +126,24 @@ export async function deleteAvatar(request, env) {
   if (!user) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
   await env.DB.prepare('DELETE FROM user_avatars WHERE user_id = ?1').bind(user.id).run();
   return json({ ok: true });
+}
+
+
+export async function getAvatar(request, env) {
+  const user = await currentUser(request, env);
+  if (!user) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+  const row = await env.DB.prepare('SELECT data_url FROM user_avatars WHERE user_id = ?1').bind(user.id).first();
+  if (!row?.data_url) return json({ ok: false, error: 'AVATAR_NOT_FOUND' }, 404);
+  const match = /^data:(image\\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+=*)$/.exec(row.data_url);
+  if (!match) return json({ ok: false, error: 'AVATAR_INVALID' }, 500);
+  const binary = atob(match[2]);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new Response(bytes, {
+    headers: {
+      'Content-Type': match[1],
+      'Content-Length': String(bytes.byteLength),
+      'Cache-Control': 'private, max-age=300',
+      'X-Content-Type-Options': 'nosniff',
+    },
+  });
 }
