@@ -12,6 +12,9 @@ function rowToDto(r) {
     caseNo: r.case_no,
     dueDate: r.due_date,
     dueTime: r.due_time ?? null,
+    reminderEnabled: r.reminder_enabled === 1,
+    reminderDays: r.reminder_days ?? 1,
+    reminderTime: r.reminder_time ?? '08:00',
     kind: r.kind,
     note: r.note,
     done: r.done === 1,
@@ -46,8 +49,8 @@ export async function handleDeadlines(request, env, path) {
       const v = validateDeadline(parsed.body);
       if (!v.ok) return json({ ok: false, error: 'VALIDATION_FAILED', errors: v.errors }, 422);
       const row = await env.DB
-        .prepare('INSERT INTO deadlines (user_id, title, case_no, due_date, due_time, kind, note) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) RETURNING id')
-        .bind(user.id, v.value.title, v.value.caseNo, v.value.dueDate, v.value.dueTime, v.value.kind, v.value.note)
+        .prepare('INSERT INTO deadlines (user_id, title, case_no, due_date, due_time, kind, note, reminder_enabled, reminder_days, reminder_time) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10) RETURNING id')
+        .bind(user.id, v.value.title, v.value.caseNo, v.value.dueDate, v.value.dueTime, v.value.kind, v.value.note, v.value.reminderEnabled ? 1 : 0, v.value.reminderDays, v.value.reminderTime)
         .first();
       return json({ ok: true, id: row?.id ?? null }, 201);
     }
@@ -67,8 +70,8 @@ export async function handleDeadlines(request, env, path) {
       const v = validateDeadline(parsed.body);
       if (!v.ok) return json({ ok: false, error: 'VALIDATION_FAILED', errors: v.errors }, 422);
       await env.DB
-        .prepare('UPDATE deadlines SET title = ?1, case_no = ?2, due_date = ?3, due_time = ?4, kind = ?5, note = ?6 WHERE id = ?7 AND user_id = ?8')
-        .bind(v.value.title, v.value.caseNo, v.value.dueDate, v.value.dueTime, v.value.kind, v.value.note, id, user.id)
+        .prepare('UPDATE deadlines SET title = ?1, case_no = ?2, due_date = ?3, due_time = ?4, kind = ?5, note = ?6, reminder_enabled = ?7, reminder_days = ?8, reminder_time = ?9 WHERE id = ?10 AND user_id = ?11')
+        .bind(v.value.title, v.value.caseNo, v.value.dueDate, v.value.dueTime, v.value.kind, v.value.note, v.value.reminderEnabled ? 1 : 0, v.value.reminderDays, v.value.reminderTime, id, user.id)
         .run();
       return json({ ok: true });
     }

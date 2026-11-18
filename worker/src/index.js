@@ -22,6 +22,8 @@ import { handleTelegram } from './telegram/routes.js';
 import { sendDueReminders } from './telegram/reminders.js';
 import { collectLegalNews } from './media/news.js';
 import { handleNotifications, createDueNotifications } from './notifications.js';
+import { handlePush } from './push/routes.js';
+import { sendDuePushReminders } from './push/reminders.js';
 
 // برای سازگاری با تست‌های قبلی، json را از اینجا هم صادر می‌کنیم.
 export { json };
@@ -168,6 +170,11 @@ export default {
       if (res) return res;
     }
 
+    if (path === '/api/push/public-key' || path === '/api/push/subscription') {
+      try { const res = await handlePush(request, env, path); if (res) return res; }
+      catch (err) { console.error(JSON.stringify({ where:'route:push', error:err?.name || 'Error' })); return json({ok:false,error:'INTERNAL_ERROR'},500); }
+    }
+
     if (path === '/api/notifications' || path === '/api/notifications/preferences') {
       const res = await handleNotifications(request, env, path);
       if (res) return res;
@@ -194,6 +201,7 @@ export default {
     if (event.cron === '*/30 * * * *') {
       ctx.waitUntil(sendDueReminders(env).catch((err) => console.error(JSON.stringify({ where: 'telegram.cron', error: err?.name || 'Error' }))));
       ctx.waitUntil(createDueNotifications(env).catch((err) => console.error(JSON.stringify({ where: 'notifications.cron', error: err?.name || 'Error' }))));
+      ctx.waitUntil(sendDuePushReminders(env).catch((err) => console.error(JSON.stringify({ where: 'push.cron', error: err?.name || 'Error' }))));
     }
   },
 };

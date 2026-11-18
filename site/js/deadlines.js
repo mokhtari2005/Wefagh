@@ -94,12 +94,22 @@ export async function deadlinesPage(params = {}) {
     h('p', { class: 'muted', text: 'برای موعدهای ثبت‌شده، سه روز قبل، یک روز قبل و روز موعد اعلان داخلی ثبت می‌شود.' }),
   ]);
   const notificationStatus = h('p', { class: 'form-status', role: 'status', 'aria-live': 'polite' });
+  const pushButton = h('button', { class: 'btn small', type: 'button', text: 'فعال‌سازی اعلان گوشی' });
+  const pushStatus = h('p', { class: 'muted', role: 'status', 'aria-live': 'polite', text: 'در آیفون، ابتدا سایت را با Safari به صفحهٔ اصلی اضافه کنید.' });
   const notificationList = h('div');
   const preferenceLabel = h('label', { class: 'check-row' });
   const preference = h('input', { type: 'checkbox' });
   preferenceLabel.append(preference, document.createTextNode('فعال بودن اعلان‌های داخلی'));
-  notificationBox.append(preferenceLabel, notificationList, notificationStatus);
+  notificationBox.append(preferenceLabel, pushButton, pushStatus, notificationList, notificationStatus);
   wrap.append(notificationBox);
+  refreshPushState(pushButton, pushStatus);
+  pushButton.addEventListener('click', async () => {
+    pushButton.disabled = true;
+    const result = pushButton.dataset.active === 'true' ? await disablePushNotifications() : await enablePushNotifications();
+    pushButton.disabled = false;
+    pushStatus.textContent = result.message;
+    if (result.ok) refreshPushState(pushButton, pushStatus);
+  });
 
   async function loadNotifications() {
     const response = await getJson('/api/notifications');
@@ -191,6 +201,9 @@ function addForm(onSaved, existing = null, onCancel = null) {
   const kind = h('select', {}, Object.entries(KIND_LABELS).map(([v, t]) => h('option', { value: v, text: t })));
   const due = shamsiField('dl-due', 'تاریخ مهلت یا جلسه (شمسی)', { required: true });
   const time = h('input', { type: 'time', step: '60' });
+  const reminderEnabled = h('input', { type: 'checkbox' });
+  const reminderDays = h('select', {}, [h('option', { value: '1', text: 'یک روز قبل' }), h('option', { value: '3', text: 'سه روز قبل' }), h('option', { value: '7', text: 'یک هفته قبل' })]);
+  const reminderTime = h('input', { type: 'time', value: '08:00', step: '60' });
   const note = h('textarea', { rows: '3', maxlength: '1000' });
   const status = h('p', { class: 'form-status', role: 'status', 'aria-live': 'polite' });
 
@@ -200,6 +213,9 @@ function addForm(onSaved, existing = null, onCancel = null) {
     kind.value = existing.kind;
     due.input.value = isoToShamsiInput(existing.dueDate);
     time.value = existing.dueTime || '';
+    reminderEnabled.checked = existing.reminderEnabled === true;
+    reminderDays.value = String(existing.reminderDays || 1);
+    reminderTime.value = existing.reminderTime || '08:00';
     note.value = existing.note || '';
   }
 
@@ -230,7 +246,8 @@ function addForm(onSaved, existing = null, onCancel = null) {
     field('dl-case', 'شمارهٔ پرونده (اختیاری)', caseNo),
     field('dl-kind', 'نوع', kind),
     due.node,
-    field('dl-time', 'ساعت (اختیاری)', time),
+    field('dl-time', 'ساعت موعد (اختیاری)', time),
+    h('fieldset', { class: 'checklist' }, [h('legend', { text: 'یادآوری اختصاصی این موعد' }), h('label', { class: 'check-row' }, [reminderEnabled, document.createTextNode('ارسال اعلان روی گوشی برای این موعد')]), field('dl-reminder-days', 'زمان یادآوری', reminderDays), field('dl-reminder-time', 'ساعت ارسال اعلان (به وقت تهران)', reminderTime), h('p', { class: 'muted', text: 'برای دریافت اعلان در پس‌زمینه، اعلان گوشی را نیز در بخش بالای تقویم فعال کنید.' })]),
     h('fieldset', { class: 'checklist' }, [
       h('legend', { text: 'محاسبه از تاریخ ابلاغ (اختیاری)' }),
       notice.node,
@@ -270,6 +287,9 @@ function addForm(onSaved, existing = null, onCancel = null) {
       kind: kind.value,
       dueDate: dueIso,
       dueTime: time.value,
+      reminderEnabled: reminderEnabled.checked,
+      reminderDays: Number(reminderDays.value),
+      reminderTime: reminderTime.value || '08:00',
       note: note.value,
     };
     const r = existing
@@ -358,4 +378,36 @@ function deadlineRow(it, st, onChanged, onEdit) {
     h('div', { class: 'row' }, [toggle, edit, del]),
     err,
   ]);
+}
+
+async function refreshPushState(button, status) {
+  const r = await getJson('/api/push/subscription');
+  button.dataset.active = r.ok && r.data.active ? 'true' : 'false';
+  button.textContent = button.dataset.active === 'true' ? 'غیرفعال‌سازی اعلان گوشی' : 'فعال‌سازی اعلان گوشی';
+  if (button.dataset.active === 'true') status.textContent = 'اعلان گوشی برای این حساب فعال است.';
+}
+function decodeBase64Url(value) {
+  const s = value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - value.length % 4) % 4);
+  return Uint8Array.from(atob(s), c => c.charCodeAt(0));
+}
+async function enablePushNotifications() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window))
+    return { ok:false, message:'این مرورگر از اعلان Push پشتیبانی نمی‌کند. در آیفون از Safari و افزودن به صفحهٔ اصلی استفاده کنید.' };
+  try {
+    if (await Notification.requestPermission() !== 'granted') return {ok:false,message:'اجازهٔ اعلان داده نشد؛ تنظیمات آیفون را بررسی کنید.'};
+    const key = await getJson('/api/push/public-key');
+    if (!key.ok || !key.data.publicKey) return {ok:false,message:'کلید امن اعلان هنوز در سرور تنظیم نشده است.'};
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    const sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:decodeBase64Url(key.data.publicKey)});
+    const saved = await postJson('/api/push/subscription', sub.toJSON());
+    return saved.ok ? {ok:true,message:'اعلان گوشی فعال شد.'} : {ok:false,message:'ثبت دستگاه در سرور ناموفق بود.'};
+  } catch { return {ok:false,message:'فعال‌سازی انجام نشد؛ مطمئن شوید سایت به صفحهٔ اصلی آیفون اضافه شده است.'}; }
+}
+async function disablePushNotifications() {
+  try {
+    const reg = await navigator.serviceWorker.getRegistration('/');
+    const sub = await reg?.pushManager.getSubscription();
+    if (sub) { await sendJson('DELETE','/api/push/subscription',{endpoint:sub.endpoint}); await sub.unsubscribe(); }
+    return {ok:true,message:'اعلان گوشی برای این دستگاه غیرفعال شد.'};
+  } catch { return {ok:false,message:'غیرفعال‌سازی اعلان ناموفق بود.'}; }
 }
