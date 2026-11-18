@@ -1127,7 +1127,7 @@ export async function adminPage() {
     if (key === 'legal-bank') refreshLegalBank();
     if (key === 'traffic' && !trafficView.dataset.loaded) {
       trafficView.dataset.loaded = '1';
-      import('./visitor-analytics.js').then(({ visitorAnalyticsPage }) => visitorAnalyticsPage())
+      import('./visitor-analytics.js?v=20261119-dashboard').then(({ visitorAnalyticsPage }) => visitorAnalyticsPage())
         .then((page) => trafficView.replaceChildren(page))
         .catch(() => { trafficView.textContent = 'بارگذاری مرکز پایش سایت ناموفق بود؛ صفحه را دوباره باز کنید.'; delete trafficView.dataset.loaded; });
     }
