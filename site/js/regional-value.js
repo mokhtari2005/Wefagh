@@ -134,6 +134,10 @@ export function regionalValueTool() {
       </svg>
       <div class="regional-map-offline-caption">نمای شماتیک شیراز — این تصویر نقشهٔ ثبتی یا دارای مقیاس نیست.</div>`;
     panel.style.cssText = 'display:flex;flex-direction:column;width:100%;height:100%;min-height:260px;overflow:hidden;border-radius:11px;background:#edf2e9;';
+    const svg = panel.querySelector('svg');
+    svg.style.cssText = 'display:block;width:100%;height:100%;min-height:220px;flex:1 1 auto;';
+    const caption = panel.querySelector('.regional-map-offline-caption');
+    caption.style.cssText = 'padding:7px 10px;text-align:center;font:12px/1.7 Tahoma,sans-serif;color:#52685c;background:#f8faf6;border-top:1px solid #d6e0d5;';
     mapCanvas.append(panel);
     coordinates.el.readOnly = false;
     mapStatus.textContent = reason || 'نقشه آنلاین در این شبکه در دسترس نیست؛ برای ثبت دقیق موقعیت، مختصات را دستی وارد کنید.';
@@ -253,10 +257,6 @@ export function regionalValueTool() {
       return;
     }
     if (!regionalMap || !regionalMarker) {
-      if (!fallbackMapFrame) {
-        postalSearchStatus.textContent = 'نمای نقشه هنوز آماده نیست؛ چند لحظه دیگر دوباره تلاش کنید.';
-        return;
-      }
       postalSearchButton.disabled = true;
       postalSearchButton.textContent = 'در حال جست‌وجو…';
       postalSearchStatus.textContent = 'در حال جست‌وجوی کد پستی در داده‌های نقشه عمومی…';
@@ -272,10 +272,10 @@ export function regionalValueTool() {
         const result = results[0];
         const lat = Number(result.lat), lon = Number(result.lon);
         if (!Number.isFinite(lat) || !Number.isFinite(lon)) throw new Error('Invalid geocoder coordinates');
-        fallbackMapFrame.src = `https://maps.google.com/maps?q=${lat},${lon}&z=17&output=embed`;
+        if (fallbackMapFrame) fallbackMapFrame.src = `https://maps.google.com/maps?q=${lat},${lon}&z=17&output=embed`;
         coordinates.el.value = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
         if (!address.el.value && result.display_name) address.el.value = result.display_name;
-        postalSearchStatus.textContent = 'موقعیت پیشنهادی روی نقشه جایگزین نمایش داده شد؛ لطفاً آن را با محل واقعی ملک تطبیق دهید.';
+        postalSearchStatus.textContent = 'مختصات پیشنهادی پیدا شد و در گزارش ثبت می‌شود؛ چون نقشه آنلاین در دسترس نیست، موقعیت را با نشانی ملک تطبیق دهید.';
       } catch (error) {
         console.error('[regional-value] postal lookup failed', error);
         postalSearchStatus.textContent = 'جست‌وجوی کد پستی ناموفق بود؛ مختصات را دستی وارد کنید.';
