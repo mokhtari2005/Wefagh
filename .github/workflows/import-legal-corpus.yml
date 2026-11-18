@@ -19,7 +19,7 @@ on:
         required: true
         type: string
       phase:
-        description: laws first; regulations only after the laws phase; all is reserved for later review
+        description: laws first; regulations only after the laws phase
         required: true
         default: laws
         type: choice
