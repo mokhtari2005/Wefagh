@@ -1132,6 +1132,8 @@ export async function adminPage() {
     nav.classList.remove('open');
     menuToggle.setAttribute('aria-expanded', 'false');
   }
+  const trafficLink = el('a', { class: 'admin-nav-item', href: '#/admin/traffic' }, [el('span', { class: 'admin-nav-icon', 'aria-hidden': 'true', text: '◉' }), el('span', { text: 'پایش زنده سایت' })]);
+  nav.append(trafficLink);
   for (const [key, label, symbol] of menuItems) {
     const button = el('button', { class: 'admin-nav-item', type: 'button', 'data-admin-target': key }, [
       el('span', { class: 'admin-nav-icon', 'aria-hidden': 'true', text: symbol }),
