@@ -28,24 +28,29 @@ async function githubRead(env, path) {
     signal: AbortSignal.timeout(12_000),
   });
   if (!response.ok) {
+    const raw = await response.text().catch(() => '');
     let message = '';
     try {
-      const body = await response.json();
+      const body = JSON.parse(raw);
       if (typeof body?.message === 'string') message = body.message;
-    } catch { /* پاسخ غیر JSON */ }
-    const error = new Error('GITHUB_READ_FAILED');
-    error.status = response.status;
-    error.githubMessage = message
+    } catch { message = raw; }
+    const safe = (value) => String(value || '')
       .replaceAll(token, '[پنهان]')
       .replace(/[\u0000-\u001f\u007f]/g, ' ')
-      .slice(0, 180);
-    error.requestId = response.headers.get('x-github-request-id') || '';
-    error.rateLimitRemaining = response.headers.get('x-ratelimit-remaining') || '';
-    error.rateLimitReset = response.headers.get('x-ratelimit-reset') || '';
-    error.retryAfter = response.headers.get('retry-after') || '';
-    error.oauthScopes = response.headers.get('x-oauth-scopes') || '';
-    error.acceptedScopes = response.headers.get('x-accepted-oauth-scopes') || '';
-    error.githubSso = response.headers.get('x-github-sso') || '';
+      .trim()
+      .slice(0, 240);
+    const error = new Error('GITHUB_READ_FAILED');
+    error.status = response.status;
+    error.path = path;
+    error.githubMessage = safe(message);
+    error.requestId = safe(response.headers.get('x-github-request-id'));
+    error.rateLimitRemaining = safe(response.headers.get('x-ratelimit-remaining'));
+    error.rateLimitReset = safe(response.headers.get('x-ratelimit-reset'));
+    error.rateLimitResource = safe(response.headers.get('x-ratelimit-resource'));
+    error.retryAfter = safe(response.headers.get('retry-after'));
+    error.oauthScopes = safe(response.headers.get('x-oauth-scopes'));
+    error.acceptedScopes = safe(response.headers.get('x-accepted-oauth-scopes'));
+    error.githubSso = safe(response.headers.get('x-github-sso'));
     throw error;
   }
   return response.json();
@@ -95,10 +100,8 @@ export async function handleDiagnosticSelfTest(request, env, path) {
     checks.push({ id: 'github-read', label: 'دسترسی GitHub به مخزن', ok: false, detail: 'Secret با نام GH_REPAIR_TOKEN تنظیم نشده است یا مقدار آن کوتاه است.' });
   } else {
     try {
-      const [repository, source] = await Promise.all([
-        githubRead(env, `/repos/${OWNER}/${REPOSITORY}`),
-        githubRead(env, `/repos/${OWNER}/${REPOSITORY}/contents/${SOURCE_PROBE}?ref=main`),
-      ]);
+      const repository = await githubRead(env, `/repos/${OWNER}/${REPOSITORY}`);
+      const source = await githubRead(env, `/repos/${OWNER}/${REPOSITORY}/contents/${SOURCE_PROBE}?ref=main`);
       checks.push({
         id: 'github-read',
         label: 'دسترسی GitHub به مخزن',
@@ -110,9 +113,10 @@ export async function handleDiagnosticSelfTest(request, env, path) {
       const reason = typeof error?.githubMessage === 'string' && error.githubMessage
         ? ` پاسخ GitHub: «${error.githubMessage}».`
         : '';
+      const endpoint = error?.path ? ` مسیر ردشده: ${error.path}.` : '';
       const request = error?.requestId ? ` شناسه درخواست: ${error.requestId}.` : '';
       const rate = error?.rateLimitRemaining === '0'
-        ? ` سهمیه API تمام شده است؛ زمان بازنشانی: ${error.rateLimitReset || 'نامشخص'}.`
+        ? ` سهمیه ${error?.rateLimitResource || 'API'} تمام شده است؛ زمان بازنشانی: ${error.rateLimitReset || 'نامشخص'}.`
         : '';
       const retry = error?.retryAfter ? ` زمان انتظار پیشنهادی GitHub: ${error.retryAfter} ثانیه.` : '';
       const sso = error?.githubSso ? ' GitHub محدودیت SSO را در پاسخ اعلام کرده است؛ دسترسی SSO توکن را بررسی کنید.' : '';
@@ -121,7 +125,7 @@ export async function handleDiagnosticSelfTest(request, env, path) {
       const explanation = status === 401
         ? 'کد 401: GitHub توکن را معتبر نمی‌شناسد؛ مقدار Secret، فعال‌بودن توکن و کپی‌شدن کامل آن را بررسی کنید.'
         : status === 403
-          ? 'کد 403: GitHub درخواست را از نظر مجوز، محدودیت امنیتی یا سهمیه رد کرده است؛ متن پاسخ را بررسی کنید.'
+          ? 'کد 403: GitHub دسترسی این درخواست را رد کرده است. علت دقیق در متن پاسخ یا سرآیندهای زیر آمده است.'
           : status === 404
             ? 'کد 404: مخزن یا فایل آزمون پیدا نشد؛ دسترسی مخزن و نام مسیر را بررسی کنید.'
             : status
@@ -131,7 +135,7 @@ export async function handleDiagnosticSelfTest(request, env, path) {
         id: 'github-read',
         label: 'دسترسی GitHub به مخزن',
         ok: false,
-        detail: `${explanation}${reason}${rate}${retry}${sso}${scopes}${accepted}${request}`,
+        detail: `${explanation}${endpoint}${reason}${rate}${retry}${sso}${scopes}${accepted}${request}`,
       });
     }
   }
