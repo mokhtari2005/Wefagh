@@ -3,6 +3,7 @@ import { json, readJsonBody } from './http.js';
 import { currentUser } from './auth/routes.js';
 import { hashPassword, validatePasswordPolicy } from './auth/password.js';
 import { normalizeEmail, cleanText } from './validate.js';
+import { sendMail } from './email/resend.js';
 
 async function requireMembershipAdmin(request, env) {
   const user = await currentUser(request, env);
@@ -26,8 +27,69 @@ async function sendVerification(env, email) {
   const { resendVerification } = await import('./auth/routes.js');
   return resendVerification(req, env);
 }
+
+const POSITION_LABELS = Object.freeze({
+  lawyer: 'وکیل محترم دادگستری',
+  trainee: 'کارآموز محترم وکالت',
+  law_student: 'دانشجوی محترم حقوق',
+  law_graduate: 'فارغ‌التحصیل محترم رشته حقوق',
+  professor: 'استاد محترم دانشگاه',
+  researcher: 'پژوهشگر محترم حقوق',
+  other: 'فعال محترم حوزه حقوق',
+});
+
+export function buildMembershipApprovalEmail({ displayName, gender, position, membershipNo, loginUrl }) {
+  const name = cleanText(displayName) || 'عضو گرامی';
+  const honorific = gender === 'male' ? 'جناب آقای' : gender === 'female' ? 'سرکار خانم' : '';
+  const salutation = [honorific, name].filter(Boolean).join(' ');
+  const positionLabel = POSITION_LABELS[position] || 'عضو ارجمند آکادمی';
+  return [
+    'با سلام و احترام،',
+    '',
+    `${salutation} عزیز،`,
+    '',
+    'با خرسندی به اطلاع می‌رسانیم درخواست عضویت شما پس از بررسی، مورد تأیید مدیر آکادمی قرار گرفته است.',
+    'پیوستن شما به جمع اعضای آکادمی وکالت شهرام مختاری را صمیمانه تبریک می‌گوییم.',
+    '',
+    `از این پس، ${positionLabel}، می‌توانید از ظرفیت‌های آموزشی و علمی آکادمی برای توسعه دانش و مهارت‌های حرفه‌ای خود بهره‌مند شوید.`,
+    membershipNo ? `شماره عضویت شما: ${membershipNo}` : '',
+    '',
+    'برای ورود به حساب کاربری و استفاده از امکانات آکادمی از پیوند زیر استفاده کنید:',
+    loginUrl,
+    '',
+    'امیدواریم حضور شما در این مجموعه، آغازگر تجربه‌ای ارزشمند از یادگیری، تعامل علمی و رشد حرفه‌ای باشد.',
+    '',
+    'با احترام و آرزوی موفقیت،',
+    'آکادمی وکالت شهرام مختاری',
+    'Mokhtari Law Academy',
+    'mokhtari.ir',
+  ].filter((line, index, all) => line !== '' || (index > 0 && all[index - 1] !== '')).join('\n');
+}
+
+async function sendMembershipApprovalEmail(env, user) {
+  try {
+    const mailer = env.mailer ?? ((args) => sendMail({ env, ...args }));
+    const base = env.PUBLIC_BASE_URL || env.BASE_URL || 'https://mokhtari.ir';
+    await mailer({
+      to: user.email,
+      subject: 'تبریک و خوش‌آمدگویی به عضویت شما | آکادمی وکالت شهرام مختاری',
+      text: buildMembershipApprovalEmail({
+        displayName: user.display_name,
+        gender: user.gender,
+        position: user.position,
+        membershipNo: user.membership_no,
+        loginUrl: `${base}/#/login`,
+      }),
+    });
+    return true;
+  } catch (err) {
+    console.error(JSON.stringify({ where: 'admin.members.approval_email', error: err?.name || 'Error', status: Number.isInteger(err?.status) ? err.status : undefined }));
+    return false;
+  }
+}
+
 export async function handleAdminMembership(request, env, path) {
-  const allowed = ['/api/admin/members', '/api/admin/members/decision', '/api/admin/members/manual'];
+  const allowed = ['/api/admin/members', '/api/admin/members/decision', '/api/admin/members/manual', '/api/admin/members/approval-email'];
   if (!allowed.includes(path)) return null;
   const method = path === allowed[0] ? 'GET' : 'POST';
   if (request.method !== method) return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: method });
@@ -54,9 +116,29 @@ export async function handleAdminMembership(request, env, path) {
     }
     const user = await env.DB.prepare('SELECT id,membership_status FROM users WHERE id=?1').bind(id).first();
     if (!user) return json({ ok: false, error: 'USER_NOT_FOUND' }, 404);
+    if (decision === 'approved' && user.membership_status === 'approved') {
+      return json({ ok: true, membershipStatus: 'approved', alreadyApproved: true, emailSent: false });
+    }
     await env.DB.prepare('UPDATE users SET membership_status=?1 WHERE id=?2').bind(decision,id).run();
-    if (decision === 'rejected') await env.DB.prepare('DELETE FROM sessions WHERE user_id=?1').bind(id).run();
-    return json({ ok: true, membershipStatus: decision });
+    if (decision === 'rejected') {
+      await env.DB.prepare('DELETE FROM sessions WHERE user_id=?1').bind(id).run();
+      return json({ ok: true, membershipStatus: decision });
+    }
+    const approvedUser = await env.DB.prepare(
+      'SELECT email,display_name,gender,position,membership_no FROM users WHERE id=?1'
+    ).bind(id).first();
+    const emailSent = approvedUser ? await sendMembershipApprovalEmail(env, approvedUser) : false;
+    return json({ ok: true, membershipStatus: decision, emailSent });
+  }
+  if (path === allowed[3]) {
+    const id = Number(body.userId);
+    if (!Number.isSafeInteger(id) || id < 1) return json({ ok: false, error: 'VALIDATION_FAILED' }, 422);
+    const user = await env.DB.prepare(
+      "SELECT email,display_name,gender,position,membership_no FROM users WHERE id=?1 AND membership_status='approved'"
+    ).bind(id).first();
+    if (!user) return json({ ok: false, error: 'APPROVED_MEMBER_NOT_FOUND' }, 404);
+    const emailSent = await sendMembershipApprovalEmail(env, user);
+    return json({ ok: true, emailSent });
   }
   const email = normalizeEmail(body.email);
   const displayName = cleanText(body.displayName);
