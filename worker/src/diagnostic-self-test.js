@@ -17,11 +17,12 @@ export function validateSyntheticDiagnostic(payload) {
     && payload.synthetic === true);
 }
 
-async function githubRead(env, path) {
+export async function githubRead(env, path) {
   const token = env.GH_REPAIR_TOKEN.trim();
   const response = await (env.fetchImpl || fetch)(`${API}${path}`, {
     headers: {
       accept: 'application/vnd.github+json',
+      'user-agent': 'Mokhtari-Law-Academy-Diagnostics',
       authorization: `Bearer ${token}`,
       'x-github-api-version': '2022-11-28',
     },

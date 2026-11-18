@@ -53,6 +53,7 @@ async function github(env, path, options = {}) {
     ...options,
     headers: {
       accept: 'application/vnd.github+json',
+      'user-agent': 'Mokhtari-Law-Academy-Diagnostics',
       authorization: `Bearer ${env.GH_REPAIR_TOKEN.trim()}`,
       'x-github-api-version': '2022-11-28',
       ...(options.body ? { 'content-type': 'application/json' } : {}),
