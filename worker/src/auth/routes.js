@@ -79,7 +79,7 @@ export async function register(request, env) {
         // شمارندهٔ دیتابیس تخصیص هم‌زمان شماره‌ها را بدون تکرار مدیریت می‌کند.
         const allocated = await env.DB.prepare(
           'UPDATE membership_sequence SET next_value = next_value + 1 WHERE id = 1 RETURNING next_value - 1 AS value'
-        ).first();
+        ).bind().first();
         if (Number.isInteger(allocated?.value)) membershipSequence = allocated.value;
       } catch (sequenceError) {
         // سازگاری موقت با محیط‌هایی که هنوز مهاجرت ۰۰۱۹ را اجرا نکرده‌اند.
