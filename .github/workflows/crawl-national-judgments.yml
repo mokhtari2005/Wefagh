@@ -34,6 +34,8 @@ jobs:
           python-version: '3.12'
       - name: Install crawler dependency
         run: python -m pip install requests
+      - name: Run crawler and parser unit tests
+        run: python -m unittest tests.test_national_judgment_parser tests.test_national_judgment_crawler
       - name: Verify required credentials
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
