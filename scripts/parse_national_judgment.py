@@ -87,8 +87,12 @@ def parse_judgment(html: str, source_url: str) -> dict:
     if not title or not number or not date:
         raise ValueError("required judgment metadata (title, judgment number, date) not found")
 
-    start = re.search(r"رأی خلاصه جریان پرونده|رای خلاصه جریان پرونده", text)
-    end = re.search(r"تماس با ما|کلیه حقوق برای پژوهشگاه", text[start.end():] if start else "")
+    # The live portal currently labels the body with headings such as «رأی دادگاه بدوی»;
+    # older saved pages may use «رأی خلاصه جریان پرونده».
+    start = re.search(r"(?:رأی|رای)\s+(?:خلاصه\s+جریان\s+پرونده|دادگاه\s+(?:بدوی|تجدیدنظر)|شعبه(?:\s+[^\n]+)?|هیئت\s+عمومی)", text)
+    if not start:
+        start = re.search(r"(?:متن\s+رأی|متن\s+رای)", text)
+    end = re.search(r"نقد رأی|نقد رای|آراء منتخب پرونده|تماس با ما|کلیه حقوق برای پژوهشگاه", text[start.end():] if start else "")
     if not start:
         raise ValueError("judgment text section not found")
     body_start = start.end()
