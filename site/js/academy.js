@@ -30,6 +30,7 @@ export const ACADEMY_TOOLS = [
   { icon: 'mic', title: 'تمرین دادرسی و موت‌کورت', href: '#/moot-court' },
   { icon: 'scale', title: 'دستیار هوشمند وکیل', href: '#/assistant' },
   { icon: 'folder', title: 'بانک پرونده‌ها', href: '#/cases' },
+  { icon: 'landmark', title: 'محاسبه‌گر ارزش منطقه‌ای', href: '#/calculators/regional' },
   { icon: 'receipt', title: 'هزینهٔ دادرسی', href: '#/calculators/court' },
   { icon: 'briefcase', title: 'حق‌الوکاله قانونی', href: '#/calculators/attorney' },
   { icon: 'calculator', title: 'خسارت تأخیر تأدیه', href: '#/calculators/delay' },
