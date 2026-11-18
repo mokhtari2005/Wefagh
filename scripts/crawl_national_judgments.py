@@ -180,37 +180,30 @@ def make_statements(record):
     law_sql = """INSERT OR IGNORE INTO legal_laws
       (slug,title,law_type,issuing_authority,approved_date,status,source_name,source_url,notes,
        document_number,document_date,subject,official_source_url,discovery_source_url,content_sha256,source_checked_at)
-      VALUES (%s,%s,%s,%s,NULL,'needs_review',%s,%s,%s,%s,%s,%s,%s,%s,%s,strftime('%%Y-%%m-%%dT%%H:%%M:%%fZ','now'));""" % tuple(
-        sql_quote(x) for x in (
-            slug, title, document_type, authority, meta["source"], source_url, notes,
-            number, date, meta.get("summary"), source_url, source_url, digest
-        )
-    )
+      VALUES (?1,?2,?3,?4,NULL,'needs_review',?5,?6,?7,?8,?9,?10,?11,?12,?13,strftime('%Y-%m-%dT%H:%M:%fZ','now'));"""
+    law_params = [slug, title, document_type, authority, meta["source"], source_url, notes,
+                  number, date, meta.get("summary"), source_url, source_url, digest]
     article_payload = json.dumps([{"number": "متن کامل", "heading": title, "body": body}], ensure_ascii=False, separators=(",", ":"))
     article_sql = """INSERT OR IGNORE INTO legal_articles (law_id,article_number,heading,body,status)
       SELECT l.id,json_extract(j.value,'$.number'),json_extract(j.value,'$.heading'),json_extract(j.value,'$.body'),'needs_review'
-      FROM legal_laws l,json_each(%s) j WHERE l.slug=%s;""" % (sql_quote(article_payload), sql_quote(slug))
+      FROM legal_laws l,json_each(?1) j WHERE l.slug=?2;"""
     index_sql = """INSERT OR IGNORE INTO legal_document_index
       (source_key,source_id,title,document_type,document_number,document_date,issuing_authority,subject,
        source_url,discovery_source_url,content_sha256,metadata_json)
-      VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);""" % tuple(
-        sql_quote(x) for x in (
-            SOURCE_KEY, source_id, title, document_type, number, date, authority,
-            meta.get("summary"), source_url, BASE, digest, metadata_json
-        )
-    )
-    return [law_sql, article_sql, index_sql], {"sourceId": source_id, "title": title, "type": document_type, "sha256": digest}
-
+      VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12);"""
+    index_params = [SOURCE_KEY, source_id, title, document_type, number, date, authority,
+                    meta.get("summary"), source_url, BASE, digest, metadata_json]
+    return [
+        {"sql": law_sql, "params": law_params},
+        {"sql": article_sql, "params": [article_payload, slug]},
+        {"sql": index_sql, "params": index_params},
+    ], {"sourceId": source_id, "title": title, "type": document_type, "sha256": digest}
 
 def d1_request(session, sqls):
     account = os.environ["CLOUDFLARE_ACCOUNT_ID"]
     token = os.environ["CLOUDFLARE_API_TOKEN"]
     endpoint = f"https://api.cloudflare.com/client/v4/accounts/{account}/d1/database/{DB_ID}/query"
-    # Cloudflare's D1 API accepts a batch of parameterized SQL statements.
-    statements = []
-    for sql in sqls:
-        # Each statement is already safely SQL-quoted from source text.
-        statements.append({"sql": sql, "params": []})
+    statements = sqls
     response = session.post(endpoint, headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
                             json={"batch": statements}, timeout=180)
     response.raise_for_status()
