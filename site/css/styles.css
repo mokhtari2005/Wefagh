@@ -2988,3 +2988,45 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
     padding: .08rem .3rem;
   }
 }
+
+
+/* هویت چاپی مشترک فرم‌ها و خروجی‌های قابل چاپ */
+@media print {
+  @page { margin: 22mm 14mm 16mm; }
+  body::before {
+    content: "⚖  آکادمی وکالت شهرام مختاری  |  Shahram Mokhtari Law Academy";
+    display: block;
+    position: fixed;
+    top: -15mm;
+    inset-inline: 0;
+    padding: 0 0 5mm;
+    border-bottom: 1px solid #b99a62;
+    color: #3e2723;
+    font-family: Tahoma, sans-serif;
+    font-size: 10pt;
+    font-weight: 700;
+    text-align: center;
+  }
+  body::after {
+    content: "آکادمی وکالت شهرام مختاری  •  mokhtari.ir";
+    display: block;
+    position: fixed;
+    bottom: -11mm;
+    inset-inline: 0;
+    border-top: 1px solid #d6c6a6;
+    padding-top: 3mm;
+    color: #5b4037;
+    font-family: Tahoma, sans-serif;
+    font-size: 8pt;
+    text-align: center;
+  }
+}
+.profile-avatar-editor { display:grid; gap:.75rem; margin:1.25rem 0; padding:1rem; border:1px solid var(--sand-line); border-radius:var(--radius); background:var(--paper); }
+.profile-avatar-preview { width:112px; height:112px; border-radius:50%; object-fit:cover; border:3px solid var(--gold); }
+.home-profile-spot { display:flex; align-items:center; gap:1rem; margin:0 0 1rem; padding:.8rem 1rem; border:1px solid var(--sand-line); border-radius:var(--radius); background:var(--paper); }
+.home-profile-spot > div { display:grid; line-height:1.5; }
+.home-profile-spot small { color:var(--ink-soft); }
+.home-profile-spot a { margin-inline-start:auto; font-size:.9rem; }
+.home-profile-avatar { width:54px; height:54px; border-radius:50%; object-fit:cover; border:2px solid var(--gold); flex:none; }
+.home-profile-placeholder { display:grid; place-items:center; background:var(--bone); font-size:1.4rem; }
+@media print { .profile-avatar-editor, .home-profile-spot { display:none !important; } }

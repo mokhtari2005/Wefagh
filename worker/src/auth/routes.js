@@ -318,8 +318,15 @@ export async function getProfile(env, userId) {
     logError('me.profile_lookup', err);
     return null;
   }
-  if (!row) return null;
+  let avatar = null;
+  try {
+    avatar = await env.DB.prepare('SELECT data_url FROM user_avatars WHERE user_id = ?1').bind(userId).first();
+  } catch (err) {
+    logError('me.avatar_lookup', err);
+  }
+  if (!row) return avatar?.data_url ? { avatarDataUrl: avatar.data_url } : null;
   return {
+    avatarDataUrl: avatar?.data_url || null,
     phone: row.phone,
     province: row.province,
     city: row.city,

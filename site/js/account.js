@@ -145,6 +145,44 @@ function profileSummary(p) {
   ]);
 }
 
+
+function avatarEditor(currentUrl) {
+  const wrap = h('section', { class: 'profile-avatar-editor' });
+  const preview = h('img', { class: 'profile-avatar-preview', alt: 'تصویر پروفایل', ...(currentUrl ? { src: currentUrl } : {}) });
+  if (!currentUrl) preview.hidden = true;
+  const file = h('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp', 'aria-label': 'انتخاب عکس پروفایل' });
+  const save = h('button', { class: 'btn small', type: 'button', text: 'بارگذاری عکس' });
+  const remove = h('button', { class: 'btn small secondary', type: 'button', text: 'حذف عکس' });
+  const status = h('p', { class: 'form-status', role: 'status', 'aria-live': 'polite' });
+  wrap.append(h('h2', { text: 'عکس پروفایل' }), preview, file, h('p', { class: 'muted', text: 'فرمت JPG، PNG یا WebP؛ حداکثر ۳۵۰ کیلوبایت. عکس فقط در نمای شخصی حساب و صفحهٔ اصلیِ همان کاربر نمایش داده می‌شود.' }), h('div', { class: 'row' }, [save, remove]), status);
+  save.addEventListener('click', async () => {
+    const selected = file.files?.[0];
+    if (!selected) { setStatus(status, 'ابتدا یک عکس انتخاب کنید.', 'err'); return; }
+    if (selected.size > 350 * 1024) { setStatus(status, 'حجم عکس نباید بیشتر از ۳۵۰ کیلوبایت باشد.', 'err'); return; }
+    const data = new FormData(); data.append('avatar', selected);
+    save.disabled = true; setStatus(status, 'در حال بارگذاری…');
+    try {
+      const response = await fetch('/api/me/avatar', { method: 'POST', credentials: 'same-origin', body: data, headers: { Accept: 'application/json' } });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'بارگذاری عکس ناموفق بود.');
+      preview.src = result.avatarDataUrl; preview.hidden = false;
+      setStatus(status, 'عکس پروفایل ذخیره شد. برای نمایش آن در صفحهٔ اصلی، صفحه را تازه‌سازی کنید.', 'ok');
+    } catch (err) { setStatus(status, err.message || 'ارتباط با سرور برقرار نشد.', 'err'); }
+    finally { save.disabled = false; }
+  });
+  remove.addEventListener('click', async () => {
+    remove.disabled = true;
+    try {
+      const response = await fetch('/api/me/avatar', { method: 'DELETE', credentials: 'same-origin', headers: { Accept: 'application/json' } });
+      if (!response.ok) throw new Error('حذف عکس انجام نشد.');
+      preview.removeAttribute('src'); preview.hidden = true; file.value = '';
+      setStatus(status, 'عکس پروفایل حذف شد.', 'ok');
+    } catch (err) { setStatus(status, err.message, 'err'); }
+    finally { remove.disabled = false; }
+  });
+  return wrap;
+}
+
 export async function accountPanel({ onLogout }) {
   const res = await getJson('/api/me');
   if (!res.ok) return null;
@@ -164,10 +202,11 @@ export async function accountPanel({ onLogout }) {
   return h('div', {}, [
     h('h1', { text: 'حساب من' }),
     h('p', { text: `نام: ${user.displayName}` }),
+    avatarEditor(user.profile?.avatarDataUrl),
     h('p', { text: `شماره عضویت: ${user.membershipNo || 'در انتظار تخصیص'}` }),
     h('p', { text: `عنوان: ${user.professionalTitle || '—'} | سمت: ${user.position || '—'}` }),
     h('p', { dir: 'ltr', text: user.email }),
-    user.profile ? profileSummary(user.profile) : h('p', { class: 'muted', text: 'پروفایل آموزشی برای این حساب ثبت نشده است.' }),
+    user.profile?.phone ? profileSummary(user.profile) : h('p', { class: 'muted', text: 'پروفایل آموزشی برای این حساب ثبت نشده است.' }),
     h('details', { class: 'account-edit' }, [
       h('summary', { text: 'ویرایش پروفایل آموزشی' }),
       // پس از ذخیرهٔ موفق، صفحهٔ حساب دوباره ساخته می‌شود تا خلاصهٔ پروفایل به‌روز شود.

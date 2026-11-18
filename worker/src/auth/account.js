@@ -91,3 +91,39 @@ export async function updateProfile(request, env) {
   const profile = await getProfile(env, user.id);
   return json({ ok: true, profile });
 }
+
+
+// تصویر پروفایل: فقط JPEG/PNG/WebP، حداکثر 350 کیلوبایت؛ داده فقط برای صاحب حساب خوانده می‌شود.
+export async function updateAvatar(request, env) {
+  const user = await currentUser(request, env);
+  if (!user) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+  let form;
+  try { form = await request.formData(); } catch { return json({ ok: false, error: 'INVALID_UPLOAD' }, 400); }
+  const file = form.get('avatar');
+  if (!(file instanceof File) || !file.size || file.size > 350 * 1024) {
+    return json({ ok: false, error: 'AVATAR_SIZE_LIMIT', message: 'حجم عکس باید حداکثر ۳۵۰ کیلوبایت باشد.' }, 422);
+  }
+  const types = new Set(['image/jpeg', 'image/png', 'image/webp']);
+  if (!types.has(file.type)) return json({ ok: false, error: 'AVATAR_TYPE', message: 'فرمت مجاز: JPG، PNG یا WebP.' }, 422);
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const signatureOk = file.type === 'image/jpeg'
+    ? bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
+    : file.type === 'image/png'
+      ? bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47
+      : String.fromCharCode(...bytes.slice(0, 4)) === 'RIFF' && String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP';
+  if (!signatureOk) return json({ ok: false, error: 'AVATAR_TYPE', message: 'محتوای فایل با فرمت اعلام‌شده مطابقت ندارد.' }, 422);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  const dataUrl = `data:${file.type};base64,${btoa(binary)}`;
+  await env.DB.prepare(`INSERT INTO user_avatars (user_id, data_url, updated_at) VALUES (?1, ?2, ?3)
+    ON CONFLICT(user_id) DO UPDATE SET data_url=excluded.data_url, updated_at=excluded.updated_at`)
+    .bind(user.id, dataUrl, new Date().toISOString()).run();
+  return json({ ok: true, avatarDataUrl: dataUrl });
+}
+
+export async function deleteAvatar(request, env) {
+  const user = await currentUser(request, env);
+  if (!user) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+  await env.DB.prepare('DELETE FROM user_avatars WHERE user_id = ?1').bind(user.id).run();
+  return json({ ok: true });
+}

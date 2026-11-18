@@ -3,7 +3,7 @@ import { validateContact } from './validate.js';
 import { saveContactMessage } from './contact.js';
 import { json, readJsonBody, isSameOriginMutationAllowed } from './http.js';
 import { register, verifyEmail, resendVerification, login, logout, me } from './auth/routes.js';
-import { changePassword, updateProfile } from './auth/account.js';
+import { changePassword, updateProfile, updateAvatar, deleteAvatar } from './auth/account.js';
 import { handleAcademy } from './academy/routes.js';
 import { handleMedia } from './media/routes.js';
 import { handleDeadlines } from './deadlines/routes.js';
@@ -63,6 +63,7 @@ const AUTH_ROUTES = {
   '/api/auth/logout': ['POST', logout],
   '/api/me': ['GET', me],
   '/api/me/profile': ['PUT', updateProfile],
+  '/api/me/avatar': ['POST', updateAvatar],
   '/api/auth/change-password': ['POST', changePassword],
 };
 
@@ -93,6 +94,12 @@ export default {
 
     if (path === '/api/contact') {
       return handleContact(request, env);
+    }
+
+    if (path === '/api/me/avatar' && request.method === 'DELETE') {
+      if (!env.DB) return json({ ok: false, error: 'DB_NOT_CONFIGURED' }, 503);
+      try { return await deleteAvatar(request, env); }
+      catch (err) { console.error(JSON.stringify({ where: 'route:/api/me/avatar', error: err?.name || 'Error' })); return json({ ok: false, error: 'INTERNAL_ERROR' }, 500); }
     }
 
     const route = AUTH_ROUTES[path];
