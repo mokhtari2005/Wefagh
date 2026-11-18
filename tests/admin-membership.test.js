@@ -18,3 +18,12 @@ test('new registrations wait for admin approval while existing members are prese
   assert.match(auth, /membershipApproved/);
   assert.match(auth, /membership_status/);
 });
+
+test('membership approval email has a personalized welcome and login link', async () => {
+  const source = await readFile(new URL('../worker/src/admin-membership.js', import.meta.url), 'utf8');
+  assert.match(source, /buildMembershipApprovalEmail/);
+  assert.match(source, /تبریک و خوش‌آمدگویی/);
+  assert.match(source, /approval-email/);
+  assert.match(source, /emailSent/);
+  assert.match(source, /عضویت تأیید شد/);
+});
