@@ -179,13 +179,51 @@ function pageHome() {
     lazy(async () => { const { shamsiCalendar } = await import('./calendar.js'); return shamsiCalendar({ onSelect: (iso) => { window.location.hash = `#/deadlines?date=${encodeURIComponent(iso)}`; } }); }),
   ]);
   const profileSpot = h('section', { class: 'home-profile-spot', hidden: '' });
-  fetch('/api/me', { credentials: 'same-origin', headers: { Accept: 'application/json' } }).then(r => r.ok ? r.json() : null).then(data => {
-    const user = data?.user;
-    if (!user) return;
-    const avatar = user.profile?.avatarUrl ? h('img', { class: 'home-profile-avatar', src: user.profile.avatarUrl, alt: 'تصویر پروفایل', loading: 'lazy', decoding: 'async' }) : h('span', { class: 'home-profile-avatar home-profile-placeholder', text: '👤', 'aria-hidden': 'true' });
-    profileSpot.replaceChildren(avatar, h('div', {}, [h('strong', { text: user.displayName }), h('small', { text: 'عضو آکادمی وکالت شهرام مختاری' })]), h('a', { href: '#/account', text: 'مدیریت پروفایل' }));
-    profileSpot.hidden = false;
-  }).catch(() => {});
+  fetch('/api/me', { credentials: 'same-origin', headers: { Accept: 'application/json' }, cache: 'no-store' })
+    .then(async (response) => {
+      if (response.status === 401) return null;
+      if (!response.ok) throw new Error(`profile request failed: ${response.status}`);
+      const data = await response.json();
+      if (!data?.ok || !data?.user) throw new Error('invalid profile response');
+      return data.user;
+    })
+    .then((user) => {
+      if (!user) return;
+      const avatarUrl = user.profile?.avatarUrl;
+      const placeholder = () => h('span', { class: 'home-profile-avatar home-profile-placeholder', text: '👤', 'aria-hidden': 'true' });
+      const avatar = avatarUrl
+        ? h('img', { class: 'home-profile-avatar', src: `${avatarUrl}${avatarUrl.includes('?') ? '&' : '?'}v=${Date.now()}`, alt: 'تصویر پروفایل', decoding: 'async' })
+        : placeholder();
+      avatar.addEventListener?.('error', () => avatar.replaceWith(placeholder()), { once: true });
+      profileSpot.replaceChildren(
+        avatar,
+        h('div', {}, [
+          h('strong', { text: user.displayName || 'کاربر آکادمی' }),
+          h('small', { text: 'عضو آکادمی وکالت شهرام مختاری' }),
+        ]),
+        h('a', { href: '#/account', text: 'مدیریت پروفایل' }),
+      );
+      profileSpot.hidden = false;
+
+      // تصویر حساب در میان‌بر بالای سایت نیز نمایش داده می‌شود.
+      const headerLink = document.querySelector('.avatar-link');
+      if (headerLink) {
+        if (avatarUrl) {
+          const headerAvatar = h('img', {
+            class: 'header-profile-avatar',
+            src: `${avatarUrl}${avatarUrl.includes('?') ? '&' : '?'}v=${Date.now()}`,
+            alt: 'پروفایل من',
+          });
+          headerAvatar.addEventListener('error', () => headerAvatar.replaceWith(icon('user', { size: 22 })), { once: true });
+          headerLink.replaceChildren(headerAvatar);
+          headerLink.setAttribute('aria-label', 'پروفایل من');
+        }
+      }
+    })
+    .catch((error) => {
+      // شکست دریافت پروفایل نباید رندر یا سایر بخش‌های صفحهٔ اصلی را مختل کند.
+      console.warn('Home profile could not be loaded.', error);
+    });
   root.append(profileSpot, hero, calendarSection, quick, stats, lower, cta);
   return root;
 }
