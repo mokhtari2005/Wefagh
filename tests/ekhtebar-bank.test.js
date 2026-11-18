@@ -7,7 +7,7 @@ const bank = JSON.parse(raw);
 
 test('Ekhtabar bank has unique IDs and required publication metadata', () => {
   assert.ok(Array.isArray(bank.records));
-  assert.ok(bank.records.length >= 62);
+  assert.ok(bank.records.length >= 70);
   const ids = bank.records.map((item) => item.id);
   assert.equal(new Set(ids).size, ids.length);
   for (const item of bank.records) {
