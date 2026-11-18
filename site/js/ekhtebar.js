@@ -90,7 +90,7 @@ export async function ekhtebarPage() {
     const search = h('input', { type: 'search', placeholder: 'جست‌وجو در عنوان، متن سؤال، موضوع و کلیدواژه‌ها…', 'aria-label': 'جست‌وجو در سؤالات' });
     const subject = select(SUBJECTS.map((x) => ({ value: x === 'همه دروس' ? '' : x, label: x })));
     const bars = select([{ value: '', label: 'همه کانون‌ها' }, ...unique(records.map((x) => x.source_bar.split(' ـ ')[0])).map((x) => ({ value: x, label: x }))]);
-    const years = select([{ value: '', label: 'همه سال‌ها' }, ...unique(records.map((x) => (x.source_bar.match(/۱۴\d{2}/) || [])[0])).sort().reverse().map((x) => ({ value: x, label: x }))]);
+    const years = select([{ value: '', label: 'همه سال‌ها' }, ...unique(records.map((x) => (x.source_bar.match(/(?:۱۳|۱۴)\d{2}/) || [])[0])).sort().reverse().map((x) => ({ value: x, label: x }))]);
     const levels = select([{ value: '', label: 'همه سطوح دشواری' }, ...['مبتدی','متوسط','پیشرفته/ارشد'].map((x) => ({ value: x, label: x }))]);
     const reset = h('button', { class: 'btn secondary small', type: 'button', text: 'پاک‌کردن فیلترها' });
     filters.append(
