@@ -199,5 +199,7 @@ export function regionalValueTool() {
     });
     out.replaceChildren(result);
   });
+  // Mount the form: without this, only the heading and introduction render.
+  root.append(form);
   return root;
 }
