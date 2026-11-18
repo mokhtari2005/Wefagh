@@ -18,6 +18,7 @@ import { casesPage } from './cases.js';
 import { dashboardPage } from './dashboard.js';
 import { adminPage } from './admin.js';
 import { ekhtebarPage } from './ekhtebar.js';
+import { voiceTypingPage } from './voice-typing.js';
 
 /** صفحه‌ای که داده‌اش ناهمگام است: یک جای نگه‌دار می‌سازد و بعد پر می‌کند. */
 function lazy(fn) {
@@ -279,6 +280,7 @@ const ROUTES = {
   '/cases': () => lazy(() => casesPage()),
   '/moot-court': (params) => lazy(() => mootCourtPage(params)),
   '/assistant': (params) => assistantPage(params),
+  '/voice-typing': () => voiceTypingPage(),
   '/assistant/history': () => assistantHistoryPage(),
   '/moot-court/hearing': (params) => courtRoomPage(params),
   '/moot-court/cases': (params) => casePickerPage(params),
