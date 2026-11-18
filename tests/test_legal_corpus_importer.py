@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import os
 import unittest
 from pathlib import Path
@@ -38,6 +39,30 @@ class LegalCorpusImporterTests(unittest.TestCase):
         self.assertIsNone(reason)
         self.assertEqual(doc["articles"][0]["number"], "1")
         self.assertIn("شرایط تابعیت کشتی", doc["articles"][0]["body"])
+
+    def test_priority_coverage_distinguishes_present_missing_and_repealed(self):
+        manifest = {
+            "documents": [
+                {"key": "civil", "title": "قانون مدنی", "aliases": ["قانون مدنی"]},
+                {"key": "civil-procedure", "title": "قانون آیین دادرسی مدنی", "aliases": ["قانون آیین دادرسی مدنی"]},
+                {"key": "cheque", "title": "قانون صدور چک", "aliases": ["قانون صدور چک"]},
+            ]
+        }
+        docs = [
+            {"title": "قانون مدنی", "slug": "civil", "lawType": "law"},
+            {"title": "قانون صدور چک منسوخ", "slug": "old-cheque", "lawType": "law"},
+        ]
+        audit = importer.priority_coverage(docs, manifest)
+        self.assertEqual(audit["present_in_source_mirror"], 1)
+        self.assertEqual(audit["missing_from_source_mirror"], 2)
+        self.assertEqual(audit["verified"], 0)
+        self.assertEqual(audit["documents"][1]["status"], "missing_from_source_mirror")
+
+    def test_priority_manifest_has_core_litigation_statutes(self):
+        manifest_path = MODULE_PATH.parent / "legal_priority_documents.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        keys = {item["key"] for item in manifest["documents"]}
+        self.assertTrue({"civil-code", "civil-procedure", "criminal-code-1392", "criminal-procedure", "civil-enforcement", "financial-judgments", "cheques", "family-protection"} <= keys)
 
     def test_parse_doc_extracts_title_and_article_without_network(self):
         markdown = "# قانون نمونه\nhttps://www.ekhtebar.ir/sample-law/\n\nماده ۱\nمتن ماده نخست"
