@@ -1,7 +1,7 @@
 // API وِفاق روی Cloudflare Worker. بدون وابستگی خارجی.
 import { validateContact } from './validate.js';
 import { saveContactMessage } from './contact.js';
-import { json, readJsonBody, isSameOriginMutationAllowed } from './http.js';
+import { json, readJsonBody } from './http.js';
 import { register, verifyEmail, resendVerification, login, logout, me } from './auth/routes.js';
 import { changePassword, updateProfile, updateAvatar, deleteAvatar, getAvatar } from './auth/account.js';
 import { handleAcademy } from './academy/routes.js';
@@ -69,9 +69,6 @@ const AUTH_ROUTES = {
 
 export default {
   async fetch(request, env) {
-    if (!isSameOriginMutationAllowed(request, env)) {
-      return json({ ok: false, error: 'CROSS_ORIGIN_REQUEST_BLOCKED' }, 403);
-    }
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, '') || '/';
 
