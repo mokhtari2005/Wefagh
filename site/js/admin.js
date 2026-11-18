@@ -207,6 +207,53 @@ export async function adminPage() {
   });
   // مدیریت اعضا: درخواست‌ها، فهرست کاربران و ثبت‌نام دستی.
   const membersNotice = el('p', { class: 'form-status', role: 'status' });
+  const pushNotice = el('p', { class: 'form-status', role: 'status' });
+  const pushEnable = el('button', { class: 'btn secondary', type: 'button', text: 'فعال‌سازی اعلان ثبت‌نام روی این دستگاه' });
+  function decodePushKey(value) {
+    const padding = '='.repeat((4 - value.length % 4) % 4);
+    const raw = atob((value + padding).replace(/-/g, '+').replace(/_/g, '/'));
+    return Uint8Array.from(raw, (char) => char.charCodeAt(0));
+  }
+  pushEnable.addEventListener('click', async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+      pushNotice.className = 'form-status err';
+      pushNotice.textContent = 'مرورگر این دستگاه از اعلان مستقیم پشتیبانی نمی‌کند.';
+      return;
+    }
+    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const installed = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    if (isIos && !installed) {
+      pushNotice.className = 'form-status err';
+      pushNotice.textContent = 'برای دریافت اعلان در آیفون، ابتدا در Safari گزینهٔ Add to Home Screen را بزنید و سایت را از آیکون صفحهٔ اصلی باز کنید.';
+      return;
+    }
+    pushEnable.disabled = true;
+    pushNotice.className = 'form-status';
+    pushNotice.textContent = 'در حال فعال‌سازی اعلان‌ها…';
+    try {
+      const keyResult = await getJson('/api/push/public-key');
+      if (!keyResult.ok || !keyResult.data?.publicKey) throw new Error('کلید اعلان در سرور تنظیم نشده است.');
+      const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+      if (permission !== 'granted') throw new Error(permission === 'denied' ? 'اجازهٔ اعلان در تنظیمات مرورگر مسدود شده است.' : 'اجازهٔ ارسال اعلان داده نشد.');
+      const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+      await navigator.serviceWorker.ready;
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: decodePushKey(keyResult.data.publicKey),
+      });
+      const saved = await postJson('/api/push/subscription', subscription.toJSON());
+      if (!saved.ok) throw new Error('ثبت اشتراک اعلان در حساب مدیریتی انجام نشد.');
+      pushNotice.className = 'form-status ok';
+      pushNotice.textContent = 'اعلان ثبت‌نام برای این دستگاه فعال شد. از این پس با ثبت درخواست جدید، پیام فوری دریافت می‌کنید.';
+      pushEnable.textContent = 'اعلان ثبت‌نام فعال است';
+    } catch (error) {
+      pushNotice.className = 'form-status err';
+      pushNotice.textContent = error?.message || 'فعال‌سازی اعلان ناموفق بود؛ دوباره تلاش کنید.';
+    } finally {
+      pushEnable.disabled = false;
+    }
+  });
   const membersList = el('div', { class: 'admin-content-list' });
   const membersSearch = el('input', { type: 'search', placeholder: 'جست‌وجو بر اساس نام، ایمیل یا شماره عضویت', 'aria-label': 'جست‌وجوی اعضا' });
   const rejectedMembersList = el('div', { class: 'admin-content-list' });
@@ -302,7 +349,7 @@ export async function adminPage() {
   });
   const membersView = el('section', { class: 'admin-view card', 'data-admin-view': 'members', hidden: 'hidden' }, [
     el('h2', { text: 'مدیریت اعضا و درخواست‌های عضویت' }),
-    membersNotice, el('h3', { text: 'فهرست کاربران و درخواست‌ها' }), membersSearch, membersList,
+    el('h3', { text: 'اعلان درخواست‌های جدید' }), el('p', { class: 'muted', text: 'با فعال‌سازی اعلان، هنگام ثبت‌نام متقاضی جدید روی این دستگاه پیام دریافت می‌کنید. برای دریافت اعلان روی آیفون، سایت باید به صفحهٔ اصلی افزوده شده باشد.' }), pushEnable, pushNotice,\n    membersNotice, el('h3', { text: 'فهرست کاربران و درخواست‌ها' }), membersSearch, membersList,
     el('h3', { text: 'ثبت‌نام دستی عضو' }), el('p', { class: 'muted', text: 'رمز عبور موقت را امن به کاربر تحویل دهید؛ کاربر برای فعال‌سازی ورود باید ایمیل خود را نیز تأیید کند.' }), manualMemberForm,
   ]);
   const rejectedMembersView = el('section', { class: 'admin-view card', 'data-admin-view': 'rejected-members', hidden: 'hidden' }, [
