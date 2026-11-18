@@ -259,7 +259,7 @@ export async function login(request, env) {
   if (!email || !password) return json({ ok: false, error: 'INVALID_CREDENTIALS' }, 401);
 
   const user = await env.DB
-    .prepare('SELECT id, password_hash, status, email_verified_at, failed_logins, locked_until FROM users WHERE email = ?1')
+    .prepare('SELECT id, password_hash, status, membership_status, email_verified_at, failed_logins, locked_until FROM users WHERE email = ?1')
     .bind(email)
     .first();
 
@@ -268,7 +268,7 @@ export async function login(request, env) {
   }
 
   const passOk = await verifyPassword(password, user ? user.password_hash : await dummyHash());
-  if (!user || !passOk || user.status !== 'active') {
+  if (!user || !passOk || user.status !== 'active' || user.membership_status !== 'approved') {
     if (user) {
       const failed = (user.failed_logins || 0) + 1;
       const lockedUntil = failed >= LOCK_THRESHOLD ? addMs(new Date(), LOCK_MINUTES * 60 * 1000) : null;
@@ -313,7 +313,7 @@ export async function currentUser(request, env) {
     .prepare(
       `SELECT u.id, u.email, u.display_name FROM sessions s
        JOIN users u ON u.id = s.user_id
-       WHERE s.token_hash = ?1 AND s.expires_at > ?2 AND u.status = 'active' AND u.email_verified_at IS NOT NULL`
+       WHERE s.token_hash = ?1 AND s.expires_at > ?2 AND u.status = 'active' AND u.membership_status = 'approved' AND u.email_verified_at IS NOT NULL`
     )
     .bind(await hashToken(token), nowIso)
     .first();
