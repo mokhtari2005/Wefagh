@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generateTextWithFallback, stripGroqFormatting } from '../worker/src/ai/fallback.js';
+import { generateTextWithFallback, stripGroqFormatting, stripResponseFormatting } from '../worker/src/ai/fallback.js';
 
 const env = {
   GEMINI_API_KEY: 'test-gemini-key-123456',
@@ -77,4 +77,32 @@ test('parses JSON output from Groq for structured assistant responses', async ()
 test('removes Markdown stars, headings and list markers from Groq text while preserving numbering and legal punctuation', () => {
   const raw = '**شکایت کیفری**\\n\\n## مبنای قانونی\\n- ماده ۲۲۲ قانون مجازات اسلامی؛\\n1. شرط نخست\\n* شرط دوم';
   assert.equal(stripGroqFormatting(raw), 'شکایت کیفری\\n\\nمبنای قانونی\\nماده ۲۲۲ قانون مجازات اسلامی؛\\n1. شرط نخست\\nشرط دوم');
+});
+
+
+test('removes Markdown decoration from exam answers for every provider while preserving Persian structure', () => {
+  const raw = `### پاسخ تشریحی و مستدل
+
+**۱) صورت‌بندی مسئله و پرسش‌های فرعی**
+- پرسش نخست
+* پرسش دوم
+
+---
+
+**۲) قواعد و مبانی قانونی**
+ماده ۱۰ قانون مدنی؛ \`اصل آزادی قراردادها\`
+
+1. شرط نخست
+2. شرط دوم`;
+  assert.equal(stripResponseFormatting(raw), `پاسخ تشریحی و مستدل
+
+۱) صورت‌بندی مسئله و پرسش‌های فرعی
+پرسش نخست
+پرسش دوم
+
+۲) قواعد و مبانی قانونی
+ماده ۱۰ قانون مدنی؛ اصل آزادی قراردادها
+
+1. شرط نخست
+2. شرط دوم`);
 });
