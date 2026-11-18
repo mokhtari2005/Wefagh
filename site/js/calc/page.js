@@ -636,7 +636,7 @@ const TOOL_VISUALS = {
 
 function calculatorStyles() {
   if (document.querySelector('link[data-calculator-styles]')) return;
-  const link = h('link', { rel: 'stylesheet', href: 'css/calculators.css' });
+  const link = h('link', { rel: 'stylesheet', href: 'css/calculators.css?v=20261119-1' });
   link.setAttribute('data-calculator-styles', 'true');
   document.head.append(link);
 }
