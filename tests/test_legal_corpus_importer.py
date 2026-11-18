@@ -22,10 +22,22 @@ class LegalCorpusImporterTests(unittest.TestCase):
         self.assertEqual(importer.classify("قانون آیین‌نامه داخلی مجلس شورای اسلامی"), "law")
         self.assertEqual(importer.classify("قانون اصلاح آیین نامه داخلی مجلس"), "law")
 
+    def test_treaty_statutes_are_in_laws_phase(self):
+        self.assertIn("treaty", importer.PHASE_TYPES["laws"])
+        self.assertNotIn("bylaw", importer.PHASE_TYPES["laws"])
+
     def test_specific_document_families_keep_precedence(self):
         self.assertEqual(importer.classify("رأی وحدت رویه دیوان عالی کشور"), "supreme_court_unified_precedent")
         self.assertEqual(importer.classify("نظریه مشورتی اداره کل حقوقی قوه قضائیه"), "judicial_advisory_opinion")
         self.assertEqual(importer.classify("کنوانسیون حقوقی"), "treaty")
+
+    def test_article_heading_with_closing_parenthesis_is_parsed(self):
+        markdown = "# قانون دریایی\nhttps://www.ekhtebar.ir/sample-law/\n\nماده ۱) شرایط تابعیت کشتی\nمتن ماده نخست"
+        with patch.object(importer, "get", return_value=FakeResponse(markdown)):
+            doc, reason = importer.parse_doc("data/laws/sample.md", {})
+        self.assertIsNone(reason)
+        self.assertEqual(doc["articles"][0]["number"], "1")
+        self.assertIn("شرایط تابعیت کشتی", doc["articles"][0]["body"])
 
     def test_parse_doc_extracts_title_and_article_without_network(self):
         markdown = "# قانون نمونه\nhttps://www.ekhtebar.ir/sample-law/\n\nماده ۱\nمتن ماده نخست"

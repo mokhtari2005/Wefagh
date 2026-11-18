@@ -17,13 +17,13 @@ GH = {"Accept":"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28"
 if os.getenv("GITHUB_TOKEN"): GH["Authorization"] = f"Bearer {os.environ['GITHUB_TOKEN']}"
 IMPORT_PHASE = os.getenv("LEGAL_IMPORT_PHASE", "laws").strip().lower()
 PHASE_TYPES = {
-    "laws": {"law"},
+    "laws": {"law", "treaty"},
     "regulations": {"bylaw", "executive_regulation", "executive_circular"},
 }
 if IMPORT_PHASE not in PHASE_TYPES:
     raise SystemExit("LEGAL_IMPORT_PHASE must be one of: laws, regulations")
 DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩","01234567890123456789")
-ARTICLE = re.compile(r"^\s*(?:#{1,6}\s*)?(ماده|اصل)\s*[\(（]?\s*([0-9۰-۹٠-٩]+(?:\s*(?:مکرر|الحاقی))?|[آ-ی‌]+(?:\s+و\s+[آ-ی‌]+)?)(?=\s*(?:[ـ\-–—:：]|$))\s*[\)）]?\s*(?:[ـ\-–—:：]\s*)?(.*)$")
+ARTICLE = re.compile(r"^\s*(?:#{1,6}\s*)?(ماده|اصل)\s*[\(（]?\s*([0-9۰-۹٠-٩]+(?:\s*(?:مکرر|الحاقی))?|[آ-ی‌]+(?:\s+و\s+[آ-ی‌]+)?)(?=\s*(?:[ـ\-–—:：]|[\)）]|$))\s*[\)）]?\s*(?:[ـ\-–—:：]\s*)?(.*)$")
 SINGLE = re.compile(r"^\s*(?:#{1,6}\s*)?ماده[\s‌ـ\-]*واحده\s*(?:[ـ\-–—:：]\s*)?(.*)$")
 
 def get(url, github=False):
@@ -248,7 +248,10 @@ def main():
         print("WARNING: database audit failed: "+str(e)[:500])
     from collections import Counter
     skip_reason_counts=dict(Counter(x["reason"] for x in errors))
-    report={"source":"https://github.com/SaeedAqamiri/laws-mcp","index_source":"https://www.ekhtebar.ir/قوانین/","files_found":len(files),"phase":IMPORT_PHASE,"documents_parsed":parsed_count,"documents_selected":len(docs),"documents_excluded_by_phase":len(phase_skipped),"documents_processed":done,"documents_inserted":inserted["laws"],"articles_inserted":inserted["articles"],"selected_type_counts":type_counts,"documents_skipped":skipped,"skip_reason_counts":skip_reason_counts,"database_audit":database_audit,"status":"needs_review","selected_types":sorted(PHASE_TYPES[IMPORT_PHASE]),"phase_excluded_sample":[{"slug":d["slug"],"title":d["title"],"type":d["lawType"]} for d in phase_skipped[:100]],"skip_sample":errors[:200]}
+    with open(os.path.join(os.path.dirname(__file__), "legal_document_sources.json"), encoding="utf-8") as source_file:
+        source_registry=json.load(source_file)
+    discovery_sources=[{"key":s["key"],"url":s["url"],"mode":s.get("mode"),"authoritative":s.get("authoritative",True)} for s in source_registry.get("sources",[]) if s.get("discovery_only")]
+    report={"source":"https://github.com/SaeedAqamiri/laws-mcp","index_source":"https://www.ekhtebar.ir/قوانین/","discovery_sources":discovery_sources,"files_found":len(files),"phase":IMPORT_PHASE,"documents_parsed":parsed_count,"documents_selected":len(docs),"documents_excluded_by_phase":len(phase_skipped),"documents_processed":done,"documents_inserted":inserted["laws"],"articles_inserted":inserted["articles"],"selected_type_counts":type_counts,"documents_skipped":skipped,"skip_reason_counts":skip_reason_counts,"database_audit":database_audit,"status":"needs_review","selected_types":sorted(PHASE_TYPES[IMPORT_PHASE]),"phase_excluded_sample":[{"slug":d["slug"],"title":d["title"],"type":d["lawType"]} for d in phase_skipped[:100]],"skip_sample":errors[:200]}
     with open("artifacts/legal-bank-import-report.json","w",encoding="utf-8") as f: json.dump(report,f,ensure_ascii=False,indent=2)
     print(json.dumps({k:v for k,v in report.items() if k!="skip_sample"},ensure_ascii=False))
 
