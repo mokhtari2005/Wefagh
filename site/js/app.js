@@ -17,6 +17,7 @@ import { deadlinesPage, upcomingCard } from './deadlines.js';
 import { casesPage } from './cases.js';
 import { dashboardPage } from './dashboard.js';
 import { adminPage } from './admin.js';
+import { ekhtebarPage } from './ekhtebar.js';
 
 /** صفحه‌ای که داده‌اش ناهمگام است: یک جای نگه‌دار می‌سازد و بعد پر می‌کند. */
 function lazy(fn) {
@@ -272,6 +273,7 @@ const ROUTES = {
   '/academy/courses': () => lazy(academyCoursesPage),
   '/courses': () => lazy(academyCoursesPage),
   '/academy/exams': () => lazy(academyExamsPage),
+  '/academy/ekhtebar': () => lazy(ekhtebarPage),
   '/dashboard': () => lazy(dashboardPage),
   '/admin': () => lazy(adminPage),
   '/cases': () => lazy(() => casesPage()),

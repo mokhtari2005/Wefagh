@@ -24,6 +24,7 @@ function loginHint() {
 export const ACADEMY_TOOLS = [
   { icon: 'cap', title: 'دوره‌های آموزشی', href: '#/courses' },
   { icon: 'edit', title: 'مرکز آزمون هوشمند', href: '#/academy/exams' },
+  { icon: 'file-text', title: 'بانک سؤالات اختبار', href: '#/academy/ekhtebar' },
   { icon: 'mic', title: 'تمرین دادرسی و موت‌کورت', href: '#/moot-court' },
   { icon: 'scale', title: 'دستیار هوشمند وکیل', href: '#/assistant' },
   { icon: 'folder', title: 'بانک پرونده‌ها', href: '#/cases' },

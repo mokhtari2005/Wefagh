@@ -1,0 +1,43 @@
+/* بانک سؤالات اختبار */
+.ekhtebar-page { display:grid; gap:1.15rem; min-width:0; }
+.ekhtebar-back { color:var(--teal); font-weight:700; text-decoration:none; width:max-content; }
+.ekhtebar-hero { padding:clamp(1.25rem,3vw,2.1rem); border:1px solid var(--sand-line); border-radius:var(--radius-lg); background:linear-gradient(145deg,var(--paper),var(--bone)); }
+.ekhtebar-kicker { display:inline-block; color:var(--cinnamon); font-size:.88rem; font-weight:800; margin-bottom:.35rem; }
+.ekhtebar-hero h1 { max-width:850px; margin:0 0 .6rem; font-size:clamp(1.55rem,3.5vw,2.35rem); line-height:1.55; }
+.ekhtebar-hero .lead { max-width:850px; margin:0 0 .7rem; }
+.ekhtebar-note { margin:0; color:var(--ink-soft); font-size:.9rem; }
+.ekhtebar-filters { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)) auto; gap:.8rem; padding:1rem; align-items:end; }
+.ekhtebar-filter { display:grid; gap:.35rem; min-width:0; color:var(--ink-soft); font-size:.88rem; font-weight:700; }
+.ekhtebar-filter input,.ekhtebar-filter select { width:100%; min-width:0; min-height:44px; border:1px solid var(--sand-line); border-radius:10px; padding:.55rem .7rem; background:var(--paper); color:var(--ink); font:inherit; font-weight:400; }
+.ekhtebar-filter:first-child { grid-column:span 2; }
+.ekhtebar-filter-action { display:flex; align-items:end; }
+.ekhtebar-stats { color:var(--ink-soft); font-size:.9rem; font-weight:700; }
+.ekhtebar-question-list { display:grid; gap:.7rem; }
+.ekhtebar-question { border:1px solid var(--sand-line); border-radius:14px; background:var(--paper); overflow:hidden; }
+.ekhtebar-question summary { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.35rem .8rem; padding:1rem 1.1rem; cursor:pointer; list-style:none; align-items:center; }
+.ekhtebar-question summary::-webkit-details-marker { display:none; }
+.ekhtebar-question summary::after { content:'＋'; grid-column:2; grid-row:1 / span 2; color:var(--teal); font-size:1.2rem; font-weight:800; }
+.ekhtebar-question[open] summary::after { content:'−'; }
+.ekhtebar-question-title { font-weight:800; line-height:1.7; }
+.ekhtebar-question-meta { color:var(--ink-soft); font-size:.86rem; }
+.ekhtebar-difficulty { justify-self:start; grid-column:1; color:#775b27; background:var(--bone); border-radius:999px; padding:.12rem .65rem; font-size:.78rem; }
+.ekhtebar-question-body { padding:0 1.1rem 1.1rem; border-top:1px solid var(--sand-line); }
+.ekhtebar-question-text { white-space:pre-wrap; line-height:2.05; margin:1rem 0; }
+.ekhtebar-tags { display:flex; flex-wrap:wrap; gap:.35rem; margin:.8rem 0; }
+.ekhtebar-tag { padding:.18rem .6rem; border-radius:999px; background:var(--cream); border:1px solid var(--sand-line); color:var(--ink-soft); font-size:.76rem; }
+.ekhtebar-source { color:var(--ink-soft); font-size:.84rem; margin:.8rem 0 .3rem; }
+.ekhtebar-question-body a,.ekhtebar-archive-link { color:var(--teal); font-weight:700; text-decoration:none; }
+.ekhtebar-archives,.ekhtebar-original-files { display:grid; gap:.7rem; }
+.ekhtebar-archives h2,.ekhtebar-original-files h2 { margin:0; font-size:1.25rem; }
+.ekhtebar-archive-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.7rem; }
+.ekhtebar-archive-card { display:grid; gap:.45rem; padding:1rem; border:1px solid var(--sand-line); border-radius:13px; background:var(--paper); color:var(--ink); text-decoration:none; min-width:0; }
+.ekhtebar-archive-card:hover { border-color:var(--gold); box-shadow:var(--shadow-sm); }
+.ekhtebar-archive-years { color:var(--cinnamon); font-weight:800; font-size:.83rem; }
+.ekhtebar-archive-card strong { line-height:1.6; }
+.ekhtebar-archive-card .muted { line-height:1.8; }
+.ekhtebar-archive-link { font-size:.85rem; }
+.ekhtebar-pdf-links { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.55rem; }
+.ekhtebar-pdf-links a { display:flex; gap:.55rem; align-items:center; min-width:0; padding:.75rem .9rem; border:1px solid var(--sand-line); border-radius:10px; background:var(--paper); color:var(--teal); text-decoration:none; font-weight:700; }
+.ekhtebar-pdf-links a span { overflow-wrap:anywhere; }
+@media(max-width:900px){.ekhtebar-filters{grid-template-columns:repeat(2,minmax(0,1fr));}.ekhtebar-filter:first-child{grid-column:1/-1}.ekhtebar-archive-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ekhtebar-pdf-links{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.ekhtebar-filters{grid-template-columns:1fr}.ekhtebar-filter:first-child{grid-column:auto}.ekhtebar-archive-grid,.ekhtebar-pdf-links{grid-template-columns:1fr}.ekhtebar-question summary{padding:.85rem}.ekhtebar-question-body{padding:0 .85rem .85rem}.ekhtebar-hero{padding:1.1rem}}
