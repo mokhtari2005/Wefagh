@@ -5,6 +5,7 @@ import { cleanText, normalizeEmail } from '../validate.js';
 import { hashPassword, verifyPassword, validatePasswordPolicy } from './password.js';
 import { generateToken, hashToken, addMs, SESSION_TTL_MS, EMAIL_TOKEN_TTL_MS } from './token.js';
 import { sendMail } from '../email/resend.js';
+import { notifyMembershipAdmins } from '../push/membership.js';
 
 /** گزارش فنی بدون داده‌های کاربر: فقط نام خطا و محل آن (هرگز ایمیل، رمز یا پروفایل). */
 export function logError(where, err) {
@@ -103,6 +104,7 @@ export async function register(request, env) {
       return json({ ok: false, error: 'INTERNAL_ERROR' }, 500);
     }
     const sent = await issueVerificationEmail(env, existing.id, email);
+    await notifyMembershipAdmins(env, { displayName, email, position }).catch(() => {});
     logOutcome('auth.register_rejected_reapply', sent ? 'mail_sent' : 'mail_failed');
     return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
   }
@@ -175,6 +177,7 @@ export async function register(request, env) {
 
   // ارسال ناموفق کاربر را خطا نمی‌بیند (پاسخ عمومی)؛ کاربر می‌تواند از /api/auth/resend-verification استفاده کند.
   const sent = await issueVerificationEmail(env, userId, email);
+  await notifyMembershipAdmins(env, { displayName, email, position }).catch(() => {});
   logOutcome('auth.register', sent ? 'mail_sent' : 'mail_failed');
   return json({ ok: true, message: GENERIC_REGISTER_MSG }, 202);
 }
