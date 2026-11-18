@@ -209,6 +209,30 @@ def audit_database():
     types=d1_query("SELECT law_type AS type,status,COUNT(*) AS count FROM legal_laws GROUP BY law_type,status ORDER BY law_type,status")
     return {"laws":laws[0] if laws else {},"articles":articles[0] if articles else {},"law_type_status":types}
 
+def normalize_title(value):
+    value = value.replace("\u200c", " ").replace("\u200f", " ").translate(DIGITS)
+    value = re.sub(r"[\u064b-\u065f\u0670]", "", value)
+    value = re.sub(r"[\s\u200c]+", " ", value).strip()
+    return value
+
+
+def priority_coverage(documents, manifest):
+    """Report discoverability in parsed source files; never imply legal verification."""
+    rows = []
+    for required in manifest.get("documents", []):
+        aliases = [normalize_title(x) for x in [required.get("title", ""), *required.get("aliases", [])] if x]
+        matches = []
+        for doc in documents:
+            title = normalize_title(doc.get("title", ""))
+            if "منسوخ" in title:
+                continue
+            if any(title == alias or title.startswith(alias + " مصوب") or title.startswith(alias + " با اصلاحات") or title.startswith(alias + " (") for alias in aliases):
+                matches.append({"title": doc["title"], "slug": doc["slug"], "type": doc["lawType"]})
+        rows.append({"key": required["key"], "required_title": required["title"], "status": "present_in_source_mirror" if matches else "missing_from_source_mirror", "matches": matches[:5]})
+    present = sum(1 for row in rows if row["status"] == "present_in_source_mirror")
+    return {"total_required": len(rows), "present_in_source_mirror": present, "missing_from_source_mirror": len(rows)-present, "verified": 0, "documents": rows}
+
+
 def main():
     index=get_index(); files=get_files()
     print(f"Source mirror: {len(files)} Markdown files; parsing...")
@@ -251,7 +275,10 @@ def main():
     with open(os.path.join(os.path.dirname(__file__), "legal_document_sources.json"), encoding="utf-8") as source_file:
         source_registry=json.load(source_file)
     discovery_sources=[{"key":s["key"],"url":s["url"],"mode":s.get("mode"),"authoritative":s.get("authoritative",True)} for s in source_registry.get("sources",[]) if s.get("discovery_only")]
-    report={"source":"https://github.com/SaeedAqamiri/laws-mcp","index_source":"https://www.ekhtebar.ir/قوانین/","discovery_sources":discovery_sources,"files_found":len(files),"phase":IMPORT_PHASE,"documents_parsed":parsed_count,"documents_selected":len(docs),"documents_excluded_by_phase":len(phase_skipped),"documents_processed":done,"documents_inserted":inserted["laws"],"articles_inserted":inserted["articles"],"selected_type_counts":type_counts,"documents_skipped":skipped,"skip_reason_counts":skip_reason_counts,"database_audit":database_audit,"status":"needs_review","selected_types":sorted(PHASE_TYPES[IMPORT_PHASE]),"phase_excluded_sample":[{"slug":d["slug"],"title":d["title"],"type":d["lawType"]} for d in phase_skipped[:100]],"skip_sample":errors[:200]}
+    with open(os.path.join(os.path.dirname(__file__), "legal_priority_documents.json"), encoding="utf-8") as priority_file:
+        priority_manifest=json.load(priority_file)
+    priority_audit=priority_coverage([*docs, *phase_skipped], priority_manifest)
+    report={"priority_coverage":priority_audit,"source":"https://github.com/SaeedAqamiri/laws-mcp","index_source":"https://www.ekhtebar.ir/قوانین/","discovery_sources":discovery_sources,"files_found":len(files),"phase":IMPORT_PHASE,"documents_parsed":parsed_count,"documents_selected":len(docs),"documents_excluded_by_phase":len(phase_skipped),"documents_processed":done,"documents_inserted":inserted["laws"],"articles_inserted":inserted["articles"],"selected_type_counts":type_counts,"documents_skipped":skipped,"skip_reason_counts":skip_reason_counts,"database_audit":database_audit,"status":"needs_review","selected_types":sorted(PHASE_TYPES[IMPORT_PHASE]),"phase_excluded_sample":[{"slug":d["slug"],"title":d["title"],"type":d["lawType"]} for d in phase_skipped[:100]],"skip_sample":errors[:200]}
     with open("artifacts/legal-bank-import-report.json","w",encoding="utf-8") as f: json.dump(report,f,ensure_ascii=False,indent=2)
     print(json.dumps({k:v for k,v in report.items() if k!="skip_sample"},ensure_ascii=False))
 

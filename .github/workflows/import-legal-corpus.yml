@@ -9,6 +9,7 @@ on:
     paths:
       - 'scripts/import_ekhtebar_corpus.py'
       - 'scripts/legal_document_sources.json'
+      - 'scripts/legal_priority_documents.json'
       - '.github/workflows/import-legal-corpus.yml'
       - 'worker/migrations/0016_legal_reference_bank.sql'
       - 'worker/migrations/0017_legal_article_status_and_relations.sql'
