@@ -88,6 +88,74 @@ export async function handleLegalBank(request, env, path) {
     return json({ok:true,lawId:id,status,articlesUnchanged:true});
   }
 
+  if (path === '/api/admin/legal-bank/metadata') {
+    const access = await requireAdmin(request, env);
+    if (access.response) return access.response;
+    if (request.method === 'GET') {
+      const url = new URL(request.url);
+      const sourceKey = clean(url.searchParams.get('sourceKey'), 80);
+      const type = clean(url.searchParams.get('documentType'), 60);
+      const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit')) || 50));
+      const conditions = ["review_status='needs_review'"];
+      const bindings = [];
+      if (sourceKey) { bindings.push(sourceKey); conditions.push(`source_key=?${bindings.length}`); }
+      if (type) { bindings.push(type); conditions.push(`document_type=?${bindings.length}`); }
+      const result = await env.DB.prepare(`SELECT id,source_key AS sourceKey,source_id AS sourceId,title,document_type AS documentType,document_number AS documentNumber,document_date AS documentDate,issuing_authority AS issuingAuthority,subject,source_url AS sourceUrl,discovery_source_url AS discoverySourceUrl,content_sha256 AS contentSha256,review_status AS reviewStatus,created_at AS createdAt FROM legal_document_index WHERE ${conditions.join(' AND ')} ORDER BY id DESC LIMIT ${limit}`).bind(...bindings).all();
+      return json({ok:true,items:result.results||[],count:(result.results||[]).length});
+    }
+    if (request.method !== 'POST') return json({ok:false,error:'METHOD_NOT_ALLOWED'},405,{Allow:'GET, POST'});
+    const parsed = await readLargeJson(request, 16*1024);
+    if (parsed.error) return parsed.error;
+    const b = parsed.body || {};
+    const sourceKey = clean(b.sourceKey,80);
+    const sourceId = clean(b.sourceId,120);
+    const title = clean(b.title,500);
+    const documentType = clean(b.documentType,60);
+    const sourceUrl = clean(b.sourceUrl,1200);
+    const discoverySourceUrl = clean(b.discoverySourceUrl,1200);
+    const documentNumber = clean(b.documentNumber,120);
+    const documentDate = clean(b.documentDate,40);
+    const issuingAuthority = clean(b.issuingAuthority,240);
+    const subject = clean(b.subject,500);
+    const contentSha256 = clean(b.contentSha256,64).toLowerCase();
+    const metadata = b.metadata == null ? null : JSON.stringify(b.metadata);
+    if (!sourceKey || !sourceId || !title || !TYPES.has(documentType) || !sourceUrl ||
+        (contentSha256 && !/^[a-f0-9]{64}$/.test(contentSha256)) ||
+        (metadata && metadata.length > 8000) ||
+        (discoverySourceUrl && !/^https:\\/\\//i.test(discoverySourceUrl))) {
+      return json({ok:false,error:'VALIDATION_FAILED',message:'فراداده، نوع سند، نشانی منبع یا هش معتبر نیست.'},422);
+    }
+    let source;
+    try {
+      source = await env.DB.prepare('SELECT base_url,enabled FROM legal_document_sources WHERE source_key=?1').bind(sourceKey).first();
+    } catch {
+      return json({ok:false,error:'SOURCE_REGISTRY_UNAVAILABLE'},503);
+    }
+    if (!source || !source.enabled) return json({ok:false,error:'SOURCE_NOT_ENABLED'},422);
+    try {
+      const target = new URL(sourceUrl);
+      const base = new URL(source.base_url);
+      if (target.protocol !== 'https:' || target.origin !== base.origin) return json({ok:false,error:'SOURCE_URL_MISMATCH'},422);
+    } catch {
+      return json({ok:false,error:'INVALID_SOURCE_URL'},422);
+    }
+    if (discoverySourceUrl) {
+      try { if (new URL(discoverySourceUrl).protocol !== 'https:') return json({ok:false,error:'INVALID_DISCOVERY_URL'},422); }
+      catch { return json({ok:false,error:'INVALID_DISCOVERY_URL'},422); }
+    }
+    try {
+      const result = await env.DB.prepare(`INSERT INTO legal_document_index
+        (source_key,source_id,title,document_type,document_number,document_date,issuing_authority,subject,source_url,discovery_source_url,content_sha256,metadata_json)
+        VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)`)
+        .bind(sourceKey,sourceId,title,documentType,documentNumber||null,documentDate||null,issuingAuthority||null,subject||null,sourceUrl,discoverySourceUrl||null,contentSha256||null,metadata).run();
+      return json({ok:true,id:result.meta?.last_row_id||null,sourceKey,sourceId,reviewStatus:'needs_review'},201);
+    } catch (error) {
+      if (String(error?.message||'').includes('UNIQUE')) return json({ok:false,error:'DUPLICATE_SOURCE_RECORD'},409);
+      console.error(JSON.stringify({where:'legal-bank.metadata',error:error?.name||'Error'}));
+      return json({ok:false,error:'METADATA_IMPORT_FAILED'},500);
+    }
+  }
+
   if (path === '/api/admin/legal-bank/articles') {
     const access = await requireAdmin(request, env);
     if (access.response) return access.response;
