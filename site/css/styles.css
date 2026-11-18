@@ -3327,3 +3327,25 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
   .deadlines-page .notification-center > * { grid-column: 1 / -1; }
   .deadlines-page .deadline { padding: .7rem; }
 }
+
+
+/* ---------- تالار گفت‌وگوی اعضا ---------- */
+.community-page { max-width: 980px; margin-inline: auto; }
+.community-heading { margin-bottom: 1.5rem; }
+.community-tabs { display:flex; flex-wrap:wrap; gap:.55rem; margin:1.2rem 0; }
+.community-content { min-height: 220px; }
+.community-topic-list,.community-group-grid { display:grid; gap:1rem; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); }
+.community-topic,.community-group,.community-reply { padding:1.1rem; border:1px solid var(--sand-line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow-sm); }
+.community-topic h3,.community-group h3 { margin:0 0 .35rem; }
+.community-topic-meta { color:var(--ink-soft); font-size:.84rem; margin:.35rem 0 .7rem; }
+.community-topic p:not(.community-topic-meta) { white-space:pre-wrap; overflow-wrap:anywhere; }
+.community-form { display:grid; gap:1rem; padding:1.25rem; max-width:760px; }
+.community-field { display:grid; gap:.35rem; font-weight:600; }
+.community-field input,.community-field textarea,.community-field select { width:100%; border:1px solid var(--sand-line); border-radius:var(--radius-sm); padding:.7rem .85rem; background:var(--paper); color:var(--ink); font:inherit; }
+.community-field textarea { resize:vertical; min-height:120px; }
+.community-detail { display:grid; gap:1rem; }
+.community-post-body { white-space:pre-wrap; overflow-wrap:anywhere; padding:1rem; background:var(--paper); border:1px solid var(--sand-line); border-radius:var(--radius); }
+.community-replies { display:grid; gap:.75rem; }
+.community-reply { box-shadow:none; }
+.community-accepted { display:inline-block; color:var(--ok); font-weight:700; font-size:.85rem; }
+@media(max-width:600px) { .community-topic,.community-group,.community-reply { padding:.9rem; } .community-tabs > button { flex:1 1 auto; } }

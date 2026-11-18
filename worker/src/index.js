@@ -31,6 +31,7 @@ import { handleDiagnostics } from './diagnostics.js';
 import { handleDiagnosticRepair } from './diagnostic-repair.js';
 import { handleDiagnosticSelfTest } from './diagnostic-self-test.js';
 import { handleVisitorAnalytics } from './visitor-analytics.js';
+import { handleCommunity } from './community.js';
 
 // برای سازگاری با تست‌های قبلی، json را از اینجا هم صادر می‌کنیم.
 export { json };
@@ -83,6 +84,10 @@ export default {
     if (path === '/api/admin/diagnostics/self-test' || path === '/api/admin/diagnostics/write-test') return handleDiagnosticSelfTest(request, env, path);
     if (path.startsWith('/api/admin/diagnostics/repair')) return handleDiagnosticRepair(request, env, path);
     if (path === '/api/admin/diagnostics' || path.startsWith('/api/admin/diagnostics/') || path.startsWith('/api/diagnostics/')) return handleDiagnostics(request, env, path);
+
+    if (path === '/api/community' || path.startsWith('/api/community/')) {
+      return handleCommunity(request, env, path);
+    }
 
     if (path === '/api/health') {
       if (request.method !== 'GET' && request.method !== 'HEAD') {
