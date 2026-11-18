@@ -10,7 +10,7 @@
   Cache-Control: no-cache
 
 /js/*
-  Cache-Control: no-cache
+  Cache-Control: public, max-age=300
 
 /css/*
-  Cache-Control: no-cache
+  Cache-Control: public, max-age=300
