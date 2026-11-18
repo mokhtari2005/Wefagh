@@ -58,7 +58,7 @@ function aiFailure(err, stage = 'unknown') {
     return fail(err.code, err.status, err.details || {});
   }
   console.error(JSON.stringify({ where: 'ai', stage, error: err?.name || 'Error' }));
-  return fail('AI_UNAVAILABLE', 503);
+  return fail('AI_UNAVAILABLE', 503, { stage });
 }
 
 function cleanText(value, max) {
@@ -483,6 +483,16 @@ async function ekhtebarAnswer(request, env) {
 
 /** مسیرهای /api/ai/*. اگر مسیر شناخته نشود null برمی‌گرداند. */
 export async function handleAi(request, env, path) {
+  // هر استثنای پیش‌بینی‌نشده (مثلاً خطای D1 هنگام احراز هویت) باید پاسخ JSON با کد مرحله بدهد،
+  // نه صفحهٔ خطای HTML کلودفلر که مرورگر آن را به‌اشتباه «سرویس در دسترس نیست» نشان می‌دهد.
+  try {
+    return await routeAi(request, env, path);
+  } catch (err) {
+    return aiFailure(err, 'router');
+  }
+}
+
+async function routeAi(request, env, path) {
   if (path === '/api/ai/status') {
     if (request.method !== 'GET') return fail('METHOD_NOT_ALLOWED', 405);
     return json({ ok: true, configured: aiConfigured(env) });
