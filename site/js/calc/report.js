@@ -10,7 +10,8 @@ export function createA4TextReport({ title, rows = [], content = null, filename 
   }
   const clean = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
   const normalizedRows = rows.map(([label, value]) => [clean(label), clean(value)]).filter(([label, value]) => label && value);
-  if (!normalizedRows.some(([label]) => /تاریخ/.test(label))) {\n    normalizedRows.push(['تاریخ و ساعت تهیه گزارش', new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'long', timeStyle: 'short' }).format(new Date())]);
+  if (!normalizedRows.some(([label]) => /تاریخ/.test(label))) {
+    normalizedRows.push(['تاریخ و ساعت تهیه گزارش', new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'long', timeStyle: 'short' }).format(new Date())]);
   }
   const reportText = [
     'آکادمی وکالت شهرام مختاری',
