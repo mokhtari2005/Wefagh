@@ -22,7 +22,7 @@ function loginHint() {
 }
 
 export const ACADEMY_TOOLS = [
-  { icon: 'users', title: 'تالار گفت‌وگوی اعضا', href: '#/community' },
+  { icon: 'users', title: 'تالار گفتگو', href: '#/community' },
   { icon: 'mic', title: 'تایپ صوتی', href: '#/voice-typing' },
   { icon: 'cap', title: 'دوره‌های آموزشی', href: '#/courses' },
   { icon: 'edit', title: 'مرکز آزمون هوشمند', href: '#/academy/exams' },
