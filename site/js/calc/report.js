@@ -76,6 +76,21 @@ export function createA4TextReport({ title, rows = [], content = null, filename 
       if (popup.closed) throw new Error('Report window was closed');
       const sheet = popup.document.querySelector('.academy-pdf-sheet');
       if (!sheet) throw new Error('Report sheet missing');
+      // اندازهٔ قلم را فقط در گزارش چاپی و حداکثر در دو پله کاهش می‌دهیم.
+      // ارتفاع ثابت A4 باعث می‌شود سرریز واقعی محتوا قابل اندازه‌گیری باشد.
+      const fitReportToA4 = async () => {
+        const nextFrame = () => new Promise(resolve => popup.requestAnimationFrame(resolve));
+        await nextFrame();
+        if (sheet.scrollHeight > sheet.clientHeight + 2) {
+          sheet.classList.add('fit-compact-1');
+          await nextFrame();
+        }
+        if (sheet.scrollHeight > sheet.clientHeight + 2) {
+          sheet.classList.add('fit-compact-2');
+          await nextFrame();
+        }
+      };
+      await fitReportToA4();
       const fitContent = sheet.querySelector('.academy-pdf-fit-content');
       if (fitContent) {
         // First and second compact type steps; preserve all text and avoid a second PDF page.
