@@ -3780,6 +3780,26 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
 @page{size:A4 portrait;margin:10mm}
 @page{size:A4 portrait;margin:0}@media print{.academy-pdf-body{width:210mm;margin:0;padding:0;background:#fff}.academy-pdf-sheet{margin:0;border:0}}
 
+
+/* Single-page A4 fitting for calculator reports: reduce type by one or two steps,
+   then proportionally fit only as a last resort so no report content is clipped. */
+.academy-pdf-sheet { height: 297mm; min-height: 0; overflow: hidden; }
+.academy-pdf-fit-content { transform-origin: top center; }
+.academy-pdf-sheet.fit-1 .academy-pdf-fields { font-size: 6.9pt; line-height: 1.45; }
+.academy-pdf-sheet.fit-1 .academy-pdf-content { font-size: 7.2pt; line-height: 1.38; }
+.academy-pdf-sheet.fit-1 .academy-pdf-section { padding: 4px 6px; margin-bottom: 5px; }
+.academy-pdf-sheet.fit-1 h1 { font-size: 11pt; margin: 4px 0 6px; }
+.academy-pdf-sheet.fit-2 .academy-pdf-fields { font-size: 6.2pt; line-height: 1.3; }
+.academy-pdf-sheet.fit-2 .academy-pdf-content { font-size: 6.5pt; line-height: 1.28; }
+.academy-pdf-sheet.fit-2 .academy-pdf-content h2,
+.academy-pdf-sheet.fit-2 .academy-pdf-content h3,
+.academy-pdf-sheet.fit-2 .academy-pdf-content h4 { font-size: 7.2pt; margin: 3px 0 2px; }
+.academy-pdf-sheet.fit-2 .academy-pdf-section { padding: 3px 5px; margin-bottom: 3px; }
+.academy-pdf-sheet.fit-2 .academy-pdf-section-title { font-size: 6.5pt; margin-bottom: 3px; }
+.academy-pdf-sheet.fit-2 h1 { font-size: 10pt; margin: 3px 0 4px; }
+.academy-pdf-sheet.fit-2 .academy-pdf-sign,
+.academy-pdf-sheet.fit-2 .academy-pdf-footer { font-size: 6pt; }
+
 /* Calculator PDF reports must remain visible in print output. Earlier certificate
    print rules hide the document globally; explicitly reveal this report family. */
 @media print {
