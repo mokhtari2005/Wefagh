@@ -483,50 +483,13 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
     player.stop();
     setBusy(true);
     submitBtn.disabled = true;
-    audioStatus.textContent = 'قاضی در حال ارزیابی محتوای دفاعیه است؛ تا پایان ارزیابی مرحله بعد باز نمی‌شود.';
-    const assessed = await postJson('/api/ai/moot/assess', {
-      caseId, role: userSide, stage: step.stage, difficulty,
-      answer: v.text, history: historyForApi(history),
-    }, { timeoutMs: 60000 });
-    if (!assessed.ok || !assessed.data?.assessment) {
-      const code = assessed.data?.error || (assessed.networkError ? 'NETWORK' : 'AI_UNAVAILABLE');
-      setBusy(false);
-      submitBtn.disabled = false;
-      audioStatus.textContent = `${errorText(code)} متن دفاعیه حفظ شده است؛ ارزیابی انجام نشد و جلسه جلو نمی‌رود. پس از تلاش مجدد ادامه دهید.`;
-      return;
-    }
-    const result = assessed.data.assessment;
-    if (!result.accepted) {
-      setBusy(false);
-      submitBtn.disabled = false;
-      audioStatus.textContent = `دفاعیه پذیرفته نشد — امتیاز ${result.score}/100. ${result.feedback || 'به پرسش قاضی پاسخ مستدل بدهید.'}`;
-      const prior = inputArea.querySelector('.court-assessment-feedback');
-      prior?.remove();
-      const feedback = h('div', { class: 'court-assessment-feedback notice', role: 'alert' }, [
-        h('div', { class: 'court-assessment-feedback-head' }, [
-          h('strong', { text: 'ارزیابی قاضی: ' + result.score + ' از ۱۰۰' }),
-          h('button', { class: 'court-assessment-dismiss', type: 'button', text: 'بستن', 'aria-label': 'بستن توضیحات ارزیابی' }),
-        ]),
-        h('div', { class: 'court-assessment-feedback-body' }, [
-          h('p', { text: result.feedback || 'پاسخ با موضوع مرحله تناسب کافی ندارد.' }),
-          ...(Array.isArray(result.missing) && result.missing.length ? [h('ul', {}, result.missing.map((x) => h('li', { text: x })))] : []),
-          h('p', { class: 'muted', text: 'پاسخ را اصلاح کنید و دوباره ارسال کنید. تا آن زمان رسیدگی متوقف است.' }),
-        ]),
-      ]);
-      feedback.querySelector('.court-assessment-dismiss').addEventListener('click', () => {
-        feedback.remove();
-        audioStatus.textContent = 'توضیحات ارزیابی بسته شد؛ می‌توانید دفاعیه را اصلاح و دوباره ارسال کنید.';
-        answer.focus({ preventScroll: true });
-      });
-      inputArea.append(feedback);
-      return;
-    }
-    const prior = inputArea.querySelector('.court-assessment-feedback');
-    prior?.remove();
+    // پاسخ فقط ثبت می‌شود؛ ارزیابی محتوایی به گزارش پایانی موکول است تا نوبت طرفین متوقف نشود.
+    clearAutoAdvance();
+    player.stop();
     addLine(userSide, v.text, true);
-    addLine('judge', `ارزیابی پاسخ شما: ${result.score}/100 — ${result.feedback || 'پاسخ برای ادامه رسیدگی کافی تشخیص داده شد.'}`);
     answer.value = '';
     renderInput(false);
+    audioStatus.textContent = 'پاسخ شما ثبت شد؛ رسیدگی به نوبت بعد ادامه می‌یابد.';
     advance();
   });
 
