@@ -107,6 +107,8 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
     },
   });
   const history = [];
+  // ارزیابی‌های میانی فقط برای گزارش پایانی نگه‌داری می‌شوند و نوبت هیچ طرفی را متوقف نمی‌کنند.
+  const assessments = [];
   let index = 0;
   let busy = false;
   let finished = false;
@@ -408,7 +410,9 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
   async function evaluate() {
     setBusy(true);
     report.replaceChildren(h('p', { class: 'muted', text: 'گزارش در حال ساختن است…' }));
-    const res = await postJson('/api/ai/moot/evaluate', { caseId, history: historyForApi(history) }, { timeoutMs: 60000 });
+    const res = await postJson('/api/ai/moot/evaluate', {
+      caseId, history: historyForApi(history), assessments,
+    }, { timeoutMs: 60000 });
     if (!res.ok || !res.data?.report) {
       const retry = h('button', { class: 'btn secondary', type: 'button', text: 'تلاش دوباره برای ساخت گزارش' });
       retry.addEventListener('click', evaluate);
@@ -483,50 +487,30 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
     player.stop();
     setBusy(true);
     submitBtn.disabled = true;
-    audioStatus.textContent = 'قاضی در حال ارزیابی محتوای دفاعیه است؛ تا پایان ارزیابی مرحله بعد باز نمی‌شود.';
+    audioStatus.textContent = 'در حال ثبت پاسخ و دریافت بازخورد آموزشی…';
     const assessed = await postJson('/api/ai/moot/assess', {
       caseId, role: userSide, stage: step.stage, difficulty,
       answer: v.text, history: historyForApi(history),
     }, { timeoutMs: 60000 });
-    if (!assessed.ok || !assessed.data?.assessment) {
-      const code = assessed.data?.error || (assessed.networkError ? 'NETWORK' : 'AI_UNAVAILABLE');
-      setBusy(false);
-      submitBtn.disabled = false;
-      audioStatus.textContent = `${errorText(code)} متن دفاعیه حفظ شده است؛ ارزیابی انجام نشد و جلسه جلو نمی‌رود. پس از تلاش مجدد ادامه دهید.`;
-      return;
-    }
-    const result = assessed.data.assessment;
-    if (!result.accepted) {
-      setBusy(false);
-      submitBtn.disabled = false;
-      audioStatus.textContent = `دفاعیه پذیرفته نشد — امتیاز ${result.score}/100. ${result.feedback || 'به پرسش قاضی پاسخ مستدل بدهید.'}`;
-      const prior = inputArea.querySelector('.court-assessment-feedback');
-      prior?.remove();
-      const feedback = h('div', { class: 'court-assessment-feedback notice', role: 'alert' }, [
-        h('div', { class: 'court-assessment-feedback-head' }, [
-          h('strong', { text: 'ارزیابی قاضی: ' + result.score + ' از ۱۰۰' }),
-          h('button', { class: 'court-assessment-dismiss', type: 'button', text: 'بستن', 'aria-label': 'بستن توضیحات ارزیابی' }),
-        ]),
-        h('div', { class: 'court-assessment-feedback-body' }, [
-          h('p', { text: result.feedback || 'پاسخ با موضوع مرحله تناسب کافی ندارد.' }),
-          ...(Array.isArray(result.missing) && result.missing.length ? [h('ul', {}, result.missing.map((x) => h('li', { text: x })))] : []),
-          h('p', { class: 'muted', text: 'پاسخ را اصلاح کنید و دوباره ارسال کنید. تا آن زمان رسیدگی متوقف است.' }),
-        ]),
-      ]);
-      feedback.querySelector('.court-assessment-dismiss').addEventListener('click', () => {
-        feedback.remove();
-        audioStatus.textContent = 'توضیحات ارزیابی بسته شد؛ می‌توانید دفاعیه را اصلاح و دوباره ارسال کنید.';
-        answer.focus({ preventScroll: true });
-      });
-      inputArea.append(feedback);
-      return;
-    }
-    const prior = inputArea.querySelector('.court-assessment-feedback');
-    prior?.remove();
+    // حتی در صورت اختلال ارزیابی، پاسخ کاربر ثبت و رسیدگی ادامه می‌یابد.
+    const result = assessed.ok && assessed.data?.assessment ? assessed.data.assessment : null;
+    assessments.push({
+      role: userSide, stage: step.stage, answer: v.text,
+      score: result && Number.isFinite(result.score) ? result.score : null,
+      feedback: result?.feedback || (assessed.ok ? 'ارزیابی تفصیلی در دسترس نبود.' : 'ارزیابی خودکار انجام نشد؛ پاسخ در گزارش پایانی بررسی شود.'),
+      missing: Array.isArray(result?.missing) ? result.missing : [],
+      strengths: Array.isArray(result?.strengths) ? result.strengths : [],
+    });
+    inputArea.querySelector('.court-assessment-feedback')?.remove();
     addLine(userSide, v.text, true);
-    addLine('judge', `ارزیابی پاسخ شما: ${result.score}/100 — ${result.feedback || 'پاسخ برای ادامه رسیدگی کافی تشخیص داده شد.'}`);
+    if (result) {
+      addLine('judge', `بازخورد ثبت‌شده برای گزارش پایانی: ${result.score}/100 — ${result.feedback || '—'}`);
+    } else {
+      addLine('judge', 'ارزیابی خودکار این پاسخ در این مرحله در دسترس نبود؛ بررسی آن به گزارش پایانی موکول شد.');
+    }
     answer.value = '';
     renderInput(false);
+    audioStatus.textContent = 'پاسخ شما ثبت شد؛ رسیدگی بدون توقف به نوبت بعد ادامه می‌یابد.';
     advance();
   });
 
