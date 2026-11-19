@@ -496,14 +496,14 @@ export function regionalValueTool() {
       const value = control.tagName === 'SELECT' ? control.selectedOptions?.[0]?.textContent : control.value;
       return String(value ?? '').trim() ? [[label, value]] : [];
     });
-    const openTextReport = () => createA4TextReport({
+    const reportOptions = {
       title: 'فرم محاسبه ارزش منطقه‌ای ملک',
       rows: inputRows,
       content: result,
       filename: `farm-arzesh-mantaghei-${inquiryId}`
-    });
-    printButton.addEventListener('click', openTextReport);
-    downloadButton.addEventListener('click', openTextReport);
+    };
+    printButton.addEventListener('click', () => createA4TextReport(reportOptions));
+    downloadButton.addEventListener('click', () => createA4TextReport({ ...reportOptions, downloadOnly: true }));
     out.replaceChildren(result);
   });
   // Mount the form: without this, only the heading and introduction render.

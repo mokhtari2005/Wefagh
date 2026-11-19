@@ -1,5 +1,5 @@
 /** Academy-branded one-page A4 worksheets for calculator results. */
-export function createA4TextReport({ title, rows = [], content = null, filename = 'academy-report' } = {}) {
+export function createA4TextReport({ title, rows = [], content = null, filename = 'academy-report', downloadOnly = false } = {}) {
   const clone = content?.cloneNode?.(true) || null;
   if (clone) {
     clone.querySelectorAll('.regional-report-map-section,.regional-print-header,.regional-report-footer,.regional-report-actions,button,img,svg,canvas,video,iframe,input,select,textarea').forEach(n => n.remove());
@@ -10,6 +10,19 @@ export function createA4TextReport({ title, rows = [], content = null, filename 
   if (!data.some(([a]) => /تاریخ/.test(a))) data.push(['تاریخ تنظیم',new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dateStyle:'long',timeStyle:'short'}).format(new Date())]);
   const brand='آکادمی وکالت شهرام مختاری';
   const text=[brand,'Shahram Mokhtari Law Academy | mokhtari.ir',clean(title),...data.flatMap(([a,b])=>[a+': '+b]),clean(clone?.innerText||clone?.textContent||'')].filter(Boolean).join('\n');
+  if (downloadOnly) {
+    const blob = new Blob(['\uFEFF' + text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename + '.txt';
+    link.hidden = true;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    return;
+  }
   const fields=data.map(([a,b])=>'<div class="field"><b>'+escapeHtml(a)+'</b><span>'+escapeHtml(b)+'</span></div>').join('');
   const body=clone?.outerHTML||'';
   const html=`<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title||'کاربرگ محاسباتی')}</title>
