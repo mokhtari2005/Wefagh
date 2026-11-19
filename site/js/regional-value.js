@@ -482,7 +482,7 @@ export function regionalValueTool() {
       h('p',{class:'notice',text:'این خروجی ارزش معاملاتی مالیاتی است، نه قیمت روز بازار یا قیمت کارشناسی ملک. پیش از استفاده رسمی، بلوک و کاربری را با سند و موقعیت دقیق ملک تطبیق دهید.'}),
       h('footer',{class:'regional-report-footer',text:'آکادمی وکالت شهرام مختاری | mokhtari.ir — گزارش تولیدشده از سامانه محاسبات ارزش معاملاتی'}),
       h('div',{class:'regional-report-actions'},[
-        h('button',{class:'btn secondary',type:'button',text:'چاپ / ذخیره PDF'}),
+        h('button',{class:'btn secondary',type:'button',text:'مشاهده گزارش و دریافت PDF'}),
         h('button',{class:'btn secondary',type:'button',text:'دانلود فایل متنی TXT'})
       ])
     ]);
