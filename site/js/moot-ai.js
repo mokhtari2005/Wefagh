@@ -483,12 +483,23 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
       audioStatus.textContent = `دفاعیه پذیرفته نشد — امتیاز ${result.score}/100. ${result.feedback || 'به پرسش قاضی پاسخ مستدل بدهید.'}`;
       const prior = inputArea.querySelector('.court-assessment-feedback');
       prior?.remove();
-      inputArea.append(h('div', { class: 'court-assessment-feedback notice', role: 'alert' }, [
-        h('strong', { text: 'ارزیابی قاضی: ' + result.score + ' از ۱۰۰' }),
-        h('p', { text: result.feedback || 'پاسخ با موضوع مرحله تناسب کافی ندارد.' }),
-        ...(Array.isArray(result.missing) && result.missing.length ? [h('ul', {}, result.missing.map((x) => h('li', { text: x })))] : []),
-        h('p', { class: 'muted', text: 'پاسخ را اصلاح کنید و دوباره ارسال کنید. تا آن زمان رسیدگی متوقف است.' }),
-      ]));
+      const feedback = h('div', { class: 'court-assessment-feedback notice', role: 'alert' }, [
+        h('div', { class: 'court-assessment-feedback-head' }, [
+          h('strong', { text: 'ارزیابی قاضی: ' + result.score + ' از ۱۰۰' }),
+          h('button', { class: 'court-assessment-dismiss', type: 'button', text: 'بستن', 'aria-label': 'بستن توضیحات ارزیابی' }),
+        ]),
+        h('div', { class: 'court-assessment-feedback-body' }, [
+          h('p', { text: result.feedback || 'پاسخ با موضوع مرحله تناسب کافی ندارد.' }),
+          ...(Array.isArray(result.missing) && result.missing.length ? [h('ul', {}, result.missing.map((x) => h('li', { text: x })))] : []),
+          h('p', { class: 'muted', text: 'پاسخ را اصلاح کنید و دوباره ارسال کنید. تا آن زمان رسیدگی متوقف است.' }),
+        ]),
+      ]);
+      feedback.querySelector('.court-assessment-dismiss').addEventListener('click', () => {
+        feedback.remove();
+        audioStatus.textContent = 'توضیحات ارزیابی بسته شد؛ می‌توانید دفاعیه را اصلاح و دوباره ارسال کنید.';
+        answer.focus({ preventScroll: true });
+      });
+      inputArea.append(feedback);
       return;
     }
     const prior = inputArea.querySelector('.court-assessment-feedback');
