@@ -3652,7 +3652,23 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
   box-shadow: 0 4px 0 #9a7d4b, 0 7px 13px rgb(31 45 40 / .18);
 }
 .court-seat-judge .court-avatar { width: 27px; height: 27px; }
-.court-seat.speaking { outline: 2px solid var(--gold); outline-offset: 1px; }
+.court-seat.speaking {
+  position: relative;
+  z-index: 2;
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  transform: translateY(-11px) scale(1.035);
+  box-shadow: 0 9px 18px rgb(35 31 24 / .24), 0 0 0 4px color-mix(in srgb, var(--gold) 25%, transparent);
+}
+.court-seat { transition: transform .28s ease, box-shadow .28s ease, outline-color .2s ease; }
+.court-seat-row { align-items: end; }
+@media (max-width: 560px) {
+  .court-seat.speaking { transform: translateY(-8px) scale(1.025); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .court-seat { transition: none; }
+  .court-seat.speaking { transform: none; }
+}
 .court-seat.current-turn .court-pill { background: var(--deep); color: var(--gold); }
 .court-turn-inline {
   display: flex;
