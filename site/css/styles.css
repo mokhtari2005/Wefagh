@@ -3472,3 +3472,14 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
 .pwa-platform-icon { display:grid; place-items:center; flex:none; width:36px; height:36px; border-radius:10px; background:rgba(255,255,255,.12); color:var(--gold); font-size:1.35rem; font-weight:800; }
 @media(max-width:640px) { .pwa-install-actions { display:grid; grid-template-columns:1fr 1fr; } .pwa-install-link { min-width:0; padding:.55rem .6rem; } .pwa-install-link small { font-size:.62rem; } }
 @media(display-mode:standalone) { .pwa-install-links { display:none; } }
+
+
+/* High-contrast installation controls on the cream/beige footer. */
+.pwa-install-links { border-top-color: var(--sand-line); }
+.pwa-install-title { color: #171411; }
+.pwa-install-link { border-color: #8d8170; background: rgba(255,253,248,.72); color: #171411; }
+.pwa-install-link:hover { background: #e9dfcf; }
+.pwa-install-link small { color: #51483e; }
+.pwa-platform-icon { background: #e5d8c3; color: #111; }
+.pwa-platform-icon svg { width: 25px; height: 25px; display: block; }
+.pwa-install-link:focus-visible { outline-color: #111; }
