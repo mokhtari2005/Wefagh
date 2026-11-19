@@ -179,41 +179,49 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
     const speaking = activeSpeaker === key;
     const isCurrent = currentStep()?.speaker === key;
     const isUser = key === userSide;
-    const status = speaking ? 'در حال صحبت' : isCurrent ? (isUser ? 'نوبت شما' : 'نوبت فعلی') : 'در انتظار';
-    return h('div', { class: `court-seat ${speaking ? 'speaking' : ''} ${isCurrent ? 'current-turn' : ''} ${isUser ? 'you' : ''}`, 'data-seat': key }, [
-      h('span', { class: 'court-avatar', 'aria-hidden': 'true' }, [icon(key === 'judge' ? 'gavel' : key === 'clerk' ? 'clipboard-list' : 'user-round', { size: 22 })]),
+    const status = speaking ? 'در حال صحبت' : isCurrent ? (isUser ? 'نوبت شما' : 'نوبت فعلی') : 'حاضر';
+    return h('div', { class: `court-seat ${key === 'judge' ? 'court-seat-judge' : ''} ${speaking ? 'speaking' : ''} ${isCurrent ? 'current-turn' : ''} ${isUser ? 'you' : ''}`, 'data-seat': key }, [
+      h('span', { class: 'court-avatar', 'aria-hidden': 'true' }, [icon(key === 'judge' ? 'gavel' : key === 'clerk' ? 'clipboard-list' : 'user-round', { size: key === 'judge' ? 20 : 17 })]),
       h('strong', { text: roleText }),
       h('small', { text: name }),
       h('span', { class: 'court-pill', text: status }),
     ]);
   }
 
-  function renderSeats() {
-    seats.replaceChildren(
-      seatCard('judge', 'قاضی هوشمند', 'قاضی'),
-      h('div', { class: 'court-seat-row' }, [
-        seatCard('plaintiff', 'وکیل خواهان', 'وکیل خواهان'),
-        seatCard('defendant', 'وکیل خوانده', 'وکیل خوانده'),
-      ]),
-      seatCard('clerk', 'منشی دادگاه', 'منشی'),
-    );
+  const turnOrder = h('div', { class: 'court-turn-inline', 'aria-label': 'نوبت‌های صحبت' });
+  function renderTurnOrder() {
+    const upcoming = script.slice(index, index + 3);
+    const parts = [h('strong', { class: 'court-turn-caption', text: 'نوبت صحبت:' })];
+    if (upcoming.length) {
+      upcoming.forEach((step, offset) => {
+        const role = step.speaker === userSide ? `شما، ${SPEAKER_LABEL[step.speaker]}` : SPEAKER_LABEL[step.speaker];
+        if (offset) parts.push(h('span', { class: 'court-turn-separator', 'aria-hidden': 'true', text: '←' }));
+        parts.push(h('span', { class: `court-turn-name ${offset === 0 ? 'current' : ''}`, ...(offset === 0 ? { 'aria-current': 'step' } : {}), text: role }));
+      });
+    } else {
+      parts.push(h('span', { class: 'court-turn-name current', text: 'جلسه به پایان رسیده است' }));
+    }
+    turnOrder.replaceChildren(...parts);
+    if (turnOrder.parentElement !== seats) seats.append(turnOrder);
   }
 
-  const turnOrder = h('section', { class: 'court-turn-order', 'aria-label': 'ترتیب نوبت‌های پیش رو' });
-  function renderTurnOrder() {
-    const upcoming = script.slice(index, index + 4);
-    turnOrder.replaceChildren(
-      h('strong', { class: 'court-turn-order-title', text: 'ترتیب نوبت‌های پیش رو' }),
-      ...(upcoming.length ? [h('ol', {}, upcoming.map((step, offset) => {
-        const isCurrent = offset === 0;
-        const role = step.speaker === userSide ? `شما · ${SPEAKER_LABEL[step.speaker]}` : SPEAKER_LABEL[step.speaker];
-        return h('li', { class: `court-turn-item ${isCurrent ? 'current' : ''}`, ...(isCurrent ? { 'aria-current': 'step' } : {}) }, [
-          h('span', { class: 'court-turn-role', text: role }),
-          h('span', { class: 'court-turn-stage', text: GROUP_LABELS[step.group - 1] }),
-          h('span', { class: 'court-turn-state', text: isCurrent ? 'اکنون' : 'بعدی' }),
-        ]);
-      }))] : [h('p', { class: 'court-turn-empty', text: 'جلسه به پایان رسیده است.' })])
-    );
+  function renderSeats() {
+    const gallery = h('div', { class: 'court-gallery', 'aria-hidden': 'true' }, [
+      h('span', { class: 'court-gallery-label', text: 'جایگاه تماشاگران' }),
+      ...[0, 1].map((row) => h('div', { class: 'court-gallery-row' },
+        Array.from({ length: 9 }, () => h('span', { class: 'court-spectator' }, [icon('user-round', { size: 15 })])))),
+    ]);
+    const judgeBench = h('div', { class: 'court-judge-bench' }, [
+      h('div', { class: 'court-judge-pediment', 'aria-hidden': 'true' }),
+      seatCard('judge', 'قاضی هوشمند', 'قاضی'),
+    ]);
+    const participants = h('div', { class: 'court-seat-row' }, [
+      seatCard('plaintiff', 'وکیل خواهان', 'وکیل خواهان'),
+      seatCard('defendant', 'وکیل خوانده', 'وکیل خوانده'),
+      seatCard('clerk', 'منشی دادگاه', 'منشی'),
+    ]);
+    seats.replaceChildren(gallery, judgeBench, participants);
+    renderTurnOrder();
   }
 
   function renderLog() {
@@ -574,7 +582,6 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
     h('div', { class: 'court-main' }, [
       banner,
       seats,
-      turnOrder,
       tabList,
       transcriptPanel,
       reportPanel,
