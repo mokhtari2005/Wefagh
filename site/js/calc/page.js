@@ -10,7 +10,7 @@ import { normalizeLimitations, formatNumbersInLine, formatRial, statusLabel } fr
 import { indexedDelayDamage, planDelayPeriod, periodLabel, periodKeyOfIso } from './indexation.js';
 import { computeAttorneyForm } from './attorney-form.js';
 import { icon } from '../icons.js?v=20261119-2';
-import { regionalValueTool } from '../regional-value.js';
+import { regionalValueTool } from '../regional-value.js?v=20261119-address-textarea-1';
 import { createA4TextReport } from './report.js?v=20261119-a4-worksheet-1';
 
 function h(tag, attrs = {}, children = []) {
