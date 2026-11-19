@@ -32,7 +32,7 @@ const LAND_LABEL = {
   agriculture: 'کشاورزی آبی، باغات و دامداری', dry: 'کشاورزی دیم', other: 'سایر',
 };
 function input(id, label, value = '', type = 'text') {
-  const el = h('input', { id, type, inputmode: type === 'number' ? 'decimal' : 'numeric', value: String(value), autocomplete: 'off' });
+  const el = h('input', { id, type, inputmode: type === 'number' ? 'decimal' : 'text', value: String(value), autocomplete: 'off' });
   return { el, node: h('div', { class: 'field' }, [h('label', { for: id, text: label }), el]) };
 }
 function select(id, label, options) {
@@ -40,6 +40,7 @@ function select(id, label, options) {
   return { el, node: h('div', { class: 'field' }, [h('label', { for: id, text: label }), el]) };
 }
 function numeric(el) {
+  el.inputMode = 'numeric';
   el.addEventListener('input', () => {
     const raw = el.value.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[^0-9]/g, '');
     el.value = raw ? Number(raw).toLocaleString('fa-IR') : '';
