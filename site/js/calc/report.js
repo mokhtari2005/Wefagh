@@ -36,7 +36,7 @@ export function createA4TextReport({ title, rows = [], content = null, filename 
     return;
   }
 
-  const html = renderFormHtml(form, { dateText, cssHref: '/css/styles.css?v=20261119-forms-1' });
+  const html = renderFormHtml(form, { dateText, cssHref: '/css/styles.css?v=20261119-print-2' });
 
   // Open synchronously during the user's click so Safari does not block the tab.
   const popup = window.open('', '_blank');
