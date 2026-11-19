@@ -489,10 +489,18 @@ export function regionalValueTool() {
     const actions = result.querySelector('.regional-report-actions');
     const printButton = actions.querySelectorAll('button')[0];
     const downloadButton = actions.querySelectorAll('button')[1];
+    const inputRows = Array.from(form.querySelectorAll('.field')).flatMap((wrap) => {
+      const label = wrap.querySelector('label')?.textContent?.trim();
+      const control = wrap.querySelector('input, select, textarea');
+      if (!label || !control || control.type === 'button' || control.type === 'submit') return [];
+      const value = control.tagName === 'SELECT' ? control.selectedOptions?.[0]?.textContent : control.value;
+      return String(value ?? '').trim() ? [[label, value]] : [];
+    });
     const openTextReport = () => createA4TextReport({
-      title: 'گزارش استعلام ارزش معاملاتی ملک',
+      title: 'فرم محاسبه ارزش منطقه‌ای ملک',
+      rows: inputRows,
       content: result,
-      filename: `gozaresh-arzesh-moamelati-${inquiryId}`
+      filename: `farm-arzesh-mantaghei-${inquiryId}`
     });
     printButton.addEventListener('click', openTextReport);
     downloadButton.addEventListener('click', openTextReport);
