@@ -441,9 +441,8 @@ function ruleTool({ title, amountLabel, group, submitLabel, note, withRanges = f
 
 /** حق‌الوکاله و تمبر مالیاتی وکیل: فرم مطابق نمونهٔ مرجع. محاسبه در attorney-form.js است؛ این تابع فقط فرم و نمایش را می‌سازد. */
 const ATTORNEY_SUBJECTS = [
-  { value: 'attorney', text: 'حق الوکاله' },
-  { value: 'tax-kanon', text: 'تمبر مالیاتی کانون وکلای دادگستری' },
-  { value: 'tax-markaz', text: 'تمبر مالیاتی مرکز وکلا، کارشناسان رسمی و مشاوران خانواده قوه قضاییه' },
+  { value: 'kanon', text: 'کانون وکلای دادگستری' },
+  { value: 'markaz', text: 'مرکز وکلای قوه قضاییه' },
 ];
 const ATTORNEY_CASE_TYPES = [
   { value: 'financial', text: 'مالی' },
@@ -493,6 +492,8 @@ function attorneyTool(id) {
   const temporary = h('input', { type: 'checkbox', id: 'att-temporary' });
   const amount = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: '۱٬۰۰۰٬۰۰۰ معادل ۱۰۰ هزار تومان' });
   amount.addEventListener('input', () => { amount.value = groupAmount(amount.value); });
+  const agreedFee = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'در صورت تفاوت با تعرفه وارد کنید' });
+  agreedFee.addEventListener('input', () => { agreedFee.value = groupAmount(agreedFee.value); });
   const out = h('div', { class: 'tool-out' });
 
   function sync() {
@@ -504,7 +505,7 @@ function attorneyTool(id) {
   sync();
 
   const form = h('form', { class: 'form dix-form', novalidate: '', 'aria-label': 'حق‌الوکاله و تمبر مالیاتی وکیل' }, [
-    field('att-subject', 'موضوع', subject),
+    field('att-subject', 'مرجع صدور پروانه', subject),
     field('att-case', 'نوع دعوا', caseType),
     judgmentWrap,
     field('att-result', 'نتیجهٔ ختم دعوا', result),
@@ -514,8 +515,9 @@ function attorneyTool(id) {
     field('att-out-days', 'تعداد روزهای ماموریت خارج استان', outDays),
     h('label', { class: 'check-row' }, [afterReversal, h('span', { text: 'قبول وکالت پس از نقض رای' })]),
     h('label', { class: 'check-row' }, [temporary, h('span', { text: 'وکیل تسخیری یا معاضدتی' })]),
-    field('att-amount', 'بهای خواسته یا محکوم به (ریال)', amount),
-    h('button', { class: 'btn dix-submit', type: 'submit', text: 'محاسبه' }),
+    field('att-amount', 'بهای خواسته یا محکوم‌به (ریال)', amount),
+    field('att-agreed-fee', 'حق‌الوکاله توافقی مندرج در وکالت‌نامه (ریال؛ اختیاری)', agreedFee),
+    h('button', { class: 'btn dix-submit', type: 'submit', text: 'محاسبه حق‌الوکاله و تمبر مالیاتی' }),
     out,
   ]);
 
@@ -558,7 +560,18 @@ function attorneyTool(id) {
       }
       return showNotice(r.message || 'ورودی‌ها را بررسی کنید.');
     }
+    const agreedAmount = agreedFee.value.trim() ? parseAmount(agreedFee.value) : 0;
+    if (agreedFee.value.trim() && (!Number.isFinite(agreedAmount) || agreedAmount < 0)) {
+      return showNotice('حق‌الوکاله توافقی باید مبلغی معتبر و نامنفی به ریال باشد.');
+    }
+    if (caseType.value !== 'financial') {
+      return showNotice('برای محاسبه قطعی تمبر در دعاوی غیرمالی و کیفری، حداقل تعرفه هر مرحله باید جداگانه احراز شود؛ در این نسخه فقط حق‌الوکاله تعرفه‌ایِ بازه‌ای نمایش داده می‌شود و از اعلام مبلغ قطعی تمبر خودداری می‌شود.');
+    }
+    const stampBase = Math.max(r.feeTotal, agreedAmount);
+    const taxStamp = Math.round(stampBase * 0.05);
     const facts = r.lines.map((l) => [l.label, formatRial(l.amount)]);
+    facts.push(['مبنای تمبر مالیاتی (بیشترِ حق‌الوکاله تعرفه‌ای و توافقی)', formatRial(stampBase)]);
+    facts.push(['تمبر مالیاتی علی‌الحساب (۵٪)', formatRial(taxStamp)]);
     if (r.travelTotal > 0) facts.push(['جمع فوق‌العاده مأموریت (جدا از حق‌الوکاله)', formatRial(r.travelTotal)]);
     const attorneyAmount = parseAmount(amount.value);
     const reportTables = [];
@@ -567,24 +580,27 @@ function attorneyTool(id) {
       reportTables.push(tierSection('جدول محاسبهٔ پلکانی تعرفهٔ حق‌الوکاله (ماده ۹ آیین‌نامه تعرفه)', tierTableRows(baseRule, attorneyAmount, r.lines[0]?.amount), `مستند: ${baseRule?.legal?.citation || ''}`));
     }
     const lineRows = r.lines.map((l) => [l.label, formatRial(l.amount).replace(' ریال', '')]);
+    lineRows.push(['حق‌الوکاله توافقی اظهارشده', agreedAmount ? formatRial(agreedAmount).replace(' ریال', '') : 'وارد نشده']);
+    lineRows.push(['مبنای تمبر مالیاتی', formatRial(stampBase).replace(' ریال', '')]);
+    lineRows.push(['تمبر مالیاتی علی‌الحساب (۵٪)', formatRial(taxStamp).replace(' ریال', '')]);
     if (r.travelTotal > 0) lineRows.push(['جمع فوق‌العاده مأموریت (جدا از حق‌الوکاله)', formatRial(r.travelTotal).replace(' ریال', '')]);
-    reportTables.push({ type: 'table', title: 'ردیف‌های حق‌الوکاله و فوق‌العاده', columns: ['شرح', 'مبلغ (ریال)'], rows: lineRows });
+    reportTables.push({ type: 'table', title: 'محاسبه یکپارچه حق‌الوکاله و تمبر مالیاتی', columns: ['شرح', 'مبلغ (ریال)'], rows: lineRows });
     out.replaceChildren(resultBox({
       ok: true,
-      title: 'حق‌الوکاله قانونی',
-      fee: r.total,
+      title: 'حق‌الوکاله و تمبر مالیاتی',
+      fee: r.total + taxStamp,
       reportTables,
-      reportResult: { ok: true, fee: r.total, limitations: [...r.notes, 'مبلغ نهایی جمع حق‌الوکاله و فوق‌العاده مأموریت است و شامل تمبر مالیاتی و سهم کانون، مرکز و صندوق نیست.'], ruleVersion: 'آیین‌نامه تعرفه حق‌الوکاله، حق‌المشاوره و هزینه سفر وکلای دادگستری ۱۳۹۸/۱۲/۲۸' },
+      reportResult: { ok: true, fee: r.total + taxStamp, limitations: [...r.notes, 'تمبر مالیاتی ۵٪ علی‌الحساب بر مبنای بیشترِ حق‌الوکاله تعرفه‌ای و مبلغ توافقی اظهارشده محاسبه شده است؛ در دعاوی غیرمالی و کیفری، حداقل تعرفه هر مرحله نیازمند احراز جداگانه است.', 'سهم کانون/مرکز و صندوق در این خروجی محاسبه نشده است.'], ruleVersion: 'ماده ۱۰۳ قانون مالیات‌های مستقیم و آیین‌نامه تعرفه حق‌الوکاله ۱۳۹۸/۱۲/۲۸' } ,
       facts,
-      steps: [`حق‌الوکاله: ${formatRial(r.feeTotal)}`, `فوق‌العاده مأموریت: ${formatRial(r.travelTotal)}`],
-      ruleVersion: 'آیین‌نامه تعرفه حق‌الوکاله ۱۳۹۸ (فایل fd69f537)',
-      limitations: [...r.notes, 'مبلغ نهایی جمع حق‌الوکاله و فوق‌العاده مأموریت است و شامل تمبر و سهم کانون نیست.'],
+      steps: [`حق‌الوکاله تعرفه‌ای: ${formatRial(r.feeTotal)}`, `تمبر مالیاتی علی‌الحساب: ${formatRial(taxStamp)}`, `فوق‌العاده مأموریت: ${formatRial(r.travelTotal)}`],
+      ruleVersion: 'آیین‌نامه تعرفه حق‌الوکاله ۱۳۹۸ و ماده ۱۰۳ قانون مالیات‌های مستقیم',
+      limitations: [...r.notes, 'تمبر مالیاتی ۵٪ علی‌الحساب است و مالیات قطعی وکیل محسوب نمی‌شود.', 'در دعاوی غیرمالی و کیفری، حداقل تعرفه هر مرحله باید جداگانه احراز شود؛ این نسخه برای آن موارد رقم قطعی تمبر اعلام نمی‌کند.', 'سهم کانون/مرکز و صندوق در این خروجی محاسبه نشده است.'],
     }, form));
   });
 
   return h('section', { class: 'tool', id }, [
     h('h2', { text: 'حق‌الوکاله و تمبر مالیاتی وکیل طبق تعرفه' }),
-    h('p', { class: 'muted', text: 'منبع: آیین‌نامه تعرفه حق‌الوکاله، حق‌المشاوره و هزینه سفر وکلای دادگستری، مصوب ۱۳۹۸/۱۲/۲۸ (فایل fd69f537). این عدد تعرفهٔ قانونی است؛ حق‌الوکالهٔ توافقی جداگانه تعیین می‌شود.' }),
+    h('p', { class: 'muted', text: 'در یک فرم، حق‌الوکاله تعرفه‌ای، مبلغ توافقی و تمبر مالیاتی علی‌الحساب طبق ماده ۱۰۳ قانون مالیات‌های مستقیم محاسبه می‌شود. تمبر ۵٪ است؛ برای دعاوی مالی حداقل آن بر پایه حق‌الوکاله تعرفه‌ای هر مرحله رعایت می‌شود. سهم کانون/مرکز و صندوق جداگانه محاسبه نشده است.' }),
     form,
   ]);
 }
