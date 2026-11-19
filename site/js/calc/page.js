@@ -625,9 +625,30 @@ function toolToolbar(section) {
       return;
     }
     const rows = Array.from(section.querySelectorAll('form input, form select, form textarea'))
-      .filter((field) => !['submit', 'button', 'reset'].includes(field.type) && (field.type !== 'checkbox' && field.type !== 'radio' || field.checked))
-      .map((field) => [field.labels?.[0]?.textContent || field.getAttribute('aria-label') || field.name || field.id || 'مشخصات', field.tagName === 'SELECT' ? field.selectedOptions?.[0]?.textContent : (field.type === 'checkbox' || field.type === 'radio' ? 'بله' : field.value)])
-      .filter(([, value]) => String(value ?? '').trim());
+      .filter((control) => {
+        if (['submit', 'button', 'reset', 'hidden'].includes(control.type)) return false;
+        if (control.closest('[hidden]') || control.disabled) return false;
+        // For radio groups, report the chosen option once; unchecked checkboxes
+        // are meaningful inputs and must be printed explicitly as "خیر".
+        if (control.type === 'radio' && !control.checked) return false;
+        return true;
+      })
+      .map((control) => {
+        const wrapper = control.closest('.field');
+        const label = control.labels?.[0]?.textContent?.trim()
+          || wrapper?.querySelector('label')?.textContent?.trim()
+          || control.getAttribute('aria-label')
+          || control.name || control.id || 'مشخصات';
+        let value;
+        if (control.type === 'checkbox') value = control.checked ? 'بله؛ انتخاب شده' : 'خیر؛ انتخاب نشده';
+        else if (control.type === 'radio') value = control.checked ? (control.labels?.[0]?.textContent?.trim() || control.value || 'انتخاب شده') : '';
+        else if (control.tagName === 'SELECT') {
+          value = control.multiple
+            ? Array.from(control.selectedOptions).map((option) => option.textContent.trim()).join('، ')
+            : control.selectedOptions?.[0]?.textContent?.trim();
+        } else value = String(control.value ?? '').trim() || 'وارد نشده';
+        return [label, value || 'وارد نشده'];
+      });
     const title = section.querySelector(':scope > h2')?.textContent || section.querySelector('h2')?.textContent || 'گزارش محاسبات حقوقی';
     createA4TextReport({ title, rows, content: result, filename: 'gozaresh-hesabgar' });
   });
