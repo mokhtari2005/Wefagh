@@ -3734,3 +3734,10 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
   cursor: pointer;
 }
 .court-assessment-dismiss:focus-visible { outline: 2px solid var(--deep); outline-offset: 2px; }
+
+
+/* Small, always-visible-in-voice-mode control to stop the current speaker and pause the hearing. */
+.court-stop-playback{display:inline-flex;align-items:center;justify-content:center;gap:.3rem;flex:none;border:1px solid var(--line,var(--border));border-radius:999px;padding:.38rem .58rem;background:var(--paper);color:var(--ink);font:inherit;font-size:.72rem;line-height:1.2;cursor:pointer;white-space:nowrap}
+.court-stop-playback[hidden]{display:none}
+.court-stop-playback:hover{background:color-mix(in srgb,var(--paper) 82%,var(--gold) 18%)}
+.court-stop-playback:focus-visible{outline:2px solid var(--deep);outline-offset:2px}
