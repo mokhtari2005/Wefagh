@@ -61,7 +61,9 @@ export function regionalValueTool() {
   city.el.value = 'شیراز';
   province.el.readOnly = true;
   city.el.readOnly = true;
-  const address = input('rv-address', 'نشانی دقیق ملک');
+  const addressEl = h('textarea', { id: 'rv-address', rows: '2', inputmode: 'text', autocomplete: 'street-address', autocapitalize: 'sentences', spellcheck: 'true' });
+  addressEl.style.cssText = 'width:100%;min-height:76px;resize:vertical;';
+  const address = { el: addressEl, node: h('div', { class: 'field' }, [h('label', { for: 'rv-address', text: 'نشانی دقیق ملک' }), addressEl]) };
   const postalCode = input('rv-postal-code', 'کد پستی ده‌رقمی');
   postalCode.el.maxLength = 10;
   postalCode.el.inputMode = 'numeric';
