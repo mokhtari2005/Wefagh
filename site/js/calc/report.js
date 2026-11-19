@@ -76,6 +76,19 @@ export function createA4TextReport({ title, rows = [], content = null, filename 
       if (popup.closed) throw new Error('Report window was closed');
       const sheet = popup.document.querySelector('.academy-pdf-sheet');
       if (!sheet) throw new Error('Report sheet missing');
+      const fitContent = sheet.querySelector('.academy-pdf-fit-content');
+      if (fitContent) {
+        // First and second compact type steps; preserve all text and avoid a second PDF page.
+        const available = sheet.clientHeight - parseFloat(getComputedStyle(sheet).paddingTop) - parseFloat(getComputedStyle(sheet).paddingBottom);
+        const measure = () => fitContent.getBoundingClientRect().height;
+        if (measure() > available) sheet.classList.add('fit-1');
+        if (measure() > available) sheet.classList.add('fit-2');
+        if (measure() > available) {
+          const ratio = Math.max(0.72, available / measure());
+          fitContent.style.transform = `scaleY(${ratio})`;
+          fitContent.style.height = `${100 / ratio}%`;
+        }
+      }
       await window.html2pdf().set({
         margin: 0,
         filename: filename + '.pdf',
