@@ -146,7 +146,7 @@ function pageHome() {
   ]);
 
   const quick = lazy(async () => {
-    const { ACADEMY_TOOLS } = await import('./academy.js?v=20261119-regional-quick');
+    const { ACADEMY_TOOLS } = await import('./academy.js?v=20261119-community-title-quick-2');
     return h('section', { class: 'quick-section', 'aria-label': 'ابزارهای آکادمی' }, [
       h('div', { class: 'quick-grid' }, ACADEMY_TOOLS.map((item) =>
         h('a', { class: 'quick-tile', href: item.href }, [h('span', { class: 'quick-icon', 'aria-hidden': 'true' }, [icon(item.icon, { size: 24 })]), h('span', { text: item.title })]))),
