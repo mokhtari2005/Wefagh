@@ -70,7 +70,6 @@ function rangeOf(id, title) {
  * @param {'nonfinal'|'final'|''} input.judgment  برای دعوای مالی و بدون ختم دعوا الزامی است.
  * @param {number} input.amount  بهای خواسته یا محکوم‌به به ریال.
  * @param {string} input.result  یکی از کلیدهای RESULT_RULE_BY_VALUE، 'interlocutory'، یا 'none'.
- * @param {number} [input.appealBase] حق‌الوکالهٔ مرحلهٔ تجدیدنظر (برای سقوط تجدیدنظر).
  * @param {boolean} [input.afterReversal] قبول وکالت پس از نقض رأی (ماده ۱۸).
  * @param {boolean} [input.specialty] وکیل گواهی تخصصی دارد (ماده ۲۲ تبصره).
  * @param {number} [input.inProvinceDays] روز مأموریت داخل استان.
@@ -79,7 +78,7 @@ function rangeOf(id, title) {
  */
 export function computeAttorneyForm(input) {
   const {
-    subject, caseType, judgment, amount, result = 'none', appealBase,
+    subject, caseType, judgment, amount, result = 'none',
     afterReversal = false, specialty = false, inProvinceDays = 0, outProvinceDays = 0, temporary = false,
   } = input;
 
@@ -128,18 +127,14 @@ export function computeAttorneyForm(input) {
     const isAppeal = result === 'appealBefore' || result === 'appealAfter';
     let stageBase;
     let stageLabel;
-    if (isAppeal) {
-      if (!Number.isFinite(appealBase) || appealBase <= 0) {
-        return fail('INVALID_APPEAL_BASE', 'حق‌الوکالهٔ مرحلهٔ تجدیدنظر را به ریال وارد کنید؛ این مبنا از متن تعرفه قابل محاسبه از بهای خواسته نیست.');
-      }
-      stageBase = appealBase;
-      stageLabel = 'حق‌الوکالهٔ مرحلهٔ تجدیدنظر (ورودی شما)';
-    } else {
-      // ماده ۱۲: مبنای سهم، حق‌الوکالهٔ مرحلهٔ نخستین است که از بهای خواسته با ماده ۹ بند الف تا ث به دست می‌آید.
+    {
+      // ماده ۲۱: سهم مرحلهٔ تجدیدنظر ۴۰٪ تعرفهٔ کل دعوای مالی است.
       const base = run(RULE.f9Nonfinal, { amount });
-      if (!base.ok) return fail(base.error, 'حق‌الوکالهٔ مرحلهٔ نخستین محاسبه نشد.');
-      stageBase = base.fee * 0.6;
-      stageLabel = 'حق‌الوکالهٔ مرحلهٔ نخستین (ماده ۹ بند الف تا ث)';
+      if (!base.ok) return fail(base.error, 'حق‌الوکالهٔ مبنای مرحله‌ای محاسبه نشد.');
+      stageBase = base.fee * (isAppeal ? 0.4 : 0.6);
+      stageLabel = isAppeal
+        ? 'حق‌الوکالهٔ مرحلهٔ تجدیدنظر (۴۰٪ تعرفهٔ کل، محاسبهٔ خودکار)'
+        : 'حق‌الوکالهٔ مرحلهٔ نخستین (۶۰٪ تعرفهٔ کل)';
       lines.push({ label: stageLabel, amount: stageBase });
     }
     const share = run(resultRuleId, { amount: stageBase });

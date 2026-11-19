@@ -138,7 +138,7 @@ function delayTool() {
     h('button', { class: 'btn', type: 'submit', text: 'محاسبه خسارت' }),
     out,
   ]);
-  form.addEventListener('submit', (e) => {
+  function calculateForm(e) {
     e.preventDefault();
     const result = delayInterest({
       principal: numericValue(principal.value),
@@ -480,9 +480,6 @@ function attorneyTool(id) {
     if (o.disabled) opt.disabled = true;
     return opt;
   }));
-  const appealBase = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'به ریال' });
-  appealBase.addEventListener('input', () => { appealBase.value = groupAmount(appealBase.value); });
-  const appealWrap = field('att-appeal-base', 'حق‌الوکالهٔ مرحلهٔ تجدیدنظر (ریال)', appealBase);
   const specialty = h('select', { id: 'att-specialty' }, [
     h('option', { value: 'no', text: 'وکیل گواهی وکالت تخصصی ندارد.' }),
     h('option', { value: 'yes', text: 'وکیل گواهی وکالت تخصصی از کانون یا مرکز وکلا دارد.' }),
@@ -499,7 +496,7 @@ function attorneyTool(id) {
 
   function sync() {
     judgmentWrap.hidden = caseType.value !== 'financial';
-    appealWrap.hidden = !(result.value === 'appealBefore' || result.value === 'appealAfter');
+    // مبلغ مرحلهٔ تجدیدنظر ورودی نیست و بر اساس بهای خواسته محاسبه می‌شود.
   }
   caseType.addEventListener('change', sync);
   result.addEventListener('change', sync);
@@ -511,7 +508,6 @@ function attorneyTool(id) {
     field('att-title', 'عنوان دعوا / عنوان جرم', caseTitle),
     judgmentWrap,
     field('att-result', 'نتیجهٔ ختم دعوا', result),
-    appealWrap,
     field('att-specialty', 'گواهی وکالت تخصصی وکیل', specialty),
     field('att-in-days', 'تعداد روزهای ماموریت داخل استان', inDays),
     field('att-out-days', 'تعداد روزهای ماموریت خارج استان', outDays),
@@ -544,7 +540,6 @@ function attorneyTool(id) {
       judgment: judgment.value,
       amount: parseAmount(amount.value),
       result: resultKey,
-      appealBase: parseAmount(appealBase.value),
       afterReversal: afterReversal.checked,
       specialty: specialty.value === 'yes',
       inProvinceDays: inP,
@@ -620,6 +615,11 @@ function attorneyTool(id) {
       ruleVersion: 'آیین‌نامه تعرفه حق‌الوکاله ۱۳۹۸ و ماده ۱۰۳ قانون مالیات‌های مستقیم',
       limitations: [...r.notes, 'تمبر مالیاتی ۵٪ علی‌الحساب است و مالیات قطعی وکیل محسوب نمی‌شود.', 'در دعاوی غیرمالی و کیفری، حداقل تعرفه هر مرحله باید جداگانه احراز شود؛ این نسخه برای آن موارد رقم قطعی تمبر اعلام نمی‌کند.', 'سهم کانون/مرکز و صندوق در این خروجی محاسبه نشده است.'],
     }, form));
+  }
+  form.addEventListener('submit', calculateForm);
+  form.querySelector('button[type="submit"]').addEventListener('click', (e) => {
+    e.preventDefault();
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
   });
 
   return h('section', { class: 'tool', id }, [
