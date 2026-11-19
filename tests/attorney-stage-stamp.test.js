@@ -25,3 +25,17 @@ test('first-instance dismissal share is calculated from the 60 percent first-ins
   assert.equal(result.stageFees.first, Math.round(fullTariff.feeTotal * 0.6 / 4));
   assert.equal(result.stageFees.appeal, 0);
 });
+
+
+test('appeal-stage tariff is calculated automatically as 40 percent of total tariff', () => {
+  const result = computeAttorneyForm({ subject: 'attorney', caseType: 'financial', judgment: 'nonfinal', amount: 1_000_000_000, result: 'appealBefore' });
+  assert.equal(result.ok, true);
+  const full = computeAttorneyForm({ subject: 'attorney', caseType: 'financial', judgment: 'nonfinal', amount: 1_000_000_000, result: 'none' });
+  assert.equal(result.lines[0].amount, full.feeTotal * 0.4);
+  assert.equal(result.stageFees.appeal, result.feeTotal);
+});
+
+test('appeal stage does not require a user-entered amount', () => {
+  const result = computeAttorneyForm({ subject: 'attorney', caseType: 'financial', judgment: 'nonfinal', amount: 500_000_000, result: 'appealAfter' });
+  assert.equal(result.ok, true);
+});
