@@ -11,6 +11,7 @@ import { indexedDelayDamage, planDelayPeriod, periodLabel, periodKeyOfIso } from
 import { computeAttorneyForm } from './attorney-form.js';
 import { icon } from '../icons.js?v=20261119-2';
 import { regionalValueTool } from '../regional-value.js';
+import { createA4TextReport } from './report.js';
 
 function h(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
@@ -616,7 +617,20 @@ const CALC_NOTICE = 'این ابزارها پیش‌نویس محاسباتی ه
 /** نوار ابزار هر ابزار: چاپ یا ذخیرهٔ گزارش، و پاک‌کردن ورودی‌ها و نتیجه. */
 function toolToolbar(section) {
   const print = h('button', { type: 'button', class: 'btn secondary', text: 'چاپ یا ذخیرهٔ گزارش A4' });
-  print.addEventListener('click', () => window.print());
+  print.addEventListener('click', () => {
+    const result = section.querySelector('.regional-result, .tool-out .result');
+    if (!result) {
+      const notice = section.querySelector('.tool-out .notice');
+      if (notice) notice.focus?.();
+      return;
+    }
+    const rows = Array.from(section.querySelectorAll('form input, form select, form textarea'))
+      .filter((field) => !['submit', 'button', 'reset'].includes(field.type) && (field.type !== 'checkbox' && field.type !== 'radio' || field.checked))
+      .map((field) => [field.labels?.[0]?.textContent || field.getAttribute('aria-label') || field.name || field.id || 'مشخصات', field.tagName === 'SELECT' ? field.selectedOptions?.[0]?.textContent : (field.type === 'checkbox' || field.type === 'radio' ? 'بله' : field.value)])
+      .filter(([, value]) => String(value ?? '').trim());
+    const title = section.querySelector(':scope > h2')?.textContent || section.querySelector('h2')?.textContent || 'گزارش محاسبات حقوقی';
+    createA4TextReport({ title, rows, content: result, filename: 'gozaresh-hesabgar' });
+  });
   const clear = h('button', { type: 'button', class: 'btn secondary', text: 'پاک‌کردن ورودی‌ها و نتیجه' });
   clear.addEventListener('click', () => {
     section.querySelectorAll('form').forEach((f) => f.reset());
@@ -636,7 +650,7 @@ const TOOL_VISUALS = {
 
 function calculatorStyles() {
   if (document.querySelector('link[data-calculator-styles]')) return;
-  const link = h('link', { rel: 'stylesheet', href: 'css/calculators.css?v=20261119-1' });
+  const link = h('link', { rel: 'stylesheet', href: 'css/calculators.css?v=20261119-text-a4' });
   link.setAttribute('data-calculator-styles', 'true');
   document.head.append(link);
 }
