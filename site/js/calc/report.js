@@ -11,7 +11,7 @@ export function createA4TextReport({ title, rows = [], content = null, filename 
   const brand='آکادمی وکالت شهرام مختاری';
   const text=[brand,'Shahram Mokhtari Law Academy | mokhtari.ir',clean(title),...data.flatMap(([a,b])=>[a+': '+b]),clean(clone?.innerText||clone?.textContent||'')].filter(Boolean).join('\n');
   if (downloadOnly) {
-    const blob = new Blob(['\\uFEFF' + text], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob(['\uFEFF' + text], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
