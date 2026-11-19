@@ -1,5 +1,5 @@
 // مسیریاب ساده بر پایهٔ hash و رندر صفحات با DOM امن.
-import { NAV, VALUES, ABOUT_SECTIONS } from './pages.js?v=20261119-media-nav-pages-cache-2';
+import { NAV, VALUES, ABOUT_SECTIONS } from './pages.js?v=20261119-about-profile-1';
 import { formatShamsi } from './shamsi.js';
 import { parseHash } from './route.js';
 import { icon, mountIcons } from './icons.js';
