@@ -36,7 +36,7 @@ export function createA4TextReport({ title, rows = [], content = null, filename 
     return;
   }
 
-  const html = renderFormHtml(form, { dateText, cssHref: '/css/styles.css?v=20261119-print-2' });
+  const html = renderFormHtml(form, { dateText, cssHref: '/css/styles.css?v=20261119-a4-fit-3' });
 
   // Open synchronously during the user's click so Safari does not block the tab.
   const popup = window.open('', '_blank');
@@ -101,7 +101,6 @@ export function createA4TextReport({ title, rows = [], content = null, filename 
         if (measure() > available) {
           const ratio = Math.max(0.72, available / measure());
           fitContent.style.transform = `scaleY(${ratio})`;
-          fitContent.style.height = `${100 / ratio}%`;
         }
       }
       await window.html2pdf().set({
