@@ -1,71 +1,40 @@
-/**
- * Build a text-only A4 report. The printable sheet is always one A4 page;
- * content is uniformly scaled to fit instead of spilling onto another page.
- */
+/** Academy-branded one-page A4 worksheets for calculator results. */
 export function createA4TextReport({ title, rows = [], content = null, filename = 'academy-report' } = {}) {
   const clone = content?.cloneNode?.(true) || null;
   if (clone) {
-    clone.querySelectorAll('.regional-report-map-section, .regional-print-header, .regional-report-footer, .regional-report-actions, button, img, svg, canvas, video, iframe, input, select, textarea').forEach((node) => node.remove());
-    clone.querySelectorAll('[hidden], [aria-hidden="true"]').forEach((node) => node.remove());
+    clone.querySelectorAll('.regional-report-map-section,.regional-print-header,.regional-report-footer,.regional-report-actions,button,img,svg,canvas,video,iframe,input,select,textarea').forEach(n => n.remove());
+    clone.querySelectorAll('[hidden],[aria-hidden="true"]').forEach(n => n.remove());
   }
-  const clean = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
-  const normalizedRows = rows.map(([label, value]) => [clean(label), clean(value)]).filter(([label, value]) => label && value);
-  if (!normalizedRows.some(([label]) => /تاریخ/.test(label))) {
-    normalizedRows.push(['تاریخ و ساعت تهیه گزارش', new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'long', timeStyle: 'short' }).format(new Date())]);
-  }
-  const reportText = [
-    'آکادمی وکالت شهرام مختاری',
-    'Shahram Mokhtari Law Academy | mokhtari.ir',
-    clean(title || 'گزارش محاسبات حقوقی'),
-    ...normalizedRows.flatMap(([label, value]) => [label + ': ' + value]),
-    clean(clone?.innerText || clone?.textContent || ''),
-  ].filter(Boolean).join('\n');
-  const rowsHtml = normalizedRows.map(([label, value]) => '<div class="meta-row"><b>' + escapeHtml(label) + '</b><span>' + escapeHtml(value) + '</span></div>').join('');
-  const bodyHtml = clone ? clone.outerHTML : '';
-  const html = `<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title || 'گزارش آکادمی')}</title>
+  const clean = v => String(v ?? '').replace(/\s+/g,' ').trim();
+  const data = rows.map(([a,b]) => [clean(a),clean(b)]).filter(([a,b]) => a && b);
+  if (!data.some(([a]) => /تاریخ/.test(a))) data.push(['تاریخ تنظیم',new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dateStyle:'long',timeStyle:'short'}).format(new Date())]);
+  const brand='آکادمی وکالت شهرام مختاری';
+  const text=[brand,'Shahram Mokhtari Law Academy | mokhtari.ir',clean(title),...data.flatMap(([a,b])=>[a+': '+b]),clean(clone?.innerText||clone?.textContent||'')].filter(Boolean).join('\n');
+  const fields=data.map(([a,b])=>'<div class="field"><b>'+escapeHtml(a)+'</b><span>'+escapeHtml(b)+'</span></div>').join('');
+  const body=clone?.outerHTML||'';
+  const html=`<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title||'کاربرگ محاسباتی')}</title>
 <style>
-*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;color:#182d28;direction:rtl;font-family:Tahoma,Arial,sans-serif}
-body{padding:10px}.actions{display:flex;gap:8px;justify-content:center;margin:0 auto 12px}.actions button{padding:9px 15px;border:1px solid #aebfb6;border-radius:8px;background:#f4f7f5;color:#173b37;font:inherit}
-.sheet{width:190mm;height:277mm;max-height:277mm;margin:0 auto;overflow:hidden;background:#fff}
-.fit-content{width:100%;transform:scale(var(--fit-scale,1));transform-origin:top center}
-.report-header{display:flex;align-items:center;justify-content:center;gap:10px;padding:0 0 8px;margin-bottom:10px;border-bottom:2px solid #315e55;text-align:center}
-.report-header img{width:15mm;height:15mm;object-fit:contain;flex:none}
-.report-brand{display:grid;gap:3px}.report-brand strong{font-size:15pt;color:#173b37}.report-brand span{font-size:8pt;color:#65776f;direction:ltr}
-.report-title{margin:8px 0 10px;text-align:center;font-size:12pt;font-weight:700}
-.meta{display:grid;grid-template-columns:30mm minmax(0,1fr);gap:4px 8px;padding:8px 10px;margin-bottom:10px;border:1px solid #d5dfda;border-right:3px solid #b28a45;font-size:9pt;line-height:1.7}
-.meta-row{display:contents}.meta-row b{color:#405c53}.meta-row span{overflow-wrap:anywhere}
-.report-content{font-size:9pt;line-height:1.65;overflow-wrap:anywhere}
-.report-content h2,.report-content h3,.report-content h4{font-size:10pt;margin:7px 0 4px;color:#244f49}
-.report-content p{margin:5px 0}.report-content dl{display:grid;grid-template-columns:1fr 1fr;gap:3px 14px;margin:6px 0}
-.report-content dt{font-weight:700;color:#405c53}.report-content dd{margin:0;overflow-wrap:anywhere}
-.report-content .amount-block{display:flex;justify-content:space-between;gap:8px;padding:7px 10px;margin:7px 0;border:1px solid #cbd8d1;background:#f1f5f2}
-.report-content .amount-value{font-weight:800;font-size:13pt}.report-content ol,.report-content ul{margin:4px 0;padding-right:20px}
-.report-content li{margin:2px 0}.report-content .muted,.report-content .notice{font-size:8pt;line-height:1.55;margin:5px 0}
-.report-content table{width:100%;border-collapse:collapse;font-size:8pt}.report-content td,.report-content th{border:1px solid #dce4df;padding:4px;text-align:right}
-.report-footer{margin-top:8px;padding-top:5px;border-top:1px solid #d8e1dc;text-align:center;font-size:7pt;color:#718079}
-@page{size:A4 portrait;margin:10mm}
-@media print{html,body{width:190mm;height:277mm;margin:0!important;padding:0!important}.actions{display:none!important}.sheet{margin:0!important;break-after:avoid!important;page-break-after:avoid!important}.report-content,.meta,.report-header{break-inside:avoid;page-break-inside:avoid}}
-</style></head><body>
-<div class="actions"><button type="button" id="print">چاپ / ذخیره PDF</button><button type="button" id="download">دانلود فایل متنی TXT</button></div>
-<main class="sheet"><div class="fit-content" id="fit"><header class="report-header"><img src="/assets/favicon.svg" alt="لوگوی آکادمی"><div class="report-brand"><strong>آکادمی وکالت شهرام مختاری</strong><span>Shahram Mokhtari Law Academy · mokhtari.ir</span></div></header><h1 class="report-title">${escapeHtml(title || 'گزارش محاسبات حقوقی')}</h1>${rowsHtml ? '<section class="meta">' + rowsHtml + '</section>' : ''}<section class="report-content">${bodyHtml}</section><footer class="report-footer">آکادمی وکالت شهرام مختاری | mokhtari.ir</footer></div></main>
-<script>
-const fit=document.getElementById('fit'),sheet=document.querySelector('.sheet');
-function fitOnePage(){fit.style.setProperty('--fit-scale','1');const available=sheet.clientHeight;const needed=fit.scrollHeight;const scale=Math.min(1,available/Math.max(1,needed));fit.style.setProperty('--fit-scale',String(scale));}
-document.getElementById('print').addEventListener('click',()=>{fitOnePage();window.print();});
-document.getElementById('download').addEventListener('click',()=>{const text=${JSON.stringify(reportText)};const blob=new Blob(['\\uFEFF'+text],{type:'text/plain;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=${JSON.stringify(filename+'.txt')};document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);});
-window.addEventListener('load',()=>{fitOnePage();setTimeout(fitOnePage,250);});
-</script></body></html>`;
-  const popup = window.open('', '_blank');
-  if (!popup) {
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url; link.download = filename + '.html'; document.body.append(link); link.click(); link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 15000);
-    return;
-  }
-  popup.document.open(); popup.document.write(html); popup.document.close();
+*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;color:#20312e;direction:rtl;font-family:Tahoma,Arial,sans-serif}body{padding:10px}
+.actions{display:flex;gap:8px;justify-content:center;margin:0 auto 12px}.actions button{padding:9px 15px;border:1px solid #aebfb6;border-radius:8px;background:#f4f7f5;color:#173b37;font:inherit}
+.sheet{width:190mm;height:277mm;max-height:277mm;margin:auto;overflow:hidden;background:#fff;border:1px solid #c8d2d7;padding:7mm 8mm}.fit{transform:scale(var(--scale,1));transform-origin:top center}
+header{display:grid;grid-template-columns:1fr auto;align-items:center;padding-bottom:6px;border-bottom:2px solid #203c55}header strong{font-size:13pt;color:#203c55}header small{display:block;margin-top:3px;font-size:7pt;color:#687a80;direction:ltr}header img{width:13mm;height:13mm;object-fit:contain}
+h1{margin:5px 0 8px;text-align:center;font-size:12pt;color:#203c55}
+.section{border:1px solid #bdc9cf;border-radius:5px;padding:6px 8px;margin-bottom:7px;break-inside:avoid}.section-title{display:block;margin:-1px 0 5px;padding:3px 7px;background:#203c55;color:white;border-radius:3px;font-size:8pt}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:7.7pt;line-height:1.6}.field{display:grid;grid-template-columns:minmax(26mm,38%) 1fr;gap:5px}.field b{color:#405c53}.field span{border-bottom:1px dotted #c7d0d4;overflow-wrap:anywhere}
+.content{font-size:8pt;line-height:1.5;overflow-wrap:anywhere}.content h2,.content h3,.content h4{font-size:9pt;margin:5px 0 3px;color:#203c55}.content p{margin:3px 0}.content dl{display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;margin:4px 0}.content dt{font-weight:bold;color:#405c53}.content dd{margin:0;overflow-wrap:anywhere}
+.content .amount-block{display:flex;justify-content:space-between;align-items:center;padding:6px 9px;margin:5px 0;border:1.5px solid #203c55;border-radius:4px;background:#f2f5f6}.content .amount-value{font-size:12pt;font-weight:800;color:#203c55}
+.content ol,.content ul{margin:3px 0;padding-right:18px}.content li{margin:1px 0}.content .muted,.content .notice{font-size:7pt;line-height:1.4;margin:3px 0;padding:3px 5px}.content .notice{border:1px solid #d8d1bb}
+.sign{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:8px;padding-top:6px;border-top:1px solid #cbd4d8;font-size:7.5pt}.sign span{display:block;padding-top:12px;border-bottom:1px dotted #9aa8ad}
+footer{margin-top:6px;padding-top:4px;border-top:1px solid #d8e1dc;text-align:center;font-size:6.5pt;color:#718079}
+@page{size:A4 portrait;margin:10mm}@media print{html,body{width:190mm;height:277mm;margin:0!important;padding:0!important}.actions{display:none!important}.sheet{margin:0!important;page-break-after:avoid;break-after:avoid}}
+</style></head><body><div class="actions"><button id="print">چاپ / ذخیره PDF</button><button id="download">دانلود فایل TXT</button></div>
+<main class="sheet"><div class="fit" id="fit"><header><div><strong>${brand}</strong><small>Shahram Mokhtari Law Academy · mokhtari.ir</small></div><img src="/assets/favicon.svg" alt="لوگوی آکادمی"></header>
+<h1>${escapeHtml(title||'فرم محاسبات حقوقی')}</h1><section class="section"><b class="section-title">۱. مشخصات پرونده و داده‌های پایه محاسبه</b><div class="fields">${fields}</div></section>
+<section class="section"><b class="section-title">۲. شرح محاسبه و نتیجه</b><div class="content">${body}</div></section>
+<div class="sign"><div>نام و نام خانوادگی تنظیم‌کننده:<span></span></div><div>امضاء و تاریخ:<span></span></div></div><footer>${brand} | کاربرگ آموزشی و کاربردی محاسبات حقوقی | mokhtari.ir</footer></div></main>
+<script>const f=document.getElementById('fit'),s=document.querySelector('.sheet');function fit(){f.style.setProperty('--scale','1');f.style.setProperty('--scale',String(Math.min(1,s.clientHeight/Math.max(1,f.scrollHeight))))}document.getElementById('print').onclick=()=>{fit();window.print()};document.getElementById('download').onclick=()=>{const b=new Blob(['\uFEFF'+${JSON.stringify(text)}],{type:'text/plain;charset=utf-8'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=${JSON.stringify(filename+'.txt')};a.click();setTimeout(()=>URL.revokeObjectURL(u),10000)};window.onload=()=>{fit();setTimeout(fit,250)};</script></body></html>`;
+  const popup=window.open('','_blank');
+  if(!popup){const u=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'})),a=document.createElement('a');a.href=u;a.download=filename+'.html';a.click();setTimeout(()=>URL.revokeObjectURL(u),15000);return}
+  popup.document.open();popup.document.write(html);popup.document.close();
 }
-function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
-}
+function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
