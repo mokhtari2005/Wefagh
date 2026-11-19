@@ -3483,3 +3483,11 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
 .pwa-platform-icon { background: #e5d8c3; color: #111; }
 .pwa-platform-icon svg { width: 25px; height: 25px; display: block; }
 .pwa-install-link:focus-visible { outline-color: #111; }
+
+/* Force legible install controls across all footer color themes. */
+.site-footer .pwa-install-title{color:#111!important}
+.site-footer .pwa-install-link{color:#111!important;background:#fffdf8!important;border-color:#8d8170!important}
+.site-footer .pwa-install-link b{color:#111!important}
+.site-footer .pwa-install-link small{color:#51483e!important}
+.site-footer .pwa-platform-icon{background:#e5d8c3!important;color:#111!important}
+.site-footer .pwa-platform-icon svg{display:block!important;width:25px!important;height:25px!important;color:#111!important}
