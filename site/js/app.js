@@ -327,7 +327,7 @@ const ROUTES = {
   '/assistant/history': () => lazy(async () => (await import('./assistant.js?v=20261119-contract-mode')).assistantHistoryPage()),
   '/moot-court/hearing': (params) => lazy(async () => (await import('./moot-ai.js?v=20261119-stop-speaker-1')).courtRoomPage(params)),
   '/moot-court/cases': (params) => lazy(async () => (await import('./moot-cases.js')).casePickerPage(params)),
-  '/calculators': (params) => lazy(async () => (await import('./calc/page.js?v=20261119-attorney-fee-tax-2')).calculatorsPage(params)),
+  '/calculators': (params) => lazy(async () => (await import('./calc/page.js?v=20261119-attorney-page-load-3')).calculatorsPage(params)),
   '/calculators/regional': () => lazy(async () => (await import('./calc/page.js?v=20261119-attorney-fee-tax-2')).calculatorsPage({ tool: 'regional' })),
   '/calculators/court': () => lazy(async () => (await import('./calc/page.js?v=20261119-attorney-fee-tax-2')).calculatorsPage({ tool: 'court' })),
   '/calculators/attorney': () => lazy(async () => (await import('./calc/page.js?v=20261119-attorney-fee-tax-2')).calculatorsPage({ tool: 'attorney' })),
