@@ -45,31 +45,62 @@ footer{margin-top:6px;padding-top:4px;border-top:1px solid #d8e1dc;text-align:ce
 <h1>${escapeHtml(title||'فرم محاسبات حقوقی')}</h1><section class="section"><b class="section-title">۱. مشخصات پرونده و داده‌های پایه محاسبه</b><div class="fields">${fields}</div></section>
 <section class="section"><b class="section-title">۲. شرح محاسبه و نتیجه</b><div class="content">${body}</div></section>
 <div class="sign"><div>نام و نام خانوادگی تنظیم‌کننده:<span></span></div><div>امضاء و تاریخ:<span></span></div></div><footer>${brand} | کاربرگ آموزشی و کاربردی محاسبات حقوقی | mokhtari.ir</footer></div></main>
-<s<script>
+<script>
 const f=document.getElementById('fit'),s=document.querySelector('.sheet'),pdfButton=document.getElementById('pdf');
 function fit(){f.style.setProperty('--scale','1');f.style.setProperty('--scale',String(Math.min(1,s.clientHeight/Math.max(1,f.scrollHeight))))}
 function loadPdfLibrary(){
  if(window.html2pdf)return Promise.resolve();
  if(window.__academyPdfLoader)return window.__academyPdfLoader;
  window.__academyPdfLoader=(async()=>{
-  for(const src of ['https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js','https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js']){
-   try{await new Promise((resolve,reject)=>{const el=document.createElement('script');el.src=src;el.onload=resolve;el.onerror=()=>{el.remove();reject(new Error('PDF library unavailable'))};document.head.append(el)});if(window.html2pdf)return}catch(_){}
+  const sources=[
+   'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js',
+   'https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js'
+  ];
+  for(const src of sources){
+   try{
+    await new Promise((resolve,reject)=>{
+     const el=document.createElement('script');el.src=src;el.onload=resolve;
+     el.onerror=()=>{el.remove();reject(new Error('PDF library unavailable'))};
+     document.head.append(el);
+    });
+    if(window.html2pdf)return;
+   }catch(_){}
   }
-  throw new Error('کتابخانه تولید PDF بارگذاری نشد');
+  throw new Error('PDF library could not be loaded');
  })();
  return window.__academyPdfLoader;
 }
 pdfButton.onclick=async()=>{
- const label=pdfButton.textContent;pdfButton.disabled=true;pdfButton.textContent='در حال تولید فایل PDF…';
+ const label=pdfButton.textContent;
+ pdfButton.disabled=true;pdfButton.textContent='در حال تولید فایل PDF…';
  try{
-  fit();await loadPdfLibrary();
-  await window.html2pdf().set({margin:[10,10,10,10],filename:${JSON.stringify(filename+'.pdf')},image:{type:'jpeg',quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['avoid-all','css','legacy']}}).from(s).save();
- }catch(error){console.error('[academy-report] PDF generation failed',error);pdfButton.textContent='تولید PDF ناموفق بود؛ دوباره تلاش کنید';return}
- finally{pdfButton.disabled=false;if(pdfButton.textContent==='در حال تولید فایل PDF…')pdfButton.textContent=label}
+  fit();
+  await loadPdfLibrary();
+  await window.html2pdf().set({
+   margin:0,
+   filename:${JSON.stringify(filename+'.pdf')},
+   image:{type:'jpeg',quality:.98},
+   html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false,windowWidth:Math.max(s.scrollWidth,s.clientWidth)},
+   jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
+   pagebreak:{mode:['avoid-all','css','legacy']}
+  }).from(s).save();
+ }catch(error){
+  console.error('[academy-report] PDF generation failed',error);
+  pdfButton.textContent='تولید PDF ناموفق بود؛ اتصال اینترنت را بررسی و دوباره تلاش کنید';
+  return;
+ }finally{
+  pdfButton.disabled=false;
+  if(pdfButton.textContent==='در حال تولید فایل PDF…')pdfButton.textContent=label;
+ }
 };
-document.getElementById('download').onclick=()=>{const b=new Blob(['\\uFEFF'+${JSON.stringify(text)}],{type:'text/plain;charset=utf-8'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=${JSON.stringify(filename+'.txt')};a.click();setTimeout(()=>URL.revokeObjectURL(u),10000)};
+document.getElementById('download').onclick=()=>{
+ const b=new Blob(['\\uFEFF'+${JSON.stringify(text)}],{type:'text/plain;charset=utf-8'});
+ const u=URL.createObjectURL(b),a=document.createElement('a');
+ a.href=u;a.download=${JSON.stringify(filename+'.txt')};a.click();
+ setTimeout(()=>URL.revokeObjectURL(u),10000);
+};
 window.onload=()=>{fit();setTimeout(fit,250)};
-</script>body></html>`;
+</script></body></html>`;
   const popup=window.open('','_blank');
   if(!popup){const u=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'})),a=document.createElement('a');a.href=u;a.download=filename+'.html';a.click();setTimeout(()=>URL.revokeObjectURL(u),15000);return}
   popup.document.open();popup.document.write(html);popup.document.close();
