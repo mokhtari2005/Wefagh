@@ -570,9 +570,11 @@ function attorneyTool(id) {
       return showNotice('برای این نوع دعوا، عنوان و مرحله رسیدگی و حداقل تعرفه باید جداگانه احراز شود؛ در حال حاضر از اعلام مبلغ قطعی تمبر خودداری می‌شود.');
     }
     const stageFees = r.stageFees || { first: r.feeTotal, appeal: 0 };
-    const agreedStages = stageFees.appeal > 0
+    const agreedStages = stageFees.first > 0 && stageFees.appeal > 0
       ? { first: Math.round(agreedAmount * 0.6), appeal: agreedAmount - Math.round(agreedAmount * 0.6) }
-      : { first: agreedAmount, appeal: 0 };
+      : stageFees.appeal > 0
+        ? { first: 0, appeal: agreedAmount }
+        : { first: agreedAmount, appeal: 0 };
     const firstStampBase = Math.max(stageFees.first, agreedStages.first);
     const appealStampBase = Math.max(stageFees.appeal, agreedStages.appeal);
     const firstStamp = Math.round(firstStampBase * 0.05);
