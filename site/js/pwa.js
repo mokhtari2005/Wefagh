@@ -34,23 +34,47 @@ function showIosInstallGuide() {
   if (!dialog.open) dialog.showModal();
 }
 function addInstallControl() {
-  if (isStandalone() || document.getElementById('pwa-install')) return;
-  const header = document.querySelector('.header-inner');
-  if (!header || (!deferredInstall && !isIosSafari())) return;
-  const button = document.createElement('button');
-  button.type = 'button'; button.id = 'pwa-install'; button.className = 'pwa-install-button';
-  button.textContent = 'نصب اپلیکیشن';
-  button.setAttribute('aria-label', 'نصب آکادمی وکالت روی دستگاه');
-  button.addEventListener('click', async () => {
-    if (!deferredInstall) return showIosInstallGuide();
+  const androidButton = document.getElementById('pwa-install-android');
+  const iosButton = document.getElementById('pwa-install-ios');
+  if (!androidButton || !iosButton) return;
+  if (isStandalone()) {
+    androidButton.hidden = true;
+    iosButton.hidden = true;
+    return;
+  }
+  androidButton.addEventListener('click', async () => {
+    if (!deferredInstall) {
+      showAndroidInstallGuide();
+      return;
+    }
     const promptEvent = deferredInstall;
     deferredInstall = null;
     await promptEvent.prompt();
-    await promptEvent.userChoice.catch(() => null);
-    button.remove();
+    const choice = await promptEvent.userChoice.catch(() => null);
+    if (choice?.outcome === 'accepted') androidButton.textContent = 'در حال نصب…';
   });
-  const account = header.querySelector('.avatar-link');
-  if (account) header.insertBefore(button, account); else header.append(button);
+  iosButton.addEventListener('click', showIosInstallGuide);
+}
+function showAndroidInstallGuide() {
+  let dialog = document.getElementById('pwa-android-install-guide');
+  if (!dialog) {
+    dialog = document.createElement('dialog');
+    dialog.id = 'pwa-android-install-guide';
+    dialog.className = 'pwa-install-dialog';
+    const title = document.createElement('h2');
+    title.textContent = 'نصب آکادمی روی اندروید';
+    const steps = document.createElement('ol');
+    ['در مرورگر Chrome، منوی سه‌نقطه را باز کنید.', 'گزینهٔ «Install app» یا «Add to Home screen» را انتخاب کنید.', 'نصب را تأیید کنید تا آیکون آکادمی به گوشی اضافه شود.'].forEach((text) => {
+      const li = document.createElement('li'); li.textContent = text; steps.append(li);
+    });
+    const close = document.createElement('button');
+    close.type = 'button'; close.className = 'pwa-guide-close'; close.textContent = 'متوجه شدم';
+    close.addEventListener('click', () => dialog.close());
+    dialog.append(title, steps, close);
+    dialog.addEventListener('click', (event) => { if (event.target === dialog) dialog.close(); });
+    document.body.append(dialog);
+  }
+  if (!dialog.open) dialog.showModal();
 }
 window.addEventListener(INSTALL_EVENT, (event) => {
   event.preventDefault(); deferredInstall = event; addInstallControl();
