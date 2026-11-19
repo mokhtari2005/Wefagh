@@ -3779,3 +3779,28 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
 .academy-pdf-total.secondary{border-width:1px;background:#fff}.academy-pdf-total.secondary strong{font-size:10pt}
 @page{size:A4 portrait;margin:10mm}
 @page{size:A4 portrait;margin:0}@media print{.academy-pdf-body{width:210mm;margin:0;padding:0;background:#fff}.academy-pdf-sheet{margin:0;border:0}}
+
+/* Calculator PDF reports must remain visible in print output. Earlier certificate
+   print rules hide the document globally; explicitly reveal this report family. */
+@media print {
+  body.academy-pdf-body,
+  body.academy-pdf-body .academy-pdf-sheet,
+  body.academy-pdf-body .academy-pdf-sheet * {
+    visibility: visible !important;
+  }
+  body.academy-pdf-body {
+    width: 210mm !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+  body.academy-pdf-body .academy-pdf-sheet {
+    width: 210mm !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    break-after: auto;
+  }
+}
