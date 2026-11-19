@@ -117,10 +117,10 @@ export function renderFormHtml(model, { dateText = '', cssHref = '/css/styles.cs
   const total = model.total ? `<div class="academy-pdf-total"><span>${escapeHtml(model.total.label)}</span><strong>${escapeHtml(model.total.value)}</strong></div>` : '';
   return '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' +
     escapeHtml(model.title || 'کاربرگ محاسباتی') + '</title><link rel="stylesheet" href="' + escapeHtml(cssHref) + '"></head><body class="academy-pdf-body">' +
-    '<main class="academy-pdf-sheet"><header class="academy-pdf-header"><div><strong>' + BRAND_FA + '</strong><small>' + BRAND_SUB + ' · ' + BRAND_EN + ' · mokhtari.ir</small></div>' +
+    '<main class="academy-pdf-sheet"><div class="academy-pdf-fit-content"><header class="academy-pdf-header"><div><strong>' + BRAND_FA + '</strong><small>' + BRAND_SUB + ' · ' + BRAND_EN + ' · mokhtari.ir</small></div>' +
     '<img src="' + escapeHtml(logoHref) + '" alt="لوگوی آکادمی"></header><h1>' + escapeHtml(model.title || 'فرم محاسبات حقوقی') + '</h1>' + meta + sections + extra + total +
     '<div class="academy-pdf-sign"><div>نام و نام خانوادگی تنظیم‌کننده:<span></span></div><div>امضاء و تاریخ:<span></span></div></div>' +
-    '<footer class="academy-pdf-footer">' + BRAND_FA + ' | کاربرگ آموزشی و کاربردی محاسبات حقوقی | mokhtari.ir</footer></main></body></html>';
+    '<footer class="academy-pdf-footer">' + BRAND_FA + ' | کاربرگ آموزشی و کاربردی محاسبات حقوقی | mokhtari.ir</footer></div></main></body></html>';
 }
 
 /** متن ساده برای دریافت txt. */
