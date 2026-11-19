@@ -136,6 +136,9 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
   const submitBtn = h('button', { class: 'btn', type: 'button', text: 'ارسال پاسخ' });
   const audioStatus = h('p', { class: 'court-audio-status', role: 'status', 'aria-live': 'polite', text: 'آماده' });
   const nextBtn = h('button', { class: 'btn court-next', type: 'button', text: 'ادامه رسیدگی', disabled: '' });
+  const stopPlaybackBtn = h('button', { class: 'court-stop-playback', type: 'button', 'aria-label': 'توقف صدا و مکث تمرین', title: 'توقف صدا و مکث تمرین' }, [icon('square', { size: 13 }), document.createTextNode(' توقف صدا')]);
+  stopPlaybackBtn.hidden = !speechOn;
+  let speechStopRequested = false;
   // ادامهٔ خودکار بخشی از جریان رسیدگی است؛ کنترل‌های فنی صدا در نوار اعلان نمایش داده نمی‌شوند.
   const autoContinue = { checked: true };
   const micSupported = Boolean(navigator.mediaDevices?.getUserMedia) && typeof MediaRecorder !== 'undefined';
@@ -275,8 +278,12 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
         audioStatus.textContent = `تولید صدا با مشکل مواجه شد (${errorText(res.error)}). جلسه به‌صورت متنی ادامه می‌یابد.`;
         return false;
       }
+      if (speechStopRequested) {
+        audioStatus.textContent = 'پخش صدا متوقف شد؛ تمرین در همین مرحله مکث است.';
+        return false;
+      }
       if (item) item.blob = res.blob;
-        activeSpeaker = speaker;
+      activeSpeaker = speaker;
       renderSeats();
       const played = await player.play(res.blob);
       if (item) item.audioPlaying = played.ok;
@@ -359,7 +366,7 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
   }
 
   function scheduleAutoAdvance() {
-    if (!autoContinue.checked || finished || userTurn()) return;
+    if (speechStopRequested || !autoContinue.checked || finished || userTurn()) return;
     if (autoAdvanceTimer) window.clearTimeout(autoAdvanceTimer);
     autoAdvanceTimer = window.setTimeout(() => {
       autoAdvanceTimer = null;
@@ -376,6 +383,7 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
 
   function advance() {
     clearAutoAdvance();
+    speechStopRequested = false;
     index += 1;
     runCurrent();
   }
@@ -446,6 +454,17 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
   }
 
   // ---- رویدادها ----
+  stopPlaybackBtn.addEventListener('click', () => {
+    speechStopRequested = true;
+    clearAutoAdvance();
+    player.stop();
+    activeSpeaker = null;
+    renderSeats();
+    setBusy(false);
+    nextBtn.disabled = finished || userTurn();
+    audioStatus.textContent = 'صدای گوینده قطع شد و تمرین مکث کرد؛ برای ادامه، «ادامه رسیدگی» را بزنید.';
+  });
+
   nextBtn.addEventListener('click', () => {
     clearAutoAdvance();
     if (nextBtn.textContent === 'تلاش دوباره') { nextBtn.textContent = 'ادامه رسیدگی'; if (speechOn) player.unlock(); runCurrent(); return; }
@@ -600,6 +619,7 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
     ]),
     h('footer', { class: 'court-audio', 'aria-label': 'اعلان‌های جلسه و ادامه رسیدگی' }, [
       h('div', { class: 'court-audio-info' }, [audioStatus]),
+      stopPlaybackBtn,
       nextBtn,
     ]),
   ]);
