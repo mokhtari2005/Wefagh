@@ -3409,3 +3409,51 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
 .pwa-push-onboarding button:disabled{opacity:.65;cursor:wait}
 .pwa-push-onboarding .pwa-push-later{background:transparent;color:var(--muted);border:1px solid var(--line,var(--border))}
 .pwa-push-onboarding small{line-height:1.7;color:var(--muted)}
+
+
+/* Theme-aware image treatment: keep decorative photography aligned with the active palette. */
+:root {
+  --theme-image-filter: none;
+  --theme-image-wash: rgba(19, 78, 68, .24);
+}
+:root[data-theme="navy"] {
+  --theme-image-filter: sepia(.22) saturate(1.22) hue-rotate(175deg);
+  --theme-image-wash: rgba(28, 50, 87, .28);
+}
+:root[data-theme="pencil"] {
+  --theme-image-filter: sepia(.28) saturate(1.35) hue-rotate(305deg);
+  --theme-image-wash: rgba(114, 27, 43, .27);
+}
+.hero-bg,
+.cta-bg {
+  filter: var(--theme-image-filter);
+  transition: filter .25s ease;
+}
+.hero-banner::after {
+  background: linear-gradient(90deg,
+    rgba(var(--deep-rgb), .96) 0%,
+    rgba(var(--deep-rgb), .78) 55%,
+    rgba(var(--deep-rgb), .35) 100%);
+  transition: background .25s ease;
+}
+.quote-image {
+  background-image:
+    linear-gradient(180deg, rgba(var(--deep-rgb), .28), rgba(var(--deep-rgb), .92)),
+    url('../assets/images/legal-hero.webp');
+  transition: background-image .25s ease;
+}
+.dashboard-hero {
+  background-image:
+    linear-gradient(90deg, rgba(var(--deep-rgb), .08) 0%, rgba(var(--deep-rgb), .34) 36%, rgba(var(--deep-rgb), .97) 68%),
+    url('../assets/images/legal-hero.webp');
+}
+@media (max-width: 640px) {
+  .dashboard-hero {
+    background-image:
+      linear-gradient(0deg, rgba(var(--deep-rgb), .98) 0%, rgba(var(--deep-rgb), .8) 48%, rgba(var(--deep-rgb), .08) 100%),
+      url('../assets/images/legal-hero.webp');
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-bg, .cta-bg, .hero-banner::after, .quote-image { transition: none; }
+}
