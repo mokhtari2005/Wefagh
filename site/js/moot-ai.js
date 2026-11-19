@@ -366,7 +366,7 @@ export function hearingSession({ caseId, caseDetail, side, difficulty, speechOn,
   }
 
   function scheduleAutoAdvance() {
-    if (!autoContinue.checked || finished || userTurn()) return;
+    if (speechStopRequested || !autoContinue.checked || finished || userTurn()) return;
     if (autoAdvanceTimer) window.clearTimeout(autoAdvanceTimer);
     autoAdvanceTimer = window.setTimeout(() => {
       autoAdvanceTimer = null;
