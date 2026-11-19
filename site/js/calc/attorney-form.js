@@ -140,7 +140,7 @@ export function computeAttorneyForm(input) {
       if (!base.ok) return fail(base.error, 'حق‌الوکالهٔ مرحلهٔ نخستین محاسبه نشد.');
       stageBase = base.fee * 0.6;
       stageLabel = 'حق‌الوکالهٔ مرحلهٔ نخستین (ماده ۹ بند الف تا ث)';
-      lines.push({ label: stageLabel, amount: base.fee });
+      lines.push({ label: stageLabel, amount: stageBase });
     }
     const share = run(resultRuleId, { amount: stageBase });
     if (!share.ok) return fail(share.error, 'سهم ختم دعوا محاسبه نشد.');
