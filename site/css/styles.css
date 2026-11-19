@@ -3552,3 +3552,135 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
  .dashboard-columns{min-height:160px}.dashboard-column-item{grid-template-rows:auto 100px auto}.dashboard-column-track{height:100px}
  .dashboard-page .dashboard-section{padding:.85rem;border-radius:15px}
 }
+
+
+/* بازطراحی فضای داخلی اتاق دادگاه؛ بخش مذاکرات و کنترل‌های پایین بدون تغییر می‌مانند. */
+.court-seats {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: .65rem;
+  padding: .75rem clamp(.55rem, 2vw, 1.1rem) .65rem;
+  overflow: hidden;
+  border: 1px solid #b9a987;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgb(31 55 51 / .96) 0 38%, transparent 38%),
+    linear-gradient(180deg, #e7dcc7, #d8c8a9);
+  box-shadow: inset 0 0 0 5px rgb(255 255 255 / .16), 0 8px 22px rgb(35 31 24 / .12);
+}
+.court-gallery {
+  display: grid;
+  gap: .22rem;
+  justify-items: center;
+  padding: .15rem .4rem .55rem;
+  border-bottom: 1px solid rgb(221 198 145 / .45);
+}
+.court-gallery-label {
+  color: #ead9b2;
+  font-size: .65rem;
+  font-weight: 750;
+  letter-spacing: .04em;
+}
+.court-gallery-row {
+  display: flex;
+  justify-content: center;
+  gap: clamp(.55rem, 3vw, 1.5rem);
+  width: 100%;
+}
+.court-spectator {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 19px;
+  color: #d8c49a;
+  opacity: .88;
+  border-radius: 9px 9px 3px 3px;
+  background: linear-gradient(180deg, #61736b, #344d46);
+  box-shadow: 0 2px 0 #b89a5a;
+}
+.court-spectator svg { width: 13px; height: 13px; }
+.court-judge-bench {
+  display: grid;
+  justify-items: center;
+  gap: .08rem;
+  padding: .05rem 0 .25rem;
+}
+.court-judge-pediment {
+  width: 76px;
+  height: 30px;
+  background: linear-gradient(180deg, #c9ad70, #8b7142);
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / .2));
+}
+.court-seat-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: .45rem;
+  width: 100%;
+}
+.court-seat {
+  grid-template-columns: 24px minmax(0, 1fr);
+  grid-template-areas: "avatar role" "avatar name" "avatar pill";
+  justify-items: start;
+  align-content: center;
+  column-gap: .42rem;
+  row-gap: .02rem;
+  min-height: 66px;
+  padding: .38rem .45rem;
+  border: 1px solid #bcae91;
+  border-radius: 10px;
+  background: linear-gradient(145deg, #fffdf7, #eee5d3);
+  text-align: start;
+  box-shadow: 0 3px 0 rgb(102 82 48 / .18);
+}
+.court-seat .court-avatar { grid-area: avatar; width: 23px; height: 23px; font-size: .7rem; }
+.court-seat .court-avatar svg { width: 15px; height: 15px; }
+.court-seat strong { grid-area: role; font-size: .72rem; line-height: 1.35; }
+.court-seat small { grid-area: name; font-size: .62rem; line-height: 1.3; }
+.court-seat .court-pill { grid-area: pill; justify-self: start; margin-top: .12rem; font-size: .58rem; padding: .06rem .3rem; }
+.court-seat-judge {
+  display: grid;
+  grid-template-columns: 28px auto;
+  grid-template-areas: "avatar role" "avatar name" "avatar pill";
+  width: min(190px, 70%);
+  min-height: 58px;
+  padding: .35rem .65rem;
+  border: 1px solid #9c804b;
+  background: linear-gradient(145deg, #fff9e9, #e6d5ad);
+  box-shadow: 0 4px 0 #9a7d4b, 0 7px 13px rgb(31 45 40 / .18);
+}
+.court-seat-judge .court-avatar { width: 27px; height: 27px; }
+.court-seat.speaking { outline: 2px solid var(--gold); outline-offset: 1px; }
+.court-seat.current-turn .court-pill { background: var(--deep); color: var(--gold); }
+.court-turn-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: .3rem .45rem;
+  min-width: 0;
+  padding: .48rem .35rem .05rem;
+  border-top: 1px solid rgb(116 94 59 / .28);
+  color: #344b43;
+  font-size: .7rem;
+  line-height: 1.6;
+}
+.court-turn-caption { color: #4d4535; font-weight: 850; }
+.court-turn-name { font-weight: 650; }
+.court-turn-name.current { color: #7b5420; font-weight: 900; }
+.court-turn-separator { color: #8c754b; font-size: .72rem; }
+@media (max-width: 640px) {
+  .court-seats { gap: .48rem; padding: .55rem .35rem .5rem; border-radius: 14px; }
+  .court-gallery-row { gap: clamp(.38rem, 2.4vw, .8rem); }
+  .court-spectator { width: 21px; height: 17px; }
+  .court-seat-row { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .25rem; }
+  .court-seat { grid-template-columns: 20px minmax(0, 1fr); column-gap: .25rem; padding: .32rem .25rem; min-height: 62px; }
+  .court-seat strong { font-size: .63rem; }
+  .court-seat small { font-size: .56rem; }
+  .court-seat .court-avatar { width: 19px; height: 19px; }
+  .court-seat .court-pill { font-size: .52rem; }
+  .court-seat-judge { width: min(176px, 72%); grid-template-columns: 25px auto; padding: .3rem .5rem; }
+  .court-turn-inline { gap: .2rem .35rem; font-size: .64rem; }
+}
