@@ -63,11 +63,11 @@ pdfButton.onclick=async()=>{
  const label=pdfButton.textContent;pdfButton.disabled=true;pdfButton.textContent='در حال تولید فایل PDF…';
  try{
   fit();await loadPdfLibrary();
-  await window.html2pdf().set({margin:[10,10,10,10],filename:"academy-report.pdf",image:{type:'jpeg',quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['avoid-all','css','legacy']}}).from(s).save();
+  await window.html2pdf().set({margin:[10,10,10,10],filename:${JSON.stringify(filename+'.pdf')},image:{type:'jpeg',quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['avoid-all','css','legacy']}}).from(s).save();
  }catch(error){console.error('[academy-report] PDF generation failed',error);pdfButton.textContent='تولید PDF ناموفق بود؛ دوباره تلاش کنید';return}
  finally{pdfButton.disabled=false;if(pdfButton.textContent==='در حال تولید فایل PDF…')pdfButton.textContent=label}
 };
-document.getElementById('download').onclick=()=>{const b=new Blob(['\\uFEFF'+""],{type:'text/plain;charset=utf-8'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download="academy-report.txt";a.click();setTimeout(()=>URL.revokeObjectURL(u),10000)};
+document.getElementById('download').onclick=()=>{const b=new Blob(['\\uFEFF'+${JSON.stringify(text)}],{type:'text/plain;charset=utf-8'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=${JSON.stringify(filename+'.txt')};a.click();setTimeout(()=>URL.revokeObjectURL(u),10000)};
 window.onload=()=>{fit();setTimeout(fit,250)};
 </script>body></html>`;
   const popup=window.open('','_blank');
