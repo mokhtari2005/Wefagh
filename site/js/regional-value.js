@@ -483,7 +483,7 @@ export function regionalValueTool() {
       h('footer',{class:'regional-report-footer',text:'آکادمی وکالت شهرام مختاری | mokhtari.ir — گزارش تولیدشده از سامانه محاسبات ارزش معاملاتی'}),
       h('div',{class:'regional-report-actions'},[
         h('button',{class:'btn secondary',type:'button',text:'چاپ / ذخیره PDF'}),
-        h('button',{class:'btn secondary',type:'button',text:'دانلود فایل گزارش'})
+        h('button',{class:'btn secondary',type:'button',text:'دانلود فایل متنی TXT'})
       ])
     ]);
     const actions = result.querySelector('.regional-report-actions');
