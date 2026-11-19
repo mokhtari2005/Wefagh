@@ -18,6 +18,6 @@ test('calculator PDF sheet and its contents are explicitly visible in print mode
 });
 
 test('calculator report renderer targets the academy PDF sheet', () => {
-  assert.match(report, /querySelector\\('\.academy-pdf-sheet'\\)/);
+  assert.match(report, /querySelector\\('\\.academy-pdf-sheet'\\)/);
   assert.match(report, /html2pdf\\(\\)\\.set/);
 });
