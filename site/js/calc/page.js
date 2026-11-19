@@ -627,7 +627,7 @@ function toolToolbar(section) {
     const rows = Array.from(section.querySelectorAll('form input, form select, form textarea'))
       .filter((control) => {
         if (['submit', 'button', 'reset', 'hidden'].includes(control.type)) return false;
-        if (control.closest('[hidden]') || control.disabled) return false;
+        if (control.closest('[hidden]') || control.closest('details:not([open])') || control.disabled) return false;
         // For radio groups, report the chosen option once; unchecked checkboxes
         // are meaningful inputs and must be printed explicitly as "خیر".
         if (control.type === 'radio' && !control.checked) return false;
