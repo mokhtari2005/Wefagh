@@ -35,7 +35,7 @@ export const ACADEMY_TOOLS = [
   { icon: 'briefcase', title: 'حق‌الوکاله قانونی', href: '#/calculators/attorney' },
   { icon: 'calculator', title: 'خسارت تأخیر تأدیه', href: '#/calculators/delay' },
   { icon: 'calendar', title: 'تقویم مواعد', href: '#/deadlines' },
-  { icon: 'news', title: 'مطالب و پادکست', href: '#/media' },
+  { icon: 'news', title: 'رسانه و اندیشه', href: '#/media' },
   { icon: 'chart', title: 'داشبورد من', href: '#/dashboard' },
   { icon: 'user', title: 'حساب کاربری', href: '#/account' },
 ];
