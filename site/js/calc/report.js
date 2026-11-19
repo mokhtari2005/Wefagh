@@ -40,12 +40,36 @@ h1{margin:5px 0 8px;text-align:center;font-size:12pt;color:#203c55}
 .sign{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:8px;padding-top:6px;border-top:1px solid #cbd4d8;font-size:7.5pt}.sign span{display:block;padding-top:12px;border-bottom:1px dotted #9aa8ad}
 footer{margin-top:6px;padding-top:4px;border-top:1px solid #d8e1dc;text-align:center;font-size:6.5pt;color:#718079}
 @page{size:A4 portrait;margin:10mm}@media print{html,body{width:190mm;height:277mm;margin:0!important;padding:0!important}.actions{display:none!important}.sheet{margin:0!important;page-break-after:avoid;break-after:avoid}}
-</style></head><body><div class="actions"><button id="print">چاپ / ذخیره PDF</button><button id="download">دانلود فایل TXT</button></div>
+</style></head><body><div class="actions"><button id="pdf">دانلود فایل PDF</button><button id="download">دانلود فایل TXT</button></div>
 <main class="sheet"><div class="fit" id="fit"><header><div><strong>${brand}</strong><small>Shahram Mokhtari Law Academy · mokhtari.ir</small></div><img src="/assets/favicon.svg" alt="لوگوی آکادمی"></header>
 <h1>${escapeHtml(title||'فرم محاسبات حقوقی')}</h1><section class="section"><b class="section-title">۱. مشخصات پرونده و داده‌های پایه محاسبه</b><div class="fields">${fields}</div></section>
 <section class="section"><b class="section-title">۲. شرح محاسبه و نتیجه</b><div class="content">${body}</div></section>
 <div class="sign"><div>نام و نام خانوادگی تنظیم‌کننده:<span></span></div><div>امضاء و تاریخ:<span></span></div></div><footer>${brand} | کاربرگ آموزشی و کاربردی محاسبات حقوقی | mokhtari.ir</footer></div></main>
-<script>const f=document.getElementById('fit'),s=document.querySelector('.sheet');function fit(){f.style.setProperty('--scale','1');f.style.setProperty('--scale',String(Math.min(1,s.clientHeight/Math.max(1,f.scrollHeight))))}document.getElementById('print').onclick=()=>{fit();window.print()};document.getElementById('download').onclick=()=>{const b=new Blob(['\uFEFF'+${JSON.stringify(text)}],{type:'text/plain;charset=utf-8'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=${JSON.stringify(filename+'.txt')};a.click();setTimeout(()=>URL.revokeObjectURL(u),10000)};window.onload=()=>{fit();setTimeout(fit,250)};</script></body></html>`;
+<s<script>
+const f=document.getElementById('fit'),s=document.querySelector('.sheet'),pdfButton=document.getElementById('pdf');
+function fit(){f.style.setProperty('--scale','1');f.style.setProperty('--scale',String(Math.min(1,s.clientHeight/Math.max(1,f.scrollHeight))))}
+function loadPdfLibrary(){
+ if(window.html2pdf)return Promise.resolve();
+ if(window.__academyPdfLoader)return window.__academyPdfLoader;
+ window.__academyPdfLoader=(async()=>{
+  for(const src of ['https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js','https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js']){
+   try{await new Promise((resolve,reject)=>{const el=document.createElement('script');el.src=src;el.onload=resolve;el.onerror=()=>{el.remove();reject(new Error('PDF library unavailable'))};document.head.append(el)});if(window.html2pdf)return}catch(_){}
+  }
+  throw new Error('کتابخانه تولید PDF بارگذاری نشد');
+ })();
+ return window.__academyPdfLoader;
+}
+pdfButton.onclick=async()=>{
+ const label=pdfButton.textContent;pdfButton.disabled=true;pdfButton.textContent='در حال تولید فایل PDF…';
+ try{
+  fit();await loadPdfLibrary();
+  await window.html2pdf().set({margin:[10,10,10,10],filename:"academy-report.pdf",image:{type:'jpeg',quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['avoid-all','css','legacy']}}).from(s).save();
+ }catch(error){console.error('[academy-report] PDF generation failed',error);pdfButton.textContent='تولید PDF ناموفق بود؛ دوباره تلاش کنید';return}
+ finally{pdfButton.disabled=false;if(pdfButton.textContent==='در حال تولید فایل PDF…')pdfButton.textContent=label}
+};
+document.getElementById('download').onclick=()=>{const b=new Blob(['\\uFEFF'+""],{type:'text/plain;charset=utf-8'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download="academy-report.txt";a.click();setTimeout(()=>URL.revokeObjectURL(u),10000)};
+window.onload=()=>{fit();setTimeout(fit,250)};
+</script>body></html>`;
   const popup=window.open('','_blank');
   if(!popup){const u=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'})),a=document.createElement('a');a.href=u;a.download=filename+'.html';a.click();setTimeout(()=>URL.revokeObjectURL(u),15000);return}
   popup.document.open();popup.document.write(html);popup.document.close();
