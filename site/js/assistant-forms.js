@@ -215,7 +215,7 @@ export function assistantDocumentPage(params={}) {
    if(!form.reportValidity())return;
    const data=new FormData(form);
    let message='';
-   if(conversation.length===0){
+   if(conversation.length===0||currentQuestions.length===0){
     const parts=[];
     if(contract){const selected=CONTRACT_TYPES.find(x=>x[0]===data.get('contractType'));parts.push('نوع قرارداد: '+(selected?.[1]||''));}
     for(const [key,value] of data.entries()){
@@ -233,7 +233,6 @@ export function assistantDocumentPage(params={}) {
     });
     if(!answers.length){status.textContent='دست‌کم یک پاسخ تکمیلی وارد کنید.';return;}
     message='پاسخ‌های تکمیلی کاربر برای ادامه و اصلاح همان پیش‌نویس:\n\n'+answers.join('\n\n');
-    conversation.push({role:'ai',text:lastAssistantTurn});
    }
    submit.disabled=true;submit.textContent='در حال تهیه و تکمیل پیش‌نویس…';
    status.textContent=conversation.length?'پاسخ‌ها دریافت شد؛ پیش‌نویس قبلی و اطلاعات تازه در حال ترکیب است.':'اطلاعات دریافت شد؛ پیش‌نویس اولیه در حال تهیه است.';
