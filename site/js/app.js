@@ -146,7 +146,7 @@ function pageHome() {
   ]);
 
   const quick = lazy(async () => {
-    const { ACADEMY_TOOLS } = await import('./academy.js?v=20261119-media-nav-title-1?v=20261119-community-title-quick-2');
+    const { ACADEMY_TOOLS } = await import('./academy.js?v=20261119-media-nav-title-2');
     return h('section', { class: 'quick-section', 'aria-label': 'ابزارهای آکادمی' }, [
       h('div', { class: 'quick-grid' }, ACADEMY_TOOLS.map((item) =>
         h('a', { class: 'quick-tile', href: item.href }, [h('span', { class: 'quick-icon', 'aria-hidden': 'true' }, [icon(item.icon, { size: 24 })]), h('span', { text: item.href === '#/community' ? 'تالار گفتگو' : item.title })]))),
@@ -310,10 +310,10 @@ const ROUTES = {
   '/contact': () => pageContact(),
   '/account': (params) => pageAccount(params),
   '/verify': (params) => pageVerify(params),
-  '/academy': () => lazy(async () => (await import('./academy.js?v=20261119-media-nav-title-1')).academyList()),
-  '/academy/courses': () => lazy(async () => (await import('./academy.js?v=20261119-media-nav-title-1')).academyCoursesPage()),
-  '/courses': () => lazy(async () => (await import('./academy.js?v=20261119-media-nav-title-1')).academyCoursesPage()),
-  '/academy/exams': () => lazy(async () => (await import('./academy.js?v=20261119-media-nav-title-1')).academyExamsPage()),
+  '/academy': () => lazy(async () => (await import('./academy.js?v=20261119-media-nav-title-2')).academyList()),
+  '/academy/courses': () => lazy(async () => (await import('./academy.js?v=20261119-media-nav-title-2')).academyCoursesPage()),
+  '/courses': () => lazy(async () => (await import('./academy.js?v=20261119-media-nav-title-2')).academyCoursesPage()),
+  '/academy/exams': () => lazy(async () => (await import('./academy.js?v=20261119-media-nav-title-2')).academyExamsPage()),
   '/academy/ekhtebar': () => lazy(async () => (await import('./ekhtebar.js')).ekhtebarPage()),
   '/dashboard': () => lazy(async () => (await import('./dashboard.js')).dashboardPage()),
   '/admin': () => lazy(async () => (await import('./admin.js')).adminPage()),
@@ -353,6 +353,7 @@ function mobileQuickAccess(path) {
     { icon: 'calendar', title: 'تقویم مواعد', href: '#/deadlines' },
     { icon: 'folder', title: 'پرونده‌ها', href: '#/cases' },
     { icon: 'mic', title: 'تایپ صوتی', href: '#/voice-typing' },
+    { icon: 'newspaper', title: 'رسانه و اندیشه', href: '#/media' },
   ];
   const items = path.startsWith('/calculators/') || path === '/calculators'
     ? calculatorLinks
@@ -385,7 +386,7 @@ function render() {
   else if (path.startsWith('/assistant/doc/')) content = lazy(async () => (await import('./assistant-forms.js?v=20261119-forms-1')).assistantDocumentPage({ type: decodeURIComponent(path.slice('/assistant/doc/'.length)) }));
   else if (path.startsWith('/cases/')) content = lazy(async () => (await import('./cases.js')).casesPage(decodeURIComponent(path.slice('/cases/'.length))));
   else if (path.startsWith('/media/')) content = lazy(async () => (await import('./media.js')).articlePage(decodeURIComponent(path.slice('/media/'.length))));
-  else if (path.startsWith('/academy/')) content = lazy(async () => (await import('./academy.js?v=20261119-media-nav-title-1')).academyCourse(decodeURIComponent(path.slice('/academy/'.length))));
+  else if (path.startsWith('/academy/')) content = lazy(async () => (await import('./academy.js?v=20261119-media-nav-title-2')).academyCourse(decodeURIComponent(path.slice('/academy/'.length))));
   else if (planned) content = pagePlanned(planned);
   else content = pageNotFound();
 
