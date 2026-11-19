@@ -146,7 +146,7 @@ function pageHome() {
   ]);
 
   const quick = lazy(async () => {
-    const { ACADEMY_TOOLS } = await import('./academy.js?v=20261119-community-title-quick-2');
+    const { ACADEMY_TOOLS } = await import('./academy.js?v=20261119-media-nav-title-1?v=20261119-community-title-quick-2');
     return h('section', { class: 'quick-section', 'aria-label': 'ابزارهای آکادمی' }, [
       h('div', { class: 'quick-grid' }, ACADEMY_TOOLS.map((item) =>
         h('a', { class: 'quick-tile', href: item.href }, [h('span', { class: 'quick-icon', 'aria-hidden': 'true' }, [icon(item.icon, { size: 24 })]), h('span', { text: item.href === '#/community' ? 'تالار گفتگو' : item.title })]))),
@@ -158,7 +158,7 @@ function pageHome() {
       h('div', { class: 'quote-image' }, [h('p', { text: 'وکیل موفق، فقط به قانون مسلط نیست؛ بلکه می‌داند چگونه از آن استفاده کند.' })]),
       h('h2', { class: 'block-title', text: 'به‌روز بمانید' }),
       h('p', { class: 'muted', text: 'مقاله‌ها، پادکست‌ها و نکته‌های کاربردی برای رشد حرفه‌ای.' }),
-      h('a', { class: 'btn-pill', href: '#/media', text: 'مطالعهٔ مطالب آکادمی' }),
+      h('a', { class: 'btn-pill', href: '#/media', text: 'رسانه و اندیشه' }),
     ]),
   ]);
 
@@ -310,10 +310,10 @@ const ROUTES = {
   '/contact': () => pageContact(),
   '/account': (params) => pageAccount(params),
   '/verify': (params) => pageVerify(params),
-  '/academy': () => lazy(async () => (await import('./academy.js')).academyList()),
-  '/academy/courses': () => lazy(async () => (await import('./academy.js')).academyCoursesPage()),
-  '/courses': () => lazy(async () => (await import('./academy.js')).academyCoursesPage()),
-  '/academy/exams': () => lazy(async () => (await import('./academy.js')).academyExamsPage()),
+  '/academy': () => lazy(async () => (await import('./academy.js?v=20261119-media-nav-title-1')).academyList()),
+  '/academy/courses': () => lazy(async () => (await import('./academy.js?v=20261119-media-nav-title-1')).academyCoursesPage()),
+  '/courses': () => lazy(async () => (await import('./academy.js?v=20261119-media-nav-title-1')).academyCoursesPage()),
+  '/academy/exams': () => lazy(async () => (await import('./academy.js?v=20261119-media-nav-title-1')).academyExamsPage()),
   '/academy/ekhtebar': () => lazy(async () => (await import('./ekhtebar.js')).ekhtebarPage()),
   '/dashboard': () => lazy(async () => (await import('./dashboard.js')).dashboardPage()),
   '/admin': () => lazy(async () => (await import('./admin.js')).adminPage()),
@@ -385,7 +385,7 @@ function render() {
   else if (path.startsWith('/assistant/doc/')) content = lazy(async () => (await import('./assistant-forms.js?v=20261119-forms-1')).assistantDocumentPage({ type: decodeURIComponent(path.slice('/assistant/doc/'.length)) }));
   else if (path.startsWith('/cases/')) content = lazy(async () => (await import('./cases.js')).casesPage(decodeURIComponent(path.slice('/cases/'.length))));
   else if (path.startsWith('/media/')) content = lazy(async () => (await import('./media.js')).articlePage(decodeURIComponent(path.slice('/media/'.length))));
-  else if (path.startsWith('/academy/')) content = lazy(async () => (await import('./academy.js')).academyCourse(decodeURIComponent(path.slice('/academy/'.length))));
+  else if (path.startsWith('/academy/')) content = lazy(async () => (await import('./academy.js?v=20261119-media-nav-title-1')).academyCourse(decodeURIComponent(path.slice('/academy/'.length))));
   else if (planned) content = pagePlanned(planned);
   else content = pageNotFound();
 
@@ -426,7 +426,7 @@ searchForm?.addEventListener('submit', (event) => {
     ...NAV.map((item) => ({ title: item.title, path: item.path })),
     { title: 'موت‌کورت و تمرین دادرسی', path: '/moot-court' },
     { title: 'تمرین دادرسی', path: '/moot-court' },
-    { title: 'مقاله‌ها و پادکست‌ها', path: '/media' },
+    { title: 'رسانه و اندیشه', path: '/media' },
     { title: 'تمرین‌ها و عملکرد من', path: '/dashboard' },
   ];
   const match = candidates.find((item) => item.title.toLocaleLowerCase('fa').includes(query))
