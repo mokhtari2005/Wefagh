@@ -3457,3 +3457,18 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
 @media (prefers-reduced-motion: reduce) {
   .hero-bg, .cta-bg, .hero-banner::after, .quote-image { transition: none; }
 }
+
+
+/* PWA installation links live in the footer, never in the responsive header. */
+.pwa-install-links { display:grid; gap:.55rem; width:100%; padding:.9rem 0; border-top:1px solid rgba(255,255,255,.16); }
+.pwa-install-title { color:var(--bone); font-size:.9rem; }
+.pwa-install-actions { display:flex; flex-wrap:wrap; gap:.65rem; }
+.pwa-install-link { display:inline-flex; align-items:center; gap:.65rem; min-width:190px; padding:.55rem .85rem; border:1px solid rgba(255,255,255,.22); border-radius:12px; background:rgba(255,255,255,.07); color:var(--bone); text-align:right; font:inherit; cursor:pointer; }
+.pwa-install-link:hover { background:rgba(255,255,255,.13); }
+.pwa-install-link:disabled { opacity:.65; cursor:default; }
+.pwa-install-link > span:last-child { display:grid; gap:.08rem; }
+.pwa-install-link b { font-size:.82rem; }
+.pwa-install-link small { color:rgba(229,216,195,.76); font-size:.68rem; line-height:1.5; }
+.pwa-platform-icon { display:grid; place-items:center; flex:none; width:36px; height:36px; border-radius:10px; background:rgba(255,255,255,.12); color:var(--gold); font-size:1.35rem; font-weight:800; }
+@media(max-width:640px) { .pwa-install-actions { display:grid; grid-template-columns:1fr 1fr; } .pwa-install-link { min-width:0; padding:.55rem .6rem; } .pwa-install-link small { font-size:.62rem; } }
+@media(display-mode:standalone) { .pwa-install-links { display:none; } }

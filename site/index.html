@@ -13,7 +13,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/styles.css?v=20261119-theme-images">
+  <link rel="stylesheet" href="css/styles.css?v=20261119-install-footer">
   <script src="js/theme.js"></script>
 </head>
 <body>
@@ -42,6 +42,19 @@
 
   <footer class="site-footer">
     <div class="container footer-inner">
+      <section class="pwa-install-links" aria-label="نصب اپلیکیشن آکادمی">
+        <strong class="pwa-install-title">نصب اپلیکیشن آکادمی</strong>
+        <div class="pwa-install-actions">
+          <button type="button" id="pwa-install-android" class="pwa-install-link" aria-label="نصب اپلیکیشن آکادمی روی اندروید">
+            <span class="pwa-platform-icon" aria-hidden="true">▣</span>
+            <span><b>نصب اندروید</b><small>افزودن به گوشی اندرویدی</small></span>
+          </button>
+          <button type="button" id="pwa-install-ios" class="pwa-install-link" aria-label="نصب اپلیکیشن آکادمی روی آیفون">
+            <span class="pwa-platform-icon" aria-hidden="true"></span>
+            <span><b>نصب آیفون</b><small>افزودن به صفحهٔ اصلی Safari</small></span>
+          </button>
+        </div>
+      </section>
       <fieldset class="theme-picker">
         <legend>پوستهٔ رنگی</legend>
         <button type="button" data-theme-choice="green" aria-pressed="true"><span class="swatch swatch-green" aria-hidden="true"></span>سبز</button>
@@ -60,6 +73,6 @@
     <button type="button" id="bottom-more" aria-label="نمایش منوی بیشتر"><span aria-hidden="true" data-icon="grid"></span><small>بیشتر</small></button>
   </nav>
   <script type="module" src="js/app.js?v=20261119-document-forms"></script>
-  <script type="module" src="js/pwa.js?v=20261119-push-onboarding"></script>
+  <script type="module" src="js/pwa.js?v=20261119-install-footer"></script>
 </body>
 </html>
