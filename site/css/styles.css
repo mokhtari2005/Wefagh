@@ -3783,7 +3783,6 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
 /* Calculator PDF reports must remain visible in print output. Earlier certificate
    print rules hide the document globally; explicitly reveal this report family. */
 @media print {
-  html:has(body.academy-pdf-body),
   body.academy-pdf-body,
   body.academy-pdf-body .academy-pdf-sheet,
   body.academy-pdf-body .academy-pdf-sheet * {
