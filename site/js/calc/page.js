@@ -138,7 +138,7 @@ function delayTool() {
     h('button', { class: 'btn', type: 'submit', text: 'محاسبه خسارت' }),
     out,
   ]);
-  function calculateForm(e) {
+  form.addEventListener('submit', (e) => {
     e.preventDefault();
     const result = delayInterest({
       principal: numericValue(principal.value),
@@ -616,11 +616,6 @@ function attorneyTool(id) {
       limitations: [...r.notes, 'تمبر مالیاتی ۵٪ علی‌الحساب است و مالیات قطعی وکیل محسوب نمی‌شود.', 'در دعاوی غیرمالی و کیفری، حداقل تعرفه هر مرحله باید جداگانه احراز شود؛ این نسخه برای آن موارد رقم قطعی تمبر اعلام نمی‌کند.', 'سهم کانون/مرکز و صندوق در این خروجی محاسبه نشده است.'],
     }, form));
   }
-  form.addEventListener('submit', calculateForm);
-  form.querySelector('button[type="submit"]').addEventListener('click', (e) => {
-    e.preventDefault();
-    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-  });
 
   return h('section', { class: 'tool', id }, [
     h('h2', { text: 'حق‌الوکاله و تمبر مالیاتی وکیل طبق تعرفه' }),
