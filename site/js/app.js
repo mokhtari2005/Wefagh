@@ -147,8 +147,7 @@ function pageHome() {
 
   const quick = lazy(async () => {
     const { ACADEMY_TOOLS } = await import('./academy.js?v=20261119-regional-quick');
-    return h('section', { class: 'quick-section', 'aria-labelledby': 'quick-title' }, [
-      h('h2', { id: 'quick-title', class: 'block-title', text: 'دسترسی سریع' }),
+    return h('section', { class: 'quick-section', 'aria-label': 'ابزارهای آکادمی' }, [
       h('div', { class: 'quick-grid' }, ACADEMY_TOOLS.map((item) =>
         h('a', { class: 'quick-tile', href: item.href }, [h('span', { class: 'quick-icon', 'aria-hidden': 'true' }, [icon(item.icon, { size: 24 })]), h('span', { text: item.title })]))),
     ]);
