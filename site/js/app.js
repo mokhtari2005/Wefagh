@@ -325,7 +325,7 @@ const ROUTES = {
   '/assistant/consult': (params) => lazy(async () => (await import('./assistant.js?v=20261119-contract-mode')).assistantPage(params)),
   '/voice-typing': () => lazy(async () => (await import('./voice-typing.js')).voiceTypingPage()),
   '/assistant/history': () => lazy(async () => (await import('./assistant.js?v=20261119-contract-mode')).assistantHistoryPage()),
-  '/moot-court/hearing': (params) => lazy(async () => (await import('./moot-ai.js?v=20261119-assessment-dismiss-1')).courtRoomPage(params)),
+  '/moot-court/hearing': (params) => lazy(async () => (await import('./moot-ai.js?v=20261119-speaking-seat-lift-1')).courtRoomPage(params)),
   '/moot-court/cases': (params) => lazy(async () => (await import('./moot-cases.js')).casePickerPage(params)),
   '/calculators': (params) => lazy(async () => (await import('./calc/page.js?v=20261119-calc-report-import-cache-3')).calculatorsPage(params)),
   '/calculators/regional': () => lazy(async () => (await import('./calc/page.js?v=20261119-calc-report-import-cache-3')).calculatorsPage({ tool: 'regional' })),
