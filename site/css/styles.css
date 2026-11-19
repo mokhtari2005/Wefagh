@@ -3744,7 +3744,7 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
 
 /* Academy calculator A4 report. Kept in the same-origin stylesheet to comply with CSP. */
 .academy-pdf-body{margin:0;padding:10px;background:#eef1f0;color:#20312e;direction:rtl;font-family:Tahoma,Arial,sans-serif}
-.academy-pdf-sheet{width:190mm;height:277mm;max-height:277mm;margin:0 auto;overflow:hidden;background:#fff;border:1px solid #c8d2d7;padding:7mm 8mm;box-sizing:border-box}
+.academy-pdf-sheet{width:210mm;min-height:296mm;margin:0 auto;background:#fff;border:1px solid #c8d2d7;padding:12mm 13mm;box-sizing:border-box}
 .academy-pdf-header{display:grid;grid-template-columns:1fr auto;align-items:center;padding-bottom:6px;border-bottom:2px solid #203c55}
 .academy-pdf-header strong{font-size:13pt;color:#203c55}.academy-pdf-header small{display:block;margin-top:3px;font-size:7pt;color:#687a80;direction:ltr}
 .academy-pdf-header img{width:13mm;height:13mm;object-fit:contain}
@@ -3766,5 +3766,16 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
 .academy-pdf-sign span{display:block;padding-top:12px;border-bottom:1px dotted #9aa8ad}
 .academy-pdf-footer{margin-top:6px;padding-top:4px;border-top:1px solid #d8e1dc;text-align:center;font-size:6.5pt;color:#718079}
 .academy-pdf-error{padding:10px;background:#fff1f0;color:#8b1e16;border:1px solid #d99}
+.academy-pdf-meta{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;margin:0 0 7px;font-size:8pt}
+.academy-pdf-meta div{display:grid;grid-template-columns:auto 1fr;gap:6px;align-items:end}.academy-pdf-meta b{color:#405c53}.academy-pdf-meta span{border-bottom:1px dotted #9aa8ad;min-height:12px}
+.academy-pdf-table{width:100%;border-collapse:collapse;font-size:7.8pt;line-height:1.55}
+.academy-pdf-table th{background:#e8eef1;color:#203c55;border:1px solid #bdc9cf;padding:3px 5px;text-align:right}
+.academy-pdf-table td{border:1px solid #cdd7db;padding:3px 5px;vertical-align:top;overflow-wrap:anywhere}.academy-pdf-table td.num{text-align:left;direction:ltr;white-space:nowrap;unicode-bidi:plaintext}
+.academy-pdf-table tbody tr:nth-child(even){background:#f7f9fa}
+.academy-pdf-note{margin:4px 0 0;font-size:7pt;line-height:1.5;color:#59686d}
+.academy-pdf-list{margin:3px 0;padding-right:16px;font-size:7.8pt;line-height:1.6}.academy-pdf-list li{margin:1px 0}
+.academy-pdf-total{display:flex;justify-content:space-between;align-items:center;margin:8px 0 0;padding:7px 10px;border:1.5px solid #203c55;border-radius:4px;background:#f2f5f6;break-inside:avoid}
+.academy-pdf-total span{font-size:9pt;font-weight:700;color:#203c55}.academy-pdf-total strong{font-size:12.5pt;color:#203c55}
+.academy-pdf-total.secondary{border-width:1px;background:#fff}.academy-pdf-total.secondary strong{font-size:10pt}
 @page{size:A4 portrait;margin:10mm}
-@media print{.academy-pdf-body{width:190mm;height:277mm;margin:0;padding:0;background:#fff}.academy-pdf-sheet{margin:0;page-break-after:avoid;break-after:avoid}}
+@page{size:A4 portrait;margin:0}@media print{.academy-pdf-body{width:210mm;margin:0;padding:0;background:#fff}.academy-pdf-sheet{margin:0;border:0}}
