@@ -443,6 +443,8 @@ searchForm?.addEventListener('submit', (event) => {
   }
 });
 
-document.getElementById('year').textContent = formatShamsi(new Date()).split(' ').pop();
+// The footer copyright is static; keep legacy year hook optional so it cannot block initial rendering.
+const footerYear = document.getElementById('year');
+if (footerYear) footerYear.textContent = formatShamsi(new Date()).split(' ').pop();
 window.addEventListener('hashchange', render);
 render();
