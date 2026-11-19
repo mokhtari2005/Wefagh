@@ -3,7 +3,7 @@ const el=(tag,attrs={},children=[])=>{const n=document.createElement(tag);for(co
 async function api(path,options={}){const r=await fetch('/api/community'+path,{credentials:'same-origin',headers:{Accept:'application/json','Content-Type':'application/json',...(options.headers||{})},...options});let d={};try{d=await r.json();}catch{}if(!r.ok)throw new Error(r.status===401?'برای استفاده از تالار ابتدا وارد حساب کاربری شوید.':d.message||'انجام درخواست ناموفق بود.');return d;}
 const faDate=(s)=>{try{return new Intl.DateTimeFormat('fa-IR',{dateStyle:'medium',timeStyle:'short'}).format(new Date(s));}catch{return '';}};
 export async function communityPage(){
- const root=el('section',{class:'community-page'}),head=el('div',{class:'community-heading'},[el('span',{class:'section-kicker',text:'ویژه اعضای تأییدشده آکادمی'}),el('h1',{text:'تالار گفت‌وگوی اعضا'}),el('p',{class:'lead',text:'پرسش‌های حقوقی و آموزشی، تبادل تجربه و گروه‌های تخصصی؛ در فضایی حرفه‌ای و محترمانه.'})]);
+ const root=el('section',{class:'community-page'}),head=el('div',{class:'community-heading'},[el('span',{class:'section-kicker',text:'ویژه اعضای تأییدشده آکادمی'}),el('h1',{text:'تالار گفتگو'}),el('p',{class:'lead',text:'پرسش‌های حقوقی و آموزشی، تبادل تجربه و گروه‌های تخصصی؛ در فضایی حرفه‌ای و محترمانه.'})]);
  const status=el('p',{class:'form-status',role:'status'}),tabs=el('div',{class:'community-tabs'}),content=el('div',{class:'community-content'});root.append(head,status,tabs,content);
  let mode='topics',selectedGroup=0,canCreateGroup=false;
  const button=(label,fn,cls='btn secondary')=>{const b=el('button',{type:'button',class:cls,text:label});b.addEventListener('click',fn);return b;};
