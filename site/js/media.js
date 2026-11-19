@@ -26,7 +26,7 @@ export async function mediaHome() {
     wrap.append(h('p', { class: 'muted', text: 'هنوز خبر تازه‌ای در دسته‌های حقوقی، قضایی و پارلمانی دریافت نشده است.' }));
   } else {
     const newsGrid = h('div', { class: 'cards' });
-    for (const item of news.data.news) {
+    for (const item of news.data.news.slice(0, 5)) {
       newsGrid.append(h('article', { class: 'card' }, [
         h('span', { class: 'badge', text: item.category }),
         h('h3', { text: item.title }),
@@ -43,7 +43,7 @@ export async function mediaHome() {
     wrap.append(errorBox(articles));
   } else {
     const grid = h('div', { class: 'cards' });
-    for (const a of articles.data.articles) {
+    for (const a of articles.data.articles.slice(0, 2)) {
       grid.append(
         h('a', { class: 'card', href: `#/media/${a.slug}` }, [
           h('span', { class: 'badge', text: shamsi(a.publishedAt) }),
@@ -56,7 +56,7 @@ export async function mediaHome() {
   }
 
   wrap.append(
-    h('h2', { text: 'پادکست‌های گروه حقوقی وفاق' }),
+    h('h2', { text: 'پادکست گروه حقوقی وفاق' }),
     h('p', { class: 'muted', text: 'فهرست قسمت‌ها و پخش مستقیم مجموعهٔ منتشرشده در Spotify.' }),
     h('div', { class: 'spotify-embed' }, [
       h('iframe', {
