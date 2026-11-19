@@ -138,9 +138,9 @@ export function computeAttorneyForm(input) {
       // ماده ۱۲: مبنای سهم، حق‌الوکالهٔ مرحلهٔ نخستین است که از بهای خواسته با ماده ۹ بند الف تا ث به دست می‌آید.
       const base = run(RULE.f9Nonfinal, { amount });
       if (!base.ok) return fail(base.error, 'حق‌الوکالهٔ مرحلهٔ نخستین محاسبه نشد.');
-      stageBase = base.fee;
+      stageBase = base.fee * 0.6;
       stageLabel = 'حق‌الوکالهٔ مرحلهٔ نخستین (ماده ۹ بند الف تا ث)';
-      lines.push({ label: stageLabel, amount: base.fee });
+      lines.push({ label: stageLabel, amount: stageBase });
     }
     const share = run(resultRuleId, { amount: stageBase });
     if (!share.ok) return fail(share.error, 'سهم ختم دعوا محاسبه نشد.');
@@ -195,9 +195,24 @@ export function computeAttorneyForm(input) {
     lines.push({ label: `فوق‌العادهٔ مأموریت خارج از استان (${outProvinceDays} روز، ماده ۳۰)`, amount: t.fee });
   }
 
+  // تفکیک تعرفهٔ هر مرحله برای تمبر: ماده ۲۱؛ حکم قطعی از حیث بهای خواسته یک‌مرحله‌ای است.
+  let stageFees = { first: 0, appeal: 0 };
+  if (result === 'none' && !afterReversal && caseType === 'financial') {
+    if (judgment === 'final') {
+      stageFees = { first: mainFee, appeal: 0 };
+    } else {
+      stageFees = { first: Math.round(mainFee * 0.6), appeal: mainFee - Math.round(mainFee * 0.6) };
+    }
+  } else if (result === 'appealBefore' || result === 'appealAfter') {
+    stageFees = { first: 0, appeal: mainFee };
+  } else {
+    stageFees = { first: mainFee, appeal: 0 };
+  }
+
   return {
     ok: true,
     feeTotal: mainFee,
+    stageFees,
     travelTotal: travel,
     total: mainFee + travel,
     lines,

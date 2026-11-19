@@ -466,7 +466,8 @@ const ATTORNEY_RESULTS = [
 const RESULT_KEY = { dismissOtherA: 'dismissOther', dismissOtherB: 'dismissOther', dismissOtherC: 'dismissOther' };
 
 function attorneyTool(id) {
-  const subject = h('select', { id: 'att-subject' }, ATTORNEY_SUBJECTS.map((o) => h('option', { value: o.value, text: o.text })));
+  const subject = h('input', { type: 'text', id: 'att-subject', autocomplete: 'off', placeholder: 'مثلاً مطالبه وجه، الزام به تنظیم سند، مطالبه خسارت' });
+  const caseTitle = h('input', { type: 'text', id: 'att-title', autocomplete: 'off', placeholder: 'عنوان دقیق دعوا یا اتهام (اختیاری)' });
   const caseType = h('select', { id: 'att-case' }, ATTORNEY_CASE_TYPES.map((o) => h('option', { value: o.value, text: o.text })));
   const judgment = h('select', { id: 'att-judgment' }, [
     h('option', { value: '', text: 'انتخاب کنید' }),
@@ -492,7 +493,7 @@ function attorneyTool(id) {
   const temporary = h('input', { type: 'checkbox', id: 'att-temporary' });
   const amount = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: '۱٬۰۰۰٬۰۰۰ معادل ۱۰۰ هزار تومان' });
   amount.addEventListener('input', () => { amount.value = groupAmount(amount.value); });
-  const agreedFee = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'در صورت تفاوت با تعرفه وارد کنید' });
+  const agreedFee = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'مبلغی که تا زمان ابطال تمبر دریافت شده است' });
   agreedFee.addEventListener('input', () => { agreedFee.value = groupAmount(agreedFee.value); });
   const out = h('div', { class: 'tool-out' });
 
@@ -505,8 +506,9 @@ function attorneyTool(id) {
   sync();
 
   const form = h('form', { class: 'form dix-form', novalidate: '', 'aria-label': 'حق‌الوکاله و تمبر مالیاتی وکیل' }, [
-    field('att-subject', 'مرجع صدور پروانه', subject),
+    field('att-subject', 'موضوع', subject),
     field('att-case', 'نوع دعوا', caseType),
+    field('att-title', 'عنوان دعوا / عنوان جرم', caseTitle),
     judgmentWrap,
     field('att-result', 'نتیجهٔ ختم دعوا', result),
     appealWrap,
@@ -516,7 +518,7 @@ function attorneyTool(id) {
     h('label', { class: 'check-row' }, [afterReversal, h('span', { text: 'قبول وکالت پس از نقض رای' })]),
     h('label', { class: 'check-row' }, [temporary, h('span', { text: 'وکیل تسخیری یا معاضدتی' })]),
     field('att-amount', 'بهای خواسته یا محکوم‌به (ریال)', amount),
-    field('att-agreed-fee', 'حق‌الوکاله توافقی مندرج در وکالت‌نامه (ریال؛ اختیاری)', agreedFee),
+    field('att-agreed-fee', 'حق‌الوکاله توافقی وصول‌شده تا زمان ابطال تمبر (ریال؛ اختیاری)', agreedFee),
     h('button', { class: 'btn dix-submit', type: 'submit', text: 'محاسبه حق‌الوکاله و تمبر مالیاتی' }),
     out,
   ]);
@@ -565,13 +567,29 @@ function attorneyTool(id) {
       return showNotice('حق‌الوکاله توافقی باید مبلغی معتبر و نامنفی به ریال باشد.');
     }
     if (caseType.value !== 'financial') {
-      return showNotice('برای محاسبه قطعی تمبر در دعاوی غیرمالی و کیفری، حداقل تعرفه هر مرحله باید جداگانه احراز شود؛ در این نسخه فقط حق‌الوکاله تعرفه‌ایِ بازه‌ای نمایش داده می‌شود و از اعلام مبلغ قطعی تمبر خودداری می‌شود.');
+      return showNotice('برای این نوع دعوا، عنوان و مرحله رسیدگی و حداقل تعرفه باید جداگانه احراز شود؛ در حال حاضر از اعلام مبلغ قطعی تمبر خودداری می‌شود.');
     }
-    const stampBase = Math.max(r.feeTotal, agreedAmount);
-    const taxStamp = Math.round(stampBase * 0.05);
+    const stageFees = r.stageFees || { first: r.feeTotal, appeal: 0 };
+    const agreedStages = stageFees.first > 0 && stageFees.appeal > 0
+      ? { first: Math.round(agreedAmount * 0.6), appeal: agreedAmount - Math.round(agreedAmount * 0.6) }
+      : stageFees.appeal > 0
+        ? { first: 0, appeal: agreedAmount }
+        : { first: agreedAmount, appeal: 0 };
+    const firstStampBase = Math.max(stageFees.first, agreedStages.first);
+    const appealStampBase = Math.max(stageFees.appeal, agreedStages.appeal);
+    const firstStamp = Math.round(firstStampBase * 0.05);
+    const appealStamp = Math.round(appealStampBase * 0.05);
+    const taxStamp = firstStamp + appealStamp;
+    const stampBase = firstStampBase + appealStampBase;
     const facts = r.lines.map((l) => [l.label, formatRial(l.amount)]);
-    facts.push(['مبنای تمبر مالیاتی (بیشترِ حق‌الوکاله تعرفه‌ای و توافقی)', formatRial(stampBase)]);
-    facts.push(['تمبر مالیاتی علی‌الحساب (۵٪)', formatRial(taxStamp)]);
+    facts.push(['حق‌الوکاله تعرفه‌ای مرحله بدوی', formatRial(stageFees.first)]);
+    facts.push(['تمبر مالیاتی مرحله بدوی (۵٪)', formatRial(firstStamp)]);
+    if (stageFees.appeal > 0) {
+      facts.push(['حق‌الوکاله تعرفه‌ای مرحله تجدیدنظر', formatRial(stageFees.appeal)]);
+      facts.push(['تمبر مالیاتی مرحله تجدیدنظر (۵٪)', formatRial(appealStamp)]);
+    }
+    facts.push(['مبنای کل تمبر مالیاتی (با رعایت حداقل تعرفه هر مرحله)', formatRial(stampBase)]);
+    facts.push(['جمع تمبر مالیاتی علی‌الحساب', formatRial(taxStamp)]);
     if (r.travelTotal > 0) facts.push(['جمع فوق‌العاده مأموریت (جدا از حق‌الوکاله)', formatRial(r.travelTotal)]);
     const attorneyAmount = parseAmount(amount.value);
     const reportTables = [];
@@ -580,9 +598,15 @@ function attorneyTool(id) {
       reportTables.push(tierSection('جدول محاسبهٔ پلکانی تعرفهٔ حق‌الوکاله (ماده ۹ آیین‌نامه تعرفه)', tierTableRows(baseRule, attorneyAmount, r.lines[0]?.amount), `مستند: ${baseRule?.legal?.citation || ''}`));
     }
     const lineRows = r.lines.map((l) => [l.label, formatRial(l.amount).replace(' ریال', '')]);
-    lineRows.push(['حق‌الوکاله توافقی اظهارشده', agreedAmount ? formatRial(agreedAmount).replace(' ریال', '') : 'وارد نشده']);
-    lineRows.push(['مبنای تمبر مالیاتی', formatRial(stampBase).replace(' ریال', '')]);
-    lineRows.push(['تمبر مالیاتی علی‌الحساب (۵٪)', formatRial(taxStamp).replace(' ریال', '')]);
+    lineRows.push(['حق‌الوکاله توافقی وصول‌شده', agreedAmount ? formatRial(agreedAmount).replace(' ریال', '') : 'وارد نشده']);
+    lineRows.push(['حق‌الوکاله تعرفه‌ای مرحله بدوی', formatRial(stageFees.first).replace(' ریال', '')]);
+    lineRows.push(['تمبر مالیاتی مرحله بدوی (۵٪)', formatRial(firstStamp).replace(' ریال', '')]);
+    if (stageFees.appeal > 0) {
+      lineRows.push(['حق‌الوکاله تعرفه‌ای مرحله تجدیدنظر', formatRial(stageFees.appeal).replace(' ریال', '')]);
+      lineRows.push(['تمبر مالیاتی مرحله تجدیدنظر (۵٪)', formatRial(appealStamp).replace(' ریال', '')]);
+    }
+    lineRows.push(['مبنای کل تمبر مالیاتی', formatRial(stampBase).replace(' ریال', '')]);
+    lineRows.push(['جمع تمبر مالیاتی علی‌الحساب', formatRial(taxStamp).replace(' ریال', '')]);
     if (r.travelTotal > 0) lineRows.push(['جمع فوق‌العاده مأموریت (جدا از حق‌الوکاله)', formatRial(r.travelTotal).replace(' ریال', '')]);
     reportTables.push({ type: 'table', title: 'محاسبه یکپارچه حق‌الوکاله و تمبر مالیاتی', columns: ['شرح', 'مبلغ (ریال)'], rows: lineRows });
     out.replaceChildren(resultBox({
@@ -590,7 +614,7 @@ function attorneyTool(id) {
       title: 'حق‌الوکاله و تمبر مالیاتی',
       fee: r.total + taxStamp,
       reportTables,
-      reportResult: { ok: true, fee: r.total + taxStamp, limitations: [...r.notes, 'تمبر مالیاتی ۵٪ علی‌الحساب بر مبنای بیشترِ حق‌الوکاله تعرفه‌ای و مبلغ توافقی اظهارشده محاسبه شده است؛ در دعاوی غیرمالی و کیفری، حداقل تعرفه هر مرحله نیازمند احراز جداگانه است.', 'سهم کانون/مرکز و صندوق در این خروجی محاسبه نشده است.'], ruleVersion: 'ماده ۱۰۳ قانون مالیات‌های مستقیم و آیین‌نامه تعرفه حق‌الوکاله ۱۳۹۸/۱۲/۲۸' } ,
+      reportResult: { ok: true, fee: r.total + taxStamp, limitations: [...r.notes, 'تمبر هر مرحله جداگانه و معادل ۵٪ مبلغ وصول‌شده همان مرحله، با رعایت حداقل تعرفه قانونی آن مرحله محاسبه شده است؛ مبنای تقسیم مراحل مطابق ماده ۲۱ آیین‌نامه است.', 'سهم کانون/مرکز و صندوق در این خروجی محاسبه نشده است.'], ruleVersion: 'ماده ۱۰۳ قانون مالیات‌های مستقیم و آیین‌نامه تعرفه حق‌الوکاله ۱۳۹۸/۱۲/۲۸' } ,
       facts,
       steps: [`حق‌الوکاله تعرفه‌ای: ${formatRial(r.feeTotal)}`, `تمبر مالیاتی علی‌الحساب: ${formatRial(taxStamp)}`, `فوق‌العاده مأموریت: ${formatRial(r.travelTotal)}`],
       ruleVersion: 'آیین‌نامه تعرفه حق‌الوکاله ۱۳۹۸ و ماده ۱۰۳ قانون مالیات‌های مستقیم',
@@ -600,7 +624,7 @@ function attorneyTool(id) {
 
   return h('section', { class: 'tool', id }, [
     h('h2', { text: 'حق‌الوکاله و تمبر مالیاتی وکیل طبق تعرفه' }),
-    h('p', { class: 'muted', text: 'در یک فرم، حق‌الوکاله تعرفه‌ای، مبلغ توافقی و تمبر مالیاتی علی‌الحساب طبق ماده ۱۰۳ قانون مالیات‌های مستقیم محاسبه می‌شود. تمبر ۵٪ است؛ برای دعاوی مالی حداقل آن بر پایه حق‌الوکاله تعرفه‌ای هر مرحله رعایت می‌شود. سهم کانون/مرکز و صندوق جداگانه محاسبه نشده است.' }),
+    h('p', { class: 'muted', text: 'در یک فرم، حق‌الوکاله تعرفه‌ای، مبلغ توافقی و تمبر مالیاتی علی‌الحساب طبق ماده ۱۰۳ قانون مالیات‌های مستقیم محاسبه می‌شود. تمبر مالیاتی هر مرحله جداگانه و بر مبنای حق‌الوکاله وصول‌شده با رعایت حداقل تعرفه همان مرحله محاسبه می‌شود. سهم کانون/مرکز و صندوق در این ابزار محاسبه نمی‌شود.' }),
     form,
   ]);
 }
