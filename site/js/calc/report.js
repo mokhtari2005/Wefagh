@@ -36,7 +36,7 @@ export function createA4TextReport({ title, rows = [], content = null, filename 
     return;
   }
 
-  const html = renderFormHtml(form, { dateText, cssHref: '/css/styles.css?v=20261119-print-2' });
+  const html = renderFormHtml(form, { dateText, cssHref: '/css/styles.css?v=20261119-a4-fit-3' });
 
   // Open synchronously during the user's click so Safari does not block the tab.
   const popup = window.open('', '_blank');
@@ -76,6 +76,33 @@ export function createA4TextReport({ title, rows = [], content = null, filename 
       if (popup.closed) throw new Error('Report window was closed');
       const sheet = popup.document.querySelector('.academy-pdf-sheet');
       if (!sheet) throw new Error('Report sheet missing');
+      // اندازهٔ قلم را فقط در گزارش چاپی و حداکثر در دو پله کاهش می‌دهیم.
+      // ارتفاع ثابت A4 باعث می‌شود سرریز واقعی محتوا قابل اندازه‌گیری باشد.
+      const fitReportToA4 = async () => {
+        const nextFrame = () => new Promise(resolve => popup.requestAnimationFrame(resolve));
+        await nextFrame();
+        if (sheet.scrollHeight > sheet.clientHeight + 2) {
+          sheet.classList.add('fit-compact-1');
+          await nextFrame();
+        }
+        if (sheet.scrollHeight > sheet.clientHeight + 2) {
+          sheet.classList.add('fit-compact-2');
+          await nextFrame();
+        }
+      };
+      await fitReportToA4();
+      const fitContent = sheet.querySelector('.academy-pdf-fit-content');
+      if (fitContent) {
+        // First and second compact type steps; preserve all text and avoid a second PDF page.
+        const available = sheet.clientHeight - parseFloat(getComputedStyle(sheet).paddingTop) - parseFloat(getComputedStyle(sheet).paddingBottom);
+        const measure = () => fitContent.getBoundingClientRect().height;
+        if (measure() > available) sheet.classList.add('fit-1');
+        if (measure() > available) sheet.classList.add('fit-2');
+        if (measure() > available) {
+          const ratio = Math.max(0.72, available / measure());
+          fitContent.style.transform = `scaleY(${ratio})`;
+        }
+      }
       await window.html2pdf().set({
         margin: 0,
         filename: filename + '.pdf',
