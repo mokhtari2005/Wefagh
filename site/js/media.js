@@ -14,8 +14,8 @@ function errorBox(res) {
 
 export async function mediaHome() {
   const wrap = h('div', {}, [
-    h('h1', { text: 'رسانه و اندیشه آکادمی' }),
-    h('p', { class: 'lead', text: 'یادداشت‌ها، آموزش‌های کوتاه و پادکست‌های آکادمی و مجموعه‌های صوتی همکار.' }),
+    h('h1', { text: 'رسانه و اندیشه' }),
+    h('p', { class: 'lead', text: 'یادداشت‌ها، آموزش‌های کوتاه و پادکست‌های حقوقی و مجموعه‌های صوتی همکار.' }),
   ]);
   const [articles, news] = await Promise.all([getJson('/api/media/articles'), getJson('/api/media/news')]);
 
