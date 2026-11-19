@@ -9,7 +9,7 @@ export function createA4TextReport({ title, rows = [], content = null, filename 
     clone.querySelectorAll('[hidden], [aria-hidden="true"]').forEach((node) => node.remove());
   }
   const clean = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
-  const normalizedRows = rows.map(([label, value]) => [clean(label), clean(value)]).filter(([label, value]) => label && value);
+  const normalizedRows = rows.map(([label, value]) => [clean(label), clean(value)]).filter(([label, value]) => label && value);\n  if (!normalizedRows.some(([label]) => /تاریخ/.test(label))) {\n    normalizedRows.push(['تاریخ و ساعت تهیه گزارش', new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'long', timeStyle: 'short' }).format(new Date())]);\n  }
   const reportText = [
     'آکادمی وکالت شهرام مختاری',
     'Shahram Mokhtari Law Academy | mokhtari.ir',
