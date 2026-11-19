@@ -152,7 +152,7 @@ export function assistantDocumentPage(params={}) {
  const root=h('div',{class:'assistant assistant-document-page'},[
   h('a',{class:'assistant-back-link',href:'#/assistant',text:'← بازگشت به فهرست اسناد'}),
   h('span',{class:'section-kicker',text:'دستیار هوشمند وکیل'}),h('h1',{text:title}),
-  h('p',{class:'muted',text:contract?'نوع قرارداد را انتخاب کنید تا فیلدهای اختصاصی آن نمایش داده شود.': 'اطلاعات را در فیلدهای جداگانه وارد کنید؛ نیازی به نوشتن یک شرح طولانی در یک کادر نیست.'})
+  h('p',{class:'muted',text:contract?'نوع قرارداد را انتخاب کنید تا فیلدهای اختصاصی آن نمایش داده شود.':'اطلاعات را در فیلدهای جداگانه وارد کنید؛ نیازی به نوشتن یک شرح طولانی در یک کادر نیست.'})
  ]);
  const workspace=h('div',{class:'assistant-document-workspace'},[h('p',{class:'muted',text:'در حال بررسی دسترسی…'})]);
  const status=h('p',{class:'muted assistant-document-status',role:'status','aria-live':'polite'});
@@ -165,6 +165,9 @@ export function assistantDocumentPage(params={}) {
   const form=h('form',{class:'assistant-structured-form'});
   const fieldsHost=h('div',{class:'assistant-document-fields'});
   let contractSelect=null;
+  let conversation=[];
+  let followupHost=null;
+  let currentQuestions=[];
   function renderFields(){
    fieldsHost.replaceChildren();
    if(contract){
@@ -185,38 +188,72 @@ export function assistantDocumentPage(params={}) {
   }
   form.append(fieldsHost);
   const submit=h('button',{class:'btn assistant-generate-btn',type:'submit',text:'تولید پیش‌نویس حقوقی'});
-  form.append(submit,h('p',{class:'muted',text:'فیلدهای ضروری را تکمیل کنید. اطلاعات نامشخص را خالی بگذارید؛ سامانه نباید واقعیت یا توافقی را حدس بزند.'}));
+  form.append(submit,h('p',{class:'muted',text:'اطلاعات نامشخص را خالی بگذارید؛ سامانه باید ابتدا پیش‌نویس را بر پایه اطلاعات موجود تهیه کند و فقط کمبودهای ضروری را بپرسد.'}));
   const result=h('section',{class:'assistant-generated-result',hidden:''});
   const output=h('div',{class:'assistant-generated-text'});
-  const copy=h('button',{class:'btn secondary',type:'button',text:'کپی متن'});
+  const notesHost=h('div',{class:'assistant-draft-notes'});
+  const copy=h('button',{class:'btn secondary',type:'button',text:'کپی متن پیش‌نویس'});
   copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(output.textContent);status.textContent='متن پیش‌نویس کپی شد.';}catch{status.textContent='کپی خودکار انجام نشد؛ متن را انتخاب کنید.';}});
-  result.append(h('h2',{text:'پیش‌نویس تولیدشده'}),output,copy);
+  result.append(h('h2',{text:'پیش‌نویس سند'}),output,notesHost,copy);
   workspace.replaceChildren(form,result);
+  function renderFollowups(questions){
+   currentQuestions=questions;
+   if(followupHost) followupHost.remove();
+   followupHost=null;
+   if(!questions.length)return;
+   followupHost=h('section',{class:'assistant-form-section assistant-followup-section'});
+   followupHost.append(h('h2',{text:'اطلاعات تکمیلی موردنیاز'}),h('p',{class:'muted',text:'پرسش‌ها فقط درباره مواردی است که برای تکمیل همین پیش‌نویس لازم است. پاسخ هر مورد را در کادر مربوط بنویسید؛ اطلاعات قبلی دوباره درخواست نمی‌شود.'}));
+   questions.forEach((question,index)=>{
+    const control=h('textarea',{name:'followup_'+index,rows:'3',required:'',placeholder:'پاسخ این پرسش را وارد کنید.'});
+    followupHost.append(h('div',{class:'field assistant-form-field'},[h('label',{text:(index+1)+'. '+question}),control]));
+   });
+   followupHost.append(h('p',{class:'muted',text:'پس از ارسال پاسخ‌ها، پیش‌نویس بر اساس اطلاعات قبلی و پاسخ‌های جدید بازنویسی می‌شود.'}));
+   form.insertBefore(followupHost,submit);
+  }
   form.addEventListener('submit',async event=>{
    event.preventDefault();
    if(!form.reportValidity())return;
-   const data=new FormData(form),parts=[];
-   if(contract){const selected=CONTRACT_TYPES.find(x=>x[0]===data.get('contractType'));parts.push('نوع قرارداد: '+(selected?.[1]||''));}
-   for(const [key,value] of data.entries()){
-    if(key==='contractType'||!String(value).trim())continue;
-    const control=form.elements.namedItem(key);
-    const label=control?.closest('.field')?.querySelector('label')?.textContent||key;
-    parts.push(label+': '+String(value).trim());
+   const data=new FormData(form);
+   let message='';
+   if(conversation.length===0||currentQuestions.length===0){
+    const parts=[];
+    if(contract){const selected=CONTRACT_TYPES.find(x=>x[0]===data.get('contractType'));parts.push('نوع قرارداد: '+(selected?.[1]||''));}
+    for(const [key,value] of data.entries()){
+     if(key==='contractType'||key.startsWith('followup_')||!String(value).trim())continue;
+     const control=form.elements.namedItem(key);
+     const label=control?.closest('.field')?.querySelector('label')?.textContent||key;
+     parts.push(label+': '+String(value).trim());
+    }
+    message=parts.join('\n\n');
+   }else{
+    const answers=[];
+    currentQuestions.forEach((question,index)=>{
+     const answer=String(data.get('followup_'+index)||'').trim();
+     if(answer)answers.push('پرسش: '+question+'\nپاسخ: '+answer);
+    });
+    if(!answers.length){status.textContent='دست‌کم یک پاسخ تکمیلی وارد کنید.';return;}
+    message='پاسخ‌های تکمیلی کاربر برای ادامه و اصلاح همان پیش‌نویس:\n\n'+answers.join('\n\n');
    }
-   const message=parts.join('\n\n');
-   submit.disabled=true;submit.textContent='در حال تولید پیش‌نویس…';status.textContent='درخواست ارسال شد؛ اطلاعات فرم حفظ می‌شود.';
-   result.hidden=true;
-   const res=await postJson('/api/ai/assistant',{mode:'draft',docType:type,message,history:[]},{timeoutMs:100000});
-   submit.disabled=false;submit.textContent='تولید دوباره پیش‌نویس';
+   submit.disabled=true;submit.textContent='در حال تهیه و تکمیل پیش‌نویس…';
+   status.textContent=conversation.length?'پاسخ‌ها دریافت شد؛ پیش‌نویس قبلی و اطلاعات تازه در حال ترکیب است.':'اطلاعات دریافت شد؛ پیش‌نویس اولیه در حال تهیه است.';
+   const res=await postJson('/api/ai/assistant',{mode:'draft',docType:type,message,history:conversation},{timeoutMs:100000});
+   submit.disabled=false;submit.textContent='به‌روزرسانی پیش‌نویس';
    if(!res.ok||!res.data?.ok){
     const code=res.data?.error||(res.timeoutError?'AI_REQUEST_TIMEOUT':res.networkError?'NETWORK':'AI_UNAVAILABLE');
-    status.textContent=errorText(code)+' (کد: '+code+'). اطلاعات فرم حفظ شده است.';return;
+    status.textContent=errorText(code)+' (کد: '+code+'). اطلاعات واردشده و پیش‌نویس قبلی حفظ شده‌اند.';return;
    }
-   output.textContent=res.data.status==='need_info'
-    ? 'برای تکمیل پیش‌نویس، اطلاعات زیر لازم است:\n'+(res.data.questions||[]).map((q,i)=>(i+1)+'. '+q).join('\n')
-    : res.data.text||'پاسخی از سرویس دریافت نشد.';
+   const draft=typeof res.data.text==='string'?res.data.text.trim():'';
+   output.textContent=draft||(res.data.status==='need_info'?'پیش‌نویس اولیه با اطلاعات موجود تهیه نشد؛ لطفاً پاسخ پرسش‌های تکمیلی را ثبت کنید.':'پاسخی از سرویس دریافت نشد.');
+   notesHost.replaceChildren();
+   if(Array.isArray(res.data.notes)&&res.data.notes.length){
+    notesHost.append(h('h3',{text:'نکات و موارد قابل بررسی'}),h('ul',{},res.data.notes.map(note=>h('li',{text:note}))));
+   }
    result.hidden=false;
-   status.textContent=res.data.status==='need_info'?'اطلاعات تکمیلی لازم است؛ آن‌ها را در فیلدهای مربوط وارد و دوباره ارسال کنید.':'پیش‌نویس آماده شد. پیش از استفاده، متن را با اسناد و قوانین جاری تطبیق دهید.';
+   const questions=Array.isArray(res.data.questions)?res.data.questions.filter(q=>typeof q==='string'&&q.trim()).slice(0,5):[];
+   const assistantTurn=[draft,questions.length?'پرسش‌های تکمیلی:\n'+questions.map((q,i)=>(i+1)+'. '+q).join('\n'):''].filter(Boolean).join('\n\n');
+   conversation.push({role:'user',text:message},{role:'ai',text:assistantTurn});
+   renderFollowups(questions);
+   status.textContent=questions.length?'پیش‌نویس اولیه آماده است. فقط اطلاعات ضروریِ باقی‌مانده را در فیلدهای بالا وارد کنید تا سند به‌روزرسانی شود.':'پیش‌نویس به‌روزرسانی شد. متن را بررسی و در صورت نیاز اصلاح کنید.';
    result.scrollIntoView({behavior:'smooth',block:'start'});
   });
   renderFields();
