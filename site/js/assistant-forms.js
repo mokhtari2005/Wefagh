@@ -252,12 +252,10 @@ export function assistantDocumentPage(params={}) {
    const questions=Array.isArray(res.data.questions)?res.data.questions.filter(q=>typeof q==='string'&&q.trim()).slice(0,5):[];
    const assistantTurn=[draft,questions.length?'پرسش‌های تکمیلی:\n'+questions.map((q,i)=>(i+1)+'. '+q).join('\n'):''].filter(Boolean).join('\n\n');
    conversation.push({role:'user',text:message},{role:'ai',text:assistantTurn});
-   lastAssistantTurn=assistantTurn;
    renderFollowups(questions);
    status.textContent=questions.length?'پیش‌نویس اولیه آماده است. فقط اطلاعات ضروریِ باقی‌مانده را در فیلدهای بالا وارد کنید تا سند به‌روزرسانی شود.':'پیش‌نویس به‌روزرسانی شد. متن را بررسی و در صورت نیاز اصلاح کنید.';
    result.scrollIntoView({behavior:'smooth',block:'start'});
   });
-  let lastAssistantTurn='';
   renderFields();
  })().catch(()=>workspace.replaceChildren(h('div',{class:'notice',text:'بارگذاری فرم با خطا روبه‌رو شد. صفحه را دوباره بارگذاری کنید.'})));
  return root;
