@@ -537,7 +537,7 @@ function attorneyTool(id) {
     if (Number.isNaN(inP) || Number.isNaN(outP)) return showNotice(INPUT_MESSAGES.INVALID_UNITS);
     const resultKey = RESULT_KEY[result.value] || result.value;
     const r = computeAttorneyForm({
-      subject: subject.value,
+      subject: 'attorney',
       caseType: caseType.value,
       judgment: judgment.value,
       amount: parseAmount(amount.value),
