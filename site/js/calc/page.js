@@ -8,10 +8,11 @@ import { cpiCoverage, CPI_SOURCE } from './cpi-data.js';
 import { shamsiField } from '../shamsi-field.js';
 import { normalizeLimitations, formatNumbersInLine, formatRial, statusLabel } from './result-format.js';
 import { indexedDelayDamage, planDelayPeriod, periodLabel, periodKeyOfIso } from './indexation.js';
-import { computeAttorneyForm } from './attorney-form.js';
+import { computeAttorneyForm, RULE as ATTORNEY_RULE } from './attorney-form.js';
+import { buildFormModel, registerReport, getReportBuilder, tierSection, tierTableRows } from './forms.js?v=20261119-forms-1';
 import { icon } from '../icons.js?v=20261119-2';
 import { regionalValueTool } from '../regional-value.js?v=20261119-address-textarea-1';
-import { createA4TextReport } from './report.js?v=20261119-a4-worksheet-1';
+import { createA4TextReport } from './report.js?v=20261119-forms-1';
 
 function h(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
@@ -82,6 +83,7 @@ function resultBox(result, form = null) {
   }
 
   if (result.ruleVersion) box.append(h('p', { class: 'muted', text: `نسخهٔ قاعده: ${result.ruleVersion}` }));
+  registerReport(box, { result: result.reportResult || result, tables: result.reportTables || [], totalOverride: result.reportTotal || null });
 
   // اقدامات کاربر
   if (form) {
@@ -417,6 +419,7 @@ function ruleTool({ title, amountLabel, group, submitLabel, note, withRanges = f
     const approval = rule.status === 'user_approved'
       ? 'این نتیجه بر اساس تأیید کاربر برای استفاده در ماشین‌حساب است؛ احراز رسمی از روزنامهٔ رسمی انجام نشده است.'
       : null;
+    const baseAmount = numericValue(amount.value);
     out.replaceChildren(resultBox({
       ok: true,
       title,
@@ -424,6 +427,7 @@ function ruleTool({ title, amountLabel, group, submitLabel, note, withRanges = f
       ruleVersion: `${rule.id} / سال ${RATE_YEAR}`,
       steps: r.steps,
       fee: r.fee,
+      reportTables: [tierSection(`جدول محاسبهٔ تعرفه: ${rule.title}`, tierTableRows(rule, baseAmount, r.fee), `مستند: ${rule.legal?.citation || ''}`)],
       limitations: [...(Array.isArray(note) ? note : [note]), rule.note, approval],
     }, form));
   });
@@ -556,10 +560,21 @@ function attorneyTool(id) {
     }
     const facts = r.lines.map((l) => [l.label, formatRial(l.amount)]);
     if (r.travelTotal > 0) facts.push(['جمع فوق‌العاده مأموریت (جدا از حق‌الوکاله)', formatRial(r.travelTotal)]);
+    const attorneyAmount = parseAmount(amount.value);
+    const reportTables = [];
+    if (resultKey === 'none' && !afterReversal.checked && caseType.value === 'financial' && judgment.value === 'nonfinal') {
+      const baseRule = findRule(RATE_YEAR, ATTORNEY_RULE.f9Nonfinal);
+      reportTables.push(tierSection('جدول محاسبهٔ پلکانی تعرفهٔ حق‌الوکاله (ماده ۹ آیین‌نامه تعرفه)', tierTableRows(baseRule, attorneyAmount, r.lines[0]?.amount), `مستند: ${baseRule?.legal?.citation || ''}`));
+    }
+    const lineRows = r.lines.map((l) => [l.label, formatRial(l.amount).replace(' ریال', '')]);
+    if (r.travelTotal > 0) lineRows.push(['جمع فوق‌العاده مأموریت (جدا از حق‌الوکاله)', formatRial(r.travelTotal).replace(' ریال', '')]);
+    reportTables.push({ type: 'table', title: 'ردیف‌های حق‌الوکاله و فوق‌العاده', columns: ['شرح', 'مبلغ (ریال)'], rows: lineRows });
     out.replaceChildren(resultBox({
       ok: true,
       title: 'حق‌الوکاله قانونی',
       fee: r.total,
+      reportTables,
+      reportResult: { ok: true, fee: r.total, limitations: [...r.notes, 'مبلغ نهایی جمع حق‌الوکاله و فوق‌العاده مأموریت است و شامل تمبر مالیاتی و سهم کانون، مرکز و صندوق نیست.'], ruleVersion: 'آیین‌نامه تعرفه حق‌الوکاله، حق‌المشاوره و هزینه سفر وکلای دادگستری ۱۳۹۸/۱۲/۲۸' },
       facts,
       steps: [`حق‌الوکاله: ${formatRial(r.feeTotal)}`, `فوق‌العاده مأموریت: ${formatRial(r.travelTotal)}`],
       ruleVersion: 'آیین‌نامه تعرفه حق‌الوکاله ۱۳۹۸ (فایل fd69f537)',
@@ -650,7 +665,9 @@ function toolToolbar(section) {
         return [label, value || 'وارد نشده'];
       });
     const title = section.querySelector(':scope > h2')?.textContent || section.querySelector('h2')?.textContent || 'گزارش محاسبات حقوقی';
-    createA4TextReport({ title, rows, content: result, filename: 'gozaresh-hesabgar' });
+    const builder = getReportBuilder(result);
+    const model = builder ? buildFormModel({ title, inputs: rows, ...builder }) : null;
+    createA4TextReport({ title, rows, content: result, filename: 'gozaresh-hesabgar', model });
   });
   const clear = h('button', { type: 'button', class: 'btn secondary', text: 'پاک‌کردن ورودی‌ها و نتیجه' });
   clear.addEventListener('click', () => {

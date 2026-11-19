@@ -1,6 +1,7 @@
 import { SHIRAZ_BLOCKS } from './calc/shiraz-1405-data.js';
 import { getJson } from './api.js';
-import { createA4TextReport } from './calc/report.js';
+import { createA4TextReport } from './calc/report.js?v=20261119-forms-1';
+import { buildFormModel } from './calc/forms.js?v=20261119-forms-1';
 
 function h(tag, attrs = {}, children = []) {
   const n = document.createElement(tag);
@@ -499,11 +500,26 @@ export function regionalValueTool() {
       const value = control.tagName === 'SELECT' ? control.selectedOptions?.[0]?.textContent : control.value;
       return String(value ?? '').trim() ? [[label, value]] : [];
     });
+    const reportTitle = 'فرم محاسبه ارزش منطقه‌ای ملک';
+    const reportInputs = [
+      ['استعلام‌کننده', userName],
+      ['تاریخ و ساعت استعلام', `${dateText} — ${timeText}`],
+      ['شناسه استعلام', inquiryId],
+      ...inputRows
+    ];
+    const reportNotes = Array.from(result.querySelectorAll('p.muted, p.notice')).map((n) => n.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean);
+    const reportModel = buildFormModel({
+      title: reportTitle,
+      inputs: reportInputs,
+      result: { ok: true, facts, limitations: reportNotes },
+      totalOverride: { label: 'ارزش منطقه‌ای ملک (جمع ارزش عرصه و اعیانی)', value: money(total) }
+    });
     const reportOptions = {
-      title: 'فرم محاسبه ارزش منطقه‌ای ملک',
+      title: reportTitle,
       rows: inputRows,
       content: result,
-      filename: `farm-arzesh-mantaghei-${inquiryId}`
+      filename: `farm-arzesh-mantaghei-${inquiryId}`,
+      model: reportModel
     };
     printButton.addEventListener('click', () => createA4TextReport(reportOptions));
     downloadButton.addEventListener('click', () => createA4TextReport({ ...reportOptions, downloadOnly: true }));

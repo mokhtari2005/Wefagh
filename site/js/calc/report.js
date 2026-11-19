@@ -1,17 +1,29 @@
-/** Academy-branded A4 worksheets for calculator results. */
-export function createA4TextReport({ title, rows = [], content = null, filename = 'academy-report', downloadOnly = false } = {}) {
+import { renderFormHtml, renderFormText } from './forms.js?v=20261119-forms-1';
+
+/** Academy-branded A4 worksheets for calculator results. `model` (from forms.js) gives the reference-form layout; without it a generic form is built from rows + content. */
+export function createA4TextReport({ title, rows = [], content = null, filename = 'academy-report', downloadOnly = false, model = null } = {}) {
   const clone = content?.cloneNode?.(true) || null;
   if (clone) {
     clone.querySelectorAll('.regional-report-map-section,.regional-print-header,.regional-report-footer,.regional-report-actions,button,img,svg,canvas,video,iframe,input,select,textarea').forEach(n => n.remove());
     clone.querySelectorAll('[hidden],[aria-hidden="true"]').forEach(n => n.remove());
   }
   const clean = v => String(v ?? '').replace(/\s+/g, ' ').trim();
-  const data = rows.map(([a, b]) => [clean(a), clean(b)]).filter(([a, b]) => a && b);
-  if (!data.some(([a]) => /تاریخ/.test(a))) data.push(['تاریخ تنظیم', new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'long', timeStyle: 'short' }).format(new Date())]);
-  const brand = 'آکادمی وکالت شهرام مختاری';
-  const text = [brand, 'Shahram Mokhtari Law Academy | mokhtari.ir', clean(title), ...data.flatMap(([a, b]) => [a + ': ' + b]), clean(clone?.innerText || clone?.textContent || '')].filter(Boolean).join('\n');
+  const dateText = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'long' }).format(new Date());
+  let form = model;
+  if (!form) {
+    const data = rows.map(([a, b]) => [clean(a), clean(b)]).filter(([a, b]) => a && b);
+    form = {
+      title: clean(title) || 'فرم محاسبات حقوقی',
+      sections: [
+        { type: 'fields', title: 'مشخصات پرونده و داده‌های پایه محاسبه', rows: data },
+        { type: 'html', title: 'شرح محاسبه و نتیجه', html: clone?.innerHTML || '' },
+      ],
+      total: null,
+      extraTotals: [],
+    };
+  }
   if (downloadOnly) {
-    const blob = new Blob(['\uFEFF' + text], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob(['\uFEFF' + renderFormText(form, dateText)], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -24,19 +36,7 @@ export function createA4TextReport({ title, rows = [], content = null, filename 
     return;
   }
 
-  const escape = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
-  const fields = data.map(([label, value]) => '<div class="academy-pdf-field"><b>' + escape(label) + '</b><span>' + escape(value) + '</span></div>').join('');
-  const body = clone?.innerHTML || '';
-  const html = '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' +
-    escape(title || 'کاربرگ محاسباتی') +
-    '</title><link rel="stylesheet" href="/css/styles.css?v=20261119-pdf-csp-1"></head><body class="academy-pdf-body">' +
-    '<main class="academy-pdf-sheet"><header class="academy-pdf-header"><div><strong>' + brand +
-    '</strong><small>Shahram Mokhtari Law Academy · mokhtari.ir</small></div><img src="/assets/favicon.svg" alt="لوگوی آکادمی"></header>' +
-    '<h1>' + escape(title || 'فرم محاسبات حقوقی') +
-    '</h1><section class="academy-pdf-section"><b class="academy-pdf-section-title">۱. مشخصات پرونده و داده‌های پایه محاسبه</b><div class="academy-pdf-fields">' + fields +
-    '</div></section><section class="academy-pdf-section"><b class="academy-pdf-section-title">۲. شرح محاسبه و نتیجه</b><div class="academy-pdf-content">' + body +
-    '</div></section><div class="academy-pdf-sign"><div>نام و نام خانوادگی تنظیم‌کننده:<span></span></div><div>امضاء و تاریخ:<span></span></div></div>' +
-    '<footer class="academy-pdf-footer">' + brand + ' | کاربرگ آموزشی و کاربردی محاسبات حقوقی | mokhtari.ir</footer></main></body></html>';
+  const html = renderFormHtml(form, { dateText, cssHref: '/css/styles.css?v=20261119-forms-1' });
 
   // Open synchronously during the user's click so Safari does not block the tab.
   const popup = window.open('', '_blank');
@@ -75,6 +75,7 @@ export function createA4TextReport({ title, rows = [], content = null, filename 
       ]);
       if (popup.closed) throw new Error('Report window was closed');
       const sheet = popup.document.querySelector('.academy-pdf-sheet');
+      if (!sheet) throw new Error('Report sheet missing');
       await window.html2pdf().set({
         margin: 0,
         filename: filename + '.pdf',
