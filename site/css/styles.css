@@ -3741,3 +3741,30 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
 .court-stop-playback[hidden]{display:none}
 .court-stop-playback:hover{background:color-mix(in srgb,var(--paper) 82%,var(--gold) 18%)}
 .court-stop-playback:focus-visible{outline:2px solid var(--deep);outline-offset:2px}
+
+/* Academy calculator A4 report. Kept in the same-origin stylesheet to comply with CSP. */
+.academy-pdf-body{margin:0;padding:10px;background:#eef1f0;color:#20312e;direction:rtl;font-family:Tahoma,Arial,sans-serif}
+.academy-pdf-sheet{width:190mm;height:277mm;max-height:277mm;margin:0 auto;overflow:hidden;background:#fff;border:1px solid #c8d2d7;padding:7mm 8mm;box-sizing:border-box}
+.academy-pdf-header{display:grid;grid-template-columns:1fr auto;align-items:center;padding-bottom:6px;border-bottom:2px solid #203c55}
+.academy-pdf-header strong{font-size:13pt;color:#203c55}.academy-pdf-header small{display:block;margin-top:3px;font-size:7pt;color:#687a80;direction:ltr}
+.academy-pdf-header img{width:13mm;height:13mm;object-fit:contain}
+.academy-pdf-sheet h1{margin:5px 0 8px;text-align:center;font-size:12pt;color:#203c55}
+.academy-pdf-section{border:1px solid #bdc9cf;border-radius:5px;padding:6px 8px;margin-bottom:7px;break-inside:avoid}
+.academy-pdf-section-title{display:block;margin:-1px 0 5px;padding:3px 7px;background:#203c55;color:#fff;border-radius:3px;font-size:8pt}
+.academy-pdf-fields{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:7.7pt;line-height:1.6}
+.academy-pdf-field{display:grid;grid-template-columns:minmax(26mm,38%) 1fr;gap:5px}.academy-pdf-field b{color:#405c53}.academy-pdf-field span{border-bottom:1px dotted #c7d0d4;overflow-wrap:anywhere}
+.academy-pdf-content{font-size:8pt;line-height:1.5;overflow-wrap:anywhere}
+.academy-pdf-content h2,.academy-pdf-content h3,.academy-pdf-content h4{font-size:9pt;margin:5px 0 3px;color:#203c55}
+.academy-pdf-content p{margin:3px 0}.academy-pdf-content dl{display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;margin:4px 0}
+.academy-pdf-content dt{font-weight:bold;color:#405c53}.academy-pdf-content dd{margin:0;overflow-wrap:anywhere}
+.academy-pdf-content .amount-block{display:flex;justify-content:space-between;align-items:center;padding:6px 9px;margin:5px 0;border:1.5px solid #203c55;border-radius:4px;background:#f2f5f6}
+.academy-pdf-content .amount-value{font-size:12pt;font-weight:800;color:#203c55}
+.academy-pdf-content ol,.academy-pdf-content ul{margin:3px 0;padding-right:18px}.academy-pdf-content li{margin:1px 0}
+.academy-pdf-content .muted,.academy-pdf-content .notice{font-size:7pt;line-height:1.4;margin:3px 0;padding:3px 5px}
+.academy-pdf-content .notice{border:1px solid #d8d1bb}
+.academy-pdf-sign{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:8px;padding-top:6px;border-top:1px solid #cbd4d8;font-size:7.5pt}
+.academy-pdf-sign span{display:block;padding-top:12px;border-bottom:1px dotted #9aa8ad}
+.academy-pdf-footer{margin-top:6px;padding-top:4px;border-top:1px solid #d8e1dc;text-align:center;font-size:6.5pt;color:#718079}
+.academy-pdf-error{padding:10px;background:#fff1f0;color:#8b1e16;border:1px solid #d99}
+@page{size:A4 portrait;margin:10mm}
+@media print{.academy-pdf-body{width:190mm;height:277mm;margin:0;padding:0;background:#fff}.academy-pdf-sheet{margin:0;page-break-after:avoid;break-after:avoid}}
