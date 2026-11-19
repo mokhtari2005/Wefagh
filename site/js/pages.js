@@ -11,7 +11,7 @@ export const NAV = [
   { id: 'cases', path: '/cases', title: 'بانک پرونده‌ها' },
   { id: 'calculators', path: '/calculators', title: 'محاسبه‌گرها' },
   { id: 'deadlines', path: '/deadlines', title: 'تقویم مواعد' },
-  { id: 'media', path: '/media', title: 'رسانه و پادکست' },
+  { id: 'media', path: '/media', title: 'رسانه و اندیشه' },
   { id: 'laws', path: '/laws', title: 'بانک قوانین', status: 'planned', phase: 6 },
   { id: 'cooperative', path: '/cooperative', title: 'مشارکت صنفی', status: 'planned', phase: 7 },
   { id: 'contact', path: '/contact', title: 'تماس با ما' },
