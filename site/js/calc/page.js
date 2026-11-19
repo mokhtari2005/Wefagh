@@ -11,7 +11,7 @@ import { indexedDelayDamage, planDelayPeriod, periodLabel, periodKeyOfIso } from
 import { computeAttorneyForm } from './attorney-form.js';
 import { icon } from '../icons.js?v=20261119-2';
 import { regionalValueTool } from '../regional-value.js';
-import { createA4TextReport } from './report.js';
+import { createA4TextReport } from './report.js?v=20261119-report-module-cache-3';
 
 function h(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
