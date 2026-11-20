@@ -43,7 +43,7 @@ async function signedFetch(env, key, { method = 'GET', query = [], headers = {},
   const signedHeaders = signedNames.join(';');
   const canonicalRequest = [method, url.pathname, canonicalQuery(url), canonicalHeaders, signedHeaders, payloadHash].join('\n');
   const scope = date + '/' + cfg.region + '/s3/aws4_request';
-  const toSign = ['AWS4-HMAC-SHA256', amzDate, scope, await sha256(canonicalRequest)].join('\\n');
+  const toSign = ['AWS4-HMAC-SHA256', amzDate, scope, await sha256(canonicalRequest)].join('\n');
   let signingKey = encoder.encode('AWS4' + cfg.secret);
   for (const part of [date, cfg.region, 's3', 'aws4_request']) signingKey = await hmac(signingKey, part);
   const signature = hex(await crypto.subtle.sign('HMAC', await crypto.subtle.importKey('raw', signingKey, { name: 'HMAC' }, false, ['sign']), encoder.encode(toSign)));
@@ -112,4 +112,4 @@ export async function b2DeleteObjectVersions(env, key) {
   throw new Error('B2_VERSION_LIST_PAGE_LIMIT');
 }
 
-export { b2AbortMultipart, b2CompleteMultipart, b2CreateMultipart, b2DeleteObjectVersions, b2GetObject, b2UploadPart };
+
