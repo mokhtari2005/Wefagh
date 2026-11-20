@@ -425,6 +425,58 @@ export async function adminPage() {
     saveClassroomProvider.disabled = false;
   });
   classroomView.append(classroomProviderPanel);
+  const instructorManagementSelect = el('select', { 'aria-label': 'انتخاب عضو برای مدیریت مجوز تدریس' });
+  const grantInstructorButton = el('button', { class: 'btn secondary', type: 'button', text: 'اعطای مجوز تدریس' });
+  const revokeInstructorButton = el('button', { class: 'btn danger', type: 'button', text: 'لغو مجوز تدریس' });
+  const instructorManagementNotice = el('p', { class: 'form-status', role: 'status' });
+  const instructorManagementPanel = el('section', { class: 'card admin-import' }, [
+    el('h3', { text: 'مدیریت مدرسان مجاز' }),
+    el('p', { class: 'muted', text: 'از میان اعضای تأییدشده، افرادی را که اجازه آغاز و میزبانی کلاس دارند انتخاب کنید. این مجوز در سایت وفاق ثبت می‌شود؛ برای شروع اتاق در Jitsi عمومی، مدرس همچنان باید با حساب Google، Facebook یا GitHub وارد شود.' }),
+    instructorManagementSelect,
+    el('div', { class: 'row' }, [grantInstructorButton, revokeInstructorButton]),
+    instructorManagementNotice,
+  ]);
+  async function refreshClassroomInstructors() {
+    const result = await getJson('/api/admin/classroom/instructors');
+    if (!result.ok) {
+      instructorManagementNotice.className = 'form-status err';
+      instructorManagementNotice.textContent = errorText(result.data, result.status);
+      return;
+    }
+    const current = instructorManagementSelect.value;
+    instructorManagementSelect.replaceChildren(el('option', { value: '', text: 'انتخاب عضو تأییدشده' }));
+    const active = result.data.instructors.filter(person => person.isInstructor);
+    for (const person of result.data.instructors) {
+      instructorManagementSelect.append(el('option', {
+        value: String(person.id),
+        text: person.displayName + (person.isInstructor ? ' · مدرس مجاز' : ''),
+      }));
+    }
+    if (current && result.data.instructors.some(person => String(person.id) === current)) instructorManagementSelect.value = current;
+    classroomInstructorSelect.replaceChildren(el('option', { value: '', text: 'انتخاب مدرس کلاس (اختیاری)' }));
+    for (const person of active) classroomInstructorSelect.append(el('option', { value: String(person.id), text: person.displayName }));
+    instructorManagementNotice.className = 'form-status';
+    instructorManagementNotice.textContent = active.length + ' مدرس مجاز ثبت شده است.';
+  }
+  async function setInstructorPermission(enabled) {
+    const userId = Number(instructorManagementSelect.value);
+    if (!userId) {
+      instructorManagementNotice.className = 'form-status err';
+      instructorManagementNotice.textContent = 'ابتدا یک عضو را انتخاب کنید.';
+      return;
+    }
+    grantInstructorButton.disabled = true; revokeInstructorButton.disabled = true;
+    const result = await postJson('/api/admin/classroom/instructors', { userId, enabled });
+    grantInstructorButton.disabled = false; revokeInstructorButton.disabled = false;
+    instructorManagementNotice.className = 'form-status' + (result.ok ? ' ok' : ' err');
+    instructorManagementNotice.textContent = result.ok
+      ? (enabled ? 'مجوز تدریس برای این عضو فعال شد.' : 'مجوز تدریس لغو شد و انتساب‌های آیندهٔ او پاک شد.')
+      : errorText(result.data, result.status);
+    if (result.ok) await refreshClassroomInstructors();
+  }
+  grantInstructorButton.addEventListener('click', () => setInstructorPermission(true));
+  revokeInstructorButton.addEventListener('click', () => setInstructorPermission(false));
+  classroomView.append(instructorManagementPanel);
   const classroomAdminNotice = el('p', { class: 'form-status', role: 'status' });
   const classroomAdminList = el('div', { class: 'admin-content-list' });
   const classroomTitleField = field('عنوان کلاس', 'classroomTitle');
@@ -432,6 +484,12 @@ export async function adminPage() {
   const classroomStartField = field('تاریخ و ساعت شروع', 'classroomStartsAt', new Date(Date.now() + 3600000 - new Date().getTimezoneOffset()*60000).toISOString().slice(0,16), 'datetime-local');
   const classroomDurationField = field('مدت کلاس به دقیقه (۱۵ تا ۲۴۰)', 'classroomDuration', '60', 'number');
   const classroomMeetUrlField = field('پیوند جلسه Google Meet', 'classroomMeetUrl', '', 'url', false);
+  const classroomInstructorSelect = el('select', { 'aria-label': 'مدرس کلاس' }, [
+    el('option', { value: '', text: 'انتخاب مدرس کلاس (اختیاری)' }),
+  ]);
+  const classroomInstructorLabel = el('label', { class: 'admin-field' }, [
+    el('span', { text: 'مدرس مسئول کلاس' }), classroomInstructorSelect,
+  ]);
   const classroomGuestToggle = el('input', { type: 'checkbox', name: 'guestEnabled' });
   const classroomGuestLabel = el('label', { class: 'admin-field' }, [el('span', { text: 'اجازه ورود مهمان با پیوند دعوت اختصاصی' }), classroomGuestToggle]);
   const classroomCreateButton = el('button', { class: 'btn', type: 'submit', text: 'ایجاد کلاس' });
@@ -439,7 +497,7 @@ export async function adminPage() {
     el('h3', { text: 'برنامه‌ریزی کلاس جدید' }),
     el('p', { class: 'muted', text: 'کلاس برای اعضای تأییدشده قابل مشاهده است. در صورت فعال‌کردن مهمان، پیوند دعوت محرمانه فقط یک‌بار پس از ایجاد نمایش داده می‌شود.' }),
     classroomTitleField, classroomDescriptionField, classroomStartField, classroomDurationField,
-    classroomMeetUrlField, classroomGuestLabel, classroomCreateButton,
+    classroomInstructorLabel, classroomMeetUrlField, classroomGuestLabel, classroomCreateButton,
   ]);
   function syncClassroomProviderFields() {
     classroomMeetUrlField.hidden = classroomProviderSelect.value !== 'google_meet';
@@ -465,6 +523,7 @@ export async function adminPage() {
           el('h3', { text: item.title }),
           el('p', { class: 'muted', text: new Date(item.startsAt).toLocaleString('fa-IR') + ' · ' + item.durationMinutes + ' دقیقه' }),
           el('p', { class: 'muted', text: item.guestEnabled ? 'ورود مهمان فعال' : 'فقط اعضا' }),
+          el('p', { class: 'muted', text: item.instructorName ? 'مدرس: ' + item.instructorName : 'مدرس اختصاصی تعیین نشده است' }),
         ]),
       ]);
       const actions = el('div', { class: 'row admin-actions' });
@@ -562,6 +621,7 @@ export async function adminPage() {
       startsAt: new Date(classroomStartField.querySelector('input').value).toISOString(),
       durationMinutes: Number(classroomDurationField.querySelector('input').value),
       guestEnabled: classroomGuestToggle.checked,
+      instructorId: classroomInstructorSelect.value ? Number(classroomInstructorSelect.value) : null,
       meetingUrl: classroomMeetUrlField.querySelector('input').value.trim(),
     };
     const created = await postJson('/api/admin/classroom/sessions', payload);
@@ -1332,7 +1392,7 @@ export async function adminPage() {
     if (key === 'dashboard') updateDashboard();
     if (key === 'members') refreshMembers();
     if (key === 'services') refreshDiagnostics();
-    if (key === 'classroom') { void loadClassroomProvider().then(() => { syncClassroomProviderFields(); return refreshClassroomAdmin(); }); }
+    if (key === 'classroom') { void loadClassroomProvider().then(() => { syncClassroomProviderFields(); return refreshClassroomInstructors(); }).then(() => refreshClassroomAdmin()); }
     if (key === 'legal-bank') refreshLegalBank();
     if (key === 'traffic' && !trafficView.dataset.loaded) {
       trafficView.dataset.loaded = '1';
