@@ -39,7 +39,7 @@ async function signedFetch(env, key, { method = 'GET', query = [], headers = {},
   requestHeaders.set('x-amz-content-sha256', payloadHash);
   requestHeaders.set('x-amz-date', amzDate);
   if (range) requestHeaders.set('range', range);
-  const signedNames = [...requestHeaders.keys()].map((x) => x.toLowerCase()).filter((x) => ['host', 'x-amz-content-sha256', 'x-amz-date', 'content-type', 'range'].includes(x)).sort();
+  const signedNames = [...requestHeaders.keys()].map((x) => x.toLowerCase()).filter((x) => ['host', 'content-type', 'range'].includes(x) || x.startsWith('x-amz-')).sort();
   const canonicalHeaders = signedNames.map((name) => name + ':' + requestHeaders.get(name).trim().replace(/\\s+/g, ' ') + '\\n').join('');
   const signedHeaders = signedNames.join(';');
   const canonicalRequest = [method, url.pathname, canonicalQuery(url), canonicalHeaders, signedHeaders, payloadHash].join('\\n');
