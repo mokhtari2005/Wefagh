@@ -417,7 +417,7 @@ async function assistant(request, env) {
       const review = await reviewLegalDraft(env, { mode, docType, question: message, draft: text });
       notes.push(groqReviewShortNote(review));
       reviewDetails = groqReviewNotes(review);
-      if (workersAiConfigured(env)) {
+      if (mode === 'draft' && workersAiConfigured(env)) {
         stage = 'cloudflare_workers_ai_review';
         const thirdReview = await reviewWithWorkersAI(env, { mode, docType, question: message, draft: text });
         notes.push(thirdReview.status === 'reviewed'
@@ -426,7 +426,7 @@ async function assistant(request, env) {
         reviewDetails.push(...workersAiReviewNotes(thirdReview));
       }
     }
-    if (!attachments.length && provider === 'groq' && workersAiConfigured(env)) {
+    if (!attachments.length && mode === 'draft' && provider === 'groq' && workersAiConfigured(env)) {
       stage = 'cloudflare_workers_ai_review';
       const thirdReview = await reviewWithWorkersAI(env, { mode, docType, question: message, draft: text });
       notes.push(thirdReview.status === 'reviewed'
