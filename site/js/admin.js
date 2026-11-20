@@ -191,6 +191,39 @@ export async function adminPage() {
     aiNotice.className = `form-status${bad ? ' err' : ' ok'}`;
     aiNotice.textContent = r.data.configured ? lines.join(' | ') : `GEMINI_API_KEY در Worker تعریف نشده است.${g ? ` | بازبین Groq: ${g.hint}` : ''}`;
   });
+  const aiComparePrompt = field('متن آزمون یکسان برای هر دو مدل', 'aiComparePrompt',
+    'مهلت تجدیدنظرخواهی از آرای دادگاه‌های بدوی در امور حقوقی و کیفری چقدر است؟ مبدأ محاسبه مهلت، اثر واخواهی، تعطیلی روز آخر و امکان پذیرش درخواست خارج از مهلت با عذر موجه را با ذکر مستندات قانونی توضیح بده. اگر درباره مستندی مطمئن نیستی، صریحاً اعلام کن.',
+    'textarea');
+  aiComparePrompt.querySelector('textarea').rows = 8;
+  const aiCompareButton = el('button', { class: 'btn', type: 'button', text: 'مقایسهٔ زندهٔ Gemini و GPT-OSS 120B' });
+  const aiCompareNotice = el('p', { class: 'form-status', role: 'status' });
+  const aiCompareResults = el('div', { class: 'admin-ai-compare-results' });
+  aiCompareButton.addEventListener('click', async () => {
+    const prompt = aiComparePrompt.querySelector('textarea').value.trim();
+    if (!prompt) { aiCompareNotice.className = 'form-status err'; aiCompareNotice.textContent = 'متن آزمون را وارد کنید.'; return; }
+    aiCompareButton.disabled = true;
+    aiCompareNotice.className = 'form-status';
+    aiCompareNotice.textContent = 'هر دو مدل هم‌زمان در حال پاسخ‌گویی هستند؛ ممکن است تا ۴۰ ثانیه طول بکشد…';
+    aiCompareResults.replaceChildren();
+    try {
+      const r = await postJson('/api/admin/ai/compare', { prompt });
+      if (!r.ok) { aiCompareNotice.className = 'form-status err'; aiCompareNotice.textContent = errorText(r.data, r.status); return; }
+      const comparison = r.data.comparison || {};
+      for (const [key, label] of [['gemini', 'Gemini'], ['groq', 'GPT-OSS 120B']]) {
+        const result = comparison[key] || {};
+        const title = el('h3', { text: `${label} · ${result.model || 'مدل نامشخص'} · ${result.status || 'نامشخص'}${result.httpStatus ? ` · HTTP ${result.httpStatus}` : ''}${Number.isFinite(result.ms) ? ` · ${result.ms}ms` : ''}` });
+        const output = el('pre', { class: 'admin-ai-compare-output', text: result.text || 'پاسخی دریافت نشد؛ وضعیت سرویس را بررسی کنید.' });
+        aiCompareResults.append(el('section', { class: 'card' }, [title, output]));
+      }
+      aiCompareNotice.className = 'form-status ok';
+      aiCompareNotice.textContent = 'آزمون تمام شد. ورودی ذخیره نشده و در مسیر عادی دستیار تغییری ایجاد نشده است.';
+    } catch {
+      aiCompareNotice.className = 'form-status err';
+      aiCompareNotice.textContent = 'ارتباط با سرویس مقایسه برقرار نشد؛ دوباره تلاش کنید.';
+    } finally {
+      aiCompareButton.disabled = false;
+    }
+  });
   const mailPanel = el('section', { class: 'admin-mail card' }, [
     el('h2', { text: 'تشخیص ارسال ایمیل' }),
     el('p', { class: 'muted', text: 'اگر ایمیل تأیید ثبت‌نام نمی‌رسد، از این‌جا علت را ببینید. مقدار Secretها هرگز نمایش داده نمی‌شود.' }),
@@ -203,6 +236,12 @@ export async function adminPage() {
     el('h2', { text: 'تشخیص هوش مصنوعی' }),
     el('div', { class: 'row' }, [aiCheck]),
     aiNotice,
+    el('h3', { text: 'آزمایش مقایسه‌ای مدل‌ها' }),
+    el('p', { class: 'muted', text: 'متن آزمون فقط برای همان درخواست به Gemini و Groq ارسال می‌شود؛ در سایت ذخیره یا در گزارش خطا ثبت نمی‌شود. این بخش فقط برای مدیر مجاز است.' }),
+    aiComparePrompt,
+    el('div', { class: 'row' }, [aiCompareButton]),
+    aiCompareNotice,
+    aiCompareResults,
   ]);
   // جست‌وجو در فهرست محتوا (عنوان، شناسه، وضعیت)
   const search = el('input', { type: 'search', placeholder: 'جست‌وجو در عنوان، شناسه یا وضعیت', 'aria-label': 'جست‌وجو در محتوا' });
