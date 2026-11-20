@@ -39,7 +39,7 @@ jobs:
 
       - name: Sanitize and prepare Cloudflare credentials
         env:
-          RAW_CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          RAW_CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DEPLOY_TOKEN }}
           RAW_CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         shell: bash
         run: |
@@ -78,18 +78,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for url in "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/tokens/verify" "https://api.cloudflare.com/client/v4/user/tokens/verify"; do
-            body="$(curl --silent --show-error --retry 2 --header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$url" || true)"
-            if printf '%s' "$body" | python3 -c 'import json,sys; d=json.load(sys.stdin); sys.exit(0 if d.get("success") and (d.get("result") or {}).get("status")=="active" else 1)' 2>/dev/null; then
-              echo "Cloudflare token verified and active"
-              exit 0
-            fi
-            echo "Token verification endpoint did not confirm an active token"
-          done
-          echo "Cloudflare token could not be verified"
-          exit 1
+          body="$(curl --silent --show-error --retry 2 --header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "https://api.cloudflare.com/client/v4/user/tokens/verify")"
+          printf '%s' "$body" | python3 -c 'import json,sys; d=json.load(sys.stdin); sys.exit(0 if d.get("success") and (d.get("result") or {}).get("status")=="active" else 1)' || {
+            echo "Cloudflare token could not be verified as active"
+            exit 1
+          }
+          echo "Cloudflare token verified and active"
 
       - name: Apply pending remote D1 migrations
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.apply_migrations == true }}
         working-directory: worker
         run: wrangler d1 migrations apply wefagh-db --remote --config wrangler.toml
 
