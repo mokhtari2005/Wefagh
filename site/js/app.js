@@ -4,13 +4,22 @@ import { formatShamsi } from './shamsi.js';
 import { parseHash } from './route.js';
 import { icon, mountIcons } from './icons.js';
 
+/** مهلت بارگذاری هر بخش ناهمگام؛ پس از آن به‌جای نشانگر بی‌پایان، پیام خطا و دکمهٔ تلاش دوباره نمایش داده می‌شود. */
+const LAZY_TIMEOUT_MS = 10000;
+
 /** صفحه‌ای که داده‌اش ناهمگام است: یک جای نگه‌دار می‌سازد و بعد پر می‌کند. */
 function lazy(fn) {
   const holder = h('div', {}, [h('p', { class: 'loading', role: 'status', text: 'در حال بارگذاری…' })]);
+  const showError = (text) => {
+    const retry = h('button', { type: 'button', class: 'btn small', text: 'تلاش دوباره' });
+    retry.addEventListener('click', () => render());
+    holder.replaceChildren(h('div', { class: 'form-status err', role: 'alert' }, [h('p', { text }), retry]));
+  };
+  const timer = setTimeout(() => showError('بارگذاری این بخش بیش از حد طول کشید.'), LAZY_TIMEOUT_MS);
   Promise.resolve()
     .then(fn)
-    .then((node) => holder.replaceChildren(node))
-    .catch(() => holder.replaceChildren(h('p', { class: 'form-status err', role: 'alert', text: 'بارگذاری صفحه ناموفق بود.' })));
+    .then((node) => { clearTimeout(timer); holder.replaceChildren(node); })
+    .catch(() => { clearTimeout(timer); showError('بارگذاری صفحه ناموفق بود.'); });
   return holder;
 }
 
@@ -376,4 +385,10 @@ searchForm?.addEventListener('submit', (event) => {
 
 document.getElementById('year').textContent = formatShamsi(new Date()).split(' ').pop();
 window.addEventListener('hashchange', render);
-render();
+try {
+  render();
+} catch (error) {
+  // اگر رندر اولیه شکست بخورد، نشانگر «در حال بارگذاری…» نباید بی‌پایان بماند.
+  console.error(error);
+  main.replaceChildren(h('p', { class: 'form-status err', role: 'alert', text: 'نمایش صفحه با خطا روبه‌رو شد. لطفاً صفحه را دوباره بارگذاری کنید.' }));
+}

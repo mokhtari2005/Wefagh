@@ -53,7 +53,7 @@ export async function postForm(path, formData, { timeoutMs = 60000 } = {}) {
   }
 }
 
-export async function getJson(path, { timeoutMs = 15000 } = {}) {
+export async function getJson(path, { timeoutMs = 8000 } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
