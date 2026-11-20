@@ -3779,3 +3779,28 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
 .academy-pdf-total.secondary{border-width:1px;background:#fff}.academy-pdf-total.secondary strong{font-size:10pt}
 @page{size:A4 portrait;margin:10mm}
 @page{size:A4 portrait;margin:0}@media print{.academy-pdf-body{width:210mm;margin:0;padding:0;background:#fff}.academy-pdf-sheet{margin:0;border:0}}
+
+
+/* کلاس آنلاین */
+.classroom-page { max-width: 1100px; margin-inline: auto; padding-block: 1.25rem 3rem; }
+.classroom-session-list { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,300px),1fr)); gap: 1rem; margin-block: 1.25rem; }
+.classroom-session-card { display:flex; flex-direction:column; align-items:flex-start; gap:.7rem; padding:1.2rem; }
+.classroom-session-card h2 { margin:0; font-size:1.15rem; }
+.classroom-session-card p { margin:.15rem 0; }
+.classroom-session-card .btn { margin-top:auto; }
+.classroom-session-meta { display:flex; flex-wrap:wrap; gap:.55rem; align-items:center; }
+.classroom-meeting { margin-block:1.5rem; scroll-margin-top:1rem; }
+.classroom-meeting-heading { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:.75rem; }
+.classroom-meeting-heading h2 { margin:.25rem 0; }
+.classroom-frame { display:block; width:100%; min-height:min(72vh,760px); border:1px solid var(--sand-line); border-radius:1rem; background:#111; }
+.classroom-guest-form { max-width:520px; padding:1.25rem; margin-block:1.25rem; }
+.classroom-create-form { padding:1.2rem; margin-block:1.2rem; }
+.classroom-create-form h3 { margin-top:0; }
+.classroom-admin-row { display:flex; flex-direction:column; gap:.8rem; padding:1rem; margin-block:.75rem; }
+.classroom-admin-row h3 { margin:.4rem 0; }
+.classroom-attendance-list { border-top:1px solid var(--sand-line); padding-top:.75rem; width:100%; }
+.classroom-attendance-list p { margin:.4rem 0; }
+@media(max-width:600px) {
+  .classroom-frame { min-height:68vh; border-radius:.65rem; }
+  .classroom-meeting-heading { align-items:flex-start; flex-direction:column; }
+}
