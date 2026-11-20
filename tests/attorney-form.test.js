@@ -119,3 +119,15 @@ test('ختم دعوا و نقض رأی با هم محاسبه نمی‌شوند'
 test('نتیجهٔ ختم دعوایی که در متن تعرفه نیست، پذیرفته نمی‌شود', () => {
   assert.equal(computeAttorneyForm({ ...base, result: 'unsupported' }).error, 'INVALID_RESULT');
 });
+
+test('ماده ۲۱ برای ماده ۱۳: بازهٔ خانوادگی ۵ تا ۲۰۰ میلیون، بدوی ۳ تا ۱۲۰ (۶۰٪) و تجدیدنظر ۲ تا ۸۰ (۴۰٪)', () => {
+  const r = computeAttorneyForm({ ...base, caseType: 'family' });
+  const g = r.ranges[0];
+  assert.deepEqual([g.stages.first.min, g.stages.first.max], [3000000, 120000000]);
+  assert.deepEqual([g.stages.appeal.min, g.stages.appeal.max], [2000000, 80000000]);
+});
+
+test('ماده ۲۱ فقط برای ماده ۱۳ است؛ کیفری و سایر موارد تفکیک ندارند', () => {
+  assert.equal(computeAttorneyForm({ ...base, caseType: 'criminal' }).ranges[0].stages, undefined);
+  assert.equal(computeAttorneyForm({ ...base, caseType: 'other' }).ranges[0].stages, undefined);
+});

@@ -590,7 +590,12 @@ function attorneyTool(id) {
     });
     if (!r.ok) {
       if (r.error === 'RANGE_ONLY') {
-        const items = (r.ranges || []).map((g) => h('li', { text: `${g.title}: از ${formatRial(g.min)} تا ${formatRial(g.max)}` }));
+        const items = (r.ranges || []).flatMap((g) => {
+          const main = h('li', { text: `${g.title}: از ${formatRial(g.min)} تا ${formatRial(g.max)}` });
+          if (!g.stages) return [main];
+          const s = (k, label) => h('li', { text: `${label} (${g.stages[k].percent}٪): از ${formatRial(g.stages[k].min)} تا ${formatRial(g.stages[k].max)}` });
+          return [main, s('first', 'مرحلهٔ بدوی (ماده ۲۱)'), s('appeal', 'مرحلهٔ تجدیدنظر (ماده ۲۱)')];
+        });
         out.replaceChildren(h('div', {}, [
           h('div', { class: 'notice', role: 'alert', text: r.message }),
           h('ul', { class: 'muted' }, items),

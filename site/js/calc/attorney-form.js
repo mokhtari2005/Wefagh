@@ -60,6 +60,12 @@ function fail(error, message, extra = {}) {
   return { ok: false, error, message, ...extra };
 }
 
+/** ماده ۲۱ برای بازه‌های ماده ۱۳: حدود هر بازه بین مرحلهٔ بدوی (۶۰٪) و تجدیدنظر (۴۰٪) تقسیم می‌شود. */
+function withArticle21Stages(g) {
+  const part = (p) => ({ min: Math.round(g.min * p), max: Math.round(g.max * p) });
+  return { ...g, stages: { first: { percent: 60, ...part(0.6) }, appeal: { percent: 40, ...part(0.4) } } };
+}
+
 function rangeOf(id, title) {
   const r = rule(id);
   if (!r || typeof r.min !== 'number' || typeof r.max !== 'number') return null;
@@ -100,7 +106,7 @@ export function computeAttorneyForm(input) {
   }
 
   if (caseType === 'family') {
-    const ranges = [rangeOf(RULE.family, 'امور حسبی، دعاوی خانوادگی و مالی ناشی از زوجیت (ماده ۱۳ بند الف)'), rangeOf(RULE.nonfinancial, 'دعاوی غیرمالی (ماده ۱۳ بند ب)')].filter(Boolean);
+    const ranges = [rangeOf(RULE.family, 'امور حسبی، دعاوی خانوادگی و مالی ناشی از زوجیت (ماده ۱۳ بند الف)'), rangeOf(RULE.nonfinancial, 'دعاوی غیرمالی (ماده ۱۳ بند ب)')].filter(Boolean).map(withArticle21Stages);
     return fail('RANGE_ONLY', 'برای این نوع دعوا تعرفه بازه‌ای است و عدد قطعی ندارد؛ مبلغ دقیق توافقی یا با تصمیم مرجع رسیدگی تعیین می‌شود.', { ranges });
   }
   if (caseType === 'criminal') {
