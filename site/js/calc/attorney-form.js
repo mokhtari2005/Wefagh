@@ -28,6 +28,8 @@ export const RULE = Object.freeze({
   family: 'attorney-article13-family',
   nonfinancial: 'attorney-article13-nonfinancial',
   reversal: 'attorney-article18-after-reversal',
+  art21First: 'attorney-article21-first-stage',
+  art21Appeal: 'attorney-article21-appeal-stage',
   specialty: 'attorney-article22-specialty',
   travelIn: 'attorney-article30-travel-in-province',
   travelOut: 'attorney-article30-travel-out-of-province',
@@ -85,7 +87,7 @@ export function computeAttorneyForm(input) {
   const {
     subject, caseType, judgment, amount, result = 'none', appealBase,
     afterReversal = false, specialty = false, inProvinceDays = 0, outProvinceDays = 0, temporary = false,
-    agreedFee = 0, received = 0,
+    agreedFee = 0, received = 0, receivedFirst, receivedAppeal,
   } = input;
 
   // موضوع‌های قدیمی تمبر به همین محاسبه نگاشت می‌شوند؛ تمبر همیشه همراه حق‌الوکاله حساب می‌شود.
@@ -124,6 +126,8 @@ export function computeAttorneyForm(input) {
   let mainLabel;
   // حق‌الوکالهٔ تعرفه‌ای همان مرحله؛ حداقل قانونی مبنای تمبر است (نه سهم ختم دعوا).
   let stageFee;
+  // ماده ۲۱: در دعوای مالی عادی، حق‌الوکالهٔ کل بین مرحلهٔ بدوی (۶۰٪) و تجدیدنظر (۴۰٪) تقسیم می‌شود.
+  let splitStages = null;
 
   if (result !== 'none' && result !== undefined) {
     if (afterReversal) {
@@ -176,12 +180,16 @@ export function computeAttorneyForm(input) {
     }
     const base = run(judgment === 'final' ? RULE.f9Final : RULE.f9Nonfinal, { amount });
     if (!base.ok) return fail(base.error, 'حق‌الوکاله محاسبه نشد.');
-    stageFee = base.fee;
     mainFee = base.fee;
+    const first = run(RULE.art21First, { amount: base.fee });
+    const appeal = run(RULE.art21Appeal, { amount: base.fee });
+    if (!first.ok || !appeal.ok) return fail('ART21_MISSING', 'تفکیک ۶۰٪ و ۴۰٪ مرحله‌ها محاسبه نشد.');
+    splitStages = { first: first.fee, appeal: appeal.fee };
     mainLabel = judgment === 'final'
       ? 'حق‌الوکاله، حکم قطعی از حیث بهای خواسته (ماده ۹: ۱۰٪)'
       : 'حق‌الوکاله، حکم غیرقطعی (ماده ۹ بند الف تا ث)';
-    lines.push({ label: mainLabel, amount: base.fee });
+    lines.push({ label: 'حق‌الوکاله مرحلهٔ بدوی (ماده ۲۱: ۶۰٪)', amount: first.fee });
+    lines.push({ label: 'حق‌الوکاله مرحلهٔ تجدیدنظر (ماده ۲۱: ۴۰٪)', amount: appeal.fee });
   }
 
   if (specialty) {
@@ -206,7 +214,22 @@ export function computeAttorneyForm(input) {
     lines.push({ label: `فوق‌العادهٔ مأموریت خارج از استان (${outProvinceDays} روز، ماده ۳۰)`, amount: t.fee });
   }
 
-  const stamp = computeStampAndShares({ stageFee, received, agreedFee, license });
+  const pos = (v) => (Number.isFinite(v) && v > 0 ? v : 0);
+  let stamp = null;
+  let stages = null;
+  if (splitStages) {
+    const firstReceived = pos(receivedFirst ?? received);
+    const appealReceived = pos(receivedAppeal);
+    stages = [
+      { key: 'first', label: 'مرحلهٔ بدوی (ماده ۲۱: ۶۰٪)', fee: splitStages.first, received: firstReceived },
+      { key: 'appeal', label: 'مرحلهٔ تجدیدنظر (ماده ۲۱: ۴۰٪)', fee: splitStages.appeal, received: appealReceived },
+    ].map((s) => ({ ...s, stamp: computeStampAndShares({ stageFee: s.fee, received: s.received, license }) }));
+    // یادآوری حق‌الوکالهٔ وکالت‌نامه روی جمع دریافتی هر دو مرحله سنجیده می‌شود.
+    const agreedNotFullyReceived = pos(agreedFee) > 0 && firstReceived + appealReceived < pos(agreedFee);
+    stages.forEach((s) => { s.stamp.agreedNotFullyReceived = agreedNotFullyReceived; });
+  } else {
+    stamp = computeStampAndShares({ stageFee, received: pos(receivedFirst ?? received), agreedFee, license });
+  }
 
   return {
     ok: true,
@@ -216,6 +239,7 @@ export function computeAttorneyForm(input) {
     lines,
     mainLabel,
     stamp,
+    stages,
     notes: [
       'تمبر مالیاتی و سهم‌ها جدا از جمع حق‌الوکاله نشان داده می‌شوند و در آن جمع نیستند.',
       'هزینهٔ سفر و اقامت جداگانه و به عهدهٔ موکل است؛ این ابزار فقط فوق‌العادهٔ روزانه را محاسبه می‌کند.',

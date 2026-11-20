@@ -67,8 +67,8 @@ test('موضوع‌های قدیمی تمبر به حق‌الوکاله نگا�
   const markaz = computeAttorneyForm({ ...base, subject: 'tax-markaz' });
   assert.equal(kanon.ok, true);
   assert.equal(kanon.total, 3200000);
-  assert.equal(kanon.stamp.license, 'kanon');
-  assert.equal(markaz.stamp.license, 'markaz');
+  assert.equal(kanon.stages[0].stamp.license, 'kanon');
+  assert.equal(markaz.stages[0].stamp.license, 'markaz');
 });
 
 test('ماده ۸: وکیل تسخیری یا معاضدتی محاسبه نمی‌شود، چون حداقل تعرفه تعریف نشده است', () => {
