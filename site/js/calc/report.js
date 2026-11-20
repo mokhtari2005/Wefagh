@@ -1,5 +1,27 @@
 import { renderFormHtml, renderFormText } from './forms.js?v=20261119-forms-1';
 
+const SNAPSHOT_PROPS = ['color', 'background-color', 'font-family', 'font-size', 'font-weight', 'line-height', 'direction', 'text-align'];
+
+/** html2canvas draws a copy inside the site page, where inherited site CSS can change colours. Record the report window's computed look before rendering. */
+function snapshotComputedStyles(root) {
+  const view = root.ownerDocument.defaultView;
+  return [root, ...root.querySelectorAll('*')].map((el) => {
+    const cs = view.getComputedStyle(el);
+    return SNAPSHOT_PROPS.map((prop) => cs.getPropertyValue(prop));
+  });
+}
+
+/** Writes the recorded styles onto the copy that html2canvas renders, so the PDF matches the report window. */
+function applyComputedStyles(doc, snapshot) {
+  const root = doc.querySelector('.academy-pdf-sheet');
+  if (!root) return;
+  [root, ...root.querySelectorAll('*')].forEach((el, i) => {
+    const values = snapshot[i];
+    if (!values) return;
+    SNAPSHOT_PROPS.forEach((prop, j) => el.style.setProperty(prop, values[j], 'important'));
+  });
+}
+
 /** Academy-branded A4 worksheets for calculator results. `model` (from forms.js) gives the reference-form layout; without it a generic form is built from rows + content. */
 export function createA4TextReport({ title, rows = [], content = null, filename = 'academy-report', downloadOnly = false, model = null } = {}) {
   const clone = content?.cloneNode?.(true) || null;
@@ -76,11 +98,12 @@ export function createA4TextReport({ title, rows = [], content = null, filename 
       if (popup.closed) throw new Error('Report window was closed');
       const sheet = popup.document.querySelector('.academy-pdf-sheet');
       if (!sheet) throw new Error('Report sheet missing');
+      const styleSnapshot = snapshotComputedStyles(sheet);
       await window.html2pdf().set({
         margin: 0,
         filename: filename + '.pdf',
         image: { type: 'jpeg', quality: .98 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false, windowWidth: Math.max(sheet.scrollWidth, sheet.clientWidth) },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false, windowWidth: Math.max(sheet.scrollWidth, sheet.clientWidth), onclone: (doc) => applyComputedStyles(doc, styleSnapshot) },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
         pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
       }).from(sheet).save();
