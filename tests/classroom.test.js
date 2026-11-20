@@ -80,3 +80,29 @@ test('recording endpoints require Backblaze B2 configuration without disrupting 
   const normal=await worker.fetch(req('/api/classroom/sessions',{cookie:memberCookie}),env);
   assert.equal(normal.status,200);
 });
+
+test('مدیر می‌تواند مدرس را مجاز کند و فقط مدرس منصوب‌شده می‌تواند اتاق Jitsi را آغاز کند',async()=>{
+  const {db,env,adminCookie,memberCookie}=await setup();
+  db.raw.prepare("UPDATE users SET membership_status='approved' WHERE email='member@class.test'").run();
+  const member=db.raw.prepare("SELECT id FROM users WHERE email='member@class.test'").get();
+  const list=await worker.fetch(req('/api/admin/classroom/instructors',{cookie:adminCookie}),env);
+  assert.equal(list.status,200);
+  assert.equal((await list.json()).instructors.length,1);
+  const grant=await worker.fetch(req('/api/admin/classroom/instructors',{method:'POST',body:{userId:member.id,enabled:true},cookie:adminCookie}),env);
+  assert.equal(grant.status,200);
+  const created=await worker.fetch(req('/api/admin/classroom/sessions',{method:'POST',body:{
+    title:'کلاس مدرس',startsAt:new Date(Date.now()+60000).toISOString(),durationMinutes:60,instructorId:member.id,
+  },cookie:adminCookie}),env);
+  assert.equal(created.status,201);
+  const id=(await created.json()).sessionId;
+  const host=await worker.fetch(req('/api/classroom/sessions/'+id+'/host',{cookie:memberCookie}),env);
+  assert.equal(host.status,200);
+  const hostData=await host.json();
+  assert.ok(hostData.hostUrl.startsWith('https://meet.jit.si/wefagh-'));
+  const denied=await worker.fetch(req('/api/classroom/sessions/'+id+'/host',{cookie:adminCookie}),env);
+  assert.equal(denied.status,403);
+  const revoke=await worker.fetch(req('/api/admin/classroom/instructors',{method:'POST',body:{userId:member.id,enabled:false},cookie:adminCookie}),env);
+  assert.equal(revoke.status,200);
+  const revoked=await worker.fetch(req('/api/classroom/sessions/'+id+'/host',{cookie:memberCookie}),env);
+  assert.equal(revoked.status,403);
+});
