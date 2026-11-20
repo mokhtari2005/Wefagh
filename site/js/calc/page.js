@@ -549,9 +549,6 @@ function attorneyTool(id) {
     if (o.disabled) opt.disabled = true;
     return opt;
   }));
-  const appealBase = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'به ریال' });
-  appealBase.addEventListener('input', () => { appealBase.value = groupAmount(appealBase.value); });
-  const appealWrap = field('att-appeal-base', 'حق‌الوکالهٔ مرحلهٔ تجدیدنظر (ریال)', appealBase);
   const specialty = h('select', { id: 'att-specialty' }, [
     h('option', { value: 'no', text: 'وکیل گواهی وکالت تخصصی ندارد.' }),
     h('option', { value: 'yes', text: 'وکیل گواهی وکالت تخصصی از کانون یا مرکز وکلا دارد.' }),
@@ -566,7 +563,6 @@ function attorneyTool(id) {
 
   function sync() {
     judgmentWrap.hidden = caseType.value !== 'financial';
-    appealWrap.hidden = !(result.value === 'appealBefore' || result.value === 'appealAfter');
   }
   caseType.addEventListener('change', sync);
   result.addEventListener('change', sync);
@@ -577,7 +573,6 @@ function attorneyTool(id) {
     field('att-case', 'نوع دعوا', caseType),
     judgmentWrap,
     field('att-result', 'نتیجهٔ ختم دعوا', result),
-    appealWrap,
     field('att-specialty', 'گواهی وکالت تخصصی وکیل', specialty),
     field('att-in-days', 'تعداد روزهای ماموریت داخل استان', inDays),
     field('att-out-days', 'تعداد روزهای ماموریت خارج استان', outDays),
@@ -612,7 +607,6 @@ function attorneyTool(id) {
       judgment: judgment.value,
       amount: parseAmount(amount.value),
       result: resultKey,
-      appealBase: parseAmount(appealBase.value),
       afterReversal: afterReversal.checked,
       specialty: specialty.value === 'yes',
       inProvinceDays: inP,

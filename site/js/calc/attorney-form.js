@@ -79,7 +79,6 @@ function rangeOf(id, title) {
  * @param {'nonfinal'|'final'|''} input.judgment  برای دعوای مالی و بدون ختم دعوا الزامی است.
  * @param {number} input.amount  بهای خواسته یا محکوم‌به به ریال.
  * @param {string} input.result  یکی از کلیدهای RESULT_RULE_BY_VALUE، 'interlocutory'، یا 'none'.
- * @param {number} [input.appealBase] حق‌الوکالهٔ مرحلهٔ تجدیدنظر (برای سقوط تجدیدنظر).
  * @param {boolean} [input.afterReversal] قبول وکالت پس از نقض رأی (ماده ۱۸).
  * @param {boolean} [input.specialty] وکیل گواهی تخصصی دارد (ماده ۲۲ تبصره).
  * @param {number} [input.inProvinceDays] روز مأموریت داخل استان.
@@ -90,7 +89,7 @@ function rangeOf(id, title) {
  */
 export function computeAttorneyForm(input) {
   const {
-    subject, caseType, judgment, amount, result = 'none', appealBase,
+    subject, caseType, judgment, amount, result = 'none',
     afterReversal = false, specialty = false, inProvinceDays = 0, outProvinceDays = 0, temporary = false,
     agreedFee = 0,
   } = input;
@@ -146,11 +145,12 @@ export function computeAttorneyForm(input) {
     let stageBase;
     let stageLabel;
     if (isAppeal) {
-      if (!Number.isFinite(appealBase) || appealBase <= 0) {
-        return fail('INVALID_APPEAL_BASE', 'حق‌الوکالهٔ مرحلهٔ تجدیدنظر را به ریال وارد کنید؛ این مبنا از متن تعرفه قابل محاسبه از بهای خواسته نیست.');
-      }
-      stageBase = appealBase;
-      stageLabel = 'حق‌الوکالهٔ مرحلهٔ تجدیدنظر (ورودی شما)';
+      // مبنای تجدیدنظر = ۴۰٪ حق‌الوکالهٔ کل (ماده ۲۱) از بهای خواسته؛ ورودی جداگانه ندارد.
+      const total = run(RULE.f9Nonfinal, { amount });
+      const appeal = total.ok ? run(RULE.art21Appeal, { amount: total.fee }) : total;
+      if (!appeal.ok) return fail(appeal.error, 'حق‌الوکالهٔ مرحلهٔ تجدیدنظر محاسبه نشد.');
+      stageBase = appeal.fee;
+      stageLabel = 'حق‌الوکالهٔ مرحلهٔ تجدیدنظر (ماده ۲۱: ۴۰٪)';
     } else {
       // ماده ۱۲: مبنای سهم، حق‌الوکالهٔ مرحلهٔ نخستین است که از بهای خواسته با ماده ۹ بند الف تا ث به دست می‌آید.
       const base = run(RULE.f9Nonfinal, { amount });
