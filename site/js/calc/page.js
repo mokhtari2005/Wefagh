@@ -470,12 +470,13 @@ const RESULT_KEY = { dismissOtherA: 'dismissOther', dismissOtherB: 'dismissOther
 function stampRowsOf(stamp) {
   if (!stamp?.ok) return [];
   const rows = [
+    ['حق‌الوکالهٔ درج‌شده در وکالت‌نامه (ورودی)', stamp.agreedAmount ? formatRial(stamp.agreedAmount) : 'وارد نشده'],
     ['مبنای تمبر مالیاتی', stamp.basisLabel],
-    ['مبلغ علی‌الحساب دریافتی (ورودی)', stamp.receivedAmount ? formatRial(stamp.receivedAmount) : 'وارد نشده'],
     ['تمبر مالیاتی (۵٪ مبنا)', formatRial(stamp.stamp)],
+    ['مبلغ علی‌الحساب دریافتی (ورودی)', stamp.receivedAmount ? formatRial(stamp.receivedAmount) : 'وارد نشده'],
   ];
   if (!stamp.shares.length) rows.push(['سهم کانون، صندوق یا مرکز', 'نوع پروانه را انتخاب کنید']);
-  stamp.shares.forEach((s) => rows.push([s.label, formatRial(s.amount)]));
+  stamp.shares.forEach((s) => rows.push([s.label, s.amount === 0 && stamp.receivedAmount === 0 ? 'مبلغ علی‌الحساب دریافتی را وارد کنید' : formatRial(s.amount)]));
   return rows;
 }
 
@@ -483,6 +484,8 @@ function attorneyTool(id) {
   const license = h('select', { id: 'att-license' }, ATTORNEY_LICENSES.map((o) => h('option', { value: o.value, text: o.text })));
   const received = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'اختیاری؛ به ریال' });
   received.addEventListener('input', () => { received.value = groupAmount(received.value); });
+  const agreed = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'اختیاری؛ به ریال' });
+  agreed.addEventListener('input', () => { agreed.value = groupAmount(agreed.value); });
   const caseType = h('select', { id: 'att-case' }, ATTORNEY_CASE_TYPES.map((o) => h('option', { value: o.value, text: o.text })));
   const judgment = h('select', { id: 'att-judgment' }, [
     h('option', { value: '', text: 'انتخاب کنید' }),
@@ -530,7 +533,8 @@ function attorneyTool(id) {
     h('label', { class: 'check-row' }, [afterReversal, h('span', { text: 'قبول وکالت پس از نقض رای' })]),
     h('label', { class: 'check-row' }, [temporary, h('span', { text: 'وکیل تسخیری یا معاضدتی' })]),
     field('att-amount', 'بهای خواسته یا محکوم به (ریال)', amount),
-    field('att-received', 'مبلغ علی‌الحساب دریافتی از موکل (ریال، اختیاری)', received),
+    field('att-agreed', 'حق‌الوکالهٔ درج‌شده در وکالت‌نامه (ریال، اختیاری؛ مبنای تمبر)', agreed),
+    field('att-received', 'مبلغ علی‌الحساب دریافتی از موکل (ریال، اختیاری؛ مبنای سهم مرکز)', received),
     h('button', { class: 'btn dix-submit', type: 'submit', text: 'محاسبه' }),
     out,
   ]);
@@ -553,6 +557,7 @@ function attorneyTool(id) {
     const r = computeAttorneyForm({
       subject: 'attorney',
       license: license.value,
+      agreedFee: parseAmount(agreed.value) || 0,
       received: parseAmount(received.value) || 0,
       caseType: caseType.value,
       judgment: judgment.value,

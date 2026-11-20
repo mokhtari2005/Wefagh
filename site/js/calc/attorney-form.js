@@ -77,14 +77,15 @@ function rangeOf(id, title) {
  * @param {number} [input.inProvinceDays] روز مأموریت داخل استان.
  * @param {number} [input.outProvinceDays] روز مأموریت خارج از استان.
  * @param {boolean} [input.temporary] وکیل تسخیری یا معاضدتی است.
- * @param {number} [input.received] مبلغ علی‌الحساب دریافتی از موکل (ریال، اختیاری).
+ * @param {number} [input.agreedFee] حق‌الوکالهٔ درج‌شده در وکالت‌نامه (ریال، اختیاری؛ مبنای تمبر).
+ * @param {number} [input.received] مبلغ علی‌الحساب دریافتی از موکل (ریال، اختیاری؛ مبنای سهم مرکز).
  * @param {'kanon'|'markaz'|''} [input.license] نوع پروانه برای سهم‌ها.
  */
 export function computeAttorneyForm(input) {
   const {
     subject, caseType, judgment, amount, result = 'none', appealBase,
     afterReversal = false, specialty = false, inProvinceDays = 0, outProvinceDays = 0, temporary = false,
-    received = 0,
+    agreedFee = 0, received = 0,
   } = input;
 
   // موضوع‌های قدیمی تمبر به همین محاسبه نگاشت می‌شوند؛ تمبر همیشه همراه حق‌الوکاله حساب می‌شود.
@@ -200,7 +201,7 @@ export function computeAttorneyForm(input) {
     lines.push({ label: `فوق‌العادهٔ مأموریت خارج از استان (${outProvinceDays} روز، ماده ۳۰)`, amount: t.fee });
   }
 
-  const stamp = computeStampAndShares({ tariffFee: mainFee, received, license });
+  const stamp = computeStampAndShares({ tariffFee: mainFee, agreedFee, received, license });
 
   return {
     ok: true,
