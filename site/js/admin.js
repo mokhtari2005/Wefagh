@@ -495,6 +495,58 @@ export async function adminPage() {
         });
         actions.append(cancel);
       }
+      const classEnd = Date.parse(item.startsAt) + item.durationMinutes * 60000;
+      const recordingExpiry = classEnd + 48 * 60 * 60 * 1000;
+      if (item.recordingAvailable) {
+        const recordingStatus = el('p', { class: 'form-status', text: 'فایل ضبط‌شده تا ' + new Date(recordingExpiry).toLocaleString('fa-IR') + ' در دسترس است.' });
+        const deleteRecording = el('button', { class: 'btn danger', type: 'button', text: 'حذف فایل ضبط‌شده' });
+        deleteRecording.addEventListener('click', async () => {
+          if (!window.confirm('فایل ضبط‌شده برای همیشه حذف شود؟')) return;
+          deleteRecording.disabled = true;
+          const response = await fetch('/api/admin/classroom/sessions/' + item.id + '/recording', { method: 'DELETE', credentials: 'same-origin' });
+          const data = await response.json().catch(() => ({}));
+          recordingStatus.className = 'form-status' + (response.ok ? ' ok' : ' err');
+          recordingStatus.textContent = response.ok ? 'فایل حذف شد.' : errorText(data, response.status);
+          await refreshClassroomAdmin();
+        });
+        const recordingActions = el('div', { class: 'row admin-actions' }, [recordingStatus, deleteRecording]);
+        row.append(recordingActions);
+      } else if (Date.now() >= classEnd && Date.now() < recordingExpiry && item.status === 'scheduled') {
+        const fileInput = el('input', { type: 'file', accept: 'video/mp4,video/webm', 'aria-label': 'فایل ضبط‌شده کلاس' });
+        const uploadButton = el('button', { class: 'btn secondary', type: 'button', text: 'بارگذاری فایل ضبط‌شده' });
+        const uploadStatus = el('p', { class: 'form-status', role: 'status', text: 'فقط فایل MP4 یا WebM تا سقف ۲ گیگابایت؛ فایل پس از پایان کلاس حداکثر ۴۸ ساعت نگهداری می‌شود.' });
+        uploadButton.addEventListener('click', async () => {
+          const file = fileInput.files?.[0];
+          if (!file) { uploadStatus.className = 'form-status err'; uploadStatus.textContent = 'ابتدا فایل ویدئو را انتخاب کنید.'; return; }
+          if (!['video/mp4','video/webm'].includes(file.type) || file.size > 2 * 1024 * 1024 * 1024) {
+            uploadStatus.className = 'form-status err'; uploadStatus.textContent = 'فقط فایل MP4 یا WebM تا سقف ۲ گیگابایت پذیرفته می‌شود.'; return;
+          }
+          uploadButton.disabled = true; fileInput.disabled = true;
+          try {
+            uploadStatus.className = 'form-status'; uploadStatus.textContent = 'در حال آماده‌سازی بارگذاری…';
+            const started = await postJson('/api/admin/classroom/sessions/' + item.id + '/recording', { fileName: file.name, contentType: file.type, sizeBytes: file.size });
+            if (!started.ok) throw new Error(started.data?.message || errorText(started.data, started.status));
+            const { recordingId, partBytes, partCount } = started.data;
+            for (let part = 0; part < partCount; part++) {
+              const chunk = file.slice(part * partBytes, Math.min(file.size, (part + 1) * partBytes));
+              const response = await fetch('/api/admin/classroom/recordings/' + recordingId + '/parts/' + (part + 1), {
+                method: 'PUT', credentials: 'same-origin', headers: { 'Content-Type': 'application/octet-stream' }, body: chunk,
+              });
+              const data = await response.json().catch(() => ({}));
+              if (!response.ok) throw new Error(data.message || errorText(data, response.status));
+              uploadStatus.textContent = 'بارگذاری بخش ' + (part + 1) + ' از ' + partCount + '…';
+            }
+            const completed = await postJson('/api/admin/classroom/recordings/' + recordingId + '/complete', {});
+            if (!completed.ok) throw new Error(completed.data?.message || errorText(completed.data, completed.status));
+            uploadStatus.className = 'form-status ok'; uploadStatus.textContent = 'فایل با موفقیت بارگذاری شد و تا ۴۸ ساعت پس از پایان کلاس در دسترس خواهد بود.';
+            await refreshClassroomAdmin();
+          } catch (error) {
+            uploadStatus.className = 'form-status err'; uploadStatus.textContent = error?.message || 'بارگذاری فایل انجام نشد.';
+            uploadButton.disabled = false; fileInput.disabled = false;
+          }
+        });
+        row.append(el('div', { class: 'card admin-import' }, [el('h4', { text: 'فایل ضبط‌شده کلاس' }), fileInput, uploadButton, uploadStatus]));
+      }
       row.append(actions, attendancePanel);
       classroomAdminList.append(row);
     }

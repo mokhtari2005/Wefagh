@@ -45,7 +45,7 @@ function mountMeeting(root, sessionId, data, {guestToken=null, guest=false}={}) 
   if(data.provider==='jitsi' && data.roomName){
     const frame=node('iframe',{class:'classroom-frame',title:'اتاق تصویری کلاس',src:meetingUrl(data.roomName),allow:'camera; microphone; display-capture; fullscreen; autoplay',allowfullscreen:'true',referrerpolicy:'no-referrer'});
     root.append(frame);
-    notice.textContent='کلاس در همین صفحه باز شده است. این سامانه قابلیت ضبط یا ذخیره ویدئو ندارد؛ ضبط را نیز در تنظیمات اتاق غیرفعال کرده‌ایم.';
+    notice.textContent='کلاس در همین صفحه باز شده است. این سامانه ضبط خودکار ندارد و ضبط داخلی Jitsi غیرفعال است؛ در صورت بارگذاری فایل توسط مدیر، ویدئو تا ۴۸ ساعت پس از پایان کلاس در همین صفحه در دسترس خواهد بود.';
   } else if(data.provider==='google_meet' && data.meetingUrl) {
     notice.textContent='Google Meet در این مرحله امکان نمایش کامل داخل سایت را نمی‌دهد؛ برای ورود، پیوند زیر در صفحه‌ای جداگانه باز می‌شود.';
     root.append(node('a',{class:'btn',href:data.meetingUrl,target:'_blank',rel:'noopener noreferrer',text:'ورود به جلسه در Google Meet'}));
@@ -65,6 +65,7 @@ function sessionCard(session, onJoin) {
     node('h2',{text:session.title}),
     node('p',{class:'muted',text:dateLabel(session.startsAt)}),
     ...(session.description?[node('p',{text:session.description})]:[]),
+    ...(session.recordingAvailable?[node('video',{controls:'controls',preload:'metadata',src:'/api/classroom/sessions/'+session.id+'/recording',class:'classroom-recording-player'})]:[]),
     node('p',{class:'muted',text:session.guestEnabled?'امکان ورود مهمان با پیوند دعوت فعال است.':'ویژه اعضای تأییدشده'}),
   ]);
   const button=node('button',{class:'btn',type:'button',text:canEnter?'ورود به کلاس':'هنوز زمان ورود نرسیده است'});
@@ -77,7 +78,7 @@ export async function classroomPage() {
   const root=node('section',{class:'classroom-page'},[
     node('span',{class:'section-kicker',text:'آموزش زنده'}),
     node('h1',{text:'کلاس‌های آنلاین'}),
-    node('p',{class:'lead',text:'کلاس‌های برنامه‌ریزی‌شده را مشاهده کنید و در زمان مقرر از همین صفحه وارد جلسه شوید.'}),
+    node('p',{class:'lead',text:'کلاس‌های برنامه‌ریزی‌شده را مشاهده کنید، در زمان مقرر وارد جلسه شوید و در صورت بارگذاری فایل، ویدئوی ضبط‌شده را تا ۴۸ ساعت پس از پایان کلاس ببینید.'}),
   ]);
   const status=node('p',{class:'form-status',role:'status',text:'در حال دریافت فهرست کلاس‌ها…'});
   const list=node('div',{class:'classroom-session-list'});

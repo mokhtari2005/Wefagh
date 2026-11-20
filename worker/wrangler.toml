@@ -7,6 +7,10 @@ routes = [
   { pattern = "mokhtari.ir/api/*", zone_name = "mokhtari.ir" }
 ]
 
+[[r2_buckets]]
+binding = "CLASSROOM_RECORDINGS"
+bucket_name = "wefagh-classroom-recordings"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "wefagh-db"
