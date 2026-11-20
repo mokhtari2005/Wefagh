@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="680" viewBox="0 0 1200 680" role="img" aria-labelledby="title desc">
+<title id="title">MLA Shahram Mokhtari Law Academy</title><desc id="desc">Navy and gold legal academy emblem with graduation cap, scales of justice and an open book.</desc>
+<rect width="1200" height="680" fill="#fff"/>
+<g stroke-linejoin="round" stroke-linecap="round">
+<path d="M330 112 600 22 870 112 600 204Z" fill="#08243e" stroke="#c9972c" stroke-width="8"/>
+<path d="M823 96v106" stroke="#c9972c" stroke-width="8"/><circle cx="823" cy="210" r="13" fill="#c9972c"/><path d="M823 222v50l-17 23h34l-17-23" fill="#c9972c"/>
+<path d="M600 172v-42" stroke="#c9972c" stroke-width="12"/><path d="M600 140c-90-48-185-15-226 13M600 140c90-48 185-15 226 13" fill="none" stroke="#c9972c" stroke-width="12"/>
+<path d="M600 140v174" stroke="#c9972c" stroke-width="12"/><path d="M600 166 550 204h100Z" fill="#c9972c"/>
+<path d="M374 153 320 245m54-92 54 92M826 153l-54 92m54-92 54 92" fill="none" stroke="#c9972c" stroke-width="6"/>
+<path d="M310 247q64 70 128 0Z M762 247q64 70 128 0Z" fill="#d6a63b" stroke="#b78624" stroke-width="4"/>
+<path d="M600 313c-90-65-190-69-270-43l-76 61c124-37 232-24 346 47 114-71 222-84 346-47l-76-61c-80-26-180-22-270 43Z" fill="#08243e"/>
+<path d="M600 378c-106-64-214-77-330-47M600 378c106-64 214-77 330-47" fill="none" stroke="#c9972c" stroke-width="9"/>
+</g>
+<text x="600" y="520" text-anchor="middle" font-family="Georgia,Times New Roman,serif" font-size="148" font-weight="bold" letter-spacing="8" fill="#08243e">MLA</text>
+<path d="M180 555h210m420 0h210" stroke="#c9972c" stroke-width="5"/>
+<text x="600" y="575" text-anchor="middle" font-family="Georgia,Times New Roman,serif" font-size="43" letter-spacing="7" fill="#08243e">SHAHRAM MOKHTARI</text>
+<text x="600" y="635" text-anchor="middle" font-family="Georgia,Times New Roman,serif" font-size="34" letter-spacing="14" fill="#08243e">LAW ACADEMY</text>
+</svg>
