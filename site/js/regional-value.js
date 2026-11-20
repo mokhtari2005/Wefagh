@@ -460,7 +460,7 @@ export function regionalValueTool() {
     const result=h('section',{class:'result regional-result',role:'status','aria-live':'polite'},[
       h('header',{class:'regional-print-header'},[
         h('strong',{class:'regional-academy-name',text:'آکادمی وکالت شهرام مختاری'}),
-        h('span',{class:'regional-academy-domain',text:'Mokhtari Law Academy | mokhtari.ir'}),
+        h('span',{class:'regional-academy-domain',text:'Mokhtari Law Academy'}),
         h('h2',{text:'گزارش استعلام ارزش معاملاتی ملک'})
       ]),
       h('dl',{class:'regional-report-meta'},[
