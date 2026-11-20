@@ -24,28 +24,69 @@ function meetingUrl(roomName) {
 }
 function mountMeeting(root, sessionId, data, {guestToken=null, guest=false}={}) {
   root.replaceChildren();
+  const expandButton=node('button',{class:'btn secondary classroom-expand-button',type:'button',text:'تمام‌صفحه'});
+  const leaveButton=node('button',{class:'btn secondary',type:'button',text:'خروج از کلاس'});
+  const actions=node('div',{class:'classroom-meeting-actions'},[expandButton,leaveButton]);
   const header=node('div',{class:'classroom-meeting-heading'},[
     node('div',{},[node('span',{class:'section-kicker',text:'کلاس زنده'}),node('h2',{text:'اتاق کلاس'})]),
-    node('button',{class:'btn secondary',type:'button',text:'خروج از کلاس'}),
+    actions,
   ]);
   const notice=node('p',{class:'form-status',role:'status',text:'برای استفاده از تصویر، صدا و اشتراک‌گذاری صفحه، مجوزهای مرورگر را فعال کنید.'});
   root.append(header,notice);
-  const leave=header.querySelector('button');
-  let heartbeat=null,closed=false;
+  const leave=leaveButton;
+  let heartbeat=null,closed=false,fallbackExpanded=false;
+  let leaveFullscreen=async()=>{},syncFullscreen=()=>{};
   const endpoint=guest?'/api/classroom/guest/'+sessionId:'/api/classroom/sessions/'+sessionId;
   const pulse=()=>postJson(endpoint+'/heartbeat',guest?{guestToken}:{}).catch(()=>{});
   const stop=async()=>{
     if(closed)return;closed=true;
     if(heartbeat)clearInterval(heartbeat);
+    await leaveFullscreen();
+    document.removeEventListener('fullscreenchange',syncFullscreen);
+    document.removeEventListener('webkitfullscreenchange',syncFullscreen);
     await postJson(endpoint+'/leave',guest?{guestToken}:{}).catch(()=>{});
     root.replaceChildren(node('p',{class:'form-status',text:'از کلاس خارج شدید. برای ورود دوباره به فهرست کلاس‌ها برگردید.'}));
   };
   leave.addEventListener('click',stop);
   window.addEventListener('pagehide',()=>{if(!closed){closed=true;if(heartbeat)clearInterval(heartbeat);void postJson(endpoint+'/leave',guest?{guestToken}:{});}}, {once:true});
   if(data.provider==='jitsi' && data.roomName){
+    const frameWrap=node('div',{class:'classroom-frame-wrap'});
     const frame=node('iframe',{class:'classroom-frame',title:'اتاق تصویری کلاس',src:meetingUrl(data.roomName),allow:'camera; microphone; display-capture; fullscreen; autoplay',allowfullscreen:'true',referrerpolicy:'no-referrer'});
-    root.append(frame);
-    notice.textContent='کلاس در همین صفحه باز شده است. این سامانه ضبط خودکار ندارد و ضبط داخلی Jitsi غیرفعال است؛ در صورت بارگذاری فایل توسط مدیر، ویدئو تا ۴۸ ساعت پس از پایان کلاس در همین صفحه در دسترس خواهد بود.';
+    const exitButton=node('button',{class:'btn classroom-fullscreen-exit',type:'button',text:'خروج از تمام‌صفحه'});
+    frameWrap.append(frame,exitButton);
+    root.append(frameWrap);
+    const setFallbackExpanded=(expanded)=>{
+      fallbackExpanded=expanded;
+      frameWrap.classList.toggle('is-expanded',expanded);
+      document.body.classList.toggle('classroom-fullscreen-fallback',expanded);
+      expandButton.textContent=expanded?'خروج از تمام‌صفحه':'تمام‌صفحه';
+      expandButton.setAttribute('aria-pressed',String(expanded));
+    };
+    syncFullscreen=()=>{
+      const active=document.fullscreenElement===frameWrap || document.webkitFullscreenElement===frameWrap;
+      if(active){expandButton.textContent='خروج از تمام‌صفحه';expandButton.setAttribute('aria-pressed','true');}
+      else if(!fallbackExpanded){expandButton.textContent='تمام‌صفحه';expandButton.setAttribute('aria-pressed','false');}
+    };
+    leaveFullscreen=async()=>{
+      if(fallbackExpanded){setFallbackExpanded(false);return;}
+      try{
+        if(document.exitFullscreen && document.fullscreenElement) await document.exitFullscreen();
+        else if(document.webkitExitFullscreen && document.webkitFullscreenElement) document.webkitExitFullscreen();
+      }catch{}
+    };
+    const toggleFullscreen=async()=>{
+      if(fallbackExpanded || document.fullscreenElement===frameWrap || document.webkitFullscreenElement===frameWrap){await leaveFullscreen();return;}
+      try{
+        if(frameWrap.requestFullscreen) await frameWrap.requestFullscreen();
+        else if(frameWrap.webkitRequestFullscreen) frameWrap.webkitRequestFullscreen();
+      }catch{}
+      if(document.fullscreenElement!==frameWrap && document.webkitFullscreenElement!==frameWrap) setFallbackExpanded(true);
+    };
+    expandButton.addEventListener('click',toggleFullscreen);
+    exitButton.addEventListener('click',leaveFullscreen);
+    document.addEventListener('fullscreenchange',syncFullscreen);
+    document.addEventListener('webkitfullscreenchange',syncFullscreen);
+    notice.textContent='کلاس در همین صفحه باز شده است. برای نمایش بزرگ‌تر، دکمهٔ «تمام‌صفحه» را بزنید. این سامانه ضبط خودکار ندارد و ضبط داخلی Jitsi غیرفعال است؛ در صورت بارگذاری فایل توسط مدیر، ویدئو تا ۴۸ ساعت پس از پایان کلاس در همین صفحه در دسترس خواهد بود.';
   } else if(data.provider==='google_meet' && data.meetingUrl) {
     notice.textContent='Google Meet در این مرحله امکان نمایش کامل داخل سایت را نمی‌دهد؛ برای ورود، پیوند زیر در صفحه‌ای جداگانه باز می‌شود.';
     root.append(node('a',{class:'btn',href:data.meetingUrl,target:'_blank',rel:'noopener noreferrer',text:'ورود به جلسه در Google Meet'}));
