@@ -84,37 +84,7 @@ export function computeAttorneyForm(input) {
   } = input;
 
   if (subject === 'tax-kanon' || subject === 'tax-markaz') {
-    const received = input.advanceReceived;
-    if (!Number.isFinite(received) || received <= 0) {
-      return fail('INVALID_TAX_BASE', 'مبلغ حق‌الوکالهٔ علی‌الحسابِ دریافت‌شده باید بیشتر از صفر باشد.');
-    }
-    if (subject === 'tax-kanon') {
-      const tariffMinimum = input.tariffMinimum;
-      if (!Number.isFinite(tariffMinimum) || tariffMinimum < 0) {
-        return fail('INVALID_TARIFF_MINIMUM', 'حداقل حق‌الوکالهٔ تعرفه‌ای همان مرحله را وارد کنید؛ در صورت نبود حداقل، صفر وارد کنید.');
-      }
-      const taxBase = Math.max(received, tariffMinimum);
-      const stamp = Math.round(taxBase * 0.05);
-      const fund = Math.round(stamp * 0.50);
-      const bar = Math.round(stamp * 0.25);
-      return { ok: true, taxMode: 'kanon', feeTotal: received, stamp, fund, bar, total: stamp + fund + bar,
-        lines: [
-          { label: 'حق‌الوکالهٔ علی‌الحساب دریافت‌شده', amount: received },
-          { label: 'مبنای تمبر پس از رعایت حداقل تعرفه', amount: taxBase },
-          { label: 'تمبر مالیاتی (۵٪)', amount: stamp },
-          { label: 'سهم صندوق (۵۰٪ مبلغ تمبر)', amount: fund },
-          { label: 'سهم کانون (یک‌چهارم مبلغ تمبر)', amount: bar },
-        ],
-        notes: ['مبنای محاسبه، مبلغ علی‌الحساب وصول‌شده است؛ حداقل قانونی تمبر باید برای همان نوع دعوا و مرحله به‌درستی تعیین شود.',
-          'این محاسبه، مالیات و سهم‌ها را از هم جدا می‌کند؛ مبلغ سهم صندوق و کانون درصدی از مبلغ تمبر است، نه از حق‌الوکاله.'] };
-    }
-    const centerShare = Math.round(received * 0.05);
-    return { ok: true, taxMode: 'markaz', feeTotal: received, centerShare, total: centerShare,
-      lines: [
-        { label: 'حق‌الوکالهٔ علی‌الحساب دریافت‌شده', amount: received },
-        { label: 'سهم مرکز (۵٪ حق‌الوکاله)', amount: centerShare },
-      ],
-      notes: ['سهم مرکز بر مبنای حق‌الوکالهٔ علی‌الحساب محاسبه شده است؛ فرمول سهم صندوق و کانون در این مسیر اعمال نمی‌شود.'] };
+    return fail('TAX_NOT_COMPUTED', 'تمبر مالیاتی در این ابزار محاسبه نمی‌شود؛ مبنای تمبر و سهم کانون یا مرکز در فایل تعرفهٔ مورد استناد نیست.');
   }
   if (subject !== 'attorney') return fail('INVALID_SUBJECT', 'موضوع را انتخاب کنید.');
   if (temporary) {
