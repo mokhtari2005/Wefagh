@@ -20,6 +20,40 @@ function field(labelText, name, value = '', type = 'text', required = true) {
 }
 function lineList(items = []) { return items.join('\n'); }
 function parseLines(value) { return value.split('\n').map((x) => x.trim()).filter(Boolean); }
+function cleanAiOutput(value) {
+  if (typeof value !== 'string') return '';
+  return value
+    .replace(/\r\n?/g, '\n')
+    .replace(/^```(?:[a-z0-9_-]+)?\s*/gim, '')
+    .replace(/^```\s*$/gm, '')
+    .replace(/^\s{0,3}#{1,6}\s*/gm, '')
+    .replace(/^\s*[─━═_*—-]{3,}\s*$/gm, '')
+    .replace(/\*\*(.*?)\*\*/gs, '$1')
+    .replace(/__(.*?)__/gs, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+async function copyAiOutput(value) {
+  if (navigator.clipboard?.writeText && window.isSecureContext) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+  const field = document.createElement('textarea');
+  field.value = value;
+  field.setAttribute('readonly', '');
+  field.style.position = 'fixed';
+  field.style.opacity = '0';
+  field.style.insetInlineStart = '-9999px';
+  document.body.append(field);
+  field.focus();
+  field.select();
+  field.setSelectionRange(0, field.value.length);
+  const copied = document.execCommand('copy');
+  field.remove();
+  if (!copied) throw new Error('COPY_FAILED');
+}
 function errorText(data, status) {
   if (status === 401) return 'برای مدیریت محتوا ابتدا وارد حساب کاربری شوید.';
   if (status === 403) return 'این حساب نقش مدیر ندارد. دسترسی مدیریت فقط از طریق نقش مدیر مجاز است.';
@@ -212,8 +246,24 @@ export async function adminPage() {
       for (const [key, label] of [['gemini', 'Gemini'], ['groq', 'GPT-OSS 120B']]) {
         const result = comparison[key] || {};
         const title = el('h3', { text: `${label} · ${result.model || 'مدل نامشخص'} · ${result.status || 'نامشخص'}${result.httpStatus ? ` · HTTP ${result.httpStatus}` : ''}${Number.isFinite(result.ms) ? ` · ${result.ms}ms` : ''}` });
-        const output = el('pre', { class: 'admin-ai-compare-output', text: result.text || 'پاسخی دریافت نشد؛ وضعیت سرویس را بررسی کنید.' });
-        aiCompareResults.append(el('section', { class: 'card' }, [title, output]));
+        const outputText = cleanAiOutput(result.text || 'پاسخی دریافت نشد؛ وضعیت سرویس را بررسی کنید.');
+        const output = el('pre', { class: 'admin-ai-compare-output', text: outputText });
+        const copyButton = el('button', { class: 'btn secondary admin-ai-copy', type: 'button', text: 'کپی پاسخ' });
+        const copyNotice = el('span', { class: 'admin-ai-copy-status', role: 'status' });
+        copyButton.addEventListener('click', async () => {
+          copyButton.disabled = true;
+          copyNotice.textContent = 'در حال کپی…';
+          try {
+            await copyAiOutput(outputText);
+            copyNotice.textContent = 'پاسخ کپی شد.';
+          } catch {
+            copyNotice.textContent = 'کپی انجام نشد؛ متن را انتخاب و دستی کپی کنید.';
+          } finally {
+            copyButton.disabled = false;
+          }
+        });
+        const actions = el('div', { class: 'admin-ai-output-actions' }, [copyButton, copyNotice]);
+        aiCompareResults.append(el('section', { class: 'card' }, [title, actions, output]));
       }
       aiCompareNotice.className = 'form-status ok';
       aiCompareNotice.textContent = 'آزمون تمام شد. ورودی ذخیره نشده و در مسیر عادی دستیار تغییری ایجاد نشده است.';
