@@ -62,9 +62,13 @@ test('ماده ۳۰: فقط یک روز خارج استان = ۳٬۰۰۰٬۰۰۰
   assert.equal(computeAttorneyForm({ ...base, outProvinceDays: 1 }).travelTotal, 3000000);
 });
 
-test('تمبر مالیاتی (کانون و مرکز): محاسبه نمی‌شود، چون مبنای تمبر در فایل تعرفه نیست', () => {
-  assert.equal(computeAttorneyForm({ ...base, subject: 'tax-kanon' }).error, 'TAX_NOT_COMPUTED');
-  assert.equal(computeAttorneyForm({ ...base, subject: 'tax-markaz' }).error, 'TAX_NOT_COMPUTED');
+test('موضوع‌های قدیمی تمبر به حق‌الوکاله نگاشت می‌شوند و جمع حق‌الوکاله تغییر نمی‌کند', () => {
+  const kanon = computeAttorneyForm({ ...base, subject: 'tax-kanon' });
+  const markaz = computeAttorneyForm({ ...base, subject: 'tax-markaz' });
+  assert.equal(kanon.ok, true);
+  assert.equal(kanon.total, 3200000);
+  assert.equal(kanon.stamp.license, 'kanon');
+  assert.equal(markaz.stamp.license, 'markaz');
 });
 
 test('ماده ۸: وکیل تسخیری یا معاضدتی محاسبه نمی‌شود، چون حداقل تعرفه تعریف نشده است', () => {
