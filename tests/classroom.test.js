@@ -72,7 +72,7 @@ test('ورود به کلاس لغوشده یا خارج از بازه مجاز �
   assert.equal(joined.status,409);
 });
 
-test('recording endpoints require the configured R2 bucket without disrupting regular classroom routes',async()=>{
+test('recording endpoints require Backblaze B2 configuration without disrupting regular classroom routes',async()=>{
   const {env,memberCookie}=await setup();
   const unavailable=await worker.fetch(req('/api/classroom/sessions/99/recording',{cookie:memberCookie}),env);
   assert.equal(unavailable.status,503);

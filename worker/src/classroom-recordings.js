@@ -1,7 +1,11 @@
-// Temporary classroom video uploads to Cloudflare R2; files expire 48 hours after class end.
+// Temporary classroom video uploads to Backblaze B2; files expire 48 hours after class end.
 import { json } from './http.js';
 import { currentUser } from './auth/routes.js';
 import { requireAdmin } from './admin.js';
+import {
+  b2AbortMultipart, b2CompleteMultipart, b2CreateMultipart,
+  b2DeleteObjectVersions, b2GetObject, b2UploadPart,
+} from './b2-s3.js';
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024 * 1024;
 const MAX_ACTIVE_STORAGE_BYTES = 9 * 1024 * 1024 * 1024;
@@ -15,12 +19,22 @@ function classExpiry(session) {
   return { end, expires: end + 48 * 60 * 60 * 1000 };
 }
 
+async function abortIfNeeded(env, row) {
+  if (row.multipart_upload_id) {
+    try { await b2AbortMultipart(env, row.object_key, row.multipart_upload_id); } catch {}
+  } else {
+    await b2DeleteObjectVersions(env, row.object_key);
+  }
+}
+
 export async function handleClassroomRecording(request, env, path) {
   const method = request.method;
   const isRecordingRoute = new RegExp('^/api/(?:admin/classroom/(?:sessions/[0-9]+/recording|recordings/[0-9]+(?:/parts/[0-9]+|/complete)?)|classroom/sessions/[0-9]+/recording)$').test(path);
   if (!isRecordingRoute) return null;
   if (!env.DB) return json({ok:false,error:'DB_NOT_CONFIGURED'},503);
-  if (!env.CLASSROOM_RECORDINGS) return json({ok:false,error:'RECORDING_STORAGE_NOT_CONFIGURED',message:'فضای ذخیره‌سازی کلاس هنوز به Worker متصل نشده است.'},503);
+  if (!env.B2_ENDPOINT || !env.B2_BUCKET || !env.B2_KEY_ID || !env.B2_APPLICATION_KEY) {
+    return json({ok:false,error:'RECORDING_STORAGE_NOT_CONFIGURED',message:'فضای ذخیره‌سازی کلاس هنوز به Worker متصل نشده است.'},503);
+  }
 
   try {
     const adminUpload = path.match(/^\/api\/admin\/classroom\/sessions\/(\d+)\/recording$/);
@@ -31,11 +45,7 @@ export async function handleClassroomRecording(request, env, path) {
       if (method === 'DELETE') {
         const existing = await env.DB.prepare('SELECT * FROM classroom_recordings WHERE session_id=?1').bind(sessionId).first();
         if (!existing) return json({ok:true});
-        if (existing.multipart_upload_id) {
-          try { await env.CLASSROOM_RECORDINGS.resumeMultipartUpload(existing.object_key,existing.multipart_upload_id).abort(); } catch {}
-        } else {
-          await env.CLASSROOM_RECORDINGS.delete(existing.object_key);
-        }
+        await abortIfNeeded(env, existing);
         await env.DB.prepare('DELETE FROM classroom_recordings WHERE id=?1').bind(existing.id).run();
         return json({ok:true});
       }
@@ -57,14 +67,13 @@ export async function handleClassroomRecording(request, env, path) {
       if (old?.status === 'available') return json({ok:false,error:'RECORDING_ALREADY_EXISTS'},409);
       const usage = await env.DB.prepare('SELECT COALESCE(SUM(size_bytes),0) AS total FROM classroom_recordings WHERE expires_at>?1 AND session_id<>?2').bind(new Date().toISOString(),sessionId).first();
       if (Number(usage?.total || 0) + sizeBytes > MAX_ACTIVE_STORAGE_BYTES) return json({ok:false,error:'TEMPORARY_STORAGE_LIMIT',message:'ظرفیت موقت ذخیره‌سازی کلاس‌ها پر شده است؛ پس از حذف فایل‌های منقضی‌شده دوباره تلاش کنید.'},413);
-      if (old?.multipart_upload_id) {
-        try { await env.CLASSROOM_RECORDINGS.resumeMultipartUpload(old.object_key, old.multipart_upload_id).abort(); } catch {}
+      if (old) {
+        await abortIfNeeded(env, old);
         await env.DB.prepare('DELETE FROM classroom_recordings WHERE id=?1').bind(old.id).run();
       }
       const objectKey = 'classroom/' + sessionId + '/' + crypto.randomUUID();
-      const upload = await env.CLASSROOM_RECORDINGS.createMultipartUpload(objectKey, {
-        httpMetadata: { contentType, cacheControl: 'private, no-store' },
-        customMetadata: { sessionId: String(sessionId), expiresAt: iso(expires) },
+      const upload = await b2CreateMultipart(env, objectKey, contentType, {
+        sessionid: String(sessionId), expiresat: iso(expires),
       });
       const inserted = await env.DB.prepare(`INSERT INTO classroom_recordings
         (session_id,object_key,file_name,content_type,size_bytes,status,multipart_upload_id,expires_at)
@@ -85,13 +94,14 @@ export async function handleClassroomRecording(request, env, path) {
       if (!Number.isInteger(partNumber) || partNumber < 1 || partNumber > 300) return json({ok:false,error:'INVALID_PART'},422);
       const data = await request.arrayBuffer();
       const bytes = data.byteLength;
-      if (!bytes || bytes > PART_BYTES || bytes > row.size_bytes) return json({ok:false,error:'INVALID_PART'},422);
-      const uploaded = await env.CLASSROOM_RECORDINGS.resumeMultipartUpload(row.object_key,row.multipart_upload_id)
-        .uploadPart(partNumber,data);
+      const expectedBytes = partNumber < Math.ceil(row.size_bytes / PART_BYTES) ? PART_BYTES : row.size_bytes - PART_BYTES * (partNumber - 1);
+      if (!bytes || bytes !== expectedBytes || bytes > PART_BYTES) return json({ok:false,error:'INVALID_PART'},422);
+      const uploaded = await b2UploadPart(env,row.object_key,row.multipart_upload_id,partNumber,data);
+      if (!uploaded.etag) return json({ok:false,error:'PART_ETAG_MISSING'},502);
       await env.DB.prepare(`INSERT INTO classroom_recording_parts(recording_id,part_number,etag,size_bytes)
         VALUES(?1,?2,?3,?4) ON CONFLICT(recording_id,part_number)
         DO UPDATE SET etag=excluded.etag,size_bytes=excluded.size_bytes`)
-        .bind(id,partNumber,uploaded.etag,data.byteLength).run();
+        .bind(id,partNumber,uploaded.etag,bytes).run();
       return json({ok:true,partNumber});
     }
 
@@ -110,8 +120,7 @@ export async function handleClassroomRecording(request, env, path) {
       if (items.length !== expected || items.some((p,i) => p.part_number !== i+1) || items.reduce((sum,p)=>sum+p.size_bytes,0) !== row.size_bytes) {
         return json({ok:false,error:'UPLOAD_INCOMPLETE',message:'بارگذاری همه بخش‌های فایل کامل نشده است.'},409);
       }
-      await env.CLASSROOM_RECORDINGS.resumeMultipartUpload(row.object_key,row.multipart_upload_id)
-        .complete(items.map(p=>({partNumber:p.part_number,etag:p.etag})));
+      await b2CompleteMultipart(env,row.object_key,row.multipart_upload_id,items.map(p=>({partNumber:p.part_number,etag:p.etag})));
       await env.DB.prepare("UPDATE classroom_recordings SET status='available',multipart_upload_id=NULL WHERE id=?1").bind(id).run();
       await env.DB.prepare('DELETE FROM classroom_recording_parts WHERE recording_id=?1').bind(id).run();
       return json({ok:true,expiresAt:row.expires_at});
@@ -125,11 +134,7 @@ export async function handleClassroomRecording(request, env, path) {
       const id = Number(deleteMatch[1]);
       const row = await env.DB.prepare('SELECT * FROM classroom_recordings WHERE id=?1').bind(id).first();
       if (!row) return json({ok:true});
-      if (row.multipart_upload_id) {
-        try { await env.CLASSROOM_RECORDINGS.resumeMultipartUpload(row.object_key,row.multipart_upload_id).abort(); } catch {}
-      } else {
-        await env.CLASSROOM_RECORDINGS.delete(row.object_key);
-      }
+      await abortIfNeeded(env,row);
       await env.DB.prepare('DELETE FROM classroom_recordings WHERE id=?1').bind(id).run();
       return json({ok:true});
     }
@@ -140,11 +145,13 @@ export async function handleClassroomRecording(request, env, path) {
       const user = await currentUser(request,env);
       if (!user) return json({ok:false,error:'UNAUTHENTICATED'},401);
       const id = Number(playMatch[1]);
+      const allowed = await env.DB.prepare('SELECT 1 AS ok FROM classroom_attendance WHERE session_id=?1 AND user_id=?2 LIMIT 1').bind(id,user.id).first();
+      if (!allowed) return json({ok:false,error:'CLASS_RECORDING_FORBIDDEN'},403);
       const row = await env.DB.prepare("SELECT r.* FROM classroom_recordings r WHERE r.session_id=?1 AND r.status='available' AND r.expires_at>?2")
         .bind(id,new Date().toISOString()).first();
       if (!row) return json({ok:false,error:'RECORDING_NOT_AVAILABLE'},404);
-      const object = await env.CLASSROOM_RECORDINGS.get(row.object_key);
-      if (!object) return json({ok:false,error:'RECORDING_NOT_AVAILABLE'},404);
+      const object = await b2GetObject(env,row.object_key,null,true);
+      if (!object.size) return json({ok:false,error:'RECORDING_NOT_AVAILABLE'},404);
       const headers = new Headers({
         'Content-Type': row.content_type,
         'Content-Disposition': 'inline; filename*=UTF-8\'\'' + encodeURIComponent(row.file_name),
@@ -163,31 +170,29 @@ export async function handleClassroomRecording(request, env, path) {
         if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start<0 || end<start || start>=object.size) {
           return new Response(null,{status:416,headers:{'Content-Range':'bytes */'+object.size}});
         }
-        const ranged = await env.CLASSROOM_RECORDINGS.get(row.object_key,{range:{offset:start,length:end-start+1}});
+        const ranged = await b2GetObject(env,row.object_key,`bytes=${start}-${end}`);
         headers.set('Content-Length',String(end-start+1));
         headers.set('Content-Range',`bytes ${start}-${end}/${object.size}`);
         return new Response(ranged.body,{status:206,headers});
       }
-      return new Response(object.body,{status:200,headers});
+      const full = await b2GetObject(env,row.object_key);
+      return new Response(full.body,{status:200,headers});
     }
     return null;
   } catch (error) {
-    console.error(JSON.stringify({where:'classroom-recording',error:error?.name||'Error'}));
+    console.error(JSON.stringify({where:'classroom-recording',error:error?.name||'Error',message:String(error?.message||'').slice(0,180)}));
     return json({ok:false,error:'INTERNAL_ERROR'},500);
   }
 }
 
 export async function purgeExpiredClassroomRecordings(env) {
-  if (!env.DB || !env.CLASSROOM_RECORDINGS) return;
+  if (!env.DB || !env.B2_ENDPOINT || !env.B2_BUCKET || !env.B2_KEY_ID || !env.B2_APPLICATION_KEY) return;
   const now = new Date().toISOString();
   const rows = await env.DB.prepare('SELECT * FROM classroom_recordings WHERE expires_at<=?1 LIMIT 100').bind(now).all();
   for (const row of rows.results || []) {
     try {
-      if (row.multipart_upload_id) {
-        await env.CLASSROOM_RECORDINGS.resumeMultipartUpload(row.object_key,row.multipart_upload_id).abort();
-      } else {
-        await env.CLASSROOM_RECORDINGS.delete(row.object_key);
-      }
+      if (row.multipart_upload_id) await b2AbortMultipart(env,row.object_key,row.multipart_upload_id);
+      await b2DeleteObjectVersions(env,row.object_key);
       await env.DB.prepare('DELETE FROM classroom_recordings WHERE id=?1').bind(row.id).run();
     } catch (error) {
       console.error(JSON.stringify({where:'classroom-recording-expiry',recordingId:row.id,error:error?.name||'Error'}));
