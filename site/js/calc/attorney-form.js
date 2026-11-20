@@ -85,15 +85,14 @@ function rangeOf(id, title) {
  * @param {number} [input.inProvinceDays] روز مأموریت داخل استان.
  * @param {number} [input.outProvinceDays] روز مأموریت خارج از استان.
  * @param {boolean} [input.temporary] وکیل تسخیری یا معاضدتی است.
- * @param {number} [input.agreedFee] حق‌الوکالهٔ درج‌شده در وکالت‌نامه (ریال، اختیاری؛ مبنای تمبر).
- * @param {number} [input.received] مبلغ علی‌الحساب دریافتی از موکل (ریال، اختیاری؛ مبنای سهم مرکز).
+ * @param {number} [input.agreedFee] حق‌الوکالهٔ درج‌شده در وکالت‌نامه (ریال، اختیاری؛ اگر از تعرفه بیشتر باشد مبنای تمبر و سهم مرکز است).
  * @param {'kanon'|'markaz'|''} [input.license] نوع پروانه برای سهم‌ها.
  */
 export function computeAttorneyForm(input) {
   const {
     subject, caseType, judgment, amount, result = 'none', appealBase,
     afterReversal = false, specialty = false, inProvinceDays = 0, outProvinceDays = 0, temporary = false,
-    agreedFee = 0, received = 0, receivedFirst, receivedAppeal,
+    agreedFee = 0,
   } = input;
 
   // موضوع‌های قدیمی تمبر به همین محاسبه نگاشت می‌شوند؛ تمبر همیشه همراه حق‌الوکاله حساب می‌شود.
@@ -220,21 +219,17 @@ export function computeAttorneyForm(input) {
     lines.push({ label: `فوق‌العادهٔ مأموریت خارج از استان (${outProvinceDays} روز، ماده ۳۰)`, amount: t.fee });
   }
 
-  const pos = (v) => (Number.isFinite(v) && v > 0 ? v : 0);
+  const agreed = Number.isFinite(agreedFee) && agreedFee > 0 ? agreedFee : 0;
   let stamp = null;
   let stages = null;
   if (splitStages) {
-    const firstReceived = pos(receivedFirst ?? received);
-    const appealReceived = pos(receivedAppeal);
+    // سهم توافقی هر مرحله به همان نسبت ۶۰٪ و ۴۰٪ تقسیم می‌شود.
     stages = [
-      { key: 'first', label: 'مرحلهٔ بدوی', fee: splitStages.first, received: firstReceived },
-      { key: 'appeal', label: 'مرحلهٔ تجدیدنظر', fee: splitStages.appeal, received: appealReceived },
-    ].map((s) => ({ ...s, stamp: computeStampAndShares({ stageFee: s.fee, received: s.received, license }) }));
-    // یادآوری حق‌الوکالهٔ وکالت‌نامه روی جمع دریافتی هر دو مرحله سنجیده می‌شود.
-    const agreedNotFullyReceived = pos(agreedFee) > 0 && firstReceived + appealReceived < pos(agreedFee);
-    stages.forEach((s) => { s.stamp.agreedNotFullyReceived = agreedNotFullyReceived; });
+      { key: 'first', label: 'مرحلهٔ بدوی', fee: splitStages.first, share: 0.6 },
+      { key: 'appeal', label: 'مرحلهٔ تجدیدنظر', fee: splitStages.appeal, share: 0.4 },
+    ].map((s) => ({ key: s.key, label: s.label, fee: s.fee, stamp: computeStampAndShares({ stageFee: s.fee, agreedFee: Math.round(agreed * s.share), license }) }));
   } else {
-    stamp = computeStampAndShares({ stageFee, received: pos(receivedFirst ?? received), agreedFee, license });
+    stamp = computeStampAndShares({ stageFee, agreedFee: agreed, license });
   }
 
   return {
