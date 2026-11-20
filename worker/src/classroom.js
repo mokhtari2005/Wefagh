@@ -70,7 +70,7 @@ export async function handleClassroom(request, env, path) {
       const admin = await requireAdmin(request,env);
       if (admin.response) return admin.response;
       if (method === 'GET') {
-        const rows = await env.DB.prepare('SELECT s.*, EXISTS(SELECT 1 FROM classroom_recordings r WHERE r.session_id=s.id AND r.status='available' AND r.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')) AS recording_available FROM classroom_sessions s ORDER BY s.starts_at DESC LIMIT 100').all();
+        const rows = await env.DB.prepare(`SELECT s.*, EXISTS(SELECT 1 FROM classroom_recordings r WHERE r.session_id=s.id AND r.status='available' AND r.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')) AS recording_available FROM classroom_sessions s ORDER BY s.starts_at DESC LIMIT 100`).all();
         return json({ok:true,provider:await providerSetting(env),sessions:(rows.results||[]).map(sessionDto)});
       }
       if (method !== 'POST') return json({ok:false,error:'METHOD_NOT_ALLOWED'},405,{Allow:'GET, POST'});
