@@ -29,6 +29,11 @@ function errorText(data, status) {
   if (data?.error === 'INVALID_SOURCE_URL') return 'نشانی منبع باید با https شروع شود.';
   if (data?.error === 'DUPLICATE_SLUG') return 'این شناسه قبلاً برای همین نوع محتوا استفاده شده است.';
   if (data?.error === 'UNPUBLISH_BEFORE_DELETE') return 'ابتدا محتوا را از انتشار خارج کنید و سپس آن را حذف کنید.';
+  if (data?.error === 'GOOGLE_OAUTH_NOT_CONFIGURED') return 'اتصال Google Meet هنوز در تنظیمات فنی سایت پیکربندی نشده است.';
+  if (data?.error === 'GOOGLE_MEET_NOT_CONNECTED') return 'ابتدا حساب Google مدیر را به سامانه متصل کنید.';
+  if (data?.error === 'GOOGLE_MEET_REAUTH_REQUIRED') return 'اتصال Google منقضی یا لغو شده است؛ حساب را دوباره متصل کنید.';
+  if (data?.error === 'GOOGLE_MEET_CREATE_FAILED') return 'ساخت جلسه در Google Meet ناموفق بود؛ دسترسی Meet API را بررسی کنید.';
+
   if (data?.errors) return Object.values(data.errors).flat().join(' ');
   return 'عملیات ناموفق بود؛ لطفاً دوباره تلاش کنید.';
 }
@@ -390,7 +395,7 @@ export async function adminPage() {
     el('span', { text: 'سرویس پیش‌فرض برگزاری کلاس' }),
     classroomProviderSelect,
   ]);
-  const classroomProviderDescription = el('p', { class: 'muted', text: 'Jitsi برای نمایش کلاس درون سایت در نظر گرفته شده است. Google Meet در این مرحله فقط با پیوند جداگانه قابل استفاده است و جلسه را داخل صفحه سایت نمایش نمی‌دهد. دسترسی هر دو سرویس از اینترنت ایران باید پیش از استفاده عملی آزمایش شود.' });
+  const classroomProviderDescription = el('p', { class: 'muted', text: 'Jitsi کلاس را داخل سایت نمایش می‌دهد. با انتخاب Google Meet، سامانه پس از اتصال حساب Google مدیر، پیوند جلسه را هنگام ایجاد کلاس به‌صورت خودکار می‌سازد؛ جلسه Google Meet در صفحه جداگانه باز می‌شود.' });
   const saveClassroomProvider = el('button', { class: 'btn', type: 'button', text: 'ذخیره سرویس کلاس آنلاین' });
   const classroomProviderPanel = el('section', { class: 'card admin-import' }, [
     el('h2', { text: 'تنظیم سرویس کلاس آنلاین' }),
@@ -483,7 +488,13 @@ export async function adminPage() {
   const classroomDescriptionField = field('توضیحات (اختیاری)', 'classroomDescription', '', 'textarea', false);
   const classroomStartField = field('تاریخ و ساعت شروع', 'classroomStartsAt', new Date(Date.now() + 3600000 - new Date().getTimezoneOffset()*60000).toISOString().slice(0,16), 'datetime-local');
   const classroomDurationField = field('مدت کلاس به دقیقه (۱۵ تا ۲۴۰)', 'classroomDuration', '60', 'number');
-  const classroomMeetUrlField = field('پیوند جلسه Google Meet', 'classroomMeetUrl', '', 'url', false);
+  const googleMeetConnectionNotice = el('p', { class: 'form-status', role: 'status' });
+  const connectGoogleMeetButton = el('button', { class: 'btn secondary', type: 'button', text: 'اتصال حساب Google برای ساخت خودکار جلسه' });
+  const googleMeetConnectionPanel = el('section', { class: 'card admin-import google-meet-connection' }, [
+    el('h3', { text: 'اتصال Google Meet' }),
+    el('p', { class: 'muted', text: 'یک‌بار حساب Google برگزارکننده را متصل کنید. پس از آن، پیوند جلسه هنگام ایجاد هر کلاس به‌طور خودکار ساخته می‌شود.' }),
+    connectGoogleMeetButton, googleMeetConnectionNotice,
+  ]);
   const classroomInstructorSelect = el('select', { 'aria-label': 'مدرس کلاس' }, [
     el('option', { value: '', text: 'انتخاب مدرس کلاس (اختیاری)' }),
   ]);
@@ -497,12 +508,37 @@ export async function adminPage() {
     el('h3', { text: 'برنامه‌ریزی کلاس جدید' }),
     el('p', { class: 'muted', text: 'کلاس برای اعضای تأییدشده قابل مشاهده است. در صورت فعال‌کردن مهمان، پیوند دعوت محرمانه فقط یک‌بار پس از ایجاد نمایش داده می‌شود.' }),
     classroomTitleField, classroomDescriptionField, classroomStartField, classroomDurationField,
-    classroomInstructorLabel, classroomMeetUrlField, classroomGuestLabel, classroomCreateButton,
+    classroomInstructorLabel, classroomGuestLabel, classroomCreateButton,
   ]);
   function syncClassroomProviderFields() {
-    classroomMeetUrlField.hidden = classroomProviderSelect.value !== 'google_meet';
-    classroomMeetUrlField.querySelector('input').required = classroomProviderSelect.value === 'google_meet';
+    googleMeetConnectionPanel.hidden = classroomProviderSelect.value !== 'google_meet';
   }
+  async function refreshGoogleMeetConnection() {
+    const result = await getJson('/api/admin/classroom/google/status');
+    if (!result.ok) {
+      googleMeetConnectionNotice.className = 'form-status err';
+      googleMeetConnectionNotice.textContent = errorText(result.data, result.status);
+      return;
+    }
+    connectGoogleMeetButton.disabled = !result.data.configured;
+    googleMeetConnectionNotice.className = 'form-status' + (result.data.connected ? ' ok' : (result.data.configured ? '' : ' err'));
+    googleMeetConnectionNotice.textContent = result.data.connected
+      ? 'حساب Google با موفقیت متصل است؛ ساخت خودکار پیوند جلسه فعال است.'
+      : (result.data.configured ? 'هنوز حساب Google متصل نشده است؛ برای اتصال، دکمه زیر را بزنید.' : 'اتصال هنوز پیکربندی نشده است؛ ابتدا باید کلیدهای OAuth گوگل در تنظیمات امن Worker ثبت شوند.');
+  }
+  connectGoogleMeetButton.addEventListener('click', async () => {
+    connectGoogleMeetButton.disabled = true;
+    googleMeetConnectionNotice.className = 'form-status';
+    googleMeetConnectionNotice.textContent = 'در حال آماده‌سازی اتصال امن به Google…';
+    const result = await postJson('/api/admin/classroom/google/connect', {});
+    if (!result.ok || !result.data.authUrl) {
+      googleMeetConnectionNotice.className = 'form-status err';
+      googleMeetConnectionNotice.textContent = errorText(result.data, result.status);
+      connectGoogleMeetButton.disabled = false;
+      return;
+    }
+    window.location.assign(result.data.authUrl);
+  });
   classroomProviderSelect.addEventListener('change', syncClassroomProviderFields);
   async function refreshClassroomAdmin() {
     const result = await getJson('/api/admin/classroom/sessions');
@@ -622,7 +658,6 @@ export async function adminPage() {
       durationMinutes: Number(classroomDurationField.querySelector('input').value),
       guestEnabled: classroomGuestToggle.checked,
       instructorId: classroomInstructorSelect.value ? Number(classroomInstructorSelect.value) : null,
-      meetingUrl: classroomMeetUrlField.querySelector('input').value.trim(),
     };
     const created = await postJson('/api/admin/classroom/sessions', payload);
     classroomCreateButton.disabled = false;
@@ -638,12 +673,15 @@ export async function adminPage() {
     await refreshClassroomAdmin();
     classroomAdminNotice.className = 'form-status';
     classroomAdminNotice.textContent = 'کلاس ایجاد شد.';
+    if (created.data.meetingUrl) {
+      classroomAdminNotice.append(el('span', { text: ' پیوند خودکار Google Meet: ' }), el('a', { href: created.data.meetingUrl, target: '_blank', rel: 'noopener noreferrer', text: 'باز کردن جلسه' }));
+    }
     if (created.data.guestCode) {
       const invite = window.location.origin + '/#/classroom/guest?session=' + created.data.sessionId + '&code=' + encodeURIComponent(created.data.guestCode);
       classroomAdminNotice.append(el('span', { text: ' پیوند مهمان (این پیوند را فقط برای مدعوین ارسال کنید): ' }), el('a', { href: invite, text: 'مشاهده و کپی پیوند دعوت' }));
     }
   });
-  classroomView.append(classroomCreateForm, classroomAdminNotice, el('h3', { text: 'کلاس‌های ثبت‌شده' }), classroomAdminList);
+  classroomView.append(googleMeetConnectionPanel, classroomCreateForm, classroomAdminNotice, el('h3', { text: 'کلاس‌های ثبت‌شده' }), classroomAdminList);
   syncClassroomProviderFields();
 
   // مرکز سلامت و عیب‌یابی: گزارش‌های ناشناس مرورگر و API فقط برای مدیر مجاز.
@@ -1392,7 +1430,7 @@ export async function adminPage() {
     if (key === 'dashboard') updateDashboard();
     if (key === 'members') refreshMembers();
     if (key === 'services') refreshDiagnostics();
-    if (key === 'classroom') { void loadClassroomProvider().then(() => { syncClassroomProviderFields(); return refreshClassroomInstructors(); }).then(() => refreshClassroomAdmin()); }
+    if (key === 'classroom') { void loadClassroomProvider().then(() => { syncClassroomProviderFields(); return Promise.all([refreshClassroomInstructors(), refreshGoogleMeetConnection()]); }).then(() => refreshClassroomAdmin()); }
     if (key === 'legal-bank') refreshLegalBank();
     if (key === 'traffic' && !trafficView.dataset.loaded) {
       trafficView.dataset.loaded = '1';
