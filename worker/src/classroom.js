@@ -26,7 +26,7 @@ function sessionDto(row) {
     startsAt: row.starts_at, durationMinutes: row.duration_minutes,
     endsAt: new Date(Date.parse(row.starts_at) + row.duration_minutes * 60000).toISOString(),
     status: row.status, guestEnabled: Boolean(row.guest_enabled), recordingAvailable: Boolean(row.recording_available),
-    instructorId: row.instructor_id || null, instructorName: row.instructor_name || null,
+    instructorName: row.instructor_name || null,
   };
 }
 function canJoin(row) {
@@ -71,7 +71,7 @@ export async function handleClassroom(request, env, path) {
       const admin = await requireAdmin(request,env);
       if (admin.response) return admin.response;
       if (method === 'GET') {
-        const rows = await env.DB.prepare(`SELECT u.id,u.display_name AS displayName,u.email,
+        const rows = await env.DB.prepare(`SELECT u.id,u.display_name AS displayName,
           CASE WHEN ci.user_id IS NOT NULL AND ci.revoked_at IS NULL THEN 1 ELSE 0 END AS isInstructor
           FROM users u LEFT JOIN classroom_instructors ci ON ci.user_id=u.id
           WHERE u.status='active' AND u.membership_status='approved'
