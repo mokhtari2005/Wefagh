@@ -426,6 +426,14 @@ async function assistant(request, env) {
         reviewDetails.push(...workersAiReviewNotes(thirdReview));
       }
     }
+    if (!attachments.length && provider === 'groq' && workersAiConfigured(env)) {
+      stage = 'cloudflare_workers_ai_review';
+      const thirdReview = await reviewWithWorkersAI(env, { mode, docType, question: message, draft: text });
+      notes.push(thirdReview.status === 'reviewed'
+        ? 'بازبینی مستقل سوم با Cloudflare Workers AI انجام شد.'
+        : 'بازبینی مستقل سوم انجام نشد.');
+      reviewDetails.push(...workersAiReviewNotes(thirdReview));
+    }
     for (const a of attachments) {
       if (a.truncated) notes.push(`فقط بخش ابتدایی «${a.name}» (حداکثر ${ATTACHMENT_LIMITS.extractedChars.toLocaleString('fa-IR')} نویسه) بررسی شد.`);
     }
