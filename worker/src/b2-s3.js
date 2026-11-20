@@ -46,7 +46,7 @@ async function signedFetch(env, key, { method = 'GET', query = [], headers = {},
   const toSign = ['AWS4-HMAC-SHA256', amzDate, scope, await sha256(canonicalRequest)].join('\n');
   let signingKey = encoder.encode('AWS4' + cfg.secret);
   for (const part of [date, cfg.region, 's3', 'aws4_request']) signingKey = await hmac(signingKey, part);
-  const signature = hex(await crypto.subtle.sign('HMAC', await crypto.subtle.importKey('raw', signingKey, { name: 'HMAC' }, false, ['sign']), encoder.encode(toSign)));
+  const signature = hex(await crypto.subtle.sign('HMAC', await crypto.subtle.importKey('raw', signingKey, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']), encoder.encode(toSign)));
   requestHeaders.set('authorization', 'AWS4-HMAC-SHA256 Credential=' + cfg.keyId + '/' + scope + ', SignedHeaders=' + signedHeaders + ', Signature=' + signature);
   const response = await fetch(url, { method, headers: requestHeaders, body: ['GET', 'HEAD'].includes(method) ? undefined : body });
   if (!response.ok) {
