@@ -56,15 +56,45 @@ export const ASSISTANT_NOTICE = 'این ابزار آموزشی و پیش‌نو
 
 const MESSAGE_LIMIT = 6000;
 
-/** پاک‌سازی نشانه‌های ظاهری Markdown بدون دست‌زدن به شماره‌گذاری و استنادهای حقوقی. */
+/** پاک‌سازی نشانه‌های Markdown و تبدیل ساختار JSON بازبین به متن خوانا. */
 function cleanModelOutput(value) {
   if (typeof value !== 'string') return '';
   return value.replace(/\r\n?/g, '\n')
     .replace(/^\x60{3}(?:[a-z0-9_-]+)?\s*/gim, '').replace(/^\x60{3}\s*$/gm, '')
-    .replace(/^\s{0,3}#{1,6}\s*/gm, '').replace(/^\s*[─━═_*—]{3,}\s*$/gm, '')
+    .replace(/^\s{0,3}#{1,6}\s*/gm, '')
+    .replace(/^\s*[─━═_*—]{3,}\s*$/gm, '')
     .replace(/\*\*(.*?)\*\*/gs, '$1').replace(/__(.*?)__/gs, '$1')
-    .replace(/\x60([^\x60]+)\x60/g, '$1').replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/\*([^*\n]+)\*/g, '$1')
+    .replace(/(?<!_)_([^_\n]+)_(?!_)/g, '$1')
+    .replace(/\x60([^\x60]+)\x60/g, '$1')
+    .replace(/^\s*>\s?/gm, '')
+    .replace(/^\s*[-*+]\s+/gm, '• ')
     .replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim();
+}
+function formatReviewerOutput(value) {
+  let data;
+  try { data = JSON.parse(value); } catch { return cleanModelOutput(value); }
+  if (!data || typeof data !== 'object' || !('risk' in data)) return cleanModelOutput(value);
+  const risk = data.risk === 'high' ? 'زیاد' : data.risk === 'medium' ? 'متوسط' : 'کم';
+  const lines = [`ارزیابی کلی: ریسک ${risk}`];
+  if (data.summary) lines.push(`خلاصه: ${cleanModelOutput(data.summary)}`);
+  if (Array.isArray(data.issues) && data.issues.length) {
+    lines.push('', 'موارد قابل توجه:');
+    data.issues.forEach((item, index) => {
+      const severity = item.severity === 'high' ? 'زیاد' : item.severity === 'low' ? 'کم' : 'متوسط';
+      lines.push(`${index + 1}) [اهمیت ${severity}] ${cleanModelOutput(item.category || 'نکته')}`);
+      if (item.observation) lines.push(`مشاهده: ${cleanModelOutput(item.observation)}`);
+      if (item.recommendation) lines.push(`پیشنهاد: ${cleanModelOutput(item.recommendation)}`);
+    });
+  }
+  if (Array.isArray(data.citations) && data.citations.length) {
+    lines.push('', 'استنادهای نیازمند توجه:');
+    data.citations.forEach((item, index) => {
+      lines.push(`${index + 1}) ${cleanModelOutput(item.citation || '')}`);
+      if (item.concern) lines.push(`توضیح: ${cleanModelOutput(item.concern)}`);
+    });
+  }
+  return lines.join('\n').trim();
 }
 async function copyAssistantText(value) {
   if (navigator.clipboard?.writeText && window.isSecureContext) return navigator.clipboard.writeText(value);
@@ -328,8 +358,13 @@ function assistantWorkspace(initialThread, guestMode = false) {
 
   function aiMessageNode(m) {
     const outputs = Array.isArray(m.outputs) ? m.outputs.filter((item) => item && typeof item.text === 'string' && item.text.trim()) : [];
-    const outputTexts = outputs.map((item) => ({ ...item, text: cleanModelOutput(item.text) }));
-    const combined = outputTexts.map((item) => `${item.provider} · ${item.model} (${item.role === 'generator' ? 'پاسخ‌ساز' : 'بازبین'})\n${item.text}`).join('\n\n' + '─'.repeat(36) + '\n\n');
+    const outputTexts = outputs.map((item) => ({
+      ...item,
+      text: item.role === 'reviewer' ? formatReviewerOutput(item.text) : cleanModelOutput(item.text),
+    })).filter((item) => item.text);
+    const combined = outputTexts.map((item) =>
+      `${item.provider} · ${item.model} · ${item.role === 'generator' ? 'پاسخ‌ساز' : 'بازبین مستقل'}\n${item.text}`
+    ).join('\n\n' + '─'.repeat(36) + '\n\n');
     const actions = h('div', { class: 'ai-msg-actions' });
     const copy = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'کپی پاسخ اصلی' });
     copy.addEventListener('click', async () => {
@@ -339,7 +374,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     dl.addEventListener('click', () => downloadText(m.text, 'پیش‌نویس-آکادمی.txt'));
     actions.append(copy, dl);
     if (outputTexts.length) {
-      const copyAll = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'کپی همه خروجی‌ها' });
+      const copyAll = h('button', { class: 'btn secondary ai-mini ai-copy-all', type: 'button', text: `کپی همه مدل‌ها با هم (${outputTexts.length} خروجی)` });
       copyAll.addEventListener('click', async () => {
         try { await copyAssistantText(combined); status.textContent = 'همه خروجی‌های مدل‌ها همراه نام و نقششان کپی شد.'; }
         catch { status.textContent = 'کپی انجام نشد؛ متن خروجی‌ها را دستی انتخاب کنید.'; }
@@ -366,7 +401,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
       ]));
     }
     if (m.disclaimer) children.push(h('p', { class: 'ai-disclaimer muted', text: m.disclaimer }));
-    if (m.text) children.push(actions);
+    if (m.text || outputTexts.length) children.push(actions);
     return h('li', { class: 'ai-msg ai-msg-ai' }, children);
   }
 
