@@ -16,6 +16,8 @@ function classExpiry(session) {
 
 export async function handleClassroomRecording(request, env, path) {
   const method = request.method;
+  const isRecordingRoute = /^\\/api\\/(?:admin\\/classroom\\/(?:sessions\\/\\d+\\/recording|recordings\\/\\d+(?:\\/parts\\/\\d+|\\/complete)?)|classroom\\/sessions\\/\\d+\\/recording)$/.test(path);
+  if (!isRecordingRoute) return null;
   if (!env.DB) return json({ok:false,error:'DB_NOT_CONFIGURED'},503);
   if (!env.CLASSROOM_RECORDINGS) return json({ok:false,error:'RECORDING_STORAGE_NOT_CONFIGURED',message:'فضای ذخیره‌سازی کلاس هنوز به Worker متصل نشده است.'},503);
 
