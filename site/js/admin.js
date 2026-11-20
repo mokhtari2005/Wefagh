@@ -405,6 +405,7 @@ export async function adminPage() {
     if (!result.ok) {
       classroomProviderNotice.className = 'form-status err';
       classroomProviderNotice.textContent = errorText(result.data, result.status);
+      saveClassroomProvider.disabled = false;
       return;
     }
     classroomProviderSelect.value = result.data.provider === 'google_meet' ? 'google_meet' : 'jitsi';
@@ -424,6 +425,114 @@ export async function adminPage() {
     saveClassroomProvider.disabled = false;
   });
   classroomView.append(classroomProviderPanel);
+  const classroomAdminNotice = el('p', { class: 'form-status', role: 'status' });
+  const classroomAdminList = el('div', { class: 'admin-content-list' });
+  const classroomTitleField = field('عنوان کلاس', 'classroomTitle');
+  const classroomDescriptionField = field('توضیحات (اختیاری)', 'classroomDescription', '', 'textarea', false);
+  const classroomStartField = field('تاریخ و ساعت شروع', 'classroomStartsAt', new Date(Date.now() + 3600000 - new Date().getTimezoneOffset()*60000).toISOString().slice(0,16), 'datetime-local');
+  const classroomDurationField = field('مدت کلاس به دقیقه (۱۵ تا ۲۴۰)', 'classroomDuration', '60', 'number');
+  const classroomMeetUrlField = field('پیوند جلسه Google Meet', 'classroomMeetUrl', '', 'url', false);
+  const classroomGuestToggle = el('input', { type: 'checkbox', name: 'guestEnabled' });
+  const classroomGuestLabel = el('label', { class: 'admin-field' }, [el('span', { text: 'اجازه ورود مهمان با پیوند دعوت اختصاصی' }), classroomGuestToggle]);
+  const classroomCreateButton = el('button', { class: 'btn', type: 'submit', text: 'ایجاد کلاس' });
+  const classroomCreateForm = el('form', { class: 'admin-form card classroom-create-form' }, [
+    el('h3', { text: 'برنامه‌ریزی کلاس جدید' }),
+    el('p', { class: 'muted', text: 'کلاس برای اعضای تأییدشده قابل مشاهده است. در صورت فعال‌کردن مهمان، پیوند دعوت محرمانه فقط یک‌بار پس از ایجاد نمایش داده می‌شود.' }),
+    classroomTitleField, classroomDescriptionField, classroomStartField, classroomDurationField,
+    classroomMeetUrlField, classroomGuestLabel, classroomCreateButton,
+  ]);
+  function syncClassroomProviderFields() {
+    classroomMeetUrlField.hidden = classroomProviderSelect.value !== 'google_meet';
+    classroomMeetUrlField.querySelector('input').required = classroomProviderSelect.value === 'google_meet';
+  }
+  classroomProviderSelect.addEventListener('change', syncClassroomProviderFields);
+  async function refreshClassroomAdmin() {
+    const result = await getJson('/api/admin/classroom/sessions');
+    if (!result.ok) {
+      classroomAdminNotice.className = 'form-status err';
+      classroomAdminNotice.textContent = errorText(result.data, result.status);
+      classroomAdminList.replaceChildren();
+      return;
+    }
+    classroomAdminNotice.className = 'form-status';
+    classroomAdminNotice.textContent = result.data.sessions.length + ' کلاس ثبت شده است.';
+    classroomAdminList.replaceChildren();
+    if (!result.data.sessions.length) classroomAdminList.append(el('p', { class: 'muted', text: 'هنوز کلاسی ایجاد نشده است.' }));
+    for (const item of result.data.sessions) {
+      const row = el('article', { class: 'admin-content-row card classroom-admin-row' }, [
+        el('div', {}, [
+          el('span', { class: 'badge', text: item.status === 'cancelled' ? 'لغوشده' : (item.provider === 'jitsi' ? 'Jitsi' : 'Google Meet') }),
+          el('h3', { text: item.title }),
+          el('p', { class: 'muted', text: new Date(item.startsAt).toLocaleString('fa-IR') + ' · ' + item.durationMinutes + ' دقیقه' }),
+          el('p', { class: 'muted', text: item.guestEnabled ? 'ورود مهمان فعال' : 'فقط اعضا' }),
+        ]),
+      ]);
+      const actions = el('div', { class: 'row admin-actions' });
+      const attendanceButton = el('button', { class: 'btn secondary', type: 'button', text: 'گزارش حضور و غیاب' });
+      const attendancePanel = el('div', { class: 'classroom-attendance-list', hidden: 'hidden' });
+      attendanceButton.addEventListener('click', async () => {
+        attendancePanel.hidden = !attendancePanel.hidden;
+        if (attendancePanel.hidden) return;
+        attendancePanel.textContent = 'در حال دریافت گزارش…';
+        const attendance = await getJson('/api/admin/classroom/sessions/' + item.id + '/attendance');
+        if (!attendance.ok) { attendancePanel.textContent = errorText(attendance.data, attendance.status); return; }
+        attendancePanel.replaceChildren(el('h4', { text: 'حاضران کلاس' }));
+        if (!attendance.data.attendance.length) attendancePanel.append(el('p', { class: 'muted', text: 'هنوز حضوری ثبت نشده است.' }));
+        for (const person of attendance.data.attendance) {
+          attendancePanel.append(el('p', { text: person.display_name + ' · ' + person.attendee_type + ' · ' + Math.floor((person.duration_seconds || 0)/60) + ' دقیقه' }));
+        }
+      });
+      actions.append(attendanceButton);
+      if (item.status === 'scheduled') {
+        const cancel = el('button', { class: 'btn danger', type: 'button', text: 'لغو کلاس' });
+        cancel.addEventListener('click', async () => {
+          if (!window.confirm('این کلاس لغو شود؟')) return;
+          cancel.disabled = true;
+          const saved = await sendJson('PATCH', '/api/admin/classroom/sessions/' + item.id, { status: 'cancelled' });
+          classroomAdminNotice.className = 'form-status' + (saved.ok ? '' : ' err');
+          classroomAdminNotice.textContent = saved.ok ? 'کلاس لغو شد.' : errorText(saved.data, saved.status);
+          await refreshClassroomAdmin();
+        });
+        actions.append(cancel);
+      }
+      row.append(actions, attendancePanel);
+      classroomAdminList.append(row);
+    }
+  }
+  classroomCreateForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    classroomCreateButton.disabled = true;
+    classroomAdminNotice.className = 'form-status';
+    classroomAdminNotice.textContent = 'در حال ایجاد کلاس…';
+    const payload = {
+      title: classroomTitleField.querySelector('input').value.trim(),
+      description: classroomDescriptionField.querySelector('textarea').value.trim(),
+      startsAt: new Date(classroomStartField.querySelector('input').value).toISOString(),
+      durationMinutes: Number(classroomDurationField.querySelector('input').value),
+      guestEnabled: classroomGuestToggle.checked,
+      meetingUrl: classroomMeetUrlField.querySelector('input').value.trim(),
+    };
+    const created = await postJson('/api/admin/classroom/sessions', payload);
+    classroomCreateButton.disabled = false;
+    if (!created.ok) {
+      classroomAdminNotice.className = 'form-status err';
+      classroomAdminNotice.textContent = errorText(created.data, created.status);
+      return;
+    }
+    classroomCreateForm.reset();
+    classroomStartField.querySelector('input').value = new Date(Date.now() + 3600000 - new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);
+    classroomDurationField.querySelector('input').value = '60';
+    syncClassroomProviderFields();
+    classroomAdminNotice.className = 'form-status';
+    classroomAdminNotice.textContent = 'کلاس ایجاد شد.';
+    if (created.data.guestCode) {
+      const invite = window.location.origin + '/#/classroom/guest?session=' + created.data.sessionId + '&code=' + encodeURIComponent(created.data.guestCode);
+      classroomAdminNotice.append(el('span', { text: ' پیوند مهمان (این پیوند را فقط برای مدعوین ارسال کنید): ' }), el('a', { href: invite, text: 'مشاهده و کپی پیوند دعوت' }));
+    }
+    await refreshClassroomAdmin();
+  });
+  classroomView.append(classroomCreateForm, classroomAdminNotice, el('h3', { text: 'کلاس‌های ثبت‌شده' }), classroomAdminList);
+  syncClassroomProviderFields();
 
   // مرکز سلامت و عیب‌یابی: گزارش‌های ناشناس مرورگر و API فقط برای مدیر مجاز.
   const diagnosticsNotice = el('p', { class: 'form-status diagnostics-live-status', role: 'status' });
@@ -1171,7 +1280,7 @@ export async function adminPage() {
     if (key === 'dashboard') updateDashboard();
     if (key === 'members') refreshMembers();
     if (key === 'services') refreshDiagnostics();
-    if (key === 'classroom') void loadClassroomProvider();
+    if (key === 'classroom') { void loadClassroomProvider().then(() => { syncClassroomProviderFields(); return refreshClassroomAdmin(); }); }
     if (key === 'legal-bank') refreshLegalBank();
     if (key === 'traffic' && !trafficView.dataset.loaded) {
       trafficView.dataset.loaded = '1';
