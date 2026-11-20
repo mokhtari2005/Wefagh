@@ -56,6 +56,24 @@ export const ASSISTANT_NOTICE = 'این ابزار آموزشی و پیش‌نو
 
 const MESSAGE_LIMIT = 6000;
 
+/** پاک‌سازی نشانه‌های ظاهری Markdown بدون دست‌زدن به شماره‌گذاری و استنادهای حقوقی. */
+function cleanModelOutput(value) {
+  if (typeof value !== 'string') return '';
+  return value.replace(/\\r\\n?/g, '\\n')
+    .replace(/^```(?:[a-z0-9_-]+)?\\s*/gim, '').replace(/^```\\s*$/gm, '')
+    .replace(/^\\s{0,3}#{1,6}\\s*/gm, '').replace(/^\\s*[─━═_*—]{3,}\\s*$/gm, '')
+    .replace(/\\*\\*(.*?)\\*\\*/gs, '$1').replace(/__(.*?)__/gs, '$1')
+    .replace(/`([^`]+)`/g, '$1').replace(/^\\s*[-*+]\\s+/gm, '')
+    .replace(/[ \\t]+$/gm, '').replace(/\\n{3,}/g, '\\n\\n').trim();
+}
+async function copyAssistantText(value) {
+  if (navigator.clipboard?.writeText && window.isSecureContext) return navigator.clipboard.writeText(value);
+  const field = document.createElement('textarea'); field.value = value; field.setAttribute('readonly', '');
+  field.style.position = 'fixed'; field.style.opacity = '0'; field.style.insetInlineStart = '-9999px';
+  document.body.append(field); field.focus(); field.select(); field.setSelectionRange(0, field.value.length);
+  const copied = document.execCommand('copy'); field.remove(); if (!copied) throw new Error('COPY_FAILED');
+}
+
 // پیوست‌ها: همین حدها در سرور (worker/src/ai/attachments.js) اعمال می‌شود؛ سرور مرجع نهایی است.
 export const ATTACH_LIMITS = Object.freeze({ files: 3, fileBytes: 8 * 1024 * 1024, textFileBytes: 512 * 1024, totalBytes: 12 * 1024 * 1024 });
 export const ATTACH_TYPES = Object.freeze({
@@ -309,15 +327,37 @@ function assistantWorkspace(initialThread, guestMode = false) {
   const stream = h('div', { class: 'ai-stream', tabindex: '-1' }, [emptyState, log]);
 
   function aiMessageNode(m) {
+    const outputs = Array.isArray(m.outputs) ? m.outputs.filter((item) => item && typeof item.text === 'string' && item.text.trim()) : [];
+    const outputTexts = outputs.map((item) => ({ ...item, text: cleanModelOutput(item.text) }));
+    const combined = outputTexts.map((item) => `${item.provider} · ${item.model} (${item.role === 'generator' ? 'پاسخ‌ساز' : 'بازبین'})\n${item.text}`).join('\n\n' + '─'.repeat(36) + '\n\n');
     const actions = h('div', { class: 'ai-msg-actions' });
-    const copy = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'کپی' });
+    const copy = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'کپی پاسخ اصلی' });
     copy.addEventListener('click', async () => {
-      try { await navigator.clipboard.writeText(m.text); status.textContent = 'متن پاسخ کپی شد.'; } catch { status.textContent = 'کپی انجام نشد؛ متن را دستی انتخاب کنید.'; }
+      try { await copyAssistantText(m.text); status.textContent = 'پاسخ اصلی کپی شد.'; } catch { status.textContent = 'کپی انجام نشد؛ متن را دستی انتخاب کنید.'; }
     });
     const dl = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'دریافت فایل متنی' });
     dl.addEventListener('click', () => downloadText(m.text, 'پیش‌نویس-آکادمی.txt'));
     actions.append(copy, dl);
-    const children = [h('span', { class: 'ai-role', text: 'دستیار' }), h('div', { class: 'ai-text pre-wrap', text: m.text })];
+    if (outputTexts.length) {
+      const copyAll = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'کپی همه خروجی‌ها' });
+      copyAll.addEventListener('click', async () => {
+        try { await copyAssistantText(combined); status.textContent = 'همه خروجی‌های مدل‌ها همراه نام و نقششان کپی شد.'; }
+        catch { status.textContent = 'کپی انجام نشد؛ متن خروجی‌ها را دستی انتخاب کنید.'; }
+      });
+      actions.append(copyAll);
+    }
+    const children = [h('span', { class: 'ai-role', text: 'دستیار' })];
+    if (outputTexts.length) {
+      for (const item of outputTexts) {
+        const roleLabel = item.role === 'generator' ? 'پاسخ‌ساز' : 'بازبین مستقل';
+        children.push(h('section', { class: 'ai-model-output' }, [
+          h('h3', { class: 'ai-model-output-title', text: `${item.provider} · ${item.model} · ${roleLabel}` }),
+          h('div', { class: 'ai-text pre-wrap', text: item.text }),
+        ]));
+      }
+    } else {
+      children.push(h('div', { class: 'ai-text pre-wrap', text: m.text }));
+    }
     if (m.notes?.length) children.push(h('ul', { class: 'ai-notes', 'aria-label': 'یادداشت‌های بررسی' }, m.notes.map((n) => h('li', { text: n }))));
     if (m.reviewDetails?.length) {
       children.push(h('details', { class: 'ai-review-details' }, [
@@ -437,7 +477,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     const userText = [typed, names.length ? `[پیوست: ${names.join('، ')}]` : ''].filter(Boolean).join('\n');
     history.push({ role: 'user', text: userText });
     const reply = summarizeReply(res.data);
-    history.push({ role: 'ai', text: reply, notes: res.data.notes || [], reviewDetails: res.data.reviewDetails || [], disclaimer: res.data.status === 'ready' ? res.data.disclaimer : '' });
+    history.push({ role: 'ai', text: reply, outputs: res.data.outputs || [], notes: res.data.notes || [], reviewDetails: res.data.reviewDetails || [], disclaimer: res.data.status === 'ready' ? res.data.disclaimer : '' });
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
     attachments = [];
