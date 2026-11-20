@@ -164,7 +164,7 @@ export default {
       }
     }
 
-    if (path === '/api/admin/ai/status' || path === '/api/admin/ai/compare') {
+    if (path === '/api/admin/ai/status' || path === '/api/admin/ai/compare' || path === '/api/admin/ai/legal-bank-test') {
       if (!env.DB) return json({ ok: false, error: 'DB_NOT_CONFIGURED' }, 503);
       try {
         const res = await handleAdminAi(request, env, path);
