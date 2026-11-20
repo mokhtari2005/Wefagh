@@ -635,13 +635,13 @@ export async function adminPage() {
     classroomStartField.querySelector('input').value = new Date(Date.now() + 3600000 - new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);
     classroomDurationField.querySelector('input').value = '60';
     syncClassroomProviderFields();
+    await refreshClassroomAdmin();
     classroomAdminNotice.className = 'form-status';
     classroomAdminNotice.textContent = 'کلاس ایجاد شد.';
     if (created.data.guestCode) {
       const invite = window.location.origin + '/#/classroom/guest?session=' + created.data.sessionId + '&code=' + encodeURIComponent(created.data.guestCode);
       classroomAdminNotice.append(el('span', { text: ' پیوند مهمان (این پیوند را فقط برای مدعوین ارسال کنید): ' }), el('a', { href: invite, text: 'مشاهده و کپی پیوند دعوت' }));
     }
-    await refreshClassroomAdmin();
   });
   classroomView.append(classroomCreateForm, classroomAdminNotice, el('h3', { text: 'کلاس‌های ثبت‌شده' }), classroomAdminList);
   syncClassroomProviderFields();
