@@ -491,14 +491,32 @@ function attorneyTool(id) {
   const outDays = numericInput({ inputmode: 'numeric', placeholder: 'مثال: ۳' });
   const afterReversal = h('input', { type: 'checkbox', id: 'att-reversal' });
   const temporary = h('input', { type: 'checkbox', id: 'att-temporary' });
-  const amount = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: '۱٬۰۰۰٬۰۰۰ معادل ۱۰۰ هزار تومان' });
+  const amount = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'مبلغ علی‌الحساب دریافتی به ریال' });
   amount.addEventListener('input', () => { amount.value = groupAmount(amount.value); });
+  const amountWrap = field('att-amount', 'بهای خواسته یا محکوم‌به (ریال)', amount);
+  const tariffMinimum = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'حداقل حق‌الوکالهٔ تعرفه‌ای همان مرحله به ریال' });
+  tariffMinimum.addEventListener('input', () => { tariffMinimum.value = groupAmount(tariffMinimum.value); });
+  const tariffMinimumWrap = field('att-tariff-minimum', 'حداقل حق‌الوکالهٔ تعرفه‌ای برای همان مرحله (ریال)', tariffMinimum);
   const out = h('div', { class: 'tool-out' });
 
   function sync() {
-    judgmentWrap.hidden = caseType.value !== 'financial';
-    appealWrap.hidden = !(result.value === 'appealBefore' || result.value === 'appealAfter');
+    const taxKanon = subject.value === 'tax-kanon';
+    const taxMarkaz = subject.value === 'tax-markaz';
+    const taxMode = taxKanon || taxMarkaz;
+    caseType.parentElement.hidden = taxMode;
+    judgmentWrap.hidden = taxMode || caseType.value !== 'financial';
+    result.parentElement.hidden = taxMode;
+    appealWrap.hidden = taxMode || !(result.value === 'appealBefore' || result.value === 'appealAfter');
+    specialty.parentElement.hidden = taxMode;
+    inDays.parentElement.hidden = taxMode;
+    outDays.parentElement.hidden = taxMode;
+    afterReversal.parentElement.hidden = taxMode;
+    temporary.parentElement.hidden = taxMode;
+    amountWrap.querySelector('label').textContent = taxMode ? 'مبلغ حق‌الوکالهٔ علی‌الحساب دریافت‌شده (ریال)' : 'بهای خواسته یا محکوم‌به (ریال)';
+    tariffMinimumWrap.hidden = !taxKanon;
+    amount.placeholder = taxMode ? 'مبلغ واقعاً دریافت‌شده به ریال' : '۱٬۰۰۰٬۰۰۰ معادل ۱۰۰ هزار تومان';
   }
+  subject.addEventListener('change', sync);
   caseType.addEventListener('change', sync);
   result.addEventListener('change', sync);
   sync();
@@ -514,7 +532,8 @@ function attorneyTool(id) {
     field('att-out-days', 'تعداد روزهای ماموریت خارج استان', outDays),
     h('label', { class: 'check-row' }, [afterReversal, h('span', { text: 'قبول وکالت پس از نقض رای' })]),
     h('label', { class: 'check-row' }, [temporary, h('span', { text: 'وکیل تسخیری یا معاضدتی' })]),
-    field('att-amount', 'بهای خواسته یا محکوم به (ریال)', amount),
+    amountWrap,
+    tariffMinimumWrap,
     h('button', { class: 'btn dix-submit', type: 'submit', text: 'محاسبه' }),
     out,
   ]);
@@ -546,6 +565,8 @@ function attorneyTool(id) {
       inProvinceDays: inP,
       outProvinceDays: outP,
       temporary: temporary.checked,
+      advanceReceived: parseAmount(amount.value),
+      tariffMinimum: tariffMinimum.value.trim() ? parseAmount(tariffMinimum.value) : 0,
     });
     if (!r.ok) {
       if (r.error === 'RANGE_ONLY') {
@@ -559,6 +580,22 @@ function attorneyTool(id) {
       return showNotice(r.message || 'ورودی‌ها را بررسی کنید.');
     }
     const facts = r.lines.map((l) => [l.label, formatRial(l.amount)]);
+    if (r.taxMode) {
+      const rows = r.lines.map((l) => [l.label, formatRial(l.amount).replace(' ریال', '')]);
+      const taxTitle = r.taxMode === 'kanon' ? 'محاسبهٔ تمبر و سهم‌های کانون و صندوق' : 'محاسبهٔ سهم مرکز وکلا';
+      const limitations = [...r.notes, 'مبنای این محاسبه، مبلغ علی‌الحساب دریافتی است. برای استفاده رسمی، انطباق ورودی‌ها با وکالت‌نامه و مقررات روز کنترل شود.'];
+      out.replaceChildren(resultBox({
+        ok: true, title: taxTitle, fee: r.total, facts,
+        reportTables: [{ type: 'table', title: 'تفکیک مبالغ قانونی', columns: ['شرح', 'مبلغ (ریال)'], rows }],
+        reportResult: { ok: true, fee: r.total, limitations, ruleVersion: 'ماده ۱۰۳ قانون مالیات‌های مستقیم و ماده ۲۹ آیین‌نامه تعرفه ۱۳۹۸' },
+        steps: r.taxMode === 'kanon'
+          ? ['تمبر = ۵٪ مبنای مشمول؛ سهم صندوق = ۵۰٪ مبلغ تمبر؛ سهم کانون = ۲۵٪ مبلغ تمبر.']
+          : ['سهم مرکز = ۵٪ حق‌الوکالهٔ علی‌الحساب دریافت‌شده.'],
+        ruleVersion: 'ماده ۱۰۳ قانون مالیات‌های مستقیم؛ ماده ۲۹ و ماده ۳ آیین‌نامه تعرفه ۱۳۹۸',
+        limitations,
+      }, form));
+      return;
+    }
     if (r.travelTotal > 0) facts.push(['جمع فوق‌العاده مأموریت (جدا از حق‌الوکاله)', formatRial(r.travelTotal)]);
     const attorneyAmount = parseAmount(amount.value);
     const reportTables = [];
