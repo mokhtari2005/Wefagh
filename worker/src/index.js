@@ -33,6 +33,7 @@ import { handleDiagnosticSelfTest } from './diagnostic-self-test.js';
 import { handleVisitorAnalytics } from './visitor-analytics.js';
 import { handleCommunity } from './community.js';
 import { handleClassroom } from './classroom.js';
+import { handleClassroomRecording, purgeExpiredClassroomRecordings } from './classroom-recordings.js';
 
 // برای سازگاری با تست‌های قبلی، json را از اینجا هم صادر می‌کنیم.
 export { json };
@@ -97,7 +98,7 @@ export default {
       return json({ ok: true, service: 'wefagh-api' });
     }
 
-    if (path === '/api/classroom/sessions' || path.startsWith('/api/classroom/sessions/') || path.startsWith('/api/classroom/guest/') || path === '/api/admin/classroom/sessions' || path.startsWith('/api/admin/classroom/sessions/')) return handleClassroom(request, env, path);
+    if (path === '/api/classroom/sessions' || path.startsWith('/api/classroom/sessions/') || path.startsWith('/api/classroom/guest/') || path === '/api/admin/classroom/sessions' || path.startsWith('/api/admin/classroom/sessions/') || path.startsWith('/api/admin/classroom/recordings/')) { const recording = await handleClassroomRecording(request, env, path); if (recording) return recording; return handleClassroom(request, env, path); }
 
     if (path === '/api/access-settings' || path === '/api/admin/settings/access' || path === '/api/admin/settings/classroom-provider') {
       const res = await handleAccess(request, env, path);
@@ -245,6 +246,7 @@ export default {
   // Cron: یادآوری مواعد در تلگرام (هر ۳۰ دقیقه؛ فقط از ساعت ۸ صبح تهران می‌فرستد).
   async scheduled(event, env, ctx) {
     if (event.cron === '*/5 * * * *') {
+      ctx.waitUntil(purgeExpiredClassroomRecordings(env).catch((err) => console.error(JSON.stringify({ where: 'classroom-recording.cron', error: err?.name || 'Error' }))));
       ctx.waitUntil(sendDuePushReminders(env).catch((err) => console.error(JSON.stringify({ where: 'push.cron', error: err?.name || 'Error' }))));
       ctx.waitUntil(sendDueEmailReminders(env).catch((err) => console.error(JSON.stringify({ where: 'email.deadline.cron', error: err?.name || 'Error' }))));
     }
