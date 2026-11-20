@@ -418,7 +418,7 @@ async function assistant(request, env) {
       let reviewBankUnavailable = false;
       try {
         // جست‌وجوی دوم با متن پاسخ Gemini هم انجام می‌شود تا استنادهای تازه‌مطرح‌شده نیز تطبیق داده شوند.
-        const matched = await findVerifiedLegalArticles(env.DB, `${message}\n${text}`);
+        const matched = await findVerifiedLegalArticles(env.DB, text);
         const seen = new Set(reviewArticles.map((a) => `${a.lawTitle}::${a.articleNumber}`));
         for (const article of matched) {
           const key = `${article.lawTitle}::${article.articleNumber}`;
