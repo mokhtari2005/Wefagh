@@ -98,7 +98,7 @@ export default {
       return json({ ok: true, service: 'wefagh-api', databaseConfigured: Boolean(env.DB), recordingStorageConfigured: Boolean(env.B2_ENDPOINT && env.B2_BUCKET && env.B2_KEY_ID && env.B2_APPLICATION_KEY), b2EndpointConfigured: Boolean(env.B2_ENDPOINT), b2BucketConfigured: Boolean(env.B2_BUCKET), b2KeyIdConfigured: Boolean(env.B2_KEY_ID), b2ApplicationKeyConfigured: Boolean(env.B2_APPLICATION_KEY) });
     }
 
-    if (path === '/api/classroom/sessions' || path.startsWith('/api/classroom/sessions/') || path.startsWith('/api/classroom/guest/') || path === '/api/admin/classroom/sessions' || path.startsWith('/api/admin/classroom/sessions/') || path.startsWith('/api/admin/classroom/recordings/')) { const recording = await handleClassroomRecording(request, env, path); if (recording) return recording; return handleClassroom(request, env, path); }
+    if (path === '/api/classroom/sessions' || path.startsWith('/api/classroom/sessions/') || path.startsWith('/api/classroom/guest/') || path === '/api/admin/classroom/instructors' || path === '/api/admin/classroom/sessions' || path.startsWith('/api/admin/classroom/sessions/') || path.startsWith('/api/admin/classroom/recordings/')) { const recording = await handleClassroomRecording(request, env, path); if (recording) return recording; return handleClassroom(request, env, path); }
 
     if (path === '/api/access-settings' || path === '/api/admin/settings/access' || path === '/api/admin/settings/classroom-provider') {
       const res = await handleAccess(request, env, path);
