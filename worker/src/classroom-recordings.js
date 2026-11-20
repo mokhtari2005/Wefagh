@@ -7,7 +7,7 @@ const MAX_FILE_BYTES = 2 * 1024 * 1024 * 1024;
 const PART_BYTES = 8 * 1024 * 1024;
 const clean = (value) => typeof value === 'string' ? value.trim() : '';
 const iso = (value) => new Date(value).toISOString();
-const safeName = (value) => clean(value).replace(/[\\/\\0-\\x1f\\x7f]/g, '_').slice(0, 180) || 'class-recording';
+const safeName = (value) => clean(value).replaceAll('/', '_').replaceAll('\\\\', '_').replace(/[\\0-\\x1f\\x7f]/g, '_').slice(0, 180) || 'class-recording';
 
 function classExpiry(session) {
   const end = Date.parse(session.starts_at) + Number(session.duration_minutes) * 60000;
@@ -16,7 +16,7 @@ function classExpiry(session) {
 
 export async function handleClassroomRecording(request, env, path) {
   const method = request.method;
-  const isRecordingRoute = /^\\/api\\/(?:admin\\/classroom\\/(?:sessions\\/\\d+\\/recording|recordings\\/\\d+(?:\\/parts\\/\\d+|\\/complete)?)|classroom\\/sessions\\/\\d+\\/recording)$/.test(path);
+  const isRecordingRoute = new RegExp('^/api/(?:admin/classroom/(?:sessions/[0-9]+/recording|recordings/[0-9]+(?:/parts/[0-9]+|/complete)?)|classroom/sessions/[0-9]+/recording)$').test(path);
   if (!isRecordingRoute) return null;
   if (!env.DB) return json({ok:false,error:'DB_NOT_CONFIGURED'},503);
   if (!env.CLASSROOM_RECORDINGS) return json({ok:false,error:'RECORDING_STORAGE_NOT_CONFIGURED',message:'فضای ذخیره‌سازی کلاس هنوز به Worker متصل نشده است.'},503);
