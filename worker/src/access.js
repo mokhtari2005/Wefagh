@@ -2,6 +2,19 @@
 import { json, readJsonBody } from './http.js';
 import { requireAdmin } from './admin.js';
 
+
+const CLASSROOM_PROVIDERS = new Set(['jitsi', 'google_meet']);
+
+async function selectedClassroomProvider(env) {
+  if (!env.DB) return 'jitsi';
+  try {
+    const row = await env.DB.prepare("SELECT setting_value FROM app_settings WHERE setting_key = 'classroom_provider'").first();
+    return CLASSROOM_PROVIDERS.has(row?.setting_value) ? row.setting_value : 'jitsi';
+  } catch {
+    return 'jitsi';
+  }
+}
+
 export async function registrationRequired(env) {
   if (!env.DB) return true;
   try {
@@ -16,6 +29,19 @@ export async function handleAccess(request, env, path) {
   if (path === '/api/access-settings') {
     if (request.method !== 'GET') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'GET' });
     return json({ ok: true, registrationRequired: await registrationRequired(env) });
+  }
+  if (path === '/api/admin/settings/classroom-provider') {
+    if (!env.DB) return json({ ok: false, error: 'DB_NOT_CONFIGURED' }, 503);
+    const access = await requireAdmin(request, env);
+    if (access.response) return access.response;
+    if (request.method === 'GET') return json({ ok: true, provider: await selectedClassroomProvider(env) });
+    if (request.method !== 'PUT') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'GET, PUT' });
+    const parsed = await readJsonBody(request);
+    if (parsed.error) return parsed.error;
+    const provider = parsed.body?.provider;
+    if (!CLASSROOM_PROVIDERS.has(provider)) return json({ ok: false, error: 'VALIDATION_FAILED', field: 'provider' }, 422);
+    await env.DB.prepare("INSERT INTO app_settings (setting_key, setting_value, updated_at) VALUES ('classroom_provider', ?1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value, updated_at = excluded.updated_at").bind(provider).run();
+    return json({ ok: true, provider });
   }
   if (path !== '/api/admin/settings/access') return null;
   if (!env.DB) return json({ ok: false, error: 'DB_NOT_CONFIGURED' }, 503);
