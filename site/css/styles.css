@@ -3826,3 +3826,90 @@ body.classroom-fullscreen-fallback { overflow:hidden; }
   .classroom-meeting-actions { width:100%; }
   .classroom-frame { height:70vh; min-height:360px; }
 }
+
+
+/* Responsive layout for the admin AI diagnostics and model comparison. */
+.admin-mail,
+.admin-mail * {
+  box-sizing: border-box;
+}
+.admin-mail {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+.admin-mail > .row,
+.admin-mail .admin-ai-compare-results,
+.admin-mail .admin-ai-compare-results > .card {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.admin-mail .form-status {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.admin-mail .admin-ai-compare-results {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+.admin-mail .admin-ai-compare-results > .card {
+  min-width: 0;
+  overflow: hidden;
+}
+.admin-mail .admin-ai-compare-results h3 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.admin-mail .admin-ai-compare-output {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: .75rem 0 0;
+  padding: .85rem;
+  box-sizing: border-box;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  direction: rtl;
+  text-align: right;
+  overflow-x: auto;
+  line-height: 1.9;
+}
+.admin-mail .admin-field,
+.admin-mail .admin-field textarea {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+.admin-mail .row > .btn {
+  max-width: 100%;
+  white-space: normal;
+}
+@media (max-width: 600px) {
+  .admin-mail {
+    padding: .9rem;
+    border-radius: 14px;
+  }
+  .admin-mail .row {
+    align-items: stretch;
+    gap: .55rem;
+  }
+  .admin-mail .row > .btn {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
+    text-align: center;
+  }
+  .admin-mail .admin-ai-compare-output {
+    padding: .7rem;
+    font-size: .88rem;
+  }
+}
