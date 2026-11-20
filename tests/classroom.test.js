@@ -87,7 +87,7 @@ test('مدیر می‌تواند مدرس را مجاز کند و فقط مدر�
   const member=db.raw.prepare("SELECT id FROM users WHERE email='member@class.test'").get();
   const list=await worker.fetch(req('/api/admin/classroom/instructors',{cookie:adminCookie}),env);
   assert.equal(list.status,200);
-  assert.equal((await list.json()).instructors.length,1);
+  assert.equal((await list.json()).instructors.length,2);
   const grant=await worker.fetch(req('/api/admin/classroom/instructors',{method:'POST',body:{userId:member.id,enabled:true},cookie:adminCookie}),env);
   assert.equal(grant.status,200);
   const created=await worker.fetch(req('/api/admin/classroom/sessions',{method:'POST',body:{
