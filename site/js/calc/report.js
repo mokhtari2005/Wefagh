@@ -1,4 +1,4 @@
-import { renderFormHtml, renderFormText } from './forms.js?v=20261119-forms-1';
+import { renderFormHtml, renderFormText } from './forms.js?v=20261121-mla-brand-1';
 
 /** Wait for the report stylesheet to finish loading; link.sheet alone is set before CSS is ready. */
 function waitForStylesheet(doc) {
@@ -100,7 +100,7 @@ export function createA4TextReport({ title, rows = [], content = null, filename 
     return;
   }
 
-  const html = renderFormHtml(form, { dateText, cssHref: '/css/styles.css?v=20261121-pdf-a4-1' });
+  const html = renderFormHtml(form, { dateText, cssHref: '/css/styles.css?v=20261121-mla-brand-1' });
 
   // Open synchronously during the user's click so Safari does not block the report tab.
   const popup = window.open('', '_blank');

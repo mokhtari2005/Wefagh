@@ -3747,9 +3747,8 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
 /* Academy calculator A4 report. Kept in the same-origin stylesheet to comply with CSP. */
 .academy-pdf-body{margin:0;padding:10px;background:#eef1f0;color:#20312e;direction:rtl;font-family:Tahoma,Arial,sans-serif}
 .academy-pdf-sheet{width:210mm;min-height:296mm;margin:0 auto;background:#fff;border:1px solid #c8d2d7;padding:12mm 13mm;box-sizing:border-box}
-.academy-pdf-header{display:grid;grid-template-columns:1fr auto;align-items:center;padding-bottom:6px;border-bottom:2px solid #203c55}
-.academy-pdf-header strong{font-size:13pt;color:#203c55}.academy-pdf-header small{display:block;margin-top:3px;font-size:7pt;color:#687a80;direction:ltr}
-.academy-pdf-header img{width:13mm;height:13mm;object-fit:contain}
+.academy-pdf-header{display:flex;justify-content:center;align-items:center;padding:0 0 5mm;margin-bottom:4mm;border-bottom:2px solid #c9972c}
+.academy-pdf-header img{display:block;width:58mm;height:33mm;max-width:100%;object-fit:contain;object-position:center}
 .academy-pdf-sheet h1{margin:5px 0 8px;text-align:center;font-size:12pt;color:#203c55}
 .academy-pdf-section{border:1px solid #bdc9cf;border-radius:5px;padding:6px 8px;margin-bottom:7px;break-inside:avoid}
 .academy-pdf-section-title{display:block;margin:-1px 0 5px;padding:3px 7px;background:#203c55;color:#fff;border-radius:3px;font-size:8pt}

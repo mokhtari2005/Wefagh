@@ -1,7 +1,7 @@
 import { SHIRAZ_BLOCKS } from './calc/shiraz-1405-data.js';
 import { getJson } from './api.js';
-import { createA4TextReport } from './calc/report.js?v=20261121-pdf-a4-1';
-import { buildFormModel } from './calc/forms.js?v=20261119-forms-1';
+import { createA4TextReport } from './calc/report.js?v=20261121-mla-brand-1';
+import { buildFormModel } from './calc/forms.js?v=20261121-mla-brand-1';
 
 function h(tag, attrs = {}, children = []) {
   const n = document.createElement(tag);
