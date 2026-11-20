@@ -599,7 +599,6 @@ function attorneyTool(id) {
     field('att-amount', 'بهای خواسته یا محکوم به (ریال)', amount),
     field('att-agreed', 'حق‌الوکالهٔ درج‌شده در وکالت‌نامه (ریال، اختیاری؛ مبنای تمبر)', agreed),
     field('att-received', 'مبلغ علی‌الحساب واقعاً دریافت‌شده: مرحلهٔ بدوی یا دعوای یک‌مرحله‌ای (ریال، اختیاری)', received),
-    field('att-received-appeal', 'مبلغ علی‌الحساب واقعاً دریافت‌شده: مرحلهٔ تجدیدنظر (ریال، اختیاری)', receivedAppeal),
     h('button', { class: 'btn dix-submit', type: 'submit', text: 'محاسبه' }),
     out,
   ]);
