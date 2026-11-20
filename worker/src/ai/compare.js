@@ -36,13 +36,13 @@ async function compareGemini(env, prompt) {
         signal: AbortSignal.timeout(40_000),
       },
     );
-    const ms = elapsed(started);
-    if (!response.ok) return { status: 'http_error', model, httpStatus: response.status, ms };
+    if (!response.ok) return { status: 'http_error', model, httpStatus: response.status, ms: elapsed(started) };
     const payload = await response.json();
     const text = payload?.candidates?.[0]?.content?.parts
       ?.map((part) => typeof part?.text === 'string' ? part.text : '')
       .join('')
       .trim();
+    const ms = elapsed(started);
     return text
       ? { status: 'ok', model, httpStatus: response.status, ms, text }
       : { status: 'empty_response', model, httpStatus: response.status, ms };
@@ -76,10 +76,10 @@ async function compareGroq(env, prompt) {
       }),
       signal: AbortSignal.timeout(40_000),
     });
-    const ms = elapsed(started);
-    if (!response.ok) return { status: 'http_error', model: GROQ_MODEL, httpStatus: response.status, ms };
+    if (!response.ok) return { status: 'http_error', model: GROQ_MODEL, httpStatus: response.status, ms: elapsed(started) };
     const payload = await response.json();
     const text = payload?.choices?.[0]?.message?.content;
+    const ms = elapsed(started);
     return typeof text === 'string' && text.trim()
       ? { status: 'ok', model: GROQ_MODEL, httpStatus: response.status, ms, text: text.trim() }
       : { status: 'empty_response', model: GROQ_MODEL, httpStatus: response.status, ms };
