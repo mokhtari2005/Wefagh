@@ -45,7 +45,7 @@ function mountMeeting(root, sessionId, data, {guestToken=null, guest=false}={}) 
   if(data.provider==='jitsi' && data.roomName){
     const frame=node('iframe',{class:'classroom-frame',title:'اتاق تصویری کلاس',src:meetingUrl(data.roomName),allow:'camera; microphone; display-capture; fullscreen; autoplay',allowfullscreen:'true',referrerpolicy:'no-referrer'});
     root.append(frame);
-    notice.textContent='کلاس در همین صفحه باز شده است. این سامانه قابلیت ضبط یا ذخیره ویدئو ندارد؛ ضبط را نیز در تنظیمات اتاق غیرفعال کرده‌ایم.';
+    notice.textContent='کلاس در همین صفحه باز شده است. این سامانه ضبط خودکار ندارد و ضبط داخلی Jitsi غیرفعال است؛ در صورت بارگذاری فایل توسط مدیر، ویدئو تا ۴۸ ساعت پس از پایان کلاس در همین صفحه در دسترس خواهد بود.';
   } else if(data.provider==='google_meet' && data.meetingUrl) {
     notice.textContent='Google Meet در این مرحله امکان نمایش کامل داخل سایت را نمی‌دهد؛ برای ورود، پیوند زیر در صفحه‌ای جداگانه باز می‌شود.';
     root.append(node('a',{class:'btn',href:data.meetingUrl,target:'_blank',rel:'noopener noreferrer',text:'ورود به جلسه در Google Meet'}));
