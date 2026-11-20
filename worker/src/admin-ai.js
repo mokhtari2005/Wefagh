@@ -4,6 +4,10 @@ import { requireMailAdmin } from './admin-mail.js';
 import { probeGroq, groqProbeHint } from './ai/groq.js';
 import { compareAiProviders } from './ai/compare.js';
 import { aiConfigured, modelIds, fallbackTextModel, probeModel, probeHint } from './ai/gemini.js';
+import { findVerifiedLegalArticles } from './legal-bank.js';
+import { generateTextWithFallback } from './ai/fallback.js';
+import { ASSISTANT_SCHEMA, assistantSystemPrompt } from './ai/prompts.js';
+import { reviewLegalDraft, groqReviewNotes } from './ai/groq.js';
 
 /** GET /api/admin/ai/status ← وضعیت کلید و نتیجهٔ بررسی مدل اصلی و جایگزین */
 export async function handleAdminAi(request, env, path) {
@@ -11,6 +15,7 @@ export async function handleAdminAi(request, env, path) {
   const access = await requireMailAdmin(request, env);
   if (access.response) return access.response;
   if (path === '/api/admin/ai/compare') return compareAiProviders(request, env);
+  if (path === '/api/admin/ai/legal-bank-test') return runLegalBankAiTest(request, env);
   if (request.method !== 'GET') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'GET' });
   const primary = modelIds(env).text;
   const models = [...new Set([primary, fallbackTextModel(primary)])];
@@ -20,5 +25,75 @@ export async function handleAdminAi(request, env, path) {
     configured: aiConfigured(env),
     groq: { ...groq, hint: groqProbeHint(groq) },
     models: results.map((r) => ({ ...r, role: r.model === primary ? 'اصلی' : 'جایگزین', hint: probeHint(r) })),
+  });
+}
+
+/** POST /api/admin/ai/legal-bank-test: آزمون زندهٔ بازیابی بانک، پاسخ Gemini و بازبینی Groq؛ بدون ذخیره‌سازی. */
+async function runLegalBankAiTest(request, env) {
+  if (request.method !== 'POST') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'POST' });
+  if (!env.DB) return json({ ok: false, error: 'DB_NOT_CONFIGURED' }, 503);
+  const question = 'مهلت تجدیدنظرخواهی از آرای دادگاه‌های بدوی در امور حقوقی و کیفری چقدر است؟ مبدأ محاسبه مهلت، اثر واخواهی، تعطیلی روز آخر و امکان پذیرش درخواست خارج از مهلت با عذر موجه را با ذکر مستندات قانونی توضیح بده. اگر درباره مستندی مطمئن نیستی، صریحاً اعلام کن.';
+  let initialArticles;
+  try {
+    initialArticles = await findVerifiedLegalArticles(env.DB, question);
+  } catch (error) {
+    console.error(JSON.stringify({ where: 'admin_ai_legal_test', stage: 'initial_bank_query', error: error?.name || 'Error' }));
+    return json({ ok: false, error: 'LEGAL_BANK_QUERY_FAILED', stage: 'initial_bank_query' }, 503);
+  }
+  const legalContext = initialArticles.length
+    ? initialArticles.map((article) => `قانون: ${article.lawTitle}\nماده ${article.articleNumber}${article.heading ? ` ـ ${article.heading}` : ''}\n${article.body}\nمنبع ثبت‌شده: ${article.sourceName || 'ثبت نشده'}${article.sourceUrl ? ` (${article.sourceUrl})` : ''}`).join('\n\n---\n\n')
+    : 'در بانک قوانین، ماده مرتبطِ تأییدشده‌ای بازیابی نشد.';
+  let generated;
+  try {
+    generated = await generateTextWithFallback(env, {
+      system: assistantSystemPrompt({ mode: 'consult', docType: null, hasAttachments: false, legalContext }),
+      contents: [{ role: 'user', parts: [{ text: question }] }],
+      maxOutputTokens: 3000,
+      timeoutMs: 45_000,
+      json: true,
+      schema: ASSISTANT_SCHEMA,
+      plainFallback: true,
+    }, { allowGroq: false });
+  } catch (error) {
+    console.error(JSON.stringify({ where: 'admin_ai_legal_test', stage: 'gemini_generation', error: error?.name || 'Error', code: error?.code || undefined }));
+    return json({ ok: false, error: 'GEMINI_TEST_FAILED', stage: 'gemini_generation' }, 503);
+  }
+  const draft = typeof generated?.data?.text === 'string' ? generated.data.text.trim() : '';
+  if (!draft) return json({ ok: false, error: 'GEMINI_EMPTY_RESPONSE', stage: 'gemini_generation' }, 502);
+  let answerArticles = [];
+  let answerSearchFailed = false;
+  try {
+    answerArticles = await findVerifiedLegalArticles(env.DB, draft);
+  } catch (error) {
+    answerSearchFailed = true;
+    console.error(JSON.stringify({ where: 'admin_ai_legal_test', stage: 'answer_bank_query', error: error?.name || 'Error' }));
+  }
+  const combined = [...initialArticles];
+  const seen = new Set(combined.map((item) => `${item.lawTitle}::${item.articleNumber}`));
+  for (const item of answerArticles) {
+    const key = `${item.lawTitle}::${item.articleNumber}`;
+    if (!seen.has(key)) { combined.push(item); seen.add(key); }
+  }
+  const reviewArticles = combined.slice(0, 8);
+  let review;
+  try {
+    review = await reviewLegalDraft(env, { mode: 'consult', docType: null, question, draft, legalArticles: reviewArticles });
+  } catch (error) {
+    console.error(JSON.stringify({ where: 'admin_ai_legal_test', stage: 'groq_review', error: error?.name || 'Error' }));
+    review = { status: 'review_error' };
+  }
+  const bankArticles = reviewArticles.slice(0, 6).map((item) => ({
+    lawTitle: item.lawTitle, articleNumber: item.articleNumber, heading: item.heading || '',
+    body: String(item.body || '').slice(0, 2200), sourceName: item.sourceName || '', sourceUrl: item.sourceUrl || '',
+  }));
+  return json({
+    ok: true, saved: false, question,
+    gemini: { status: 'ok', model: generated.model || null, text: draft },
+    bank: { initialCount: initialArticles.length, answerCount: answerArticles.length,
+      suppliedToGroqCount: review?.bankArticlesCount ?? 0, answerSearchFailed, articles: bankArticles },
+    groq: { status: review?.status || 'unknown', model: review?.model || null,
+      bankArticlesCount: review?.bankArticlesCount ?? 0, review: review?.review || null,
+      details: groqReviewNotes(review) },
+    note: 'این آزمون هیچ داده‌ای را در پایگاه داده ذخیره نمی‌کند. پرسش و پاسخ برای Gemini و پیش‌نویس به‌همراه مواد بازیابی‌شده برای بازبینی به Groq ارسال می‌شود.',
   });
 }
