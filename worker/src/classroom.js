@@ -172,7 +172,7 @@ export async function handleClassroom(request, env, path) {
         .bind(new Date().toISOString(),new Date(Date.now()-3*86400000).toISOString()).all();
       return json({ok:true,sessions:(rows.results||[]).map(row=>({...sessionDto(row),canHost:row.instructor_id===user.id}))});
     }
-    const hostMatch = path.match(/^\\/api\\/classroom\\/sessions\\/(\\d+)\\/host$/);
+    const hostMatch = path.match(/^\/api\/classroom\/sessions\/(\d+)\/host$/);
     if (hostMatch) {
       if (method !== 'GET') return json({ok:false,error:'METHOD_NOT_ALLOWED'},405,{Allow:'GET'});
       const user = await currentUser(request,env);
