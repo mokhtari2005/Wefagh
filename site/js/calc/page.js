@@ -440,10 +440,10 @@ function ruleTool({ title, amountLabel, group, submitLabel, note, withRanges = f
 }
 
 /** حق‌الوکاله و تمبر مالیاتی وکیل: فرم مطابق نمونهٔ مرجع. محاسبه در attorney-form.js است؛ این تابع فقط فرم و نمایش را می‌سازد. */
-const ATTORNEY_SUBJECTS = [
-  { value: 'attorney', text: 'حق الوکاله' },
-  { value: 'tax-kanon', text: 'تمبر مالیاتی کانون وکلای دادگستری' },
-  { value: 'tax-markaz', text: 'تمبر مالیاتی مرکز وکلا، کارشناسان رسمی و مشاوران خانواده قوه قضاییه' },
+const ATTORNEY_LICENSES = [
+  { value: '', text: 'انتخاب کنید (برای سهم‌ها)' },
+  { value: 'kanon', text: 'کانون وکلای دادگستری' },
+  { value: 'markaz', text: 'مرکز وکلا، کارشناسان رسمی و مشاوران خانواده قوه قضاییه' },
 ];
 const ATTORNEY_CASE_TYPES = [
   { value: 'financial', text: 'مالی' },
@@ -466,8 +466,23 @@ const ATTORNEY_RESULTS = [
 ];
 const RESULT_KEY = { dismissOtherA: 'dismissOther', dismissOtherB: 'dismissOther', dismissOtherC: 'dismissOther' };
 
+/** ردیف‌های تمبر مالیاتی و سهم‌ها برای نمایش و گزارش؛ بدون پروانه، فقط تمبر و یادداشت انتخاب پروانه. */
+function stampRowsOf(stamp) {
+  if (!stamp?.ok) return [];
+  const rows = [
+    ['مبنای تمبر مالیاتی', stamp.basisLabel],
+    ['مبلغ علی‌الحساب دریافتی (ورودی)', stamp.receivedAmount ? formatRial(stamp.receivedAmount) : 'وارد نشده'],
+    ['تمبر مالیاتی (۵٪ مبنا)', formatRial(stamp.stamp)],
+  ];
+  if (!stamp.shares.length) rows.push(['سهم کانون، صندوق یا مرکز', 'نوع پروانه را انتخاب کنید']);
+  stamp.shares.forEach((s) => rows.push([s.label, formatRial(s.amount)]));
+  return rows;
+}
+
 function attorneyTool(id) {
-  const subject = h('select', { id: 'att-subject' }, ATTORNEY_SUBJECTS.map((o) => h('option', { value: o.value, text: o.text })));
+  const license = h('select', { id: 'att-license' }, ATTORNEY_LICENSES.map((o) => h('option', { value: o.value, text: o.text })));
+  const received = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'اختیاری؛ به ریال' });
+  received.addEventListener('input', () => { received.value = groupAmount(received.value); });
   const caseType = h('select', { id: 'att-case' }, ATTORNEY_CASE_TYPES.map((o) => h('option', { value: o.value, text: o.text })));
   const judgment = h('select', { id: 'att-judgment' }, [
     h('option', { value: '', text: 'انتخاب کنید' }),
@@ -504,7 +519,7 @@ function attorneyTool(id) {
   sync();
 
   const form = h('form', { class: 'form dix-form', novalidate: '', 'aria-label': 'حق‌الوکاله و تمبر مالیاتی وکیل' }, [
-    field('att-subject', 'موضوع', subject),
+    field('att-license', 'نوع پروانه وکیل (برای سهم کانون، صندوق یا مرکز)', license),
     field('att-case', 'نوع دعوا', caseType),
     judgmentWrap,
     field('att-result', 'نتیجهٔ ختم دعوا', result),
@@ -515,6 +530,7 @@ function attorneyTool(id) {
     h('label', { class: 'check-row' }, [afterReversal, h('span', { text: 'قبول وکالت پس از نقض رای' })]),
     h('label', { class: 'check-row' }, [temporary, h('span', { text: 'وکیل تسخیری یا معاضدتی' })]),
     field('att-amount', 'بهای خواسته یا محکوم به (ریال)', amount),
+    field('att-received', 'مبلغ علی‌الحساب دریافتی از موکل (ریال، اختیاری)', received),
     h('button', { class: 'btn dix-submit', type: 'submit', text: 'محاسبه' }),
     out,
   ]);
@@ -535,7 +551,9 @@ function attorneyTool(id) {
     if (Number.isNaN(inP) || Number.isNaN(outP)) return showNotice(INPUT_MESSAGES.INVALID_UNITS);
     const resultKey = RESULT_KEY[result.value] || result.value;
     const r = computeAttorneyForm({
-      subject: subject.value,
+      subject: 'attorney',
+      license: license.value,
+      received: parseAmount(received.value) || 0,
       caseType: caseType.value,
       judgment: judgment.value,
       amount: parseAmount(amount.value),
@@ -560,6 +578,8 @@ function attorneyTool(id) {
     }
     const facts = r.lines.map((l) => [l.label, formatRial(l.amount)]);
     if (r.travelTotal > 0) facts.push(['جمع فوق‌العاده مأموریت (جدا از حق‌الوکاله)', formatRial(r.travelTotal)]);
+    const stampRows = stampRowsOf(r.stamp);
+    facts.push(...stampRows.map(([a, b]) => [a, b]));
     const attorneyAmount = parseAmount(amount.value);
     const reportTables = [];
     if (resultKey === 'none' && !afterReversal.checked && caseType.value === 'financial' && judgment.value === 'nonfinal') {
@@ -568,17 +588,19 @@ function attorneyTool(id) {
     }
     const lineRows = r.lines.map((l) => [l.label, formatRial(l.amount).replace(' ریال', '')]);
     if (r.travelTotal > 0) lineRows.push(['جمع فوق‌العاده مأموریت (جدا از حق‌الوکاله)', formatRial(r.travelTotal).replace(' ریال', '')]);
-    reportTables.push({ type: 'table', title: 'ردیف‌های حق‌الوکاله و فوق‌العاده', columns: ['شرح', 'مبلغ (ریال)'], rows: lineRows });
+    lineRows.push(...stampRows.map(([a, b]) => [a, b.replace(' ریال', '')]));
+    reportTables.push({ type: 'table', title: 'ردیف‌های حق‌الوکاله، فوق‌العاده، تمبر و سهم‌ها', columns: ['شرح', 'مبلغ (ریال)'], rows: lineRows });
+    const totalNote = 'مبلغ نهایی جمع حق‌الوکاله و فوق‌العاده مأموریت است؛ تمبر مالیاتی و سهم‌ها جدا نشان داده شده‌اند.';
     out.replaceChildren(resultBox({
       ok: true,
       title: 'حق‌الوکاله قانونی',
       fee: r.total,
       reportTables,
-      reportResult: { ok: true, fee: r.total, limitations: [...r.notes, 'مبلغ نهایی جمع حق‌الوکاله و فوق‌العاده مأموریت است و شامل تمبر مالیاتی و سهم کانون، مرکز و صندوق نیست.'], ruleVersion: 'آیین‌نامه تعرفه حق‌الوکاله، حق‌المشاوره و هزینه سفر وکلای دادگستری ۱۳۹۸/۱۲/۲۸' },
+      reportResult: { ok: true, fee: r.total, limitations: [...r.notes, totalNote], ruleVersion: 'آیین‌نامه تعرفه حق‌الوکاله، حق‌المشاوره و هزینه سفر وکلای دادگستری ۱۳۹۸/۱۲/۲۸' },
       facts,
       steps: [`حق‌الوکاله: ${formatRial(r.feeTotal)}`, `فوق‌العاده مأموریت: ${formatRial(r.travelTotal)}`],
       ruleVersion: 'آیین‌نامه تعرفه حق‌الوکاله ۱۳۹۸ (فایل fd69f537)',
-      limitations: [...r.notes, 'مبلغ نهایی جمع حق‌الوکاله و فوق‌العاده مأموریت است و شامل تمبر و سهم کانون نیست.'],
+      limitations: [...r.notes, totalNote],
     }, form));
   });
 

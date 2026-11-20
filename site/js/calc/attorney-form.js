@@ -7,11 +7,12 @@
 // - ماده ۲۲ (تبصره): ۱۰٪ افزایش فقط در حدود صلاحیت تخصصی؛ این ابزار حدود صلاحیت را بررسی نمی‌کند.
 // - ماده ۳۰: فوق‌العادهٔ مأموریت روزانه؛ هزینهٔ سفر و اقامت جداگانه است و در این ابزار محاسبه نمی‌شود.
 // - ماده ۸: حق‌الوکالهٔ تسخیری/معاضدتی «دو برابر حداقل تعرفه» است، اما حداقل تعرفه در فایل تعریف نشده؛ پس محاسبه انجام نمی‌شود.
-// - تمبر مالیاتی و سهم کانون/مرکز/صندوق: مبنای آن در فایل تعرفه نیست؛ محاسبه نمی‌شود.
+// - تمبر مالیاتی و سهم کانون/مرکز/صندوق: در stamp.js با نرخ‌های ثبت‌شده محاسبه و جدا از جمع حق‌الوکاله نشان داده می‌شوند.
 // - ماده ۱۳ و ۱۴ و ۲۸: بازه‌ای هستند؛ عدد قطعی نمی‌دهند و فقط بازه نمایش داده می‌شود.
 
 import { findRule } from './rates.js';
 import { applyRule } from './engine.js';
+import { computeStampAndShares } from './stamp.js';
 
 export const ATTORNEY_RATE_YEAR = 1405;
 
@@ -76,17 +77,21 @@ function rangeOf(id, title) {
  * @param {number} [input.inProvinceDays] روز مأموریت داخل استان.
  * @param {number} [input.outProvinceDays] روز مأموریت خارج از استان.
  * @param {boolean} [input.temporary] وکیل تسخیری یا معاضدتی است.
+ * @param {number} [input.received] مبلغ علی‌الحساب دریافتی از موکل (ریال، اختیاری).
+ * @param {'kanon'|'markaz'|''} [input.license] نوع پروانه برای سهم‌ها.
  */
 export function computeAttorneyForm(input) {
   const {
     subject, caseType, judgment, amount, result = 'none', appealBase,
     afterReversal = false, specialty = false, inProvinceDays = 0, outProvinceDays = 0, temporary = false,
+    received = 0,
   } = input;
 
-  if (subject === 'tax-kanon' || subject === 'tax-markaz') {
-    return fail('TAX_NOT_COMPUTED', 'تمبر مالیاتی در این ابزار محاسبه نمی‌شود؛ مبنای تمبر و سهم کانون یا مرکز در فایل تعرفهٔ مورد استناد نیست.');
+  // موضوع‌های قدیمی تمبر به همین محاسبه نگاشت می‌شوند؛ تمبر همیشه همراه حق‌الوکاله حساب می‌شود.
+  const license = subject === 'tax-kanon' ? 'kanon' : subject === 'tax-markaz' ? 'markaz' : (input.license || '');
+  if (subject !== 'attorney' && subject !== 'tax-kanon' && subject !== 'tax-markaz') {
+    return fail('INVALID_SUBJECT', 'موضوع را انتخاب کنید.');
   }
-  if (subject !== 'attorney') return fail('INVALID_SUBJECT', 'موضوع را انتخاب کنید.');
   if (temporary) {
     return fail('ART8_UNDEFINED', 'حق‌الوکالهٔ وکیل تسخیری یا معاضدتی «دو برابر حداقل تعرفه» است، اما حداقل تعرفه در فایل تعرفه تعریف نشده؛ بنابراین محاسبه انجام نمی‌شود.');
   }
@@ -195,6 +200,8 @@ export function computeAttorneyForm(input) {
     lines.push({ label: `فوق‌العادهٔ مأموریت خارج از استان (${outProvinceDays} روز، ماده ۳۰)`, amount: t.fee });
   }
 
+  const stamp = computeStampAndShares({ tariffFee: mainFee, received, license });
+
   return {
     ok: true,
     feeTotal: mainFee,
@@ -202,8 +209,9 @@ export function computeAttorneyForm(input) {
     total: mainFee + travel,
     lines,
     mainLabel,
+    stamp,
     notes: [
-      'مالیات، تمبر مالیاتی و سهم کانون، مرکز و صندوق در این عدد نیست.',
+      'تمبر مالیاتی و سهم‌ها جدا از جمع حق‌الوکاله نشان داده می‌شوند و در آن جمع نیستند.',
       'هزینهٔ سفر و اقامت جداگانه و به عهدهٔ موکل است؛ این ابزار فقط فوق‌العادهٔ روزانه را محاسبه می‌کند.',
     ],
   };
