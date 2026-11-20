@@ -470,11 +470,15 @@ const RESULT_KEY = { dismissOtherA: 'dismissOther', dismissOtherB: 'dismissOther
 function stampRowsOf(stamp) {
   if (!stamp?.ok) return [];
   const rows = [
-    ['حق‌الوکالهٔ درج‌شده در وکالت‌نامه (ورودی)', stamp.agreedAmount ? formatRial(stamp.agreedAmount) : 'وارد نشده'],
-    ['مبنای تمبر مالیاتی', stamp.basisLabel],
+    ['مبلغ علی‌الحساب واقعاً دریافت‌شده (ورودی)', stamp.receivedAmount ? formatRial(stamp.receivedAmount) : 'وارد نشده'],
+    ['حداقل قانونی تعرفه همان مرحله', formatRial(stamp.stageFee)],
+    ['مبنای تمبر مالیاتی (حداکثر دو مبلغ بالا)', `${formatRial(stamp.stampBase)}؛ ${stamp.basisLabel}`],
     ['تمبر مالیاتی (۵٪ مبنا)', formatRial(stamp.stamp)],
-    ['مبلغ علی‌الحساب دریافتی (ورودی)', stamp.receivedAmount ? formatRial(stamp.receivedAmount) : 'وارد نشده'],
   ];
+  if (stamp.agreedAmount) {
+    rows.push(['حق‌الوکالهٔ درج‌شده در وکالت‌نامه (ورودی)', formatRial(stamp.agreedAmount)]);
+    if (stamp.agreedNotFullyReceived) rows.push(['یادآوری', 'مبلغ درج‌شده در وکالت‌نامه کامل دریافت نشده؛ مبنای تمبر فقط مبلغ دریافتی یا حداقل قانونی است.']);
+  }
   if (!stamp.shares.length) rows.push(['سهم کانون، صندوق یا مرکز', 'نوع پروانه را انتخاب کنید']);
   stamp.shares.forEach((s) => rows.push([s.label, s.amount === 0 && stamp.receivedAmount === 0 ? 'مبلغ علی‌الحساب دریافتی را وارد کنید' : formatRial(s.amount)]));
   return rows;

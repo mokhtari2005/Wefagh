@@ -122,6 +122,8 @@ export function computeAttorneyForm(input) {
   const lines = [];
   let mainFee;
   let mainLabel;
+  // حق‌الوکالهٔ تعرفه‌ای همان مرحله؛ حداقل قانونی مبنای تمبر است (نه سهم ختم دعوا).
+  let stageFee;
 
   if (result !== 'none' && result !== undefined) {
     if (afterReversal) {
@@ -148,6 +150,7 @@ export function computeAttorneyForm(input) {
       stageLabel = 'حق‌الوکالهٔ مرحلهٔ نخستین (ماده ۹ بند الف تا ث)';
       lines.push({ label: stageLabel, amount: base.fee });
     }
+    stageFee = stageBase;
     const share = run(resultRuleId, { amount: stageBase });
     if (!share.ok) return fail(share.error, 'سهم ختم دعوا محاسبه نشد.');
     mainFee = share.fee;
@@ -162,6 +165,7 @@ export function computeAttorneyForm(input) {
     if (!before.ok) return fail(before.error, 'حق‌الوکالهٔ پیش از نقض محاسبه نشد.');
     const r18 = run(RULE.reversal, { amount: before.fee });
     if (!r18.ok) return fail(r18.error, 'سهم ماده ۱۸ محاسبه نشد.');
+    stageFee = before.fee;
     mainFee = r18.fee;
     mainLabel = 'حق‌الوکالهٔ وکیلی که پس از نقض رأی می‌پذیرد (ماده ۱۸: ۱/۲ حق‌الوکالهٔ پیش از نقض)';
     lines.push({ label: 'حق‌الوکالهٔ پیش از نقض (ورودی بر اساس بهای خواسته)', amount: before.fee });
@@ -172,6 +176,7 @@ export function computeAttorneyForm(input) {
     }
     const base = run(judgment === 'final' ? RULE.f9Final : RULE.f9Nonfinal, { amount });
     if (!base.ok) return fail(base.error, 'حق‌الوکاله محاسبه نشد.');
+    stageFee = base.fee;
     mainFee = base.fee;
     mainLabel = judgment === 'final'
       ? 'حق‌الوکاله، حکم قطعی از حیث بهای خواسته (ماده ۹: ۱۰٪)'
@@ -201,7 +206,7 @@ export function computeAttorneyForm(input) {
     lines.push({ label: `فوق‌العادهٔ مأموریت خارج از استان (${outProvinceDays} روز، ماده ۳۰)`, amount: t.fee });
   }
 
-  const stamp = computeStampAndShares({ tariffFee: mainFee, agreedFee, received, license });
+  const stamp = computeStampAndShares({ stageFee, received, agreedFee, license });
 
   return {
     ok: true,
