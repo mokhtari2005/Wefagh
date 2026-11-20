@@ -12,7 +12,7 @@
 
 import { findRule } from './rates.js';
 import { applyRule } from './engine.js';
-import { computeStampAndShares } from './stamp.js';
+import { computeStampAndShares } from './stamp.js?v=20261121-attorney-2';
 
 export const ATTORNEY_RATE_YEAR = 1405;
 
