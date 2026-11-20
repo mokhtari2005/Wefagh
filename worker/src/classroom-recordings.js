@@ -26,8 +26,19 @@ export async function handleClassroomRecording(request, env, path) {
     if (adminUpload) {
       const auth = await requireAdmin(request, env);
       if (auth.response) return auth.response;
-      if (method !== 'POST') return json({ok:false,error:'METHOD_NOT_ALLOWED'},405,{Allow:'POST'});
       const sessionId = Number(adminUpload[1]);
+      if (method === 'DELETE') {
+        const existing = await env.DB.prepare('SELECT * FROM classroom_recordings WHERE session_id=?1').bind(sessionId).first();
+        if (!existing) return json({ok:true});
+        if (existing.multipart_upload_id) {
+          try { await env.CLASSROOM_RECORDINGS.resumeMultipartUpload(existing.object_key,existing.multipart_upload_id).abort(); } catch {}
+        } else {
+          await env.CLASSROOM_RECORDINGS.delete(existing.object_key);
+        }
+        await env.DB.prepare('DELETE FROM classroom_recordings WHERE id=?1').bind(existing.id).run();
+        return json({ok:true});
+      }
+      if (method !== 'POST') return json({ok:false,error:'METHOD_NOT_ALLOWED'},405,{Allow:'POST, DELETE'});
       const session = await env.DB.prepare('SELECT * FROM classroom_sessions WHERE id=?1').bind(sessionId).first();
       if (!session) return json({ok:false,error:'NOT_FOUND'},404);
       const { end, expires } = classExpiry(session);
@@ -67,12 +78,10 @@ export async function handleClassroomRecording(request, env, path) {
       const row = await env.DB.prepare("SELECT * FROM classroom_recordings WHERE id=?1 AND status='uploading'").bind(id).first();
       if (!row || !row.multipart_upload_id) return json({ok:false,error:'NOT_FOUND'},404);
       if (Date.now() >= Date.parse(row.expires_at)) return json({ok:false,error:'RETENTION_WINDOW_EXPIRED'},410);
-      const bytes = Number(request.headers.get('content-length') || 0);
-      if (!Number.isInteger(partNumber) || partNumber < 1 || partNumber > 300 || !bytes || bytes > PART_BYTES || bytes > row.size_bytes) {
-        return json({ok:false,error:'INVALID_PART'},422);
-      }
+      if (!Number.isInteger(partNumber) || partNumber < 1 || partNumber > 300) return json({ok:false,error:'INVALID_PART'},422);
       const data = await request.arrayBuffer();
-      if (data.byteLength !== bytes) return json({ok:false,error:'PART_SIZE_MISMATCH'},422);
+      const bytes = data.byteLength;
+      if (!bytes || bytes > PART_BYTES || bytes > row.size_bytes) return json({ok:false,error:'INVALID_PART'},422);
       const uploaded = await env.CLASSROOM_RECORDINGS.resumeMultipartUpload(row.object_key,row.multipart_upload_id)
         .uploadPart(partNumber,data);
       await env.DB.prepare(`INSERT INTO classroom_recording_parts(recording_id,part_number,etag,size_bytes)
