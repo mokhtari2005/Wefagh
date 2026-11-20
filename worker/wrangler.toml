@@ -34,3 +34,5 @@ head_sampling_rate = 1
 GEMINI_TEXT_MODEL = "gemini-3.5-flash-lite"
 GEMINI_TTS_MODEL = "gemini-3.8-flash-lite-tts"
 BASE_URL = "https://mokhtari.ir"
+B2_BUCKET = "wefagh-classroom-recordings"
+B2_ENDPOINT = "https://s3.us-east-005.backblazeb2.com"
