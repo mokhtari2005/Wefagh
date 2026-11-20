@@ -1,4 +1,4 @@
-// مدیریت کلاس‌های آنلاین و حضور و غیاب؛ هیچ فایل صوتی/تصویری در این سامانه ضبط یا ذخیره نمی‌شود.
+// مدیریت کلاس‌های آنلاین، حضور و غیاب و پیوند به فایل‌های ضبط‌شدهٔ موقت.
 import { json, readJsonBody } from './http.js';
 import { currentUser } from './auth/routes.js';
 import { requireAdmin } from './admin.js';
@@ -25,7 +25,7 @@ function sessionDto(row) {
     id: row.id, title: row.title, description: row.description, provider: row.provider,
     startsAt: row.starts_at, durationMinutes: row.duration_minutes,
     endsAt: new Date(Date.parse(row.starts_at) + row.duration_minutes * 60000).toISOString(),
-    status: row.status, guestEnabled: Boolean(row.guest_enabled),
+    status: row.status, guestEnabled: Boolean(row.guest_enabled), recordingAvailable: Boolean(row.recording_available),
   };
 }
 function canJoin(row) {
@@ -70,7 +70,7 @@ export async function handleClassroom(request, env, path) {
       const admin = await requireAdmin(request,env);
       if (admin.response) return admin.response;
       if (method === 'GET') {
-        const rows = await env.DB.prepare('SELECT * FROM classroom_sessions ORDER BY starts_at DESC LIMIT 100').all();
+        const rows = await env.DB.prepare('SELECT s.*, EXISTS(SELECT 1 FROM classroom_recordings r WHERE r.session_id=s.id AND r.status='available' AND r.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')) AS recording_available FROM classroom_sessions s ORDER BY s.starts_at DESC LIMIT 100').all();
         return json({ok:true,provider:await providerSetting(env),sessions:(rows.results||[]).map(sessionDto)});
       }
       if (method !== 'POST') return json({ok:false,error:'METHOD_NOT_ALLOWED'},405,{Allow:'GET, POST'});
@@ -125,9 +125,9 @@ export async function handleClassroom(request, env, path) {
       if (method !== 'GET') return json({ok:false,error:'METHOD_NOT_ALLOWED'},405,{Allow:'GET'});
       const user = await currentUser(request,env);
       if (!user) return json({ok:false,error:'UNAUTHENTICATED'},401);
-      const rows = await env.DB.prepare(`SELECT * FROM classroom_sessions
-        WHERE starts_at >= ?1 AND status='scheduled' ORDER BY starts_at ASC LIMIT 100`)
-        .bind(new Date(Date.now()-86400000).toISOString()).all();
+      const rows = await env.DB.prepare(`SELECT s.*, EXISTS(SELECT 1 FROM classroom_recordings r WHERE r.session_id=s.id AND r.status='available' AND r.expires_at>?1) AS recording_available FROM classroom_sessions s
+        WHERE s.starts_at >= ?2 AND s.status='scheduled' ORDER BY s.starts_at ASC LIMIT 100`)
+        .bind(new Date().toISOString(),new Date(Date.now()-3*86400000).toISOString()).all();
       return json({ok:true,sessions:(rows.results||[]).map(sessionDto)});
     }
     const memberMatch = path.match(/^\/api\/classroom\/sessions\/(\d+)\/(join|heartbeat|leave)$/);
