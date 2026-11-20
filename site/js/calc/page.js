@@ -12,7 +12,7 @@ import { computeAttorneyForm, RULE as ATTORNEY_RULE } from './attorney-form.js';
 import { buildFormModel, registerReport, getReportBuilder, tierSection, tierTableRows } from './forms.js?v=20261119-forms-1';
 import { icon } from '../icons.js?v=20261119-2';
 import { regionalValueTool } from '../regional-value.js?v=20261119-address-textarea-1';
-import { createA4TextReport } from './report.js?v=20261119-forms-1';
+import { createA4TextReport } from './report.js?v=20261121-pdf-a4-1';
 
 function h(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
