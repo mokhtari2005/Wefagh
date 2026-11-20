@@ -59,12 +59,12 @@ const MESSAGE_LIMIT = 6000;
 /** پاک‌سازی نشانه‌های ظاهری Markdown بدون دست‌زدن به شماره‌گذاری و استنادهای حقوقی. */
 function cleanModelOutput(value) {
   if (typeof value !== 'string') return '';
-  return value.replace(/\\r\\n?/g, '\\n')
-    .replace(/^```(?:[a-z0-9_-]+)?\\s*/gim, '').replace(/^```\\s*$/gm, '')
-    .replace(/^\\s{0,3}#{1,6}\\s*/gm, '').replace(/^\\s*[─━═_*—]{3,}\\s*$/gm, '')
-    .replace(/\\*\\*(.*?)\\*\\*/gs, '$1').replace(/__(.*?)__/gs, '$1')
-    .replace(/`([^`]+)`/g, '$1').replace(/^\\s*[-*+]\\s+/gm, '')
-    .replace(/[ \\t]+$/gm, '').replace(/\\n{3,}/g, '\\n\\n').trim();
+  return value.replace(/\r\n?/g, '\n')
+    .replace(/^\x60{3}(?:[a-z0-9_-]+)?\s*/gim, '').replace(/^\x60{3}\s*$/gm, '')
+    .replace(/^\s{0,3}#{1,6}\s*/gm, '').replace(/^\s*[─━═_*—]{3,}\s*$/gm, '')
+    .replace(/\*\*(.*?)\*\*/gs, '$1').replace(/__(.*?)__/gs, '$1')
+    .replace(/\x60([^\x60]+)\x60/g, '$1').replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim();
 }
 async function copyAssistantText(value) {
   if (navigator.clipboard?.writeText && window.isSecureContext) return navigator.clipboard.writeText(value);
