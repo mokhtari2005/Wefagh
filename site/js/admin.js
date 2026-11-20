@@ -503,7 +503,7 @@ export async function adminPage() {
         deleteRecording.addEventListener('click', async () => {
           if (!window.confirm('فایل ضبط‌شده برای همیشه حذف شود؟')) return;
           deleteRecording.disabled = true;
-          const response = await fetch('/api/admin/classroom/recordings/' + item.id, { method: 'DELETE', credentials: 'same-origin' });
+          const response = await fetch('/api/admin/classroom/sessions/' + item.id + '/recording', { method: 'DELETE', credentials: 'same-origin' });
           const data = await response.json().catch(() => ({}));
           recordingStatus.className = 'form-status' + (response.ok ? ' ok' : ' err');
           recordingStatus.textContent = response.ok ? 'فایل حذف شد.' : errorText(data, response.status);
