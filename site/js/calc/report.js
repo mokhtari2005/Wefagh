@@ -1,35 +1,77 @@
 import { renderFormHtml, renderFormText } from './forms.js?v=20261119-forms-1';
 
-const SNAPSHOT_PROPS = ['color', 'background-color', 'font-family', 'font-size', 'font-weight', 'line-height', 'direction', 'text-align'];
-
-/** html2canvas draws a copy inside the site page, where inherited site CSS can change colours. Record the report window's computed look before rendering. */
-function snapshotComputedStyles(root) {
-  const view = root.ownerDocument.defaultView;
-  return [root, ...root.querySelectorAll('*')].map((el) => {
-    const cs = view.getComputedStyle(el);
-    return SNAPSHOT_PROPS.map((prop) => cs.getPropertyValue(prop));
+/** Wait for the report stylesheet to finish loading; link.sheet alone is set before CSS is ready. */
+function waitForStylesheet(doc) {
+  const link = doc.querySelector('link[rel="stylesheet"]');
+  if (!link) return Promise.reject(new Error('Report stylesheet missing'));
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (error = null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      link.removeEventListener('load', onLoad);
+      link.removeEventListener('error', onError);
+      error ? reject(error) : resolve();
+    };
+    const onLoad = () => finish();
+    const onError = () => finish(new Error('Report stylesheet failed'));
+    const timeout = setTimeout(() => {
+      try {
+        if (link.sheet && link.sheet.cssRules.length > 0) finish();
+        else finish(new Error('Report stylesheet timed out'));
+      } catch {
+        finish(new Error('Report stylesheet could not be read'));
+      }
+    }, 15000);
+    link.addEventListener('load', onLoad, { once: true });
+    link.addEventListener('error', onError, { once: true });
+    // A cached stylesheet may have completed before the listeners were attached.
+    try {
+      if (link.sheet && link.sheet.cssRules.length > 0) queueMicrotask(() => finish());
+    } catch {
+      // Same-origin report CSS should be readable; the load event remains the fallback.
+    }
   });
 }
 
-/** Writes the recorded styles onto the copy that html2canvas renders, so the PDF matches the report window. */
-function applyComputedStyles(doc, snapshot) {
-  const root = doc.querySelector('.academy-pdf-sheet');
-  if (!root) return;
-  [root, ...root.querySelectorAll('*')].forEach((el, i) => {
-    const values = snapshot[i];
-    if (!values) return;
-    SNAPSHOT_PROPS.forEach((prop, j) => el.style.setProperty(prop, values[j], 'important'));
+/** Load a PDF dependency in the report window and resolve only after its global is available. */
+function loadReportScript(win, src, getGlobal) {
+  const existing = getGlobal();
+  if (existing) return Promise.resolve(existing);
+  return new Promise((resolve, reject) => {
+    const script = win.document.createElement('script');
+    script.src = src;
+    script.onload = () => {
+      const loaded = getGlobal();
+      loaded ? resolve(loaded) : reject(new Error('PDF library global missing: ' + src));
+    };
+    script.onerror = () => reject(new Error('PDF library blocked or unavailable: ' + src));
+    win.document.head.append(script);
   });
 }
 
-/** Academy-branded A4 worksheets for calculator results. `model` (from forms.js) gives the reference-form layout; without it a generic form is built from rows + content. */
+/** Wait for report images so the logo is included in the exported file. */
+async function waitForReportImages(root) {
+  await Promise.all(Array.from(root.querySelectorAll('img')).map(async (img) => {
+    if (!img.complete) {
+      await new Promise((resolve) => {
+        img.addEventListener('load', resolve, { once: true });
+        img.addEventListener('error', resolve, { once: true });
+      });
+    }
+    if (img.decode) await img.decode().catch(() => {});
+  }));
+}
+
+/** Academy-branded calculator report. Every PDF is fitted proportionally onto one A4 page. */
 export function createA4TextReport({ title, rows = [], content = null, filename = 'academy-report', downloadOnly = false, model = null } = {}) {
   const clone = content?.cloneNode?.(true) || null;
   if (clone) {
     clone.querySelectorAll('.regional-report-map-section,.regional-print-header,.regional-report-footer,.regional-report-actions,button,img,svg,canvas,video,iframe,input,select,textarea').forEach(n => n.remove());
     clone.querySelectorAll('[hidden],[aria-hidden="true"]').forEach(n => n.remove());
   }
-  const clean = v => String(v ?? '').replace(/\s+/g, ' ').trim();
+  const clean = v => String(v ?? '').replace(/\\s+/g, ' ').trim();
   const dateText = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'long' }).format(new Date());
   let form = model;
   if (!form) {
@@ -45,7 +87,7 @@ export function createA4TextReport({ title, rows = [], content = null, filename 
     };
   }
   if (downloadOnly) {
-    const blob = new Blob(['\uFEFF' + renderFormText(form, dateText)], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob(['\\uFEFF' + renderFormText(form, dateText)], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -58,9 +100,9 @@ export function createA4TextReport({ title, rows = [], content = null, filename 
     return;
   }
 
-  const html = renderFormHtml(form, { dateText, cssHref: '/css/styles.css?v=20261119-forms-1' });
+  const html = renderFormHtml(form, { dateText, cssHref: '/css/styles.css?v=20261121-pdf-a4-1' });
 
-  // Open synchronously during the user's click so Safari does not block the tab.
+  // Open synchronously during the user's click so Safari does not block the report tab.
   const popup = window.open('', '_blank');
   if (!popup) {
     window.alert('مرورگر پنجره گزارش را مسدود کرد. اجازه بازشدن پنجره برای این سایت را فعال کنید و دوباره تلاش کنید.');
@@ -70,43 +112,57 @@ export function createA4TextReport({ title, rows = [], content = null, filename 
   popup.document.write(html);
   popup.document.close();
 
-  const loadPdfLibrary = () => {
-    if (window.html2pdf) return Promise.resolve();
-    if (window.__academyPdfLoader) return window.__academyPdfLoader;
-    window.__academyPdfLoader = new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js';
-      script.onload = () => window.html2pdf ? resolve() : reject(new Error('html2pdf global missing'));
-      script.onerror = () => reject(new Error('PDF library blocked or unavailable'));
-      document.head.append(script);
-    });
-    return window.__academyPdfLoader;
-  };
-
   (async () => {
     try {
-      await Promise.all([
-        loadPdfLibrary(),
-        new Promise((resolve, reject) => {
-          const link = popup.document.querySelector('link[rel="stylesheet"]');
-          if (link?.sheet) return resolve();
-          if (!link) return reject(new Error('Report stylesheet missing'));
-          link.addEventListener('load', resolve, { once: true });
-          link.addEventListener('error', () => reject(new Error('Report stylesheet failed')), { once: true });
-        })
+      const [html2canvas, jsPDF] = await Promise.all([
+        waitForStylesheet(popup.document).then(() => loadReportScript(
+          popup,
+          'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js',
+          () => popup.html2canvas
+        )),
+        loadReportScript(
+          popup,
+          'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js',
+          () => popup.jspdf?.jsPDF
+        ),
       ]);
       if (popup.closed) throw new Error('Report window was closed');
       const sheet = popup.document.querySelector('.academy-pdf-sheet');
       if (!sheet) throw new Error('Report sheet missing');
-      const styleSnapshot = snapshotComputedStyles(sheet);
-      await window.html2pdf().set({
-        margin: 0,
-        filename: filename + '.pdf',
-        image: { type: 'jpeg', quality: .98 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false, windowWidth: Math.max(sheet.scrollWidth, sheet.clientWidth), onclone: (doc) => applyComputedStyles(doc, styleSnapshot) },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-      }).from(sheet).save();
+      await popup.document.fonts?.ready;
+      await waitForReportImages(sheet);
+
+      // Capture the actual, fully styled report instead of racing html2pdf's iframe clone.
+      const canvas = await html2canvas(sheet, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        windowWidth: Math.max(sheet.scrollWidth, sheet.clientWidth),
+        windowHeight: Math.max(sheet.scrollHeight, sheet.clientHeight),
+        scrollX: 0,
+        scrollY: 0,
+      });
+      if (!canvas.width || !canvas.height) throw new Error('PDF report rendered an empty canvas');
+
+      // Preserve the whole report and its proportions inside the printable A4 area.
+      const pageWidth = 210;
+      const pageHeight = 297;
+      const margin = 8;
+      const usableWidth = pageWidth - margin * 2;
+      const usableHeight = pageHeight - margin * 2;
+      const fit = Math.min(usableWidth / canvas.width, usableHeight / canvas.height);
+      const imageWidth = canvas.width * fit;
+      const imageHeight = canvas.height * fit;
+      const x = (pageWidth - imageWidth) / 2;
+      const y = margin;
+
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+      pdf.setProperties({ title: clean(title) || form.title || 'گزارش محاسبات حقوقی' });
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.96), 'JPEG', x, y, imageWidth, imageHeight, undefined, 'FAST');
+      pdf.save(filename + '.pdf');
+      canvas.width = 0;
+      canvas.height = 0;
     } catch (error) {
       console.error('[academy-report] PDF generation failed', error);
       if (!popup.closed) {
@@ -118,4 +174,3 @@ export function createA4TextReport({ title, rows = [], content = null, filename 
     }
   })();
 }
-
