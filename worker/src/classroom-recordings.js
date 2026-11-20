@@ -7,7 +7,7 @@ const MAX_FILE_BYTES = 2 * 1024 * 1024 * 1024;
 const PART_BYTES = 8 * 1024 * 1024;
 const clean = (value) => typeof value === 'string' ? value.trim() : '';
 const iso = (value) => new Date(value).toISOString();
-const safeName = (value) => clean(value).replaceAll('/', '_').replaceAll('\\\\', '_').replace(/[\\0-\\x1f\\x7f]/g, '_').slice(0, 180) || 'class-recording';
+const safeName = (value) => clean(value).replace(/[^\\p{L}\\p{N}._ -]/gu, '_').slice(0, 180) || 'class-recording';
 
 function classExpiry(session) {
   const end = Date.parse(session.starts_at) + Number(session.duration_minutes) * 60000;
