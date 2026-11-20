@@ -8,7 +8,7 @@ import { cpiCoverage, CPI_SOURCE } from './cpi-data.js';
 import { shamsiField } from '../shamsi-field.js';
 import { normalizeLimitations, formatNumbersInLine, formatRial, statusLabel } from './result-format.js';
 import { indexedDelayDamage, planDelayPeriod, periodLabel, periodKeyOfIso } from './indexation.js';
-import { computeAttorneyForm, RULE as ATTORNEY_RULE } from './attorney-form.js';
+import { computeAttorneyForm, RULE as ATTORNEY_RULE } from './attorney-form.js?v=20261121-attorney-2';
 import { buildFormModel, registerReport, getReportBuilder, tierSection, tierTableRows } from './forms.js?v=20261121-mla-brand-1';
 import { icon } from '../icons.js?v=20261119-2';
 import { regionalValueTool } from '../regional-value.js?v=20261119-address-textarea-1';
