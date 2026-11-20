@@ -54,7 +54,7 @@ function mountMeeting(root, sessionId, data, {guestToken=null, guest=false}={}) 
   }
   heartbeat=setInterval(pulse,60000);
 }
-function sessionCard(session, onJoin) {
+function sessionCard(session, onJoin, onHost) {
   const start=Date.parse(session.startsAt),end=start+session.durationMinutes*60000,now=Date.now();
   const canEnter=session.status==='scheduled'&&now>=start-15*60000&&now<=end+30*60000;
   const card=node('article',{class:'card classroom-session-card'},[
@@ -72,6 +72,11 @@ function sessionCard(session, onJoin) {
   button.disabled=!canEnter;
   button.addEventListener('click',()=>onJoin(session,button));
   card.append(button);
+  if (session.canHost && session.provider === 'jitsi') {
+    const hostButton=node('button',{class:'btn secondary',type:'button',text:'شروع جلسه به‌عنوان مدرس'});
+    hostButton.addEventListener('click',()=>onHost(session,hostButton));
+    card.append(hostButton);
+  }
   return card;
 }
 export async function classroomPage() {
@@ -98,6 +103,26 @@ export async function classroomPage() {
       if(!joined.ok){button.disabled=false;button.textContent='تلاش دوباره برای ورود';status.className='form-status err';status.textContent='ورود به کلاس ممکن نشد؛ ممکن است زمان جلسه پایان یافته باشد.';return;}
       mountMeeting(meeting,item.id,joined.data);
       meeting.scrollIntoView({behavior:'smooth',block:'start'});
+    },async(item,button)=>{
+      const hostWindow=window.open('about:blank','_blank');
+      button.disabled=true;
+      const result=await getJson('/api/classroom/sessions/'+item.id+'/host');
+      button.disabled=false;
+      if(!result.ok){
+        if(hostWindow)hostWindow.close();
+        status.className='form-status err';
+        status.textContent=result.status===403?'برای این کلاس مجوز میزبانی ندارید.':'شروع اتاق مدرس ممکن نشد؛ زمان کلاس یا دسترسی را بررسی کنید.';
+        return;
+      }
+      if(hostWindow){
+        hostWindow.opener=null;
+        hostWindow.location.replace(result.data.hostUrl);
+      } else {
+        const link=node('a',{class:'btn secondary',href:result.data.hostUrl,target:'_blank',rel:'noopener noreferrer',text:'باز کردن اتاق مدرس در Jitsi'});
+        status.className='form-status';
+        status.textContent='پنجره جدید مسدود شد. از پیوند زیر استفاده کنید:';
+        status.append(link);
+      }
     }));
   }
   return root;
