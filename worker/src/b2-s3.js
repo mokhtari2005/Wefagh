@@ -35,12 +35,11 @@ async function signedFetch(env, key, { method = 'GET', query = [], headers = {},
   const date = amzDate.slice(0, 8);
   const payloadHash = await sha256(body ?? new Uint8Array());
   const requestHeaders = new Headers(headers);
-  requestHeaders.set('host', url.host);
   requestHeaders.set('x-amz-content-sha256', payloadHash);
   requestHeaders.set('x-amz-date', amzDate);
   if (range) requestHeaders.set('range', range);
   const signedNames = [...requestHeaders.keys()].map((x) => x.toLowerCase()).filter((x) => ['host', 'content-type', 'range'].includes(x) || x.startsWith('x-amz-')).sort();
-  const canonicalHeaders = signedNames.map((name) => name + ':' + requestHeaders.get(name).trim().replace(/\\s+/g, ' ') + '\\n').join('');
+  const canonicalHeaders = signedNames.map((name) => name + ':' + (name === 'host' ? url.host : requestHeaders.get(name).trim().replace(/\\s+/g, ' ')) + '\\n').join('');
   const signedHeaders = signedNames.join(';');
   const canonicalRequest = [method, url.pathname, canonicalQuery(url), canonicalHeaders, signedHeaders, payloadHash].join('\\n');
   const scope = date + '/' + cfg.region + '/s3/aws4_request';
@@ -49,7 +48,6 @@ async function signedFetch(env, key, { method = 'GET', query = [], headers = {},
   for (const part of [date, cfg.region, 's3', 'aws4_request']) signingKey = await hmac(signingKey, part);
   const signature = hex(await crypto.subtle.sign('HMAC', await crypto.subtle.importKey('raw', signingKey, { name: 'HMAC' }, false, ['sign']), encoder.encode(toSign)));
   requestHeaders.set('authorization', 'AWS4-HMAC-SHA256 Credential=' + cfg.keyId + '/' + scope + ', SignedHeaders=' + signedHeaders + ', Signature=' + signature);
-  requestHeaders.delete('host');
   const response = await fetch(url, { method, headers: requestHeaders, body: ['GET', 'HEAD'].includes(method) ? undefined : body });
   if (!response.ok) {
     const detail = (await response.text()).slice(0, 500);
