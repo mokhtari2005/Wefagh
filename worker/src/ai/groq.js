@@ -137,12 +137,12 @@ export async function reviewLegalDraft(env, { mode, docType, question, draft, le
       `ماده ${articleNumber}${clean(article?.heading, 180) ? ` ـ ${clean(article.heading, 180)}` : ''}`,
       body.slice(0, Math.max(0, 10_000 - bankChars)),
       `منبع ثبت‌شده: ${clean(article?.sourceName, 160) || 'ثبت نشده'}${clean(article?.sourceUrl, 500) ? ` (${clean(article.sourceUrl, 500)})` : ''}`,
-    ].join('\\n');
+    ].join('\n');
     bankItems.push(entry);
     bankChars += entry.length;
   }
   const legalBankContext = bankItems.length
-    ? bankItems.join('\\n\\n---\\n\\n')
+    ? bankItems.join('\n\n---\n\n')
     : 'برای این درخواست هیچ ماده تأییدشده‌ای از بانک قوانین بازیابی نشد.';
 
   let response;
