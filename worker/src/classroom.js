@@ -14,6 +14,112 @@ const validMeetUrl = (value) => {
     return url.protocol === 'https:' && url.hostname === 'meet.google.com' && /^\/[a-z]{3}-[a-z]{4}-[a-z]{3}\/?$/i.test(url.pathname);
   } catch { return false; }
 };
+
+const GOOGLE_MEET_SCOPE = 'https://www.googleapis.com/auth/meetings.space.created';
+const GOOGLE_REDIRECT_URI = 'https://mokhtari.ir/api/admin/classroom/google/callback';
+const b64 = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes)));
+const unb64 = (value) => Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
+async function googleTokenKey(env) {
+  if (!env.GOOGLE_TOKEN_ENCRYPTION_KEY) throw new Error('GOOGLE_TOKEN_ENCRYPTION_KEY_MISSING');
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(env.GOOGLE_TOKEN_ENCRYPTION_KEY));
+  return crypto.subtle.importKey('raw', digest, {name:'AES-GCM'}, false, ['encrypt','decrypt']);
+}
+async function encryptGoogleToken(value, env) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await googleTokenKey(env);
+  const encrypted = await crypto.subtle.encrypt({name:'AES-GCM',iv}, key, new TextEncoder().encode(value));
+  return b64(iv)+'.'+b64(encrypted);
+}
+async function decryptGoogleToken(value, env) {
+  const [iv, encrypted] = String(value || '').split('.');
+  if (!iv || !encrypted) throw new Error('GOOGLE_TOKEN_INVALID');
+  const key = await googleTokenKey(env);
+  const plain = await crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(iv)}, key, unb64(encrypted));
+  return new TextDecoder().decode(plain);
+}
+async function googleMeetOAuthCallback(request, env) {
+  const url = new URL(request.url);
+  const state = clean(url.searchParams.get('state'));
+  if (!state) return new Response('درخواست اتصال Google نامعتبر است.', {status:400});
+  const stateHash = await hashToken(state);
+  const saved = await env.DB.prepare('SELECT admin_user_id FROM google_meet_oauth_states WHERE state_hash=?1 AND expires_at>?2')
+    .bind(stateHash, nowIso()).first();
+  await env.DB.prepare('DELETE FROM google_meet_oauth_states WHERE state_hash=?1').bind(stateHash).run();
+  if (!saved) return new Response('مهلت یا اعتبار درخواست اتصال Google پایان یافته است. دوباره از پنل مدیریت اقدام کنید.', {status:400});
+  if (url.searchParams.has('error')) return Response.redirect('https://mokhtari.ir/#/admin', 302);
+  const code = clean(url.searchParams.get('code'));
+  if (!code || !env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_TOKEN_ENCRYPTION_KEY) {
+    return new Response('تنظیمات اتصال Google کامل نیست یا کد تأیید دریافت نشد.', {status:503});
+  }
+  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:new URLSearchParams({code,client_id:env.GOOGLE_CLIENT_ID,client_secret:env.GOOGLE_CLIENT_SECRET,redirect_uri:GOOGLE_REDIRECT_URI,grant_type:'authorization_code'})
+  });
+  const tokens = await tokenResponse.json().catch(()=>({}));
+  if (!tokenResponse.ok) {
+    console.error(JSON.stringify({where:'google-meet-oauth',status:tokenResponse.status}));
+    return new Response('اتصال حساب Google انجام نشد. تنظیمات OAuth را بررسی و دوباره تلاش کنید.', {status:502});
+  }
+  let refreshToken = clean(tokens.refresh_token);
+  if (!refreshToken) {
+    const previous = await env.DB.prepare('SELECT refresh_token_encrypted FROM google_meet_credentials WHERE id=1').first();
+    if (previous?.refresh_token_encrypted) refreshToken = await decryptGoogleToken(previous.refresh_token_encrypted, env);
+  }
+  if (!refreshToken) return new Response('Google توکن تمدید صادر نکرد. اتصال را دوباره با دسترسی آفلاین و تأیید مجدد انجام دهید.', {status:502});
+  const encrypted = await encryptGoogleToken(refreshToken, env);
+  await env.DB.prepare(`INSERT INTO google_meet_credentials(id,refresh_token_encrypted,connected_by,connected_at)
+    VALUES(1,?1,?2,?3) ON CONFLICT(id) DO UPDATE SET refresh_token_encrypted=excluded.refresh_token_encrypted,
+    connected_by=excluded.connected_by,connected_at=excluded.connected_at`).bind(encrypted,saved.admin_user_id,nowIso()).run();
+  return Response.redirect('https://mokhtari.ir/#/admin', 302);
+}
+async function googleMeetConnection(request, env, path) {
+  const admin = await requireAdmin(request,env);
+  if (admin.response) return admin.response;
+  if (path.endsWith('/status') && request.method === 'GET') {
+    const row = await env.DB.prepare('SELECT connected_at FROM google_meet_credentials WHERE id=1').first();
+    return json({ok:true,configured:Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_TOKEN_ENCRYPTION_KEY),connected:Boolean(row),connectedAt:row?.connected_at||null});
+  }
+  if (path.endsWith('/connect') && request.method === 'POST') {
+    if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_TOKEN_ENCRYPTION_KEY) {
+      return json({ok:false,error:'GOOGLE_OAUTH_NOT_CONFIGURED'},503);
+    }
+    const state = generateToken(32);
+    await env.DB.prepare('INSERT INTO google_meet_oauth_states(state_hash,admin_user_id,expires_at) VALUES(?1,?2,?3)')
+      .bind(await hashToken(state),admin.user.id,new Date(Date.now()+10*60000).toISOString()).run();
+    const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    authUrl.search = new URLSearchParams({client_id:env.GOOGLE_CLIENT_ID,redirect_uri:GOOGLE_REDIRECT_URI,response_type:'code',scope:GOOGLE_MEET_SCOPE,access_type:'offline',prompt:'consent',include_granted_scopes:'true',state}).toString();
+    return json({ok:true,authUrl:authUrl.toString()});
+  }
+  if (path.endsWith('/disconnect') && request.method === 'POST') {
+    await env.DB.prepare('DELETE FROM google_meet_credentials WHERE id=1').run();
+    return json({ok:true});
+  }
+  return json({ok:false,error:'METHOD_NOT_ALLOWED'},405,{Allow:'GET, POST'});
+}
+async function createGoogleMeetSpace(env) {
+  const stored = await env.DB.prepare('SELECT refresh_token_encrypted FROM google_meet_credentials WHERE id=1').first();
+  if (!stored?.refresh_token_encrypted) return {ok:false,error:'GOOGLE_MEET_NOT_CONNECTED'};
+  const refreshToken = await decryptGoogleToken(stored.refresh_token_encrypted,env);
+  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:new URLSearchParams({client_id:env.GOOGLE_CLIENT_ID,client_secret:env.GOOGLE_CLIENT_SECRET,refresh_token:refreshToken,grant_type:'refresh_token'})
+  });
+  const tokenData = await tokenResponse.json().catch(()=>({}));
+  if (!tokenResponse.ok || !tokenData.access_token) {
+    console.error(JSON.stringify({where:'google-meet-refresh',status:tokenResponse.status}));
+    return {ok:false,error:'GOOGLE_MEET_REAUTH_REQUIRED'};
+  }
+  const response = await fetch('https://meet.googleapis.com/v2/spaces', {
+    method:'POST',headers:{Authorization:'Bearer '+tokenData.access_token,'Content-Type':'application/json'},body:'{}'
+  });
+  const space = await response.json().catch(()=>({}));
+  if (!response.ok || !validMeetUrl(space.meetingUri)) {
+    console.error(JSON.stringify({where:'google-meet-create-space',status:response.status}));
+    return {ok:false,error:'GOOGLE_MEET_CREATE_FAILED'};
+  }
+  return {ok:true,meetingUrl:space.meetingUri};
+}
+
 async function providerSetting(env) {
   try {
     const row = await env.DB.prepare("SELECT setting_value FROM app_settings WHERE setting_key='classroom_provider'").first();
@@ -67,6 +173,8 @@ export async function handleClassroom(request, env, path) {
   if (!env.DB) return json({ ok:false,error:'DB_NOT_CONFIGURED' },503);
   const method = request.method;
   try {
+    if (path === '/api/admin/classroom/google/callback' && method === 'GET') return await googleMeetOAuthCallback(request,env);
+    if (path.startsWith('/api/admin/classroom/google/')) return await googleMeetConnection(request,env,path);
     if (path === '/api/admin/classroom/instructors') {
       const admin = await requireAdmin(request,env);
       if (admin.response) return admin.response;
@@ -120,8 +228,11 @@ export async function handleClassroom(request, env, path) {
         return json({ok:false,error:'VALIDATION_FAILED',message:'عنوان، زمان شروع یا مدت کلاس معتبر نیست.'},422);
       }
       const provider = await providerSetting(env);
-      if (provider === 'google_meet' && !validMeetUrl(body.meetingUrl)) {
-        return json({ok:false,error:'MEETING_URL_REQUIRED',message:'برای Google Meet باید پیوند معتبر جلسه وارد شود.'},422);
+      let meetingUrl = provider === 'google_meet' ? clean(body.meetingUrl) : null;
+      if (provider === 'google_meet' && !validMeetUrl(meetingUrl)) {
+        const createdMeeting = await createGoogleMeetSpace(env);
+        if (!createdMeeting.ok) return json({ok:false,error:createdMeeting.error}, createdMeeting.error === 'GOOGLE_MEET_NOT_CONNECTED' ? 409 : 502);
+        meetingUrl = createdMeeting.meetingUrl;
       }
       if (instructorId !== null) {
         if (!Number.isSafeInteger(instructorId) || instructorId < 1) return json({ok:false,error:'INVALID_INSTRUCTOR'},422);
@@ -136,8 +247,8 @@ export async function handleClassroom(request, env, path) {
       const result = await env.DB.prepare(`INSERT INTO classroom_sessions
         (title,description,provider,room_name,meeting_url,guest_enabled,guest_code_hash,starts_at,duration_minutes,created_by,instructor_id)
         VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11) RETURNING id`)
-        .bind(title,description,provider,roomName,provider==='google_meet'?clean(body.meetingUrl):null,guestEnabled?1:0,guestCodeHash,new Date(timestamp).toISOString(),duration,admin.user.id,instructorId).first();
-      return json({ok:true,sessionId:result.id,guestCode,session:{id:result.id,title,provider,startsAt:new Date(timestamp).toISOString(),durationMinutes:duration,guestEnabled}},201);
+        .bind(title,description,provider,roomName,provider==='google_meet'?meetingUrl:null,guestEnabled?1:0,guestCodeHash,new Date(timestamp).toISOString(),duration,admin.user.id,instructorId).first();
+      return json({ok:true,sessionId:result.id,guestCode,meetingUrl:provider==='google_meet'?meetingUrl:null,session:{id:result.id,title,provider,startsAt:new Date(timestamp).toISOString(),durationMinutes:duration,guestEnabled}},201);
     }
     const adminMatch = path.match(/^\/api\/admin\/classroom\/sessions\/(\d+)(?:\/(attendance))?$/);
     if (adminMatch) {
