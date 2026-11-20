@@ -7,6 +7,7 @@ export const NAV = [
   { id: 'academy', path: '/academy', title: 'آکادمی' },
   { id: 'voice-typing', path: '/voice-typing', title: 'تایپ صوتی' },
   { id: 'dashboard', path: '/dashboard', title: 'داشبورد من' },
+  { id: 'classroom', path: '/classroom', title: 'کلاس آنلاین' },
   { id: 'community', path: '/community', title: 'تالار گفتگو' },
   { id: 'cases', path: '/cases', title: 'بانک پرونده‌ها' },
   { id: 'calculators', path: '/calculators', title: 'محاسبه‌گرها' },
