@@ -470,17 +470,11 @@ const RESULT_KEY = { dismissOtherA: 'dismissOther', dismissOtherB: 'dismissOther
 function stampRowsOf(stamp, title = '') {
   if (!stamp?.ok) return [];
   const rows = [
-    ['مبلغ علی‌الحساب واقعاً دریافت‌شده (ورودی)', stamp.receivedAmount ? formatRial(stamp.receivedAmount) : 'وارد نشده'],
-    ['حداقل قانونی تعرفه همان مرحله', formatRial(stamp.stageFee)],
-    ['مبنای تمبر مالیاتی (حداکثر دو مبلغ بالا)', `${formatRial(stamp.stampBase)}؛ ${stamp.basisLabel}`],
+    ['مبنای تمبر و سهم مرکز', `${formatRial(stamp.stampBase)}؛ ${stamp.basisLabel}`],
     ['تمبر مالیاتی (۵٪ مبنا)', formatRial(stamp.stamp)],
   ];
-  if (stamp.agreedAmount) {
-    rows.push(['حق‌الوکالهٔ درج‌شده در وکالت‌نامه (ورودی)', formatRial(stamp.agreedAmount)]);
-    if (stamp.agreedNotFullyReceived) rows.push(['یادآوری', 'مبلغ درج‌شده در وکالت‌نامه کامل دریافت نشده؛ مبنای تمبر فقط مبلغ دریافتی یا حداقل قانونی است.']);
-  }
   if (!stamp.shares.length) rows.push(['سهم کانون، صندوق یا مرکز', 'نوع پروانه را انتخاب کنید']);
-  stamp.shares.forEach((s) => rows.push([s.label, s.amount === 0 && stamp.receivedAmount === 0 ? 'مبلغ علی‌الحساب دریافتی را وارد کنید' : formatRial(s.amount)]));
+  stamp.shares.forEach((s) => rows.push([s.label, formatRial(s.amount)]));
   return title ? rows.map(([a, b]) => [`${title} — ${a}`, b]) : rows;
 }
 
@@ -490,7 +484,6 @@ function stampRowsFor(r) {
   const rows = r.stages.flatMap((s) => stampRowsOf(s.stamp, s.label));
   const totalStamp = r.stages.reduce((sum, s) => sum + (s.stamp?.stamp || 0), 0);
   rows.push(['جمع تمبر مالیاتی دو مرحله', formatRial(totalStamp)]);
-  if (r.stages[0]?.stamp?.agreedNotFullyReceived) rows.push(['یادآوری', 'مبلغ درج‌شده در وکالت‌نامه کامل دریافت نشده؛ مبنای تمبر فقط مبلغ دریافتی یا حداقل قانونی است.']);
   return rows;
 }
 
@@ -524,8 +517,6 @@ function attorneyResultBox(r, form) {
     h('h4', { text: 'سهم‌ها' }),
     dl(shareRows),
   ]);
-  const agreed = r.stages ? r.stages[0].stamp?.agreedNotFullyReceived : r.stamp?.agreedNotFullyReceived;
-  if (agreed) box.append(h('p', { class: 'muted', text: 'یادآوری: حق‌الوکالهٔ درج‌شده در وکالت‌نامه کامل دریافت نشده است.' }));
   box.append(h('details', { class: 'attorney-details' }, [
     h('summary', { text: 'جزئیات محاسبه' }),
     dl([...r.lines.map((l) => [l.label, formatRial(l.amount)]), ...stampRowsFor(r)]),
@@ -544,10 +535,6 @@ function attorneyResultBox(r, form) {
 
 function attorneyTool(id) {
   const license = h('select', { id: 'att-license' }, ATTORNEY_LICENSES.map((o) => h('option', { value: o.value, text: o.text })));
-  const received = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'اختیاری؛ به ریال' });
-  received.addEventListener('input', () => { received.value = groupAmount(received.value); });
-  const receivedAppeal = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'اختیاری؛ به ریال' });
-  receivedAppeal.addEventListener('input', () => { receivedAppeal.value = groupAmount(receivedAppeal.value); });
   const agreed = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'اختیاری؛ به ریال' });
   agreed.addEventListener('input', () => { agreed.value = groupAmount(agreed.value); });
   const caseType = h('select', { id: 'att-case' }, ATTORNEY_CASE_TYPES.map((o) => h('option', { value: o.value, text: o.text })));
@@ -598,8 +585,6 @@ function attorneyTool(id) {
     h('label', { class: 'check-row' }, [temporary, h('span', { text: 'وکیل تسخیری یا معاضدتی' })]),
     field('att-amount', 'بهای خواسته یا محکوم به (ریال)', amount),
     field('att-agreed', 'حق‌الوکالهٔ درج‌شده در وکالت‌نامه (ریال، اختیاری؛ مبنای تمبر)', agreed),
-    field('att-received', 'مبلغ علی‌الحساب واقعاً دریافت‌شده: مرحلهٔ بدوی یا دعوای یک‌مرحله‌ای (ریال، اختیاری)', received),
-    field('att-received-appeal', 'مبلغ علی‌الحساب واقعاً دریافت‌شده: مرحلهٔ تجدیدنظر (ریال، اختیاری)', receivedAppeal),
     h('button', { class: 'btn dix-submit', type: 'submit', text: 'محاسبه' }),
     out,
   ]);
@@ -623,8 +608,6 @@ function attorneyTool(id) {
       subject: 'attorney',
       license: license.value,
       agreedFee: parseAmount(agreed.value) || 0,
-      receivedFirst: parseAmount(received.value) || 0,
-      receivedAppeal: parseAmount(receivedAppeal.value) || 0,
       caseType: caseType.value,
       judgment: judgment.value,
       amount: parseAmount(amount.value),
