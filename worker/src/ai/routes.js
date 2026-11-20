@@ -461,7 +461,7 @@ async function assistant(request, env) {
         reviewDetails.push(...workersAiReviewNotes(thirdReview));
       }
     }
-        if (!attachments.length && mode === 'draft' && provider === 'groq' && workersAiConfigured(env)) {
+    if (!attachments.length && mode === 'draft' && provider === 'groq' && workersAiConfigured(env)) {
       stage = 'cloudflare_workers_ai_review';
       const thirdReview = await reviewWithWorkersAI(env, { mode, docType, question: message, draft: text });
       if (thirdReview.status === 'reviewed' && thirdReview.review) outputs.push({
