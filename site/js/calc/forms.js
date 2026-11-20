@@ -110,15 +110,14 @@ function renderSection(section, index) {
 }
 
 /** HTML کامل صفحهٔ کاربرگ (برای نوشتن در پنجرهٔ گزارش). */
-export function renderFormHtml(model, { dateText = '', cssHref = '/css/styles.css', logoHref = '/assets/favicon.svg' } = {}) {
+export function renderFormHtml(model, { dateText = '', cssHref = '/css/styles.css', logoHref = '/assets/mla-academy-logo.svg?v=20261121-mla-1' } = {}) {
   const meta = `<div class="academy-pdf-meta"><div><b>شماره پرونده:</b><span></span></div><div><b>تاریخ تنظیم:</b><span>${escapeHtml(dateText)}</span></div></div>`;
   const sections = model.sections.map((s, i) => renderSection(s, i + 1)).join('');
   const extra = (model.extraTotals || []).map((t) => `<div class="academy-pdf-total secondary"><span>${escapeHtml(t.label)}</span><strong>${escapeHtml(t.value)}</strong></div>`).join('');
   const total = model.total ? `<div class="academy-pdf-total"><span>${escapeHtml(model.total.label)}</span><strong>${escapeHtml(model.total.value)}</strong></div>` : '';
   return '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' +
     escapeHtml(model.title || 'کاربرگ محاسباتی') + '</title><link rel="stylesheet" href="' + escapeHtml(cssHref) + '"></head><body class="academy-pdf-body">' +
-    '<main class="academy-pdf-sheet"><header class="academy-pdf-header"><div><strong>' + BRAND_FA + '</strong><small>' + BRAND_SUB + ' · ' + BRAND_EN + '</small></div>' +
-    '<img src="' + escapeHtml(logoHref) + '" alt="لوگوی آکادمی"></header><h1>' + escapeHtml(model.title || 'فرم محاسبات حقوقی') + '</h1>' + meta + sections + extra + total +
+    '<main class="academy-pdf-sheet"><header class="academy-pdf-header"><img src="' + escapeHtml(logoHref) + '" alt="MLA — Shahram Mokhtari Law Academy"></header><h1>' + escapeHtml(model.title || 'فرم محاسبات حقوقی') + '</h1>' + meta + sections + extra + total +
     '<div class="academy-pdf-sign"><div>نام و نام خانوادگی تنظیم‌کننده:<span></span></div><div>امضاء و تاریخ:<span></span></div></div>' +
     '<footer class="academy-pdf-footer">' + BRAND_FA + ' | کاربرگ آموزشی و کاربردی محاسبات حقوقی | mokhtari.ir</footer></main></body></html>';
 }
