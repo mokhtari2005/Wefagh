@@ -158,7 +158,7 @@ export async function handleClassroom(request, env, path) {
       if (!session || !session.guest_enabled || !canJoin(session)) return json({ok:false,error:'CLASS_NOT_OPEN'},409);
       if (action==='join') {
         const code=clean(body.code),name=clean(body.name);
-        if (name.length<2||name.length>80||!code||!(await hashToken(code)).localeCompare(session.guest_code_hash||'' )===0) {
+        if (name.length<2||name.length>80||!code||(await hashToken(code)) !== session.guest_code_hash) {
           return json({ok:false,error:'INVALID_GUEST_ACCESS'},403);
         }
         const guestToken=generateToken(32),guestHash=await hashToken(guestToken);
