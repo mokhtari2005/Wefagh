@@ -96,7 +96,7 @@ export default {
       return json({ ok: true, service: 'wefagh-api' });
     }
 
-    if (path === '/api/access-settings' || path === '/api/admin/settings/access') {
+    if (path === '/api/access-settings' || path === '/api/admin/settings/access' || path === '/api/admin/settings/classroom-provider') {
       const res = await handleAccess(request, env, path);
       if (res) return res;
     }
