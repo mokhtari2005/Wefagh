@@ -31,7 +31,7 @@ async function signedFetch(env, key, { method = 'GET', query = [], headers = {},
   const url = new URL(cfg.endpoint + path);
   for (const [name, value] of query) url.searchParams.append(name, String(value));
   const now = new Date();
-  const amzDate = now.toISOString().replace(/[:-]|\\.\\d{3}/g, '');
+  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
   const date = amzDate.slice(0, 8);
   const payloadHash = await sha256(body ?? new Uint8Array());
   const requestHeaders = new Headers(headers);
@@ -39,9 +39,9 @@ async function signedFetch(env, key, { method = 'GET', query = [], headers = {},
   requestHeaders.set('x-amz-date', amzDate);
   if (range) requestHeaders.set('range', range);
   const signedNames = [...requestHeaders.keys()].map((x) => x.toLowerCase()).filter((x) => ['host', 'content-type', 'range'].includes(x) || x.startsWith('x-amz-')).sort();
-  const canonicalHeaders = signedNames.map((name) => name + ':' + (name === 'host' ? url.host : requestHeaders.get(name).trim().replace(/\\s+/g, ' ')) + '\\n').join('');
+  const canonicalHeaders = signedNames.map((name) => name + ':' + (name === 'host' ? url.host : requestHeaders.get(name).trim().replace(/\s+/g, ' ')) + '\n').join('');
   const signedHeaders = signedNames.join(';');
-  const canonicalRequest = [method, url.pathname, canonicalQuery(url), canonicalHeaders, signedHeaders, payloadHash].join('\\n');
+  const canonicalRequest = [method, url.pathname, canonicalQuery(url), canonicalHeaders, signedHeaders, payloadHash].join('\n');
   const scope = date + '/' + cfg.region + '/s3/aws4_request';
   const toSign = ['AWS4-HMAC-SHA256', amzDate, scope, await sha256(canonicalRequest)].join('\\n');
   let signingKey = encoder.encode('AWS4' + cfg.secret);
@@ -98,13 +98,13 @@ export async function b2DeleteObjectVersions(env, key) {
     if (versionMarker) query.push(['version-id-marker', versionMarker]);
     const response = await signedFetch(env, '', { method: 'GET', query });
     const xml = await response.text();
-    const entries = [...xml.matchAll(/<(?:Version|DeleteMarker)>([\\s\\S]*?)<\\/(?:Version|DeleteMarker)>/g)]
+    const entries = [...xml.matchAll(/<(?:Version|DeleteMarker)>([\s\S]*?)<\/(?:Version|DeleteMarker)>/g)]
       .map((match) => ({ key: tag(match[1], 'Key'), versionId: tag(match[1], 'VersionId') }))
       .filter((item) => item.key === key && item.versionId);
     for (const item of entries) {
       await signedFetch(env, key, { method: 'DELETE', query: [['versionId', item.versionId]] });
     }
-    if (!/<IsTruncated>true<\\/IsTruncated>/.test(xml)) return;
+    if (!/<IsTruncated>true<\/IsTruncated>/.test(xml)) return;
     keyMarker = tag(xml, 'NextKeyMarker');
     versionMarker = tag(xml, 'NextVersionIdMarker');
     if (!keyMarker && !versionMarker) throw new Error('B2_VERSION_LIST_PAGINATION_INVALID');
