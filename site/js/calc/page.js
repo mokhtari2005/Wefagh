@@ -537,6 +537,8 @@ function attorneyTool(id) {
   const license = h('select', { id: 'att-license' }, ATTORNEY_LICENSES.map((o) => h('option', { value: o.value, text: o.text })));
   const agreed = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'اختیاری؛ به ریال' });
   agreed.addEventListener('input', () => { agreed.value = groupAmount(agreed.value); });
+  const received = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'اختیاری؛ به ریال' });
+  received.addEventListener('input', () => { received.value = groupAmount(received.value); });
   const caseType = h('select', { id: 'att-case' }, ATTORNEY_CASE_TYPES.map((o) => h('option', { value: o.value, text: o.text })));
   const judgment = h('select', { id: 'att-judgment' }, [
     h('option', { value: '', text: 'انتخاب کنید' }),
@@ -579,7 +581,8 @@ function attorneyTool(id) {
     h('label', { class: 'check-row' }, [afterReversal, h('span', { text: 'قبول وکالت پس از نقض رای' })]),
     h('label', { class: 'check-row' }, [temporary, h('span', { text: 'وکیل تسخیری یا معاضدتی' })]),
     field('att-amount', 'بهای خواسته یا محکوم به (ریال)', amount),
-    field('att-agreed', 'حق‌الوکالهٔ درج‌شده در وکالت‌نامه (ریال، اختیاری؛ مبنای تمبر)', agreed),
+    field('att-agreed', 'حق‌الوکالهٔ درج‌شده در وکالت‌نامه (ریال، اختیاری)', agreed),
+    field('att-received', 'مبلغ علی‌الحساب واقعاً دریافت‌شده از موکل (ریال، اختیاری)', received),
     h('button', { class: 'btn dix-submit', type: 'submit', text: 'محاسبه' }),
     out,
   ]);
@@ -603,6 +606,7 @@ function attorneyTool(id) {
       subject: 'attorney',
       license: license.value,
       agreedFee: parseAmount(agreed.value) || 0,
+      received: parseAmount(received.value) || 0,
       caseType: caseType.value,
       judgment: judgment.value,
       amount: parseAmount(amount.value),

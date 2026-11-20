@@ -91,7 +91,7 @@ export function computeAttorneyForm(input) {
   const {
     subject, caseType, judgment, amount, result = 'none',
     afterReversal = false, specialty = false, inProvinceDays = 0, outProvinceDays = 0, temporary = false,
-    agreedFee = 0,
+    agreedFee = 0, received = 0,
   } = input;
 
   // موضوع‌های قدیمی تمبر به همین محاسبه نگاشت می‌شوند؛ تمبر همیشه همراه حق‌الوکاله حساب می‌شود.
@@ -219,17 +219,27 @@ export function computeAttorneyForm(input) {
     lines.push({ label: `فوق‌العادهٔ مأموریت خارج از استان (${outProvinceDays} روز، ماده ۳۰)`, amount: t.fee });
   }
 
-  const agreed = Number.isFinite(agreedFee) && agreedFee > 0 ? agreedFee : 0;
+  const pos = (v) => (Number.isFinite(v) && v > 0 ? v : 0);
+  const agreed = pos(agreedFee);
+  const receivedTotal = pos(received);
+  // کل حق‌الوکالهٔ توافقی دریافت شده است؟ (در این صورت مبنا همان مبلغ توافقی است)
+  const fullyReceived = agreed > 0 && receivedTotal >= agreed;
   let stamp = null;
   let stages = null;
   if (splitStages) {
-    // سهم توافقی هر مرحله به همان نسبت ۶۰٪ و ۴۰٪ تقسیم می‌شود.
+    // مبالغ توافقی و دریافتی به همان نسبت ۶۰٪ و ۴۰٪ ماده ۲۱ بین مراحل تقسیم می‌شوند.
+    const part = (v, share) => Math.round(v * share);
     stages = [
       { key: 'first', label: 'مرحلهٔ بدوی', fee: splitStages.first, share: 0.6 },
       { key: 'appeal', label: 'مرحلهٔ تجدیدنظر', fee: splitStages.appeal, share: 0.4 },
-    ].map((s) => ({ key: s.key, label: s.label, fee: s.fee, stamp: computeStampAndShares({ stageFee: s.fee, agreedFee: Math.round(agreed * s.share), license }) }));
+    ].map((s) => ({
+      key: s.key,
+      label: s.label,
+      fee: s.fee,
+      stamp: computeStampAndShares({ stageFee: s.fee, agreedFee: part(agreed, s.share), receivedFee: part(receivedTotal, s.share), fullyReceived, license }),
+    }));
   } else {
-    stamp = computeStampAndShares({ stageFee, agreedFee: agreed, license });
+    stamp = computeStampAndShares({ stageFee, agreedFee: agreed, receivedFee: receivedTotal, fullyReceived, license });
   }
 
   return {
