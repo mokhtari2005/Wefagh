@@ -194,8 +194,8 @@ export function computeAttorneyForm(input) {
     mainLabel = judgment === 'final'
       ? 'حق‌الوکاله، حکم قطعی از حیث بهای خواسته (ماده ۹: ۱۰٪)'
       : 'حق‌الوکاله، حکم غیرقطعی (ماده ۹ بند الف تا ث)';
-    lines.push({ label: 'حق‌الوکاله مرحلهٔ بدوی (ماده ۲۱: ۶۰٪)', amount: first.fee });
-    lines.push({ label: 'حق‌الوکاله مرحلهٔ تجدیدنظر (ماده ۲۱: ۴۰٪)', amount: appeal.fee });
+    lines.push({ label: 'حق‌الوکاله مرحلهٔ بدوی', amount: first.fee });
+    lines.push({ label: 'حق‌الوکاله مرحلهٔ تجدیدنظر', amount: appeal.fee });
   }
 
   if (specialty) {
@@ -227,8 +227,8 @@ export function computeAttorneyForm(input) {
     const firstReceived = pos(receivedFirst ?? received);
     const appealReceived = pos(receivedAppeal);
     stages = [
-      { key: 'first', label: 'مرحلهٔ بدوی (ماده ۲۱: ۶۰٪)', fee: splitStages.first, received: firstReceived },
-      { key: 'appeal', label: 'مرحلهٔ تجدیدنظر (ماده ۲۱: ۴۰٪)', fee: splitStages.appeal, received: appealReceived },
+      { key: 'first', label: 'مرحلهٔ بدوی', fee: splitStages.first, received: firstReceived },
+      { key: 'appeal', label: 'مرحلهٔ تجدیدنظر', fee: splitStages.appeal, received: appealReceived },
     ].map((s) => ({ ...s, stamp: computeStampAndShares({ stageFee: s.fee, received: s.received, license }) }));
     // یادآوری حق‌الوکالهٔ وکالت‌نامه روی جمع دریافتی هر دو مرحله سنجیده می‌شود.
     const agreedNotFullyReceived = pos(agreedFee) > 0 && firstReceived + appealReceived < pos(agreedFee);
