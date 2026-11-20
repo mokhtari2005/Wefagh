@@ -1,5 +1,5 @@
 // مسیریاب ساده بر پایهٔ hash و رندر صفحات با DOM امن.
-import { NAV, VALUES, ABOUT_SECTIONS } from './pages.js?v=20261120-classroom-live-2';
+import { NAV, VALUES, ABOUT_SECTIONS } from './pages.js?v=20261120-classroom-instructors-1';
 import { formatShamsi } from './shamsi.js';
 import { parseHash } from './route.js';
 import { icon, mountIcons } from './icons.js';
@@ -316,9 +316,9 @@ const ROUTES = {
   '/academy/exams': () => lazy(async () => (await import('./academy.js?v=20261119-media-nav-title-2')).academyExamsPage()),
   '/academy/ekhtebar': () => lazy(async () => (await import('./ekhtebar.js')).ekhtebarPage()),
   '/dashboard': () => lazy(async () => (await import('./dashboard.js')).dashboardPage()),
-  '/admin': () => lazy(async () => (await import('./admin.js?v=20261120-classroom-live-2')).adminPage()),
-  '/classroom': () => lazy(async () => (await import('./classroom.js?v=20261120-classroom-live-2')).classroomPage()),
-  '/classroom/guest': (params) => lazy(async () => (await import('./classroom.js?v=20261120-classroom-live-2')).classroomGuestPage(params)),
+  '/admin': () => lazy(async () => (await import('./admin.js?v=20261120-classroom-instructors-1')).adminPage()),
+  '/classroom': () => lazy(async () => (await import('./classroom.js?v=20261120-classroom-instructors-1')).classroomPage()),
+  '/classroom/guest': (params) => lazy(async () => (await import('./classroom.js?v=20261120-classroom-instructors-1')).classroomGuestPage(params)),
   '/admin/traffic': () => lazy(async () => (await import('./visitor-analytics.js')).visitorAnalyticsPage()),
   '/community': () => lazy(async () => (await import('./community.js?v=20261119-community-title-fix-4')).communityPage()),
   '/cases': () => lazy(async () => (await import('./cases.js')).casesPage()),
