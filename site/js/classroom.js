@@ -65,6 +65,7 @@ function sessionCard(session, onJoin) {
     node('h2',{text:session.title}),
     node('p',{class:'muted',text:dateLabel(session.startsAt)}),
     ...(session.description?[node('p',{text:session.description})]:[]),
+    ...(session.recordingAvailable?[node('video',{controls:'controls',preload:'metadata',src:'/api/classroom/sessions/'+session.id+'/recording',class:'classroom-recording-player'})]:[]),
     node('p',{class:'muted',text:session.guestEnabled?'امکان ورود مهمان با پیوند دعوت فعال است.':'ویژه اعضای تأییدشده'}),
   ]);
   const button=node('button',{class:'btn',type:'button',text:canEnter?'ورود به کلاس':'هنوز زمان ورود نرسیده است'});
@@ -77,7 +78,7 @@ export async function classroomPage() {
   const root=node('section',{class:'classroom-page'},[
     node('span',{class:'section-kicker',text:'آموزش زنده'}),
     node('h1',{text:'کلاس‌های آنلاین'}),
-    node('p',{class:'lead',text:'کلاس‌های برنامه‌ریزی‌شده را مشاهده کنید و در زمان مقرر از همین صفحه وارد جلسه شوید.'}),
+    node('p',{class:'lead',text:'کلاس‌های برنامه‌ریزی‌شده را مشاهده کنید، در زمان مقرر وارد جلسه شوید و در صورت بارگذاری فایل، ویدئوی ضبط‌شده را تا ۴۸ ساعت پس از پایان کلاس ببینید.'}),
   ]);
   const status=node('p',{class:'form-status',role:'status',text:'در حال دریافت فهرست کلاس‌ها…'});
   const list=node('div',{class:'classroom-session-list'});
