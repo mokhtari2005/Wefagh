@@ -3880,7 +3880,28 @@ body.classroom-fullscreen-fallback { overflow:hidden; }
   direction: rtl;
   text-align: right;
   overflow-x: auto;
-  line-height: 1.9;
+  font-family: var(--font, Vazirmatn, Tahoma, sans-serif);
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 2;
+  tab-size: 4;
+  color: var(--ink, #26352f);
+}
+.admin-mail .admin-ai-output-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .65rem;
+  margin-top: .75rem;
+}
+.admin-mail .admin-ai-output-actions .admin-ai-copy {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: .45rem .9rem;
+}
+.admin-mail .admin-ai-copy-status {
+  font-size: .82rem;
+  color: var(--muted, #64736d);
 }
 .admin-mail .admin-field,
 .admin-mail .admin-field textarea {
@@ -3910,6 +3931,11 @@ body.classroom-fullscreen-fallback { overflow:hidden; }
   }
   .admin-mail .admin-ai-compare-output {
     padding: .7rem;
-    font-size: .88rem;
+    font-size: .96rem;
+    line-height: 1.95;
+  }
+  .admin-mail .admin-ai-output-actions .admin-ai-copy {
+    width: auto;
+    min-width: 112px;
   }
 }
