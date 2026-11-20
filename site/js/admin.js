@@ -274,6 +274,51 @@ export async function adminPage() {
       aiCompareButton.disabled = false;
     }
   });
+
+  const aiLegalTestButton = el('button', { class: 'btn secondary', type: 'button', text: 'اجرای آزمون واقعی بانک قوانین و بازبین Groq' });
+  const aiLegalTestNotice = el('p', { class: 'form-status', role: 'status' });
+  const aiLegalTestResults = el('div', { class: 'admin-ai-compare-results' });
+  aiLegalTestButton.addEventListener('click', async () => {
+    aiLegalTestButton.disabled = true;
+    aiLegalTestNotice.className = 'form-status';
+    aiLegalTestNotice.textContent = 'در حال اجرای پرسش حقوقی از مسیر واقعی Gemini، بازیابی بانک و بازبینی Groq… ممکن است تا یک دقیقه طول بکشد.';
+    aiLegalTestResults.replaceChildren();
+    try {
+      const r = await postJson('/api/admin/ai/legal-bank-test', {});
+      if (!r.ok) {
+        aiLegalTestNotice.className = 'form-status err';
+        aiLegalTestNotice.textContent = r.data?.stage ? `آزمون در مرحلهٔ ${r.data.stage} متوقف شد: ${r.data.error || errorText(r.data, r.status)}` : errorText(r.data, r.status);
+        return;
+      }
+      const d = r.data;
+      aiLegalTestResults.append(el('section', { class: 'card' }, [
+        el('h3', { text: 'پرسش استاندارد آزمون' }), el('p', { text: d.question }),
+        el('p', { class: 'muted', text: `بازیابی اولیه: ${d.bank.initialCount} ماده · بازیابی از متن پاسخ: ${d.bank.answerCount} ماده · مواد تحویلی به Groq: ${d.bank.suppliedToGroqCount} ماده · وضعیت Groq: ${d.groq.status}${d.groq.model ? ` · ${d.groq.model}` : ''}` }),
+      ]));
+      const bankChildren = [el('h3', { text: `مواد بازیابی‌شده از بانک قوانین (${d.bank.articles.length})` })];
+      if (!d.bank.articles.length) bankChildren.push(el('p', { class: 'muted', text: 'هیچ مادهٔ تأییدشده‌ای بازیابی نشد. این نتیجه برای تشخیص مشکل جست‌وجو مهم است.' }));
+      for (const item of d.bank.articles) bankChildren.push(el('article', { class: 'card' }, [
+        el('strong', { text: `${item.lawTitle} ـ ماده ${item.articleNumber}${item.heading ? ` ـ ${item.heading}` : ''}` }),
+        el('pre', { class: 'admin-ai-compare-output', text: item.body }),
+        el('p', { class: 'muted', text: `منبع: ${item.sourceName || 'ثبت نشده'}${item.sourceUrl ? ` · ${item.sourceUrl}` : ''}` }),
+      ]));
+      aiLegalTestResults.append(el('section', { class: 'card' }, bankChildren));
+      aiLegalTestResults.append(el('section', { class: 'card' }, [
+        el('h3', { text: `پاسخ Gemini${d.gemini.model ? ` · ${d.gemini.model}` : ''}` }),
+        el('pre', { class: 'admin-ai-compare-output', text: d.gemini.text }),
+      ]));
+      const groqChildren = [el('h3', { text: `بازبینی مستقل Groq · ${d.groq.status}${d.groq.model ? ` · ${d.groq.model}` : ''}` })];
+      for (const line of (d.groq.details || [])) groqChildren.push(el('p', { text: line }));
+      if (d.groq.review) groqChildren.push(el('pre', { class: 'admin-ai-compare-output', text: JSON.stringify(d.groq.review, null, 2) }));
+      aiLegalTestResults.append(el('section', { class: 'card' }, groqChildren));
+      aiLegalTestNotice.className = `form-status${d.groq.status === 'reviewed' ? ' ok' : ' err'}`;
+      aiLegalTestNotice.textContent = `آزمون تمام شد. ${d.note}${d.bank.answerSearchFailed ? ' هشدار: جست‌وجوی تکمیلی بانک ناموفق بود.' : ''}`;
+    } catch {
+      aiLegalTestNotice.className = 'form-status err';
+      aiLegalTestNotice.textContent = 'ارتباط با آزمون برقرار نشد؛ دوباره تلاش کنید.';
+    } finally { aiLegalTestButton.disabled = false; }
+  });
+
   const mailPanel = el('section', { class: 'admin-mail card' }, [
     el('h2', { text: 'تشخیص ارسال ایمیل' }),
     el('p', { class: 'muted', text: 'اگر ایمیل تأیید ثبت‌نام نمی‌رسد، از این‌جا علت را ببینید. مقدار Secretها هرگز نمایش داده نمی‌شود.' }),
@@ -292,6 +337,11 @@ export async function adminPage() {
     el('div', { class: 'row' }, [aiCompareButton]),
     aiCompareNotice,
     aiCompareResults,
+    el('h3', { text: 'آزمون یک‌مرحله‌ای بانک قوانین و بازبین مستقل' }),
+    el('p', { class: 'muted', text: 'با یک دکمه، پرسش ثابت از Gemini پاسخ می‌گیرد؛ مواد تأییدشده از بانک بازیابی می‌شوند و متن پاسخ برای بازبینی به Groq می‌رود. نتیجه، مواد پیدا‌شده و گزارش بازبین همین‌جا نمایش داده می‌شود و در سایت ذخیره نمی‌شود. برای اجرای آزمون، متن پرسش و مواد بازیابی‌شده به سرویس‌های مربوط ارسال خواهند شد.' }),
+    el('div', { class: 'row' }, [aiLegalTestButton]),
+    aiLegalTestNotice,
+    aiLegalTestResults,
   ]);
   // جست‌وجو در فهرست محتوا (عنوان، شناسه، وضعیت)
   const search = el('input', { type: 'search', placeholder: 'جست‌وجو در عنوان، شناسه یا وضعیت', 'aria-label': 'جست‌وجو در محتوا' });
