@@ -414,7 +414,28 @@ async function assistant(request, env) {
       reviewDetails = ['پاسخ با Groq تولید شده است؛ بازبینی مستقلِ جداگانه انجام نشده و صحت حقوقی آن تأیید نشده است.'];
     } else {
       stage = 'groq_review';
-      const review = await reviewLegalDraft(env, { mode, docType, question: message, draft: text });
+      let reviewArticles = legalArticles;
+      let reviewBankUnavailable = false;
+      try {
+        // جست‌وجوی دوم با متن پاسخ Gemini هم انجام می‌شود تا استنادهای تازه‌مطرح‌شده نیز تطبیق داده شوند.
+        const matched = await findVerifiedLegalArticles(env.DB, `${message}\n${text}`);
+        const seen = new Set(reviewArticles.map((a) => `${a.lawTitle}::${a.articleNumber}`));
+        for (const article of matched) {
+          const key = `${article.lawTitle}::${article.articleNumber}`;
+          if (!seen.has(key)) {
+            reviewArticles.push(article);
+            seen.add(key);
+          }
+        }
+        reviewArticles = reviewArticles.slice(0, 8);
+      } catch (err) {
+        reviewBankUnavailable = true;
+        console.error(JSON.stringify({ where: 'ai', stage: 'groq_legal_bank_query', error: err?.name || 'Error' }));
+      }
+      const review = await reviewLegalDraft(env, {
+        mode, docType, question: message, draft: text, legalArticles: reviewArticles,
+      });
+      if (reviewBankUnavailable) notes.push('جست‌وجوی تکمیلی بانک قوانین برای بازبین Groq انجام نشد؛ نتیجه بر اساس مواد بازیابی‌شده در مرحله نخست و سایر اطلاعات موجود است.');
       notes.push(groqReviewShortNote(review));
       reviewDetails = groqReviewNotes(review);
       if (mode === 'draft' && workersAiConfigured(env)) {
