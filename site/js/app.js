@@ -318,7 +318,7 @@ const ROUTES = {
   '/dashboard': () => lazy(async () => (await import('./dashboard.js')).dashboardPage()),
   '/admin': () => lazy(async () => (await import('./admin.js?v=20261120-classroom-live-1')).adminPage()),
   '/classroom': () => lazy(async () => (await import('./classroom.js?v=20261120-classroom-live-1')).classroomPage()),
-  '/classroom/guest': (params) => lazy(async () => (await import('./classroom.js')).classroomGuestPage(params)),
+  '/classroom/guest': (params) => lazy(async () => (await import('./classroom.js?v=20261120-classroom-live-1')).classroomGuestPage(params)),
   '/admin/traffic': () => lazy(async () => (await import('./visitor-analytics.js')).visitorAnalyticsPage()),
   '/community': () => lazy(async () => (await import('./community.js?v=20261119-community-title-fix-4')).communityPage()),
   '/cases': () => lazy(async () => (await import('./cases.js')).casesPage()),
