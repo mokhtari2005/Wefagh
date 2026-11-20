@@ -4,6 +4,7 @@ import { currentUser } from './auth/routes.js';
 import { requireAdmin } from './admin.js';
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024 * 1024;
+const MAX_ACTIVE_STORAGE_BYTES = 9 * 1024 * 1024 * 1024;
 const PART_BYTES = 8 * 1024 * 1024;
 const clean = (value) => typeof value === 'string' ? value.trim() : '';
 const iso = (value) => new Date(value).toISOString();
@@ -42,6 +43,7 @@ export async function handleClassroomRecording(request, env, path) {
       const session = await env.DB.prepare('SELECT * FROM classroom_sessions WHERE id=?1').bind(sessionId).first();
       if (!session) return json({ok:false,error:'NOT_FOUND'},404);
       const { end, expires } = classExpiry(session);
+      if (session.status !== 'scheduled') return json({ok:false,error:'CLASS_NOT_AVAILABLE'},409);
       if (Date.now() < end) return json({ok:false,error:'CLASS_NOT_ENDED'},409);
       if (Date.now() >= expires) return json({ok:false,error:'RETENTION_WINDOW_EXPIRED'},410);
       const body = await request.json().catch(() => null);
@@ -53,6 +55,8 @@ export async function handleClassroomRecording(request, env, path) {
       }
       const old = await env.DB.prepare('SELECT * FROM classroom_recordings WHERE session_id=?1').bind(sessionId).first();
       if (old?.status === 'available') return json({ok:false,error:'RECORDING_ALREADY_EXISTS'},409);
+      const usage = await env.DB.prepare('SELECT COALESCE(SUM(size_bytes),0) AS total FROM classroom_recordings WHERE expires_at>?1 AND session_id<>?2').bind(new Date().toISOString(),sessionId).first();
+      if (Number(usage?.total || 0) + sizeBytes > MAX_ACTIVE_STORAGE_BYTES) return json({ok:false,error:'TEMPORARY_STORAGE_LIMIT',message:'ظرفیت موقت ذخیره‌سازی کلاس‌ها پر شده است؛ پس از حذف فایل‌های منقضی‌شده دوباره تلاش کنید.'},413);
       if (old?.multipart_upload_id) {
         try { await env.CLASSROOM_RECORDINGS.resumeMultipartUpload(old.object_key, old.multipart_upload_id).abort(); } catch {}
         await env.DB.prepare('DELETE FROM classroom_recordings WHERE id=?1').bind(old.id).run();
