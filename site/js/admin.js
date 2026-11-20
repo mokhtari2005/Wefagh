@@ -370,6 +370,7 @@ export async function adminPage() {
   const importView = el('section', { class: 'admin-view', 'data-admin-view': 'imports', hidden: 'hidden' }, [importPanel]);
   const mediaView = el('section', { class: 'admin-view', 'data-admin-view': 'media', hidden: 'hidden' });
   const servicesView = el('section', { class: 'admin-view', 'data-admin-view': 'services', hidden: 'hidden' }, [mailPanel]);
+  const classroomView = el('section', { class: 'admin-view', 'data-admin-view': 'classroom', hidden: 'hidden' });
   const trafficView = el('section', { class: 'admin-view', 'data-admin-view': 'traffic', hidden: 'hidden' });
   const accessNotice = el('p', { class: 'form-status', role: 'status' });
   const accessDescription = el('p', { class: 'muted', text: 'با غیرفعال‌کردن الزام ثبت‌نام، دستیار وکیل و ابزارهای عمومی هوش مصنوعی بدون ورود در دسترس قرار می‌گیرند. اطلاعات شخصی، مواعد، سوابق و پیشرفت آموزشی همچنان نیازمند ورود هستند.' });
@@ -422,8 +423,7 @@ export async function adminPage() {
       : errorText(result.data, result.status);
     saveClassroomProvider.disabled = false;
   });
-  servicesView.append(classroomProviderPanel);
-  void loadClassroomProvider();
+  classroomView.append(classroomProviderPanel);
 
   // مرکز سلامت و عیب‌یابی: گزارش‌های ناشناس مرورگر و API فقط برای مدیر مجاز.
   const diagnosticsNotice = el('p', { class: 'form-status diagnostics-live-status', role: 'status' });
@@ -1161,15 +1161,17 @@ export async function adminPage() {
     ['imports', 'بانک پرونده و بارگذاری', '⇧'],
     ['legal-bank', 'بانک قوانین', '§'],
     ['media', 'رسانه و اندیشه', '▧'],
+    ['classroom', 'کلاس آنلاین', '▣'],
     ['services', 'سلامت و عیب‌یابی', '⚙'],
     ['traffic', 'پایش زنده سایت', '◉'],
   ];
   const menuToggle = el('button', { class: 'admin-menu-toggle btn secondary', type: 'button', 'aria-expanded': 'false', 'aria-controls': 'admin-sidebar' }, [el('span', { text: '☰' }), el('span', { text: ' منوی مدیریت' })]);
-  const views = { dashboard: dashboardView, members: membersView, 'rejected-members': rejectedMembersView, content: contentView, imports: importView, 'legal-bank': legalBankView, media: mediaView, services: servicesView, traffic: trafficView };
+  const views = { dashboard: dashboardView, members: membersView, 'rejected-members': rejectedMembersView, content: contentView, imports: importView, 'legal-bank': legalBankView, media: mediaView, classroom: classroomView, services: servicesView, traffic: trafficView };
   function selectView(key) {
     if (key === 'dashboard') updateDashboard();
     if (key === 'members') refreshMembers();
     if (key === 'services') refreshDiagnostics();
+    if (key === 'classroom') void loadClassroomProvider();
     if (key === 'legal-bank') refreshLegalBank();
     if (key === 'traffic' && !trafficView.dataset.loaded) {
       trafficView.dataset.loaded = '1';
@@ -1198,7 +1200,7 @@ export async function adminPage() {
     const open = nav.classList.toggle('open');
     menuToggle.setAttribute('aria-expanded', String(open));
   });
-  const workspace = el('div', { class: 'admin-workspace admin-workspace-redesigned' }, [nav, el('div', { class: 'admin-main-column' }, [menuToggle, dashboardView, membersView, rejectedMembersView, contentView, importView, legalBankView, mediaView, servicesView, trafficView])]);
+  const workspace = el('div', { class: 'admin-workspace admin-workspace-redesigned' }, [nav, el('div', { class: 'admin-main-column' }, [menuToggle, dashboardView, membersView, rejectedMembersView, contentView, importView, legalBankView, mediaView, classroomView, servicesView, trafficView])]);
   wrap.append(workspace);
   return wrap;
 }
