@@ -420,7 +420,7 @@ export async function adminPage() {
     const result = await sendJson('PUT', '/api/admin/settings/classroom-provider', { provider: classroomProviderSelect.value });
     classroomProviderNotice.className = `form-status${result.ok ? ' ok' : ' err'}`;
     classroomProviderNotice.textContent = result.ok
-      ? 'سرویس پیش‌فرض کلاس آنلاین ذخیره شد. این تنظیم پس از تکمیل بخش کلاس‌ها اعمال خواهد شد.'
+      ? 'سرویس پیش‌فرض کلاس آنلاین ذخیره شد. این تنظیم برای کلاس‌های جدیدی که از این پس ایجاد می‌شوند اعمال خواهد شد.'
       : errorText(result.data, result.status);
     saveClassroomProvider.disabled = false;
   });
