@@ -467,7 +467,7 @@ const ATTORNEY_RESULTS = [
 const RESULT_KEY = { dismissOtherA: 'dismissOther', dismissOtherB: 'dismissOther', dismissOtherC: 'dismissOther' };
 
 /** ردیف‌های تمبر مالیاتی و سهم‌ها برای نمایش و گزارش؛ بدون پروانه، فقط تمبر و یادداشت انتخاب پروانه. */
-function stampRowsOf(stamp) {
+function stampRowsOf(stamp, title = '') {
   if (!stamp?.ok) return [];
   const rows = [
     ['مبلغ علی‌الحساب واقعاً دریافت‌شده (ورودی)', stamp.receivedAmount ? formatRial(stamp.receivedAmount) : 'وارد نشده'],
@@ -481,6 +481,16 @@ function stampRowsOf(stamp) {
   }
   if (!stamp.shares.length) rows.push(['سهم کانون، صندوق یا مرکز', 'نوع پروانه را انتخاب کنید']);
   stamp.shares.forEach((s) => rows.push([s.label, s.amount === 0 && stamp.receivedAmount === 0 ? 'مبلغ علی‌الحساب دریافتی را وارد کنید' : formatRial(s.amount)]));
+  return title ? rows.map(([a, b]) => [`${title} — ${a}`, b]) : rows;
+}
+
+/** ردیف‌های تمبر: یک‌مرحله‌ای یا جدا برای بدوی و تجدیدنظر (ماده ۲۱) با جمع تمبر. */
+function stampRowsFor(r) {
+  if (!r.stages) return stampRowsOf(r.stamp);
+  const rows = r.stages.flatMap((s) => stampRowsOf(s.stamp, s.label));
+  const totalStamp = r.stages.reduce((sum, s) => sum + (s.stamp?.stamp || 0), 0);
+  rows.push(['جمع تمبر مالیاتی دو مرحله', formatRial(totalStamp)]);
+  if (r.stages[0]?.stamp?.agreedNotFullyReceived) rows.push(['یادآوری', 'مبلغ درج‌شده در وکالت‌نامه کامل دریافت نشده؛ مبنای تمبر فقط مبلغ دریافتی یا حداقل قانونی است.']);
   return rows;
 }
 
@@ -488,6 +498,8 @@ function attorneyTool(id) {
   const license = h('select', { id: 'att-license' }, ATTORNEY_LICENSES.map((o) => h('option', { value: o.value, text: o.text })));
   const received = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'اختیاری؛ به ریال' });
   received.addEventListener('input', () => { received.value = groupAmount(received.value); });
+  const receivedAppeal = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'اختیاری؛ به ریال' });
+  receivedAppeal.addEventListener('input', () => { receivedAppeal.value = groupAmount(receivedAppeal.value); });
   const agreed = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'اختیاری؛ به ریال' });
   agreed.addEventListener('input', () => { agreed.value = groupAmount(agreed.value); });
   const caseType = h('select', { id: 'att-case' }, ATTORNEY_CASE_TYPES.map((o) => h('option', { value: o.value, text: o.text })));
@@ -538,7 +550,8 @@ function attorneyTool(id) {
     h('label', { class: 'check-row' }, [temporary, h('span', { text: 'وکیل تسخیری یا معاضدتی' })]),
     field('att-amount', 'بهای خواسته یا محکوم به (ریال)', amount),
     field('att-agreed', 'حق‌الوکالهٔ درج‌شده در وکالت‌نامه (ریال، اختیاری؛ مبنای تمبر)', agreed),
-    field('att-received', 'مبلغ علی‌الحساب دریافتی از موکل (ریال، اختیاری؛ مبنای سهم مرکز)', received),
+    field('att-received', 'مبلغ علی‌الحساب واقعاً دریافت‌شده: مرحلهٔ بدوی یا دعوای یک‌مرحله‌ای (ریال، اختیاری)', received),
+    field('att-received-appeal', 'مبلغ علی‌الحساب واقعاً دریافت‌شده: مرحلهٔ تجدیدنظر (ریال، اختیاری)', receivedAppeal),
     h('button', { class: 'btn dix-submit', type: 'submit', text: 'محاسبه' }),
     out,
   ]);
@@ -562,7 +575,8 @@ function attorneyTool(id) {
       subject: 'attorney',
       license: license.value,
       agreedFee: parseAmount(agreed.value) || 0,
-      received: parseAmount(received.value) || 0,
+      receivedFirst: parseAmount(received.value) || 0,
+      receivedAppeal: parseAmount(receivedAppeal.value) || 0,
       caseType: caseType.value,
       judgment: judgment.value,
       amount: parseAmount(amount.value),
@@ -576,7 +590,12 @@ function attorneyTool(id) {
     });
     if (!r.ok) {
       if (r.error === 'RANGE_ONLY') {
-        const items = (r.ranges || []).map((g) => h('li', { text: `${g.title}: از ${formatRial(g.min)} تا ${formatRial(g.max)}` }));
+        const items = (r.ranges || []).flatMap((g) => {
+          const main = h('li', { text: `${g.title}: از ${formatRial(g.min)} تا ${formatRial(g.max)}` });
+          if (!g.stages) return [main];
+          const s = (k, label) => h('li', { text: `${label} (${g.stages[k].percent}٪): از ${formatRial(g.stages[k].min)} تا ${formatRial(g.stages[k].max)}` });
+          return [main, s('first', 'مرحلهٔ بدوی (ماده ۲۱)'), s('appeal', 'مرحلهٔ تجدیدنظر (ماده ۲۱)')];
+        });
         out.replaceChildren(h('div', {}, [
           h('div', { class: 'notice', role: 'alert', text: r.message }),
           h('ul', { class: 'muted' }, items),
@@ -587,7 +606,7 @@ function attorneyTool(id) {
     }
     const facts = r.lines.map((l) => [l.label, formatRial(l.amount)]);
     if (r.travelTotal > 0) facts.push(['جمع فوق‌العاده مأموریت (جدا از حق‌الوکاله)', formatRial(r.travelTotal)]);
-    const stampRows = stampRowsOf(r.stamp);
+    const stampRows = stampRowsFor(r);
     facts.push(...stampRows.map(([a, b]) => [a, b]));
     const attorneyAmount = parseAmount(amount.value);
     const reportTables = [];
