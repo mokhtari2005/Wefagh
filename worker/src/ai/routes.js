@@ -9,6 +9,7 @@ import { handleThreads } from './threads.js';
 import { AiError, aiConfigured, transcribeAudio, synthesizeLongSpeech } from './gemini.js';
 import { generateTextWithFallback, stripResponseFormatting } from './fallback.js';
 import { groqConfigured } from './groq.js';
+import { reviewWithWorkersAI, workersAiConfigured, workersAiReviewNotes } from './cloudflare.js';
 import { clampReply } from './speech.js';
 import { reviewLegalDraft, groqReviewNotes, groqReviewShortNote } from './groq.js';
 import { AttachmentError, ATTACHMENT_LIMITS, processAttachments, buildUserParts, summarizeAttachments } from './attachments.js';
@@ -416,6 +417,14 @@ async function assistant(request, env) {
       const review = await reviewLegalDraft(env, { mode, docType, question: message, draft: text });
       notes.push(groqReviewShortNote(review));
       reviewDetails = groqReviewNotes(review);
+      if (workersAiConfigured(env)) {
+        stage = 'cloudflare_workers_ai_review';
+        const thirdReview = await reviewWithWorkersAI(env, { mode, docType, question: message, draft: text });
+        notes.push(thirdReview.status === 'reviewed'
+          ? 'بازبینی مستقل سوم با Cloudflare Workers AI انجام شد.'
+          : 'بازبینی مستقل سوم انجام نشد.');
+        reviewDetails.push(...workersAiReviewNotes(thirdReview));
+      }
     }
     for (const a of attachments) {
       if (a.truncated) notes.push(`فقط بخش ابتدایی «${a.name}» (حداکثر ${ATTACHMENT_LIMITS.extractedChars.toLocaleString('fa-IR')} نویسه) بررسی شد.`);
@@ -515,7 +524,7 @@ export async function handleAi(request, env, path) {
 async function routeAi(request, env, path) {
   if (path === '/api/ai/status') {
     if (request.method !== 'GET') return fail('METHOD_NOT_ALLOWED', 405);
-    return json({ ok: true, configured: aiConfigured(env) || groqConfigured(env), providers: { gemini: aiConfigured(env), groq: groqConfigured(env) } });
+    return json({ ok: true, configured: aiConfigured(env) || groqConfigured(env), providers: { gemini: aiConfigured(env), groq: groqConfigured(env), cloudflareWorkersAI: workersAiConfigured(env) } });
   }
   if (path === '/api/ai/speech') return speech(request, env);
   if (path === '/api/ai/transcribe') return transcribe(request, env);
