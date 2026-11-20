@@ -451,10 +451,6 @@ async function assistant(request, env) {
       if (mode === 'draft' && workersAiConfigured(env)) {
         stage = 'cloudflare_workers_ai_review';
         const thirdReview = await reviewWithWorkersAI(env, { mode, docType, question: message, draft: text });
-      if (thirdReview.status === 'reviewed' && thirdReview.review) outputs.push({
-        role: 'reviewer', provider: 'Cloudflare Workers AI', model: thirdReview.model || 'مدل Cloudflare نامشخص',
-        text: JSON.stringify(thirdReview.review, null, 2),
-      });
         if (thirdReview.status === 'reviewed' && thirdReview.review) outputs.push({
           role: 'reviewer', provider: 'Cloudflare Workers AI', model: thirdReview.model || 'مدل Cloudflare نامشخص',
           text: JSON.stringify(thirdReview.review, null, 2),
@@ -465,9 +461,13 @@ async function assistant(request, env) {
         reviewDetails.push(...workersAiReviewNotes(thirdReview));
       }
     }
-    if (!attachments.length && mode === 'draft' && provider === 'groq' && workersAiConfigured(env)) {
+        if (!attachments.length && mode === 'draft' && provider === 'groq' && workersAiConfigured(env)) {
       stage = 'cloudflare_workers_ai_review';
       const thirdReview = await reviewWithWorkersAI(env, { mode, docType, question: message, draft: text });
+      if (thirdReview.status === 'reviewed' && thirdReview.review) outputs.push({
+        role: 'reviewer', provider: 'Cloudflare Workers AI', model: thirdReview.model || 'مدل Cloudflare نامشخص',
+        text: JSON.stringify(thirdReview.review, null, 2),
+      });
       notes.push(thirdReview.status === 'reviewed'
         ? 'بازبینی مستقل سوم با Cloudflare Workers AI انجام شد.'
         : 'بازبینی مستقل سوم انجام نشد.');
