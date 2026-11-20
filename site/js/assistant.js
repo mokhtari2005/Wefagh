@@ -291,7 +291,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
   function renderSuggestions() {
     // فقط نمونه‌های همین حالت نشان داده می‌شود تا صفحه کوتاه بماند.
     suggestionsBox.replaceChildren(...SUGGESTIONS.filter(([m]) => m === mode).map(([m, d, text]) => {
-      const b = h('button', { class: 'btn secondary ai-suggestion', type: 'button', text });
+      const b = h('btn secondary ai-suggestion', { class: 'btn secondary ai-suggestion', type: 'button', text });
       b.addEventListener('click', () => {
         docSelect.value = d;
         composerText.value = text;
@@ -490,9 +490,9 @@ function assistantWorkspace(initialThread, guestMode = false) {
       form.append('message', typed);
       form.append('history', JSON.stringify(trimHistory(history)));
       for (const a of sent) form.append('files', a.file, a.file.name);
-      res = await postForm('/api/ai/assistant', form, { timeoutMs: 100000 });
+      res = await postForm('/api/ai/assistant', form, { timeoutMs: 120000 });
     } else {
-      res = await postJson('/api/ai/assistant', { mode, docType: docSelect.value, message: typed, history: trimHistory(history) }, { timeoutMs: 100000 });
+      res = await postJson('/api/ai/assistant', { mode, docType: docSelect.value, message: typed, history: trimHistory(history) }, { timeoutMs: 120000 });
     }
     stopPendingProgress();
     busy = false;
