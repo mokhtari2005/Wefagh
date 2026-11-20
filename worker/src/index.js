@@ -164,7 +164,7 @@ export default {
       }
     }
 
-    if (path === '/api/admin/ai/status') {
+    if (path === '/api/admin/ai/status' || path === '/api/admin/ai/compare') {
       if (!env.DB) return json({ ok: false, error: 'DB_NOT_CONFIGURED' }, 503);
       try {
         const res = await handleAdminAi(request, env, path);
