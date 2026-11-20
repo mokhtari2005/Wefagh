@@ -34,11 +34,11 @@ test('ماده ۱۲ بند پ: عدم استماع یا رد به علل مرو�
 });
 
 test('ماده ۱۲ بند ت: سقوط تجدیدنظر پیش از پاسخ = یک‌چهارم حق‌الوکالهٔ مرحلهٔ تجدیدنظر (۱۰٬۰۰۰٬۰۰۰ × ۱/۴ = ۲٬۵۰۰٬۰۰۰)', () => {
-  assert.equal(computeAttorneyForm({ ...base, result: 'appealBefore', appealBase: 10000000 }).total, 2500000);
+  assert.equal(computeAttorneyForm({ ...base, result: 'appealBefore' }).total, 320000);
 });
 
 test('ماده ۱۲ بند ث: سقوط تجدیدنظر پس از پاسخ = یک‌دوم حق‌الوکالهٔ مرحلهٔ تجدیدنظر (۱۰٬۰۰۰٬۰۰۰ × ۱/۲ = ۵٬۰۰۰٬۰۰۰)', () => {
-  assert.equal(computeAttorneyForm({ ...base, result: 'appealAfter', appealBase: 10000000 }).total, 5000000);
+  assert.equal(computeAttorneyForm({ ...base, result: 'appealAfter' }).total, 640000);
 });
 
 test('ماده ۲۲ تبصره: گواهی تخصصی ۱۰٪ افزوده می‌کند (۳٬۲۰۰٬۰۰۰ + ۳۲۰٬۰۰۰ = ۳٬۵۲۰٬۰۰۰)', () => {
@@ -108,8 +108,10 @@ test('بهای خواسته صفر یا منفی پذیرفته نمی‌شود'
   assert.equal(computeAttorneyForm({ ...base, amount: -5 }).error, 'INVALID_AMOUNT');
 });
 
-test('سقوط تجدیدنظر بدون حق‌الوکالهٔ مرحلهٔ تجدیدنظر، محاسبه نمی‌شود', () => {
-  assert.equal(computeAttorneyForm({ ...base, result: 'appealBefore' }).error, 'INVALID_APPEAL_BASE');
+test('سقوط تجدیدنظر بدون ورودی جداگانه: مبنا ۴۰٪ حق‌الوکالهٔ کل از بهای خواسته است', () => {
+  const r = computeAttorneyForm({ ...base, result: 'appealBefore' });
+  assert.equal(r.ok, true);
+  assert.equal(r.stamp.stageFee, 1280000);
 });
 
 test('ختم دعوا و نقض رأی با هم محاسبه نمی‌شوند', () => {

@@ -84,10 +84,10 @@ test('ماده ۱۸ (قبول پس از نقض): تمبر یک‌مرحله‌ا
 });
 
 test('تجدیدنظر (قرار سقوط): تمبر از حق‌الوکالهٔ تجدیدنظر ورودی', () => {
-  const r = computeAttorneyForm({ ...base, result: 'appealBefore', appealBase: 2000000 });
+  const r = computeAttorneyForm({ ...base, result: 'appealBefore' });
   assert.equal(r.stages, null);
-  assert.equal(r.stamp.stageFee, 2000000);
-  assert.equal(r.stamp.stamp, 100000);
+  assert.equal(r.stamp.stageFee, 1280000);
+  assert.equal(r.stamp.stamp, 64000);
 });
 
 test('جمع حق‌الوکاله و فوق‌العاده تغییر نمی‌کند و تمبر جداست', () => {
