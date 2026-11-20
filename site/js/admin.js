@@ -379,6 +379,52 @@ export async function adminPage() {
   const accessPanel = el('section', { class: 'card admin-import' }, [el('h2', { text: 'تنظیم دسترسی کاربران' }), accessDescription, registrationLabel, saveAccess, accessNotice]);
   servicesView.append(accessPanel);
 
+  // انتخاب سرویس کلاس آنلاین؛ مقدار در app_settings ذخیره و فقط توسط مدیر قابل تغییر است.
+  const classroomProviderNotice = el('p', { class: 'form-status', role: 'status' });
+  const classroomProviderSelect = el('select', { 'aria-label': 'سرویس برگزاری کلاس آنلاین' }, [
+    el('option', { value: 'jitsi', text: 'Jitsi (کلاس تعبیه‌شده داخل سایت)' }),
+    el('option', { value: 'google_meet', text: 'Google Meet (ورود با پیوند خارجی)' }),
+  ]);
+  const classroomProviderLabel = el('label', { class: 'admin-field' }, [
+    el('span', { text: 'سرویس پیش‌فرض برگزاری کلاس' }),
+    classroomProviderSelect,
+  ]);
+  const classroomProviderDescription = el('p', { class: 'muted', text: 'Jitsi برای نمایش کلاس درون سایت در نظر گرفته شده است. Google Meet در این مرحله فقط با پیوند جداگانه قابل استفاده است و جلسه را داخل صفحه سایت نمایش نمی‌دهد. دسترسی هر دو سرویس از اینترنت ایران باید پیش از استفاده عملی آزمایش شود.' });
+  const saveClassroomProvider = el('button', { class: 'btn', type: 'button', text: 'ذخیره سرویس کلاس آنلاین' });
+  const classroomProviderPanel = el('section', { class: 'card admin-import' }, [
+    el('h2', { text: 'تنظیم سرویس کلاس آنلاین' }),
+    classroomProviderDescription,
+    classroomProviderLabel,
+    saveClassroomProvider,
+    classroomProviderNotice,
+  ]);
+  async function loadClassroomProvider() {
+    saveClassroomProvider.disabled = true;
+    const result = await getJson('/api/admin/settings/classroom-provider');
+    if (!result.ok) {
+      classroomProviderNotice.className = 'form-status err';
+      classroomProviderNotice.textContent = errorText(result.data, result.status);
+      return;
+    }
+    classroomProviderSelect.value = result.data.provider === 'google_meet' ? 'google_meet' : 'jitsi';
+    saveClassroomProvider.disabled = false;
+    classroomProviderNotice.className = 'form-status';
+    classroomProviderNotice.textContent = 'سرویس انتخاب‌شده: ' + (classroomProviderSelect.value === 'jitsi' ? 'Jitsi' : 'Google Meet');
+  }
+  saveClassroomProvider.addEventListener('click', async () => {
+    saveClassroomProvider.disabled = true;
+    classroomProviderNotice.className = 'form-status';
+    classroomProviderNotice.textContent = 'در حال ذخیره تنظیم سرویس…';
+    const result = await sendJson('PUT', '/api/admin/settings/classroom-provider', { provider: classroomProviderSelect.value });
+    classroomProviderNotice.className = `form-status${result.ok ? ' ok' : ' err'}`;
+    classroomProviderNotice.textContent = result.ok
+      ? 'سرویس پیش‌فرض کلاس آنلاین ذخیره شد. این تنظیم پس از تکمیل بخش کلاس‌ها اعمال خواهد شد.'
+      : errorText(result.data, result.status);
+    saveClassroomProvider.disabled = false;
+  });
+  servicesView.append(classroomProviderPanel);
+  void loadClassroomProvider();
+
   // مرکز سلامت و عیب‌یابی: گزارش‌های ناشناس مرورگر و API فقط برای مدیر مجاز.
   const diagnosticsNotice = el('p', { class: 'form-status diagnostics-live-status', role: 'status' });
   const diagnosticsList = el('div', { class: 'admin-content-list diagnostics-list' });
