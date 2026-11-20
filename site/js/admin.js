@@ -20,40 +20,6 @@ function field(labelText, name, value = '', type = 'text', required = true) {
 }
 function lineList(items = []) { return items.join('\n'); }
 function parseLines(value) { return value.split('\n').map((x) => x.trim()).filter(Boolean); }
-function cleanAiOutput(value) {
-  if (typeof value !== 'string') return '';
-  return value
-    .replace(/\r\n?/g, '\n')
-    .replace(/^```(?:[a-z0-9_-]+)?\s*/gim, '')
-    .replace(/^```\s*$/gm, '')
-    .replace(/^\s{0,3}#{1,6}\s*/gm, '')
-    .replace(/^\s*[─━═_*—-]{3,}\s*$/gm, '')
-    .replace(/\*\*(.*?)\*\*/gs, '$1')
-    .replace(/__(.*?)__/gs, '$1')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/^\s*[-*+]\s+/gm, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-async function copyAiOutput(value) {
-  if (navigator.clipboard?.writeText && window.isSecureContext) {
-    await navigator.clipboard.writeText(value);
-    return;
-  }
-  const field = document.createElement('textarea');
-  field.value = value;
-  field.setAttribute('readonly', '');
-  field.style.position = 'fixed';
-  field.style.opacity = '0';
-  field.style.insetInlineStart = '-9999px';
-  document.body.append(field);
-  field.focus();
-  field.select();
-  field.setSelectionRange(0, field.value.length);
-  const copied = document.execCommand('copy');
-  field.remove();
-  if (!copied) throw new Error('COPY_FAILED');
-}
 function errorText(data, status) {
   if (status === 401) return 'برای مدیریت محتوا ابتدا وارد حساب کاربری شوید.';
   if (status === 403) return 'این حساب نقش مدیر ندارد. دسترسی مدیریت فقط از طریق نقش مدیر مجاز است.';
@@ -225,56 +191,6 @@ export async function adminPage() {
     aiNotice.className = `form-status${bad ? ' err' : ' ok'}`;
     aiNotice.textContent = r.data.configured ? lines.join(' | ') : `GEMINI_API_KEY در Worker تعریف نشده است.${g ? ` | بازبین Groq: ${g.hint}` : ''}`;
   });
-  const aiComparePrompt = field('متن آزمون یکسان برای هر دو مدل', 'aiComparePrompt',
-    'مهلت تجدیدنظرخواهی از آرای دادگاه‌های بدوی در امور حقوقی و کیفری چقدر است؟ مبدأ محاسبه مهلت، اثر واخواهی، تعطیلی روز آخر و امکان پذیرش درخواست خارج از مهلت با عذر موجه را با ذکر مستندات قانونی توضیح بده. اگر درباره مستندی مطمئن نیستی، صریحاً اعلام کن.',
-    'textarea');
-  aiComparePrompt.querySelector('textarea').rows = 8;
-  const aiCompareButton = el('button', { class: 'btn', type: 'button', text: 'مقایسهٔ زندهٔ Gemini و GPT-OSS 120B' });
-  const aiCompareNotice = el('p', { class: 'form-status', role: 'status' });
-  const aiCompareResults = el('div', { class: 'admin-ai-compare-results' });
-  aiCompareButton.addEventListener('click', async () => {
-    const prompt = aiComparePrompt.querySelector('textarea').value.trim();
-    if (!prompt) { aiCompareNotice.className = 'form-status err'; aiCompareNotice.textContent = 'متن آزمون را وارد کنید.'; return; }
-    aiCompareButton.disabled = true;
-    aiCompareNotice.className = 'form-status';
-    aiCompareNotice.textContent = 'هر دو مدل هم‌زمان در حال پاسخ‌گویی هستند؛ ممکن است تا ۴۰ ثانیه طول بکشد…';
-    aiCompareResults.replaceChildren();
-    try {
-      const r = await postJson('/api/admin/ai/compare', { prompt });
-      if (!r.ok) { aiCompareNotice.className = 'form-status err'; aiCompareNotice.textContent = errorText(r.data, r.status); return; }
-      const comparison = r.data.comparison || {};
-      for (const [key, label] of [['gemini', 'Gemini'], ['groq', 'GPT-OSS 120B']]) {
-        const result = comparison[key] || {};
-        const title = el('h3', { text: `${label} · ${result.model || 'مدل نامشخص'} · ${result.status || 'نامشخص'}${result.httpStatus ? ` · HTTP ${result.httpStatus}` : ''}${Number.isFinite(result.ms) ? ` · ${result.ms}ms` : ''}` });
-        const outputText = cleanAiOutput(result.text || 'پاسخی دریافت نشد؛ وضعیت سرویس را بررسی کنید.');
-        const output = el('pre', { class: 'admin-ai-compare-output', text: outputText });
-        const copyButton = el('button', { class: 'btn secondary admin-ai-copy', type: 'button', text: 'کپی پاسخ' });
-        const copyNotice = el('span', { class: 'admin-ai-copy-status', role: 'status' });
-        copyButton.addEventListener('click', async () => {
-          copyButton.disabled = true;
-          copyNotice.textContent = 'در حال کپی…';
-          try {
-            await copyAiOutput(outputText);
-            copyNotice.textContent = 'پاسخ کپی شد.';
-          } catch {
-            copyNotice.textContent = 'کپی انجام نشد؛ متن را انتخاب و دستی کپی کنید.';
-          } finally {
-            copyButton.disabled = false;
-          }
-        });
-        const actions = el('div', { class: 'admin-ai-output-actions' }, [copyButton, copyNotice]);
-        aiCompareResults.append(el('section', { class: 'card' }, [title, actions, output]));
-      }
-      aiCompareNotice.className = 'form-status ok';
-      aiCompareNotice.textContent = 'آزمون تمام شد. ورودی ذخیره نشده و در مسیر عادی دستیار تغییری ایجاد نشده است.';
-    } catch {
-      aiCompareNotice.className = 'form-status err';
-      aiCompareNotice.textContent = 'ارتباط با سرویس مقایسه برقرار نشد؛ دوباره تلاش کنید.';
-    } finally {
-      aiCompareButton.disabled = false;
-    }
-  });
-
   const aiLegalTestButton = el('button', { class: 'btn secondary', type: 'button', text: 'اجرای آزمون واقعی بانک قوانین و بازبین Groq' });
   const aiLegalTestNotice = el('p', { class: 'form-status', role: 'status' });
   const aiLegalTestResults = el('div', { class: 'admin-ai-compare-results' });
@@ -331,12 +247,7 @@ export async function adminPage() {
     el('h2', { text: 'تشخیص هوش مصنوعی' }),
     el('div', { class: 'row' }, [aiCheck]),
     aiNotice,
-    el('h3', { text: 'آزمایش مقایسه‌ای مدل‌ها' }),
-    el('p', { class: 'muted', text: 'متن آزمون فقط برای همان درخواست به Gemini و Groq ارسال می‌شود؛ در سایت ذخیره یا در گزارش خطا ثبت نمی‌شود. این بخش فقط برای مدیر مجاز است.' }),
-    aiComparePrompt,
-    el('div', { class: 'row' }, [aiCompareButton]),
-    aiCompareNotice,
-    aiCompareResults,
+
     el('h3', { text: 'آزمون یک‌مرحله‌ای بانک قوانین و بازبین مستقل' }),
     el('p', { class: 'muted', text: 'با یک دکمه، پرسش ثابت از Gemini پاسخ می‌گیرد؛ مواد تأییدشده از بانک بازیابی می‌شوند و متن پاسخ برای بازبینی به Groq می‌رود. نتیجه، مواد پیدا‌شده و گزارش بازبین همین‌جا نمایش داده می‌شود و در سایت ذخیره نمی‌شود. برای اجرای آزمون، متن پرسش و مواد بازیابی‌شده به سرویس‌های مربوط ارسال خواهند شد.' }),
     el('div', { class: 'row' }, [aiLegalTestButton]),

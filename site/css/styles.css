@@ -1085,6 +1085,8 @@ h1, h2, h3 { color: var(--teal-dark); }
 .ai-msg-user { justify-self: end; background: var(--bone); }
 .ai-msg-ai { justify-self: start; }
 .ai-role { display: block; font-size: .78rem; color: var(--ink-soft); margin-bottom: 4px; font-weight: 600; }
+.ai-model-output { margin-top: 12px; padding: 12px; border: 1px solid var(--sand-line); border-radius: 12px; background: var(--bone); min-width: 0; }
+.ai-model-output-title { margin: 0 0 8px; font-size: .9rem; line-height: 1.7; color: var(--assistant-navy); overflow-wrap: anywhere; }
 .ai-text { line-height: 1.9; overflow-wrap: anywhere; margin: 0; }
 .ai-msg-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
 .ai-mini { padding: 4px 10px; font-size: .82rem; min-height: 34px; }

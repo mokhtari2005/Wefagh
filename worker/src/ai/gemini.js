@@ -155,15 +155,15 @@ export async function generateText(env, { system, contents, maxOutputTokens = 10
     }
   }
   const text = textOrLog('text', model, data);
-  if (!json) return { text };
+  if (!json) return { text, model };
   if (used.plain) {
     // پاسخ ساده: اگر مدل JSON داد همان را می‌پذیریم، وگرنه کل متن را پاسخ نهایی می‌گیریم.
     const stripped = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
     try {
       const value = JSON.parse(stripped);
-      if (value && typeof value === 'object' && typeof value.text === 'string') return { data: value };
+      if (value && typeof value === 'object' && typeof value.text === 'string') return { data: value, model };
     } catch { /* متن عادی است */ }
-    return { data: { status: 'ready', questions: [], notes: [], text } };
+    return { data: { status: 'ready', questions: [], notes: [], text }, model };
   }
   let parsed;
   let parseFailed = false;
@@ -178,7 +178,7 @@ export async function generateText(env, { system, contents, maxOutputTokens = 10
       logGeminiFailure('text', model, { stage: 'content', reason: 'BAD_JSON_SHAPE', finishReason: safeEnum(data?.candidates?.[0]?.finishReason) });
       throw new AiError('AI_EMPTY', 502);
     }
-    return { data: parsed };
+    return { data: parsed, model };
   }
   {
     // پاسخ طولانی ممکن است وسط JSON قطع شود (MAX_TOKENS)؛ بخش سالم متن را نگه می‌داریم به‌جای خطا.
@@ -186,7 +186,7 @@ export async function generateText(env, { system, contents, maxOutputTokens = 10
     const repaired = finishReason === 'MAX_TOKENS' ? repairTruncatedJson(text) : null;
     if (repaired) {
       logGeminiFailure('text', model, { stage: 'content', reason: 'JSON_REPAIRED', finishReason });
-      return { data: repaired, truncated: true };
+      return { data: repaired, truncated: true, model };
     }
     logGeminiFailure('text', model, { stage: 'content', reason: 'BAD_JSON_OUTPUT', finishReason });
     throw new AiError('AI_EMPTY', 502);
