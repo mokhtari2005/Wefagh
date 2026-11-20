@@ -1,17 +1,16 @@
 // تشخیص هوش مصنوعی برای مدیر: مدل‌های تنظیم‌شده را با یک درخواست کوچک می‌سنجد. مقدار کلید یا متن پاسخ هرگز برنمی‌گردد.
 import { json } from './http.js';
 import { requireMailAdmin } from './admin-mail.js';
-import { probeGroq, groqProbeHint } from './ai/groq.js';
+import { probeGroq, groqProbeHint, reviewLegalDraft, groqReviewNotes } from './ai/groq.js';
 import { compareAiProviders } from './ai/compare.js';
 import { aiConfigured, modelIds, fallbackTextModel, probeModel, probeHint } from './ai/gemini.js';
 import { findVerifiedLegalArticles } from './legal-bank.js';
 import { generateTextWithFallback } from './ai/fallback.js';
 import { ASSISTANT_SCHEMA, assistantSystemPrompt } from './ai/prompts.js';
-import { reviewLegalDraft, groqReviewNotes } from './ai/groq.js';
 
 /** GET /api/admin/ai/status ← وضعیت کلید و نتیجهٔ بررسی مدل اصلی و جایگزین */
 export async function handleAdminAi(request, env, path) {
-  if (path !== '/api/admin/ai/status' && path !== '/api/admin/ai/compare') return null;
+  if (path !== '/api/admin/ai/status' && path !== '/api/admin/ai/compare' && path !== '/api/admin/ai/legal-bank-test') return null;
   const access = await requireMailAdmin(request, env);
   if (access.response) return access.response;
   if (path === '/api/admin/ai/compare') return compareAiProviders(request, env);
