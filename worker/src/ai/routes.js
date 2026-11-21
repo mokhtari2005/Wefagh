@@ -396,7 +396,7 @@ async function assistant(request, env) {
       json: true,
       schema: ASSISTANT_SCHEMA,
       plainFallback: true,
-    });
+    }, { allowGroq: attachments.length === 0 });
     const questions = Array.isArray(data.questions) ? data.questions.filter((q) => typeof q === 'string').slice(0, 5) : [];
     const notes = Array.isArray(data.notes) ? data.notes.filter((n) => typeof n === 'string').slice(0, 10) : [];
     if (provider === 'groq') notes.push('به‌دلیل اختلال یا عدم دسترسی Gemini، پاسخ این نوبت با مدل جایگزین Groq تولید شد. مواد قانونیِ بازیابی‌شده از بانک آکادمی بدون تغییر در اختیار مدل قرار گرفتند؛ پاسخ همچنان نیازمند بررسی و راستی‌آزمایی حقوقی است.');
