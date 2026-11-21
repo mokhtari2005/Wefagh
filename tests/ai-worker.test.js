@@ -505,3 +505,45 @@ test('مواد ۵۶ و ۵۷ قانون اجرای احکام مدنی در ان�
   assert.match(prompt, /توقیف را با مالکیت شخص ثالث یا مستحق‌للغیر درآمدن مبیع یکی ندان/);
   assert.match(prompt, /نقل‌قول ترکیبی نکن/);
 });
+
+
+test('میز محاکمه سه عامل مستقل را جداگانه اجرا می‌کند و گزارش واحد می‌سازد', async () => {
+  const roleCalls = [];
+  await withFetch(async (url, init) => {
+    assert.ok(url.includes('generativelanguage.googleapis.com'));
+    const sent = JSON.parse(init.body);
+    const system = sent.systemInstruction.parts[0].text;
+    const contents = sent.contents || [];
+    let answer;
+    if (system.includes('قوی‌ترین دفاع‌ها، ایرادهای شکلی و ماهوی')) {
+      roleCalls.push('opposing');
+      answer = 'دفاع فروشنده: خواسته خریدار با ایراد تعارض خواسته‌ها روبه‌رو است.';
+    } else if (system.includes('ابتدا همه ایرادهای مطرح‌شده')) {
+      roleCalls.push('client');
+      answer = 'پاسخ خریدار: اظهار خلاف واقع فروشنده و جهل خریدار باید بررسی شود.';
+    } else if (system.includes('قاضی بی‌طرف و ارزیاب')) {
+      roleCalls.push('judge');
+      const judgeInput = contents.map((item) => (item.parts || []).map((part) => part.text || '').join(' ')).join(' ');
+      assert.match(judgeInput, /دفاع فروشنده/);
+      assert.match(judgeInput, /پاسخ خریدار/);
+      answer = 'جمع‌بندی قاضی: تعارض خواسته‌ها و مبنای خسارت باید روشن شود.';
+    } else {
+      throw new Error('نقش ناشناخته در میز محاکمه');
+    }
+    return jsonRes(200, { candidates: [{ content: { parts: [{ text: answer }] }, finishReason: 'STOP' }] });
+  }, async (calls) => {
+    const env = { DB: fakeDb({ loggedIn: true }), GEMINI_API_KEY: KEY };
+    const res = await worker.fetch(req('/api/ai/assistant', {
+      body: { mode: 'litigation', docType: 'retrial', message: 'پرونده انتقال مال توقیف‌شده را از سه موضع بررسی کن.', history: [] },
+      cookie: 'tok',
+    }), env);
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.ok, true);
+    assert.equal(calls.length, 3);
+    assert.deepEqual(roleCalls.sort(), ['client', 'judge', 'opposing']);
+    assert.match(data.text, /استدلال مستقل وکیل طرف مقابل/);
+    assert.match(data.text, /پاسخ وکیل موکل/);
+    assert.match(data.text, /ارزیابی و جمع‌بندی قاضی بی‌طرف/);
+  });
+});
