@@ -168,7 +168,7 @@ export function summarizeReply(data) {
   return data.text || '';
 }
 
-const SEARCH_SUGGESTION_MARKER = '\\n<!--GOOGLE_SEARCH_SUGGESTION:';
+const SEARCH_SUGGESTION_MARKER = '\n<!--GOOGLE_SEARCH_SUGGESTION:';
 function packStoredAiMessage(text, suggestionHtml = '') {
   if (typeof suggestionHtml !== 'string' || !suggestionHtml || suggestionHtml.length > 5000) return text;
   const encoded = encodeURIComponent(suggestionHtml);
@@ -179,7 +179,7 @@ function unpackStoredAiMessage(content) {
   const raw = typeof content === 'string' ? content : '';
   const markerIndex = raw.lastIndexOf(SEARCH_SUGGESTION_MARKER);
   if (markerIndex < 0) return { text: raw, searchSuggestionHtml: '' };
-  const encoded = raw.slice(markerIndex + SEARCH_SUGGESTION_MARKER.length).replace(/-->\\s*$/, '');
+  const encoded = raw.slice(markerIndex + SEARCH_SUGGESTION_MARKER.length).replace(/-->\s*$/, '');
   try {
     return { text: raw.slice(0, markerIndex), searchSuggestionHtml: decodeURIComponent(encoded) };
   } catch {
