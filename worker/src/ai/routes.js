@@ -395,7 +395,7 @@ async function readAssistantInput(request) {
   return { body, files };
 }
 
-async function runLitigationWorkbench(env, { contents, legalContext, attachments }) {
+async function runLitigationWorkbench(env, { contents, legalContext, attachments, docType }) {
   const allowGroq = attachments.length === 0;
   const runRole = (role, roleContents = contents, maxOutputTokens = 1200) =>
     generateTextWithFallback(env, {
