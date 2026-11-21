@@ -635,6 +635,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     setVoiceState('processing', 'متن گفتار دریافت شد؛ در حال ارسال برای مشاوره حقوقی…');
     await send();
   }
+  const VOICE_GREETING = 'سلام، وقتتون بخیر. من دستیار صوتی آکادمی وکالت شهرام مختاری هستم. در این بخش، شما سؤال حقوقی یا شرح پرونده‌تون رو با صدای خودتون مطرح می‌کنید؛ گفتارتون به متن تبدیل می‌شه تا موضوع رو دقیق بررسی کنیم. اگر اطلاعاتی کم باشه، چند سؤال کوتاه می‌پرسم و بعد پاسخ منسجم رو به‌صورت متن و صدا ارائه می‌کنم. بفرمایید، چه سؤال یا مشکلی دارید؟';
   async function speakReply(text) {
     if (!voiceMode || !text) return;
     const spokenText = String(text).replace(/\[جای خالی:[^\]]*\]/g, 'جای خالی').slice(0, 2000);
@@ -671,6 +672,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
         speaking = false;
         playReplyBtn.hidden = false;
         setVoiceState('ready', 'پخش خودکار ممکن نشد؛ برای شنیدن پاسخ، «پخش دوباره پاسخ» را بزنید.');
+        if (voiceMode) window.setTimeout(() => startRecording(), 500);
       };
       try {
         await connectPlaybackWaveform(currentAudio);
@@ -721,6 +723,8 @@ function assistantWorkspace(initialThread, guestMode = false) {
     if (!voiceMode) {
       voiceMode = true;
       voiceEndBtn.hidden = false;
+      speakReply(VOICE_GREETING);
+      return;
     }
     startRecording();
   });
