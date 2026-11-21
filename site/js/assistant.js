@@ -219,7 +219,8 @@ function assistantWorkspace(initialThread, guestMode = false) {
     for (const m of res.data?.messages || []) history.push({ role: m.role === 'ai' ? 'ai' : 'user', text: m.content });
     threadId = Number(id);
     renderLog();
-    status.textContent = 'گفت‌وگو بازیابی شد. ادامه دهید.';
+    acceptBtn.hidden = !history.some((item) => item.role === 'ai' && item.text);
+    status.textContent = 'گفت‌وگو بازیابی شد. اگر با جمع‌بندی موافقید، آن را تأیید کنید و سپس نوع سند و مشخصات اشخاص را وارد کنید.';
   }
 
   async function persistTurn(userText, aiText) {
