@@ -296,7 +296,7 @@ export async function findVerifiedLegalArticles(db, query) {
   if (terms.length) {
     const where = terms.map((_,i)=>`(a.body LIKE ?${i+1} OR a.article_number LIKE ?${i+1} OR l.title LIKE ?${i+1} OR l.subject LIKE ?${i+1})`).join(' OR ');
     const bindings = terms.flatMap(t => [`%${t}%`,`%${t}%`,`%${t}%`,`%${t}%`]);
-    const score = terms.map((_,i)=>`(CASE WHEN a.body LIKE ?${terms.length*4+i+1} OR l.title LIKE ?${terms.length*4+i+1} OR l.subject LIKE ?${terms.length*4+i+1} THEN 1 ELSE 0 END)`).join(' + ');
+    const score = terms.map((_,i)=>{ const n=terms.length*4+i*3+1; return `(CASE WHEN a.body LIKE ?${n} OR l.title LIKE ?${n+1} OR l.subject LIKE ?${n+2} THEN 1 ELSE 0 END)`; }).join(' + ');
     const scoreBindings = terms.flatMap(t=>[`%${t}%`,`%${t}%`,`%${t}%`]);
     const result = await db.prepare(`SELECT l.title AS lawTitle,l.law_type AS lawType,l.source_name AS sourceName,l.source_url AS sourceUrl,a.article_number AS articleNumber,a.heading,a.body
       FROM legal_articles a JOIN legal_laws l ON l.id=a.law_id
