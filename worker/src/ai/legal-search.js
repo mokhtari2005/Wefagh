@@ -25,19 +25,21 @@ export function buildSafeLegalSearchQuery(input) {
 
 function safeSources(grounding) {
   const seen = new Set();
-  return (Array.isArray(grounding?.sources) ? grounding.sources : [])
-    .filter((item) => item && typeof item.uri === 'string' && /^https:\/\//i.test(item.uri))
-    .filter((item) => {
-      if (seen.has(item.uri)) return false;
-      seen.add(item.uri);
-      return true;
-    })
-    .slice(0, 8)
-    .map((item) => ({
-      title: String(item.title || new URL(item.uri).hostname).slice(0, 180),
-      uri: item.uri,
-      domain: new URL(item.uri).hostname,
-    }));
+  const sources = [];
+  for (const item of (Array.isArray(grounding?.sources) ? grounding.sources : [])) {
+    if (!item || typeof item.uri !== 'string') continue;
+    let parsed;
+    try { parsed = new URL(item.uri); } catch { continue; }
+    if (parsed.protocol !== 'https:' || seen.has(parsed.href)) continue;
+    seen.add(parsed.href);
+    sources.push({
+      title: String(item.title || parsed.hostname).slice(0, 180),
+      uri: parsed.href,
+      domain: parsed.hostname,
+    });
+    if (sources.length >= 8) break;
+  }
+  return sources;
 }
 
 /**
