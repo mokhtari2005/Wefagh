@@ -525,10 +525,10 @@ async function assistant(request, env) {
             mode === 'litigation' ? 'گزارش میز محاکمه هوشمند' : 'پاسخ دستیار هوشمند وکیل',
             '',
             text,
-            notes.length ? '\\n\\nنکات تکمیلی:\\n' + notes.join('\\n') : '',
+            notes.length ? '\n\nنکات تکمیلی:\n' + notes.join('\n') : '',
             '',
             LEGAL_DISCLAIMER,
-          ].join('\\n');
+          ].join('\n');
           const messageSent = await sendTelegramMessage(env, linked.chat_id, report);
           let filesSent = true;
           for (const file of files) {
