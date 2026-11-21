@@ -224,7 +224,11 @@ export async function searchLegalWeb(env, query, timeoutMs = 45_000) {
     timeoutMs,
     { 'Api-Revision': '2026-05-20' },
   );
-  const steps = Array.isArray(data?.steps) ? data.steps : Array.isArray(data?.interaction?.steps) ? data.interaction.steps : [];
+  const interaction = data?.interaction && typeof data.interaction === 'object' ? data.interaction : data;
+  const steps = Array.isArray(interaction?.steps) ? interaction.steps : [];
+  if (interaction?.status && interaction.status !== 'completed') {
+    return { text: '', sources: [], queries: [], status: 'incomplete', model };
+  }
   const texts = [];
   const sources = [];
   const queries = [];
