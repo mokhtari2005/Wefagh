@@ -458,7 +458,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     voiceHint.textContent = message;
     voiceBtn.textContent = recording ? 'پایان صحبت و ارسال' : voiceMode ? 'شروع صحبت' : 'شروع گفت‌وگوی صوتی';
     voiceBtn.setAttribute('aria-pressed', recording ? 'true' : 'false');
-    voiceBtn.disabled = !mediaRecorderAvailable || voiceProcessing || speaking;
+    voiceBtn.disabled = !mediaRecorderAvailable || voiceProcessing || speaking || busy;
     voiceEndBtn.hidden = !voiceMode;
   }
   function releaseMicrophone() {
@@ -493,7 +493,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     voiceEndBtn.hidden = true;
   }
   async function startRecording() {
-    if (!voiceMode || recording || voiceProcessing || speaking || !mediaRecorderAvailable) return;
+    if (!voiceMode || recording || voiceProcessing || speaking || busy || !mediaRecorderAvailable) return;
     setVoiceState('connecting', 'در حال اتصال به میکروفون…');
     try {
       mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -584,7 +584,6 @@ function assistantWorkspace(initialThread, guestMode = false) {
     }
     composerText.value = [composerText.value.trim(), recognized].filter(Boolean).join(' ').slice(0, MESSAGE_LIMIT);
     counter.textContent = `${composerText.value.length} / ${MESSAGE_LIMIT}`;
-    voiceProcessing = false;
     setVoiceState('processing', 'متن گفتار دریافت شد؛ در حال ارسال برای مشاوره حقوقی…');
     await send();
   }
@@ -606,6 +605,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
         throw new Error(code);
       }
       const audioBlob = await response.blob();
+      if (!voiceMode) { speaking = false; return; }
       if (!audioBlob.size) throw new Error('EMPTY_AUDIO');
       if (currentAudioUrl) URL.revokeObjectURL(currentAudioUrl);
       currentAudioUrl = URL.createObjectURL(audioBlob);
@@ -626,9 +626,31 @@ function assistantWorkspace(initialThread, guestMode = false) {
       playReplyBtn.hidden = true;
     } catch (error) {
       speaking = false;
-      playReplyBtn.hidden = false;
-      setVoiceState('ready', 'پاسخ متنی آماده است؛ پخش صوتی انجام نشد. برای تلاش دوباره، «پخش دوباره پاسخ» را بزنید.');
       console.warn('assistant.voice_playback_unavailable', error?.message || error?.name || 'Error');
+      if (currentAudioUrl) URL.revokeObjectURL(currentAudioUrl);
+      currentAudioUrl = null;
+      currentAudio = null;
+      if ('speechSynthesis' in window && typeof SpeechSynthesisUtterance === 'function' && voiceMode) {
+        try {
+          const utterance = new SpeechSynthesisUtterance(spokenText);
+          utterance.lang = 'fa-IR';
+          utterance.onend = () => {
+            speaking = false;
+            setVoiceState('ready', 'پاسخ پخش شد؛ برای ادامه گفت‌وگو، «شروع صحبت» را بزنید.');
+          };
+          utterance.onerror = () => {
+            speaking = false;
+            setVoiceState('ready', 'پاسخ به‌صورت نوشتاری آماده است؛ برای ادامه گفت‌وگو «شروع صحبت» را بزنید.');
+          };
+          speaking = true;
+          setVoiceState('speaking', 'پخش پاسخ با صدای مرورگر…');
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(utterance);
+          return;
+        } catch {}
+      }
+      playReplyBtn.hidden = true;
+      setVoiceState('ready', 'پاسخ به‌صورت نوشتاری آماده است؛ برای ادامه گفت‌وگو «شروع صحبت» را بزنید.');
     }
   }
   voiceBtn.disabled = !mediaRecorderAvailable;
@@ -771,6 +793,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     }
     if (mode === 'consult') acceptBtn.hidden = true;
     busy = true;
+    if (voiceMode) { voiceProcessing = true; setVoiceState('processing', 'در حال ارسال پیام صوتی و دریافت پاسخ…'); }
     sendBtn.disabled = true;
     attachBtn.disabled = true;
     pending.hidden = false;
@@ -794,6 +817,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     }
     stopPendingProgress();
     busy = false;
+    if (voiceMode) voiceProcessing = false;
     sendBtn.disabled = false;
     attachBtn.disabled = false;
     pending.hidden = true;
