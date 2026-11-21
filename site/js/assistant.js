@@ -55,7 +55,7 @@ export const CONTRACT_TYPES = Object.freeze([
   ['ecommerce', 'فروش اینترنتی و تجارت الکترونیکی'],
   ['custom', 'سایر قراردادها / قرارداد اختصاصی'],
 ]);
-export const MODES = [['consult', 'مشاوره حقوقی'], ['analyze', 'تحلیل حقوقی پرونده'], ['litigation', 'میز محاکمه هوشمند'], ['review', 'بررسی و اصلاح متن']];
+export const MODES = [['consult', 'مشاوره حقوقی'], ['analyze', 'تحلیل حقوقی پرونده'], ['litigation', 'میز محاکمه هوشمند'], ['research', 'تحقیق و راستی‌آزمایی حقوقی'], ['review', 'بررسی و اصلاح متن']];
 
 export const ASSISTANT_NOTICE = 'این ابزار آموزشی و پیش‌نویس‌ساز است. خروجی آن پیش از استفاده در پرونده واقعی باید توسط وکیل با قوانین و مقررات جاری و رویه معتبر تطبیق داده شود. اطلاعات برای تولید پاسخ به سرویس هوش مصنوعی ارسال می‌شود؛ ارسال متن پاسخ و فایل‌های پیوست به تلگرام متصل فقط با انتخاب جداگانه شما برای همان نوبت انجام می‌شود.';
 
@@ -149,6 +149,7 @@ const SUGGESTIONS = [
   ['analyze', 'petition', 'نقاط قوت و ضعف این پرونده را تحلیل کن: ...'],
   ['review', 'petition', 'این متن لایحه را از نظر ساختار و استدلال بازبینی کن: ...'],
   ['litigation', 'retrial', 'این پرونده را از دیدگاه وکیل طرف مقابل، وکیل موکل و قاضی بی‌طرف بررسی کن و استنادات را جداگانه راستی‌آزمایی کن.'],
+  ['research', 'other', 'درباره این مسئله تحقیق حقوقی انجام بده و برای هر ماده قانونی توضیح بده دقیقاً کدام گزاره را پشتیبانی می‌کند؛ موارد تأییدنشده را جدا کن.'],
   ['litigation', 'third_party', 'شرایط و جهات اعتراض ثالث را با توجه به رأی و اسناد پیوست بررسی کن.'],
   ['litigation', 'retrial', 'بررسی کن آیا وقایع و مدارک این پرونده با یکی از جهات قانونی اعاده دادرسی منطبق است یا خیر.'],
 ];
@@ -192,7 +193,9 @@ export function assistantPage(params = {}) {
       body.replaceChildren(h('div', { class: 'notice', role: 'note', text: 'سرویس دستیار هنوز روی سرور فعال نشده است. پس از فعال‌سازی، این بخش آماده استفاده می‌شود.' }));
       return;
     }
-    body.replaceChildren(methodChooser((method) => body.replaceChildren(assistantWorkspace(guestMode ? null : params.thread, guestMode, method))));
+    const initialMode = MODES.some(([value]) => value === params.mode) ? params.mode : 'consult';
+    const chooserTitle = initialMode === 'litigation' ? 'میز محاکمه هوشمند' : initialMode === 'research' ? 'تحقیق و راستی‌آزمایی حقوقی' : 'مشاوره حقوقی هوشمند';
+    body.replaceChildren(methodChooser((method) => body.replaceChildren(assistantWorkspace(guestMode ? null : params.thread, guestMode, method, initialMode)), chooserTitle));
   })().catch((error) => {
     console.error('assistant.access_check_failed', error);
     body.replaceChildren(h('div', { class: 'notice', role: 'alert' }, [
@@ -204,7 +207,7 @@ export function assistantPage(params = {}) {
 }
 
 /** انتخاب روش پاسخ‌گویی: متنی، یا هوشمند (چت و گفت‌وگوی صوتی در یک محیط). */
-function methodChooser(onPick) {
+function methodChooser(onPick, title = 'مشاوره حقوقی هوشمند') {
   const card = (title, desc, method) => {
     const b = h('button', { class: 'assistant-document-card', type: 'button' }, [
       h('span', { class: 'assistant-document-copy' }, [h('strong', { text: title }), h('small', { text: desc })]),
@@ -213,7 +216,7 @@ function methodChooser(onPick) {
     return b;
   };
   return h('section', { class: 'ai-method-chooser', 'aria-label': 'روش پاسخ‌گویی' }, [
-    h('h1', { text: 'مشاوره حقوقی هوشمند' }),
+    h('h1', { text: title }),
     h('p', { class: 'muted', text: 'روش پاسخ‌گویی را انتخاب کنید. هر دو از همان مشاوره، حافظهٔ گفت‌وگو و بازبینی پشت‌صحنه استفاده می‌کنند.' }),
     h('div', { class: 'assistant-document-grid' }, [
       card('پاسخ‌گویی متنی', 'پرسش یا شرح پرونده را تایپ کنید و گفت‌وگو را ادامه دهید.', 'text'),
@@ -233,7 +236,7 @@ function downloadText(text, name) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function assistantWorkspace(initialThread, guestMode = false, method = 'smart') {
+function assistantWorkspace(initialThread, guestMode = false, method = 'smart', initialMode = 'consult') {
   const voiceAllowed = method === 'smart';
   const history = [];
   let busy = false;
@@ -265,9 +268,9 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart') 
   }
 
   // ---------- حالت و نوع سند ----------
-  let mode = 'consult';
+  let mode = MODES.some(([value]) => value === initialMode) ? initialMode : 'consult';
   const modeGroup = h('div', { class: 'ai-seg', role: 'group', 'aria-label': 'نوع کار' });
-  const modeIcons = { consult: 'scale', draft: 'edit', analyze: 'search', litigation: 'gavel', review: 'clipboard-list' };
+  const modeIcons = { consult: 'scale', draft: 'edit', analyze: 'search', litigation: 'gavel', research: 'book-open-check', review: 'clipboard-list' };
   const modeButtons = MODES.map(([value, label]) => {
     const b = h('button', { class: 'ai-seg-btn', type: 'button', 'aria-label': label }, [
       h('span', { class: 'ai-mode-icon', 'aria-hidden': 'true' }, [icon(modeIcons[value], { size: 19 })]),
@@ -293,6 +296,8 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart') 
   });
   modeGroup.append(...modeButtons);
   const docSelect = h('select', { 'aria-label': 'نوع سند' }, DOC_TYPES.map(([v, t]) => h('option', { value: v, text: t })));
+  if (initialMode === 'litigation') docSelect.value = 'retrial';
+  else if (initialMode === 'research') docSelect.value = 'other';
   const docWrap = h('label', { class: 'ai-doc-picker' }, [h('span', { text: 'نوع سند' }), docSelect]);
   const contractSelect = h('select', { 'aria-label': 'نوع قرارداد' }, [
     h('option', { value: '', text: 'انتخاب نوع قرارداد…' }),
@@ -1058,7 +1063,8 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart') 
     partyOneAddress.value = '';
     partyTwoName.value = '';
     partyTwoAddress.value = '';
-    mode = 'consult';
+    mode = MODES.some(([value]) => value === initialMode) ? initialMode : 'consult';
+    docSelect.value = initialMode === 'litigation' ? 'retrial' : initialMode === 'research' ? 'other' : DOC_TYPES[0][0];
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
     attachments = [];
