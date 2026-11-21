@@ -46,13 +46,13 @@ export function logGeminiFailure(op, model, fields) {
   console.error(JSON.stringify({ where: 'gemini', op, model, ...fields }));
 }
 
-async function post(env, op, model, url, payload, timeoutMs = AI_TIMEOUT_MS) {
+async function post(env, op, model, url, payload, timeoutMs = AI_TIMEOUT_MS, extraHeaders = {}) {
   if (!aiConfigured(env)) throw new AiError('AI_NOT_CONFIGURED', 503);
   let res;
   try {
     res = await fetch(url, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY.trim() },
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY.trim(), ...extraHeaders },
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(timeoutMs),
     });
@@ -191,6 +191,65 @@ export async function generateText(env, { system, contents, maxOutputTokens = 10
     logGeminiFailure('text', model, { stage: 'content', reason: 'BAD_JSON_OUTPUT', finishReason });
     throw new AiError('AI_EMPTY', 502);
   }
+}
+
+
+/**
+ * جست‌وجوی وب با Google Search Grounding در Gemini Interactions API.
+ * فقط query حقوقیِ پالایش‌شده به این تابع داده شود؛ متن پرونده و پیوست‌ها ارسال نمی‌شوند.
+ */
+export async function searchLegalWeb(env, query, timeoutMs = 45_000) {
+  if (!aiConfigured(env)) throw new AiError('AI_NOT_CONFIGURED', 503);
+  const input = typeof query === 'string' ? query.trim().slice(0, 1800) : '';
+  if (input.length < 8) return { text: '', sources: [], queries: [], status: 'skipped' };
+  const model = modelIds(env).text;
+  const payload = {
+    model,
+    input: [
+      'یک یادداشت تحقیق حقوقی فارسی و مستند تهیه کن. فقط قواعد و منابع حقوقی ایران را بررسی کن.',
+      'در اولویت نخست متن رسمی قانون، اصلاحات، آرای وحدت رویه دیوان عالی کشور و نظریات مشورتی اداره کل حقوقی قوه قضائیه را جست‌وجو کن.',
+      'شماره، تاریخ، مرجع و متن حکم را فقط وقتی گزارش کن که در نتیجه جست‌وجو قابل احراز باشد. اگر منبع رسمی پیدا نشد، منابع ثانویه را جداگانه برچسب بزن و صریحاً بگو متن رسمی در دسترس نیست.',
+      'هر منبع را با عنوان و پیوند دقیق معرفی کن. از ساختن شماره ماده، رأی، نظریه، تاریخ یا نقل‌قول خودداری کن.',
+      'موضوعات حقوقی برای جست‌وجو (بدون اطلاعات شخصی یا شرح وقایع پرونده):',
+      input,
+    ].join('\\n'),
+    tools: [{ type: 'google_search' }],
+  };
+  const data = await post(
+    env,
+    'legal_web_search',
+    model,
+    `${GEMINI_API}/interactions`,
+    payload,
+    timeoutMs,
+    { 'Api-Revision': '2026-05-20' },
+  );
+  const steps = Array.isArray(data?.steps) ? data.steps : Array.isArray(data?.interaction?.steps) ? data.interaction.steps : [];
+  const texts = [];
+  const sources = [];
+  const queries = [];
+  for (const step of steps) {
+    if (step?.type === 'google_search_call' && Array.isArray(step.arguments?.queries)) {
+      queries.push(...step.arguments.queries.filter((q) => typeof q === 'string').slice(0, 8));
+    }
+    if (step?.type !== 'model_output' || !Array.isArray(step.content)) continue;
+    for (const block of step.content) {
+      if (block?.type !== 'text' || typeof block.text !== 'string') continue;
+      texts.push(block.text);
+      for (const annotation of Array.isArray(block.annotations) ? block.annotations : []) {
+        if (annotation?.type !== 'url_citation') continue;
+        const url = typeof annotation.url === 'string' ? annotation.url : '';
+        const title = typeof annotation.title === 'string' ? annotation.title.trim() : '';
+        try {
+          if (new URL(url).protocol !== 'https:' || !title) continue;
+        } catch { continue; }
+        if (!sources.some((source) => source.url === url)) sources.push({ title: title.slice(0, 180), url });
+      }
+    }
+  }
+  const text = texts.join('\\n\\n').trim();
+  if (!text && !sources.length) return { text: '', sources: [], queries, status: 'no_results' };
+  return { text, sources: sources.slice(0, 12), queries: queries.slice(0, 8), status: 'grounded', model };
 }
 
 /** JSON قطع‌شده در میان رشتهٔ text را با بستن رشته و آبجکت ترمیم می‌کند؛ در صورت ناموفق بودن null. */
