@@ -182,8 +182,12 @@ export async function adminPage() {
   aiCheck.addEventListener('click', async () => {
     aiNotice.className = 'form-status';
     aiNotice.textContent = 'در حال بررسی مدل‌ها…';
-    const r = await getJson('/api/admin/ai/status');
-    if (!r.ok) { aiNotice.className = 'form-status err'; aiNotice.textContent = errorText(r.data, r.status); return; }
+    const r = await getJson('/api/admin/ai/status', { timeoutMs: 40000 });
+    if (!r.ok) {
+      aiNotice.className = 'form-status err';
+      aiNotice.textContent = r.timeoutError ? 'بررسی بیش از حد طول کشید؛ دوباره تلاش کنید.' : errorText(r.data, r.status);
+      return;
+    }
     const lines = (r.data.models || []).map((m) => `${m.role} (${m.model}): ${m.hint}${m.httpStatus ? ` [HTTP ${m.httpStatus}${m.reason ? ` ${m.reason}` : ''}]` : ''}${m.ms ? ` · ${m.ms}ms` : ''}`);
     const g = r.data.groq;
     if (g) lines.push(`بازبین Groq: ${g.hint}${g.httpStatus ? ` [HTTP ${g.httpStatus}]` : ''}${g.ms ? ` · ${g.ms}ms` : ''}${g.models ? ` · ${g.models.map((m) => `${m.id}: ${m.available ? 'موجود' : 'نامشخص'}`).join('، ')}` : ''}`);
@@ -200,10 +204,10 @@ export async function adminPage() {
     aiLegalTestNotice.textContent = 'در حال اجرای پرسش حقوقی از مسیر واقعی Gemini، بازیابی بانک و بازبینی Groq… ممکن است تا یک دقیقه طول بکشد.';
     aiLegalTestResults.replaceChildren();
     try {
-      const r = await postJson('/api/admin/ai/legal-bank-test', {});
+      const r = await postJson('/api/admin/ai/legal-bank-test', {}, { timeoutMs: 120000 });
       if (!r.ok) {
         aiLegalTestNotice.className = 'form-status err';
-        aiLegalTestNotice.textContent = r.data?.stage ? `آزمون در مرحلهٔ ${r.data.stage} متوقف شد: ${r.data.error || errorText(r.data, r.status)}` : errorText(r.data, r.status);
+        aiLegalTestNotice.textContent = r.timeoutError ? 'آزمون بیش از دو دقیقه طول کشید و متوقف شد؛ دوباره تلاش کنید.' : r.data?.stage ? `آزمون در مرحلهٔ ${r.data.stage} متوقف شد: ${r.data.error || errorText(r.data, r.status)}` : errorText(r.data, r.status);
         return;
       }
       const d = r.data;
