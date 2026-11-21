@@ -11,6 +11,10 @@ export const DOC_TYPES = [
   ['petition', 'پیش‌نویس دادخواست'], ['defense', 'پیش‌نویس لایحه دفاعیه'], ['appeal', 'لایحه تجدیدنظرخواهی'],
   ['cassation', 'لایحه فرجام‌خواهی'], ['enforcement', 'درخواست و لایحهٔ اجرایی'], ['notice', 'اظهارنامه'],
   ['criminal_complaint', 'شکواییه و دفاعیات کیفری'], ['reply', 'پاسخ به دادخواست یا لایحهٔ طرف مقابل'],
+  ['retrial', 'دادخواست یا لایحه اعاده دادرسی'], ['third_party', 'دادخواست یا لایحه اعتراض ثالث'],
+  ['opposition', 'دادخواست یا لایحه واخواهی'], ['counterclaim', 'دادخواست دعوای متقابل'],
+  ['execution_objection', 'اعتراض به عملیات اجرایی یا اجرائیه'], ['jurisdiction', 'ایراد صلاحیت و درخواست ارسال پرونده'],
+  ['evidence_request', 'درخواست تأمین دلیل یا ارائه و مطالبه دلیل'],
   ['contract', 'تنظیم یا بازنویسی قرارداد'], ['judicial_request', 'درخواست قضایی متناسب با موضوع'],
   ['letter', 'نامهٔ رسمی و مکاتبهٔ حقوقی'], ['other', 'سایر اسناد (تحلیل و بررسی)'],
 ];
@@ -51,7 +55,7 @@ export const CONTRACT_TYPES = Object.freeze([
   ['ecommerce', 'فروش اینترنتی و تجارت الکترونیکی'],
   ['custom', 'سایر قراردادها / قرارداد اختصاصی'],
 ]);
-export const MODES = [['consult', 'مشاوره حقوقی'], ['analyze', 'تحلیل حقوقی پرونده'], ['review', 'بررسی و اصلاح متن']];
+export const MODES = [['consult', 'مشاوره حقوقی'], ['analyze', 'تحلیل حقوقی پرونده'], ['litigation', 'میز محاکمه هوشمند'], ['review', 'بررسی و اصلاح متن']];
 
 export const ASSISTANT_NOTICE = 'این ابزار آموزشی و پیش‌نویس‌ساز است. خروجی آن پیش از هر استفاده در پرونده واقعی باید توسط وکیل با قوانین و مقررات جاری و رویهٔ معتبر تطبیق داده شود. اطلاعات پرونده در این بخش فقط برای تولید پاسخ به سرویس هوش مصنوعی فرستاده می‌شود.';
 
@@ -260,7 +264,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart') 
   // ---------- حالت و نوع سند ----------
   let mode = 'consult';
   const modeGroup = h('div', { class: 'ai-seg', role: 'group', 'aria-label': 'نوع کار' });
-  const modeIcons = { consult: 'scale', draft: 'edit', analyze: 'search', review: 'clipboard-list' };
+  const modeIcons = { consult: 'scale', draft: 'edit', analyze: 'search', litigation: 'gavel', review: 'clipboard-list' };
   const modeButtons = MODES.map(([value, label]) => {
     const b = h('button', { class: 'ai-seg-btn', type: 'button', 'aria-label': label }, [
       h('span', { class: 'ai-mode-icon', 'aria-hidden': 'true' }, [icon(modeIcons[value], { size: 19 })]),
@@ -899,6 +903,10 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart') 
     const labels = docSelect.value === 'contract' ? ['طرف اول', 'طرف دوم']
       : docSelect.value === 'criminal_complaint' ? ['شاکی', 'مشتکی‌عنه']
       : docSelect.value === 'appeal' ? ['تجدیدنظرخواه', 'تجدیدنظرخوانده']
+      : docSelect.value === 'retrial' ? ['درخواست‌کننده اعاده دادرسی', 'طرف مقابل']
+      : docSelect.value === 'third_party' ? ['معترض ثالث', 'طرف یا طرفین دعوای اصلی']
+      : docSelect.value === 'opposition' ? ['واخواه', 'واخوانده']
+      : docSelect.value === 'execution_objection' ? ['معترض یا محکوم‌علیه', 'طرف مقابل یا محکوم‌له']
       : ['خواهان', 'خوانده'];
     partyOneLabel.textContent = `${labels[0]} ـ نام`;
     partyOneAddressLabel.textContent = `${labels[0]} ـ نشانی`;
