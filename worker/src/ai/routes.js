@@ -399,7 +399,7 @@ async function runLitigationWorkbench(env, { contents, legalContext, attachments
   const allowGroq = attachments.length === 0;
   const runRole = (role, roleContents = contents, maxOutputTokens = 1200) =>
     generateTextWithFallback(env, {
-      system: litigationRoleSystemPrompt({ role, legalContext, hasAttachments: attachments.length > 0 }),
+      system: litigationRoleSystemPrompt({ role, docType, legalContext, hasAttachments: attachments.length > 0 }),
       contents: roleContents,
       maxOutputTokens,
       timeoutMs: 45_000,
