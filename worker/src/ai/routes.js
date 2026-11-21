@@ -331,15 +331,15 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
   if (typeof text !== 'string' || !text) return { text: text || '', changed: false };
   const allowed = new Set(legalArticles.map((item) => normalizeLegalDigits(item.articleNumber)));
   let changed = false;
-  let guarded = text.replace(/(?:ماده|مواد)\\s*([۰-۹0-9]+)(?:\\s*(?:تا|الی|[-–])\\s*([۰-۹0-9]+))?/gu, (match, first, last) => {
+  let guarded = text.replace(/(?:ماده|مواد)\s*([۰-۹0-9]+)(?:\s*(?:تا|الی|[-–])\s*([۰-۹0-9]+))?/gu, (match, first, last) => {
     const numbers = [first, last].filter(Boolean).map(normalizeLegalDigits);
     if (numbers.every((number) => allowed.has(number))) return match;
     changed = true;
     return 'ماده [شماره نیازمند تطبیق با متن رسمی]';
   });
-  guarded = guarded.replace(/([۰-۹0-9]{1,3})\\s*(روز|ماه|هفته|سال)/gu, (match) => {
-    const normalizedMatch = normalizeLegalDigits(match).replace(/\\s+/g, ' ');
-    const source = normalizeLegalDigits(verifiedContext).replace(/\\s+/g, ' ');
+  guarded = guarded.replace(/([۰-۹0-9]{1,3})\s*(روز|ماه|هفته|سال)/gu, (match) => {
+    const normalizedMatch = normalizeLegalDigits(match).replace(/\s+/g, ' ');
+    const source = normalizeLegalDigits(verifiedContext).replace(/\s+/g, ' ');
     if (source.includes(normalizedMatch)) return match;
     changed = true;
     return '[مدت نیازمند تطبیق با منبع رسمی]';
@@ -430,7 +430,7 @@ async function assistant(request, env) {
     }
     const curatedArticles = VEHICLE_DEFECT_TOPIC.test(legalSearchText) ? VEHICLE_DEFECT_ARTICLES : [];
     const promptArticles = [...legalArticles, ...curatedArticles];
-    const legalContext = promptArticles.length ? promptArticles.map((a) => `قانون: ${a.lawTitle}\\nماده ${a.articleNumber}${a.heading ? ` ـ ${a.heading}` : ''}\\n${a.body}\\nمنبع ثبت‌شده: ${a.sourceName || 'ثبت نشده'}${a.sourceUrl ? ` (${a.sourceUrl})` : ''}`).join('\\n\\n---\\n\\n') : '';
+    const legalContext = promptArticles.length ? promptArticles.map((a) => `قانون: ${a.lawTitle}\nماده ${a.articleNumber}${a.heading ? ` ـ ${a.heading}` : ''}\n${a.body}\nمنبع ثبت‌شده: ${a.sourceName || 'ثبت نشده'}${a.sourceUrl ? ` (${a.sourceUrl})` : ''}`).join('\n\n---\n\n') : '';
     stage = 'gemini_generation';
     const { data, truncated, provider } = await generateTextWithFallback(env, {
       system: assistantSystemPrompt({ mode, docType, hasAttachments: attachments.length > 0, legalContext }),
