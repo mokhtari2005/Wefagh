@@ -368,51 +368,26 @@ function assistantWorkspace(initialThread, guestMode = false) {
   const stream = h('div', { class: 'ai-stream', tabindex: '-1' }, [emptyState, log]);
 
   function aiMessageNode(m) {
-    const outputs = Array.isArray(m.outputs) ? m.outputs.filter((item) => item && typeof item.text === 'string' && item.text.trim()) : [];
-    const outputTexts = outputs.map((item) => ({
-      ...item,
-      text: item.role === 'reviewer' ? formatReviewerOutput(item.text) : cleanModelOutput(item.text),
-    })).filter((item) => item.text);
-    const combined = outputTexts.map((item) =>
-      `${item.provider} · ${item.model} · ${item.role === 'generator' ? 'پاسخ‌ساز' : 'بازبین مستقل'}\n${item.text}`
-    ).join('\n\n' + '─'.repeat(36) + '\n\n');
     const actions = h('div', { class: 'ai-msg-actions' });
-    const copy = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'کپی پاسخ اصلی' });
+    const copy = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'کپی پاسخ' });
     copy.addEventListener('click', async () => {
-      try { await copyAssistantText(m.text); status.textContent = 'پاسخ اصلی کپی شد.'; } catch { status.textContent = 'کپی انجام نشد؛ متن را دستی انتخاب کنید.'; }
+      try { await copyAssistantText(m.text); status.textContent = 'پاسخ دستیار کپی شد.'; }
+      catch { status.textContent = 'کپی انجام نشد؛ متن را دستی انتخاب کنید.'; }
     });
     const dl = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'دریافت فایل متنی' });
-    dl.addEventListener('click', () => downloadText(m.text, 'پیش‌نویس-آکادمی.txt'));
+    dl.addEventListener('click', () => downloadText(m.text, 'پاسخ-دستیار-آکادمی.txt'));
     actions.append(copy, dl);
-    if (outputTexts.length) {
-      const copyAll = h('button', { class: 'btn secondary ai-mini ai-copy-all', type: 'button', text: `کپی همه مدل‌ها با هم (${outputTexts.length} خروجی)` });
-      copyAll.addEventListener('click', async () => {
-        try { await copyAssistantText(combined); status.textContent = 'همه خروجی‌های مدل‌ها همراه نام و نقششان کپی شد.'; }
-        catch { status.textContent = 'کپی انجام نشد؛ متن خروجی‌ها را دستی انتخاب کنید.'; }
-      });
-      actions.append(copyAll);
-    }
-    const children = [h('span', { class: 'ai-role', text: 'دستیار' })];
-    if (outputTexts.length) {
-      for (const item of outputTexts) {
-        const roleLabel = item.role === 'generator' ? 'پاسخ‌ساز' : 'بازبین مستقل';
-        children.push(h('section', { class: 'ai-model-output' }, [
-          h('h3', { class: 'ai-model-output-title', text: `${item.provider} · ${item.model} · ${roleLabel}` }),
-          h('div', { class: 'ai-text pre-wrap', text: item.text }),
-        ]));
-      }
-    } else {
-      children.push(h('div', { class: 'ai-text pre-wrap', text: m.text }));
-    }
-    if (m.notes?.length) children.push(h('ul', { class: 'ai-notes', 'aria-label': 'یادداشت‌های بررسی' }, m.notes.map((n) => h('li', { text: n }))));
-    if (m.reviewDetails?.length) {
-      children.push(h('details', { class: 'ai-review-details' }, [
-        h('summary', { text: 'جزئیات بازبینی مستقل' }),
-        h('ul', { class: 'ai-notes' }, m.reviewDetails.map((n) => h('li', { text: n }))),
-      ]));
-    }
+
+    const children = [
+      h('span', { class: 'ai-role', text: 'دستیار' }),
+      h('div', { class: 'ai-text pre-wrap', text: m.text }),
+    ];
+    if (m.notes?.length) children.push(h('ul', {
+      class: 'ai-notes',
+      'aria-label': 'نکات تکمیلی',
+    }, m.notes.map((note) => h('li', { text: note }))));
     if (m.disclaimer) children.push(h('p', { class: 'ai-disclaimer muted', text: m.disclaimer }));
-    if (m.text || outputTexts.length) children.push(actions);
+    if (m.text) children.push(actions);
     return h('li', { class: 'ai-msg ai-msg-ai' }, children);
   }
 
@@ -846,7 +821,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     const userText = [typed, names.length ? `[پیوست: ${names.join('، ')}]` : ''].filter(Boolean).join('\n');
     history.push({ role: 'user', text: userText });
     const reply = summarizeReply(res.data);
-    history.push({ role: 'ai', text: reply, outputs: res.data.outputs || [], notes: res.data.notes || [], reviewDetails: res.data.reviewDetails || [], disclaimer: res.data.status === 'ready' ? res.data.disclaimer : '' });
+    history.push({ role: 'ai', text: reply, notes: res.data.notes || [], disclaimer: res.data.status === 'ready' ? res.data.disclaimer : '' });
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
     attachments = [];
