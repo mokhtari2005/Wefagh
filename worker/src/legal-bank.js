@@ -232,7 +232,7 @@ export function extractExplicitLegalReferences(query) {
   for (const match of text.matchAll(re)) {
     const numbers = (match[1].match(/[۰-۹0-9]+/g) || []).map((n) =>
       n.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))));
-    const lawTitle = match[2].split(/\s+(?:باید|است|می|مورد|برای|که|را|در|با|به)\b/u)[0].trim().replace(/\s+/g, ' ');
+    const lawTitle = match[2].split(/\s+(?:باید|است|می|مورد|برای|که|را|در|با|به)(?:\s|$)/u)[0].trim().replace(/\s+/g, ' ');
     for (const number of numbers) refs.push({ lawTitle, articleNumber: number });
   }
   const seen = new Set();
