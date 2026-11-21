@@ -173,7 +173,7 @@ function packStoredAiMessage(text, suggestionHtml = '') {
   if (typeof suggestionHtml !== 'string' || !suggestionHtml || suggestionHtml.length > 5000) return text;
   const encoded = encodeURIComponent(suggestionHtml);
   const packed = text + SEARCH_SUGGESTION_MARKER + encoded + '-->';
-  return packed.length <= 11800 ? packed : text;
+  return packed.length <= 23800 ? packed : text;
 }
 function unpackStoredAiMessage(content) {
   const raw = typeof content === 'string' ? content : '';
