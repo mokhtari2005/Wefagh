@@ -232,9 +232,14 @@ export async function searchLegalWeb(env, query, timeoutMs = 45_000) {
   const texts = [];
   const sources = [];
   const queries = [];
+  let searchSuggestionHtml = '';
   for (const step of steps) {
     if (step?.type === 'google_search_call' && Array.isArray(step.arguments?.queries)) {
       queries.push(...step.arguments.queries.filter((q) => typeof q === 'string').slice(0, 8));
+    }
+    if (step?.type === 'google_search_result' && Array.isArray(step.result)) {
+      const suggestion = step.result.find((item) => typeof item?.search_suggestions === 'string')?.search_suggestions;
+      if (suggestion && !searchSuggestionHtml) searchSuggestionHtml = suggestion;
     }
     if (step?.type !== 'model_output' || !Array.isArray(step.content)) continue;
     for (const block of step.content) {
@@ -258,7 +263,7 @@ export async function searchLegalWeb(env, query, timeoutMs = 45_000) {
   }
   const text = texts.join('\n\n').trim();
   if (!text && !sources.length) return { text: '', sources: [], queries, status: 'no_results' };
-  return { text, sources: sources.slice(0, 12), queries: queries.slice(0, 8), status: sources.length ? 'grounded' : 'unreferenced', model };
+  return { text, sources: sources.slice(0, 12), queries: queries.slice(0, 8), searchSuggestionHtml, status: sources.length ? 'grounded' : 'unreferenced', model };
 }
 
 /** JSON قطع‌شده در میان رشتهٔ text را با بستن رشته و آبجکت ترمیم می‌کند؛ در صورت ناموفق بودن null. */
