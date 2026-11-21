@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import worker from '../worker/src/index.js';
 import { AiError, extractText, generateText, synthesizeSpeech, aiConfigured, modelIds } from '../worker/src/ai/gemini.js';
 import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims, curatedLegalArticlesForQuery } from '../worker/src/ai/routes.js';
-import { extractExplicitLegalReferences, findVerifiedLegalArticles } from '../worker/src/legal-bank.js';
+import { searchLegalWeb } from '../worker/src/ai/gemini.js';
+import { extractExplicitLegalReferences, findVerifiedLegalArticles, buildLegalResearchQuery } from '../worker/src/legal-bank.js';
 import { mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt, LEGAL_DISCLAIMER } from '../worker/src/ai/prompts.js';
 import { groqConfigured, reviewLegalDraft, groqReviewNotes, GROQ_API, GROQ_REVIEW_MODEL } from '../worker/src/ai/groq.js';
 import batch01 from '../worker/src/moot/bank/batch-01.js';
@@ -220,6 +221,39 @@ test('بانک زمینه‌ای، مواد ۵۶ و ۵۷ قانون اجرای �
   const articles = curatedLegalArticlesForQuery('فروش ملک توقیف‌شده و انتقال مال توقیف‌شده');
   assert.deepEqual(articles.map((item) => item.articleNumber), ['۵۶', '۵۷']);
   assert.ok(articles.every((item) => item.lawTitle === 'قانون اجرای احکام مدنی' && item.sourceUrl.startsWith('https://')));
+});
+
+
+test('پرس‌وجوی وب فقط اصطلاحات حقوقی و ارجاعات را می‌فرستد، نه نام و وقایع شخصی', () => {
+  const query = buildLegalResearchQuery('مواد ۵۶ و ۵۷ قانون اجرای احکام مدنی؛ توقیف ملک و تدلیس. خریدار علی محمدی است.');
+  assert.match(query, /قانون اجرای احکام مدنی ماده 56/);
+  assert.match(query, /قانون اجرای احکام مدنی ماده 57/);
+  assert.match(query, /توقیف/);
+  assert.doesNotMatch(query, /علی محمدی/);
+});
+
+test('Google Search Grounding، متن و پیوندهای منبع را از Interactions API استخراج می‌کند', async () => {
+  await withFetch(async (url, init) => {
+    assert.ok(url.endsWith('/v1beta/interactions'));
+    assert.equal(init.headers['Api-Revision'], '2026-05-20');
+    const body = JSON.parse(init.body);
+    assert.equal(body.model, 'gemini-3.5-flash-lite');
+    assert.equal(body.tools[0].type, 'google_search');
+    assert.doesNotMatch(body.input, /علی محمدی/);
+    return jsonRes(200, {
+      steps: [
+        { type: 'google_search_call', arguments: { queries: ['مواد ۵۶ و ۵۷ قانون اجرای احکام مدنی'] } },
+        { type: 'model_output', content: [{ type: 'text', text: 'ماده ۵۶ نقل‌وانتقال مال توقیف‌شده را باطل می‌داند.', annotations: [{ type: 'url_citation', title: 'qavanin.ir', url: 'https://qavanin.ir/Law/PrintText/83430', startIndex: 0, endIndex: 30 }] }] },
+      ],
+    });
+  }, async () => {
+    const result = await searchLegalWeb({ GEMINI_API_KEY: KEY, GEMINI_TEXT_MODEL: 'gemini-3.5-flash-lite' }, 'حقوق ایران؛ مواد ۵۶ و ۵۷ قانون اجرای احکام مدنی');
+    assert.equal(result.status, 'grounded');
+    assert.match(result.text, /ماده ۵۶/);
+    assert.equal(result.sources[0].title, 'qavanin.ir');
+    assert.equal(result.sources[0].url, 'https://qavanin.ir/Law/PrintText/83430');
+    assert.deepEqual(result.queries, ['مواد ۵۶ و ۵۷ قانون اجرای احکام مدنی']);
+  });
 });
 
 test('مسیر دستیار از ورود تا پاسخ ساخت‌یافته (با Gemini ساختگی) کامل کار می‌کند', async () => {
