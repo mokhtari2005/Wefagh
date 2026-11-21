@@ -83,13 +83,22 @@ export async function handleDiagnosticRepair(request, env, path) {
   const access = await requireMailAdmin(request, env);
   if (access.response) return access.response;
 
-  const configured = Boolean((aiConfigured(env) || groqConfigured(env)) && typeof env.GH_REPAIR_TOKEN === 'string' && env.GH_REPAIR_TOKEN.trim().length > 20);
+  const aiReady = Boolean(aiConfigured(env) || groqConfigured(env));
+  const githubReady = typeof env.GH_REPAIR_TOKEN === 'string' && env.GH_REPAIR_TOKEN.trim().length > 20;
+  const configured = aiReady && githubReady;
+  const missing = [
+    ...(!aiReady ? ['GEMINI_API_KEY یا GROQ_API_KEY'] : []),
+    ...(!githubReady ? ['GH_REPAIR_TOKEN با دسترسی خواندن/نوشتن Contents و ساخت Pull Request'] : []),
+  ];
+  const configHint = configured
+    ? 'تنظیمات سرویس تحلیل و GitHub موجود است.'
+    : `تنظیمات ناقص است: ${missing.join('؛ ')}. پس از ثبت Secretها، Worker را Deploy کنید.`;
   if (path.endsWith('/status')) {
     if (request.method !== 'GET') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'GET' });
-    return json({ ok: true, configured, aiConfigured: aiConfigured(env), groqConfigured: groqConfigured(env), githubConfigured: Boolean(env.GH_REPAIR_TOKEN) });
+    return json({ ok: true, configured, aiConfigured: aiReady, groqConfigured: groqConfigured(env), githubConfigured: githubReady, missing, hint: configHint });
   }
   if (request.method !== 'POST') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'POST' });
-  if (!configured) return json({ ok: false, error: 'REPAIR_NOT_CONFIGURED', hint: 'برای فعال‌سازی اصلاحیهٔ خودکار، Secret با نام GH_REPAIR_TOKEN را در Cloudflare Worker تعریف کنید؛ حداقل یکی از Secretهای GEMINI_API_KEY یا GROQ_API_KEY باید فعال باشد.' }, 503);
+  if (!configured) return json({ ok: false, error: 'REPAIR_NOT_CONFIGURED', missing, hint: configHint }, 503);
   if (!env.DB) return json({ ok: false, error: 'DB_NOT_CONFIGURED' }, 503);
   const parsed = await readJsonBody(request);
   if (parsed.error) return parsed.error;
@@ -198,9 +207,11 @@ export async function handleDiagnosticRepair(request, env, path) {
       status,
       hint: stage === 'ai_analysis'
         ? 'مدل هوش مصنوعی نتوانست تحلیل را کامل کند. کد علت در همین گزارش آمده است؛ در صورت خطای موقت، کمی بعد دوباره تلاش کنید.'
-        : stage === 'github_read'
-          ? 'دریافت فایل کد از GitHub ناموفق بود؛ دسترسی مخزن و مسیر فایل را بررسی کنید.'
-          : 'ثبت شاخه یا Pull Request در GitHub ناموفق بود؛ مجوز نوشتن و وضعیت API را بررسی کنید.',
+        : status === 401 || status === 403
+          ? 'GitHub دسترسی درخواست را نپذیرفت؛ اعتبار GH_REPAIR_TOKEN و مجوزهای Contents و Pull requests برای مخزن را بررسی کنید.'
+          : stage === 'github_read'
+            ? 'دریافت فایل کد از GitHub ناموفق بود؛ دسترسی مخزن و مسیر فایل را بررسی کنید.'
+            : 'ثبت شاخه یا Pull Request در GitHub ناموفق بود؛ مجوز نوشتن و وضعیت API را بررسی کنید.',
     }, 502);
   }
 }
