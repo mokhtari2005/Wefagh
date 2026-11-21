@@ -276,6 +276,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
   docSelect.addEventListener('change', () => {
     syncContractPicker();
     syncContractModeButton();
+    syncPartyLabels();
   });
   function syncContractModeButton() {
     contractModeButton.setAttribute('aria-pressed', mode !== 'consult' && docSelect.value === 'contract' ? 'true' : 'false');
@@ -485,7 +486,13 @@ function assistantWorkspace(initialThread, guestMode = false) {
     recognition.onresult = (event) => {
       for (let i = event.resultIndex; i < event.results.length; i++) {
         if (event.results[i].isFinal) {
-          voiceTranscript += event.results[i][0].transcript + ' ';
+          const recognized = event.results[i][0].transcript.trim();
+          if (!acceptBtn.hidden && /(?:تأیید|تایید|موافقم|قبول دارم|بله.{0,12}(?:تنظیم|سند)|تنظیم سند)/i.test(recognized)) {
+            voiceTranscript = '';
+            acceptBtn.click();
+            return;
+          }
+          voiceTranscript += recognized + ' ';
           if (voiceSilenceTimer) clearTimeout(voiceSilenceTimer);
           voiceSilenceTimer = setTimeout(() => { if (voiceMode && voiceTranscript.trim() && recognition) { try { recognition.stop(); } catch {} } }, 1400);
         }
@@ -565,17 +572,31 @@ function assistantWorkspace(initialThread, guestMode = false) {
   const status = h('p', { class: 'muted ai-status', role: 'status', 'aria-live': 'polite' });
   let acceptedConclusion = '';
   const acceptBtn = h('button', { class: 'btn ai-accept-consultation', type: 'button', text: 'نتیجه مشاوره را تأیید می‌کنم و می‌خواهم سند تنظیم شود', hidden: '' });
+  const partyOneLabel = h('span', { text: 'خواهان ـ نام' });
+  const partyTwoLabel = h('span', { text: 'خوانده ـ نام' });
+  const partyOneAddressLabel = h('span', { text: 'خواهان ـ نشانی' });
+  const partyTwoAddressLabel = h('span', { text: 'خوانده ـ نشانی' });
   const partyOneName = h('input', { type: 'text', class: 'ai-party-input', maxlength: '180', placeholder: 'نام و نام خانوادگی' });
   const partyOneAddress = h('textarea', { class: 'ai-party-input', rows: '2', maxlength: '1000', placeholder: 'نشانی کامل' });
   const partyTwoName = h('input', { type: 'text', class: 'ai-party-input', maxlength: '180', placeholder: 'نام و نام خانوادگی' });
   const partyTwoAddress = h('textarea', { class: 'ai-party-input', rows: '2', maxlength: '1000', placeholder: 'نشانی کامل' });
+  function syncPartyLabels() {
+    const labels = docSelect.value === 'contract' ? ['طرف اول', 'طرف دوم']
+      : docSelect.value === 'criminal_complaint' ? ['شاکی', 'مشتکی‌عنه']
+      : docSelect.value === 'appeal' ? ['تجدیدنظرخواه', 'تجدیدنظرخوانده']
+      : ['خواهان', 'خوانده'];
+    partyOneLabel.textContent = `${labels[0]} ـ نام`;
+    partyOneAddressLabel.textContent = `${labels[0]} ـ نشانی`;
+    partyTwoLabel.textContent = `${labels[1]} ـ نام`;
+    partyTwoAddressLabel.textContent = `${labels[1]} ـ نشانی`;
+  }
   const partyPanel = h('section', { class: 'ai-party-panel', hidden: '' }, [
     h('h3', { text: 'مشخصات اشخاص برای درج در سند' }),
     h('p', { class: 'muted', text: 'اطلاعات حقوقی و محتوای سند از گفت‌وگوی مشاوره استخراج می‌شود؛ اینجا فقط مشخصات و نشانی اشخاص را وارد کنید.' }),
-    h('label', { class: 'ai-party-field' }, [h('span', { text: 'خواهان / شاکی / طرف اول ـ نام' }), partyOneName]),
-    h('label', { class: 'ai-party-field' }, [h('span', { text: 'خواهان / شاکی / طرف اول ـ نشانی' }), partyOneAddress]),
-    h('label', { class: 'ai-party-field' }, [h('span', { text: 'خوانده / طرف دوم ـ نام' }), partyTwoName]),
-    h('label', { class: 'ai-party-field' }, [h('span', { text: 'خوانده / طرف دوم ـ نشانی' }), partyTwoAddress]),
+    h('label', { class: 'ai-party-field' }, [partyOneLabel, partyOneName]),
+    h('label', { class: 'ai-party-field' }, [partyOneAddressLabel, partyOneAddress]),
+    h('label', { class: 'ai-party-field' }, [partyTwoLabel, partyTwoName]),
+    h('label', { class: 'ai-party-field' }, [partyTwoAddressLabel, partyTwoAddress]),
   ]);
   acceptBtn.addEventListener('click', () => {
     const lastAnswer = [...history].reverse().find((item) => item.role === 'ai' && item.text)?.text || '';
@@ -589,6 +610,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     partyPanel.hidden = false;
     acceptBtn.hidden = true;
     syncMode();
+    syncPartyLabels();
     status.textContent = 'نتیجه مشاوره تأیید شد. نوع سند و مشخصات اشخاص را تکمیل کنید.';
     docSelect.focus();
   });
