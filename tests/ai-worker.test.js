@@ -384,6 +384,9 @@ test('بازبین میز محاکمه نقش‌های طرف مقابل، وک�
     assert.match(sent.messages[0].content, /وکیل طرف مقابل/);
     assert.match(sent.messages[0].content, /وکیل موکل/);
     assert.match(sent.messages[0].content, /قاضی بی‌طرف/);
+    assert.match(sent.messages[0].content, /راستی‌آزمایی استنادات/);
+    assert.match(sent.messages[0].content, /کنترل خواسته‌ها/);
+    assert.match(sent.messages[0].content, /نقل‌قول ترکیبی/);
     return jsonRes(200, { choices: [{ message: { content: JSON.stringify(reviewJson) } }] });
   }, async () => {
     const result = await reviewLegalDraft({ GROQ_API_KEY: groqKey }, {
@@ -516,6 +519,9 @@ test('میز محاکمه سه عامل مستقل را جداگانه اجرا 
     const sent = JSON.parse(init.body);
     const system = sent.systemInstruction.parts[0].text;
     const contents = sent.contents || [];
+    assert.match(JSON.stringify(contents), /فروشنده در قرارداد آزادی ملک را تضمین کرده است/);
+    assert.match(system, /حافظه استدلال پرونده/);
+    assert.match(system, /کنترل خواسته‌ها/);
     let answer;
     if (system.includes('قوی‌ترین دفاع‌ها، ایرادهای شکلی و ماهوی')) {
       roleCalls.push('opposing');
@@ -536,7 +542,12 @@ test('میز محاکمه سه عامل مستقل را جداگانه اجرا 
   }, async (calls) => {
     const env = { DB: fakeDb({ loggedIn: true }), GEMINI_API_KEY: KEY };
     const res = await worker.fetch(req('/api/ai/assistant', {
-      body: { mode: 'litigation', docType: 'retrial', message: 'پرونده انتقال مال توقیف‌شده را از سه موضع بررسی کن.', history: [] },
+      body: {
+        mode: 'litigation',
+        docType: 'retrial',
+        message: 'پرونده انتقال مال توقیف‌شده را از سه موضع بررسی کن.',
+        history: [{ role: 'user', text: 'در گفت‌وگوی قبلی احراز شد که فروشنده در قرارداد آزادی ملک را تضمین کرده است.' }],
+      },
       cookie: 'tok',
     }), env);
     const data = await res.json();
