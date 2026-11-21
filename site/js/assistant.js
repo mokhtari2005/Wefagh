@@ -636,6 +636,41 @@ function assistantWorkspace(initialThread, guestMode = false) {
     await send();
   }
   const VOICE_GREETING = 'سلام، وقت بخیر. من دستیار صوتی آکادمی وکالت شهرام مختاری هستم. سؤال یا شرح پرونده‌تون رو بفرمایید؛ اگر اطلاعاتی لازم باشه، چند سؤال کوتاه می‌پرسم و بعد پاسخ رو به‌صورت متن و صدا ارائه می‌کنم.';
+  function speakGreeting() {
+    if (!voiceMode) return;
+    if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance !== 'function') {
+      setVoiceState('ready', VOICE_GREETING);
+      startRecording();
+      return;
+    }
+    try {
+      const utterance = new SpeechSynthesisUtterance(VOICE_GREETING);
+      utterance.lang = 'fa-IR';
+      utterance.rate = 0.96;
+      const persianVoice = window.speechSynthesis.getVoices().find((voice) => /^fa([_-]|$)/i.test(voice.lang));
+      if (persianVoice) utterance.voice = persianVoice;
+      utterance.onend = () => {
+        speaking = false;
+        setVoiceState('ready', 'خوشامدگویی تمام شد؛ حالا سؤال یا شرح پرونده‌تون رو بگید.');
+        if (voiceMode) window.setTimeout(() => startRecording(), 300);
+      };
+      utterance.onerror = () => {
+        speaking = false;
+        setVoiceState('ready', 'پخش خوشامدگویی ممکن نشد؛ می‌توانید گفت‌وگو را ادامه دهید.');
+        if (voiceMode) window.setTimeout(() => startRecording(), 500);
+      };
+      speaking = true;
+      setVoiceState('speaking', 'در حال خوشامدگویی صوتی…');
+      // این فراخوانی عمداً هم‌زمان با کلیک کاربر است تا Safari اجازه پخش بدهد.
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utterance);
+    } catch (error) {
+      speaking = false;
+      setVoiceState('ready', 'پخش خوشامدگویی ممکن نشد؛ گفت‌وگو را ادامه دهید.');
+      if (voiceMode) window.setTimeout(() => startRecording(), 500);
+    }
+  }
+
   async function speakReply(text) {
     if (!voiceMode || !text) return;
     const spokenText = String(text).replace(/\[جای خالی:[^\]]*\]/g, 'جای خالی').slice(0, 2000);
@@ -725,7 +760,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     if (!voiceMode) {
       voiceMode = true;
       voiceEndBtn.hidden = false;
-      speakReply(VOICE_GREETING);
+      speakGreeting();
       return;
     }
     startRecording();
