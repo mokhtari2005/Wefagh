@@ -307,7 +307,7 @@ export function citationWarnings(text) {
 }
 
 const VEHICLE_DEFECT_TOPIC = /خودرو|اتومبیل|ماشین|تصادف|خیار عیب|عیب پنهان|عیب مخفی/u;
-const SEIZED_PROPERTY_TOPIC = /مال\\s+توقیف|مال\\s+بازداشت|ملک\\s+توقیف|توقیف\\s+ملک|بازداشت\\s+ملک|انتقال\\s+مال\\s+توقیف/u;
+const SEIZED_PROPERTY_TOPIC = /مال\s+توقیف|مال\s+بازداشت|ملک\s+توقیف|توقیف\s+ملک|بازداشت\s+ملک|انتقال\s+مال\s+توقیف/u;
 const SEIZED_PROPERTY_ARTICLES = Object.freeze([
   {
     lawTitle: 'قانون اجرای احکام مدنی',
