@@ -185,7 +185,7 @@ export function assistantPage(params = {}) {
       body.replaceChildren(h('div', { class: 'notice', role: 'note', text: 'سرویس دستیار هنوز روی سرور فعال نشده است. پس از فعال‌سازی، این بخش آماده استفاده می‌شود.' }));
       return;
     }
-    body.replaceChildren(assistantWorkspace(guestMode ? null : params.thread, guestMode));
+    body.replaceChildren(methodChooser((method) => body.replaceChildren(assistantWorkspace(guestMode ? null : params.thread, guestMode, method))));
   })().catch((error) => {
     console.error('assistant.access_check_failed', error);
     body.replaceChildren(h('div', { class: 'notice', role: 'alert' }, [
@@ -194,6 +194,25 @@ export function assistantPage(params = {}) {
     ]));
   });
   return wrap;
+}
+
+/** انتخاب روش پاسخ‌گویی: متنی، یا هوشمند (چت و گفت‌وگوی صوتی در یک محیط). */
+function methodChooser(onPick) {
+  const card = (title, desc, method) => {
+    const b = h('button', { class: 'assistant-document-card', type: 'button' }, [
+      h('span', { class: 'assistant-document-copy' }, [h('strong', { text: title }), h('small', { text: desc })]),
+    ]);
+    b.addEventListener('click', () => onPick(method));
+    return b;
+  };
+  return h('section', { class: 'ai-method-chooser', 'aria-label': 'روش پاسخ‌گویی' }, [
+    h('h1', { text: 'مشاوره حقوقی هوشمند' }),
+    h('p', { class: 'muted', text: 'روش پاسخ‌گویی را انتخاب کنید. هر دو از همان مشاوره، حافظهٔ گفت‌وگو و بازبینی پشت‌صحنه استفاده می‌کنند.' }),
+    h('div', { class: 'assistant-document-grid' }, [
+      card('پاسخ‌گویی متنی', 'پرسش یا شرح پرونده را تایپ کنید و گفت‌وگو را ادامه دهید.', 'text'),
+      card('پاسخ‌گویی هوشمند', 'چت متنی و گفت‌وگوی صوتی؛ بین آن‌ها جابه‌جا شوید بدون از دست رفتن گفت‌وگو.', 'smart'),
+    ]),
+  ]);
 }
 
 /** متن یک پیام را به‌صورت فایل متنی دانلود می‌کند. */
@@ -207,7 +226,8 @@ function downloadText(text, name) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function assistantWorkspace(initialThread, guestMode = false) {
+function assistantWorkspace(initialThread, guestMode = false, method = 'smart') {
+  const voiceAllowed = method === 'smart';
   const history = [];
   let busy = false;
   let threadId = null;
@@ -293,6 +313,9 @@ function assistantWorkspace(initialThread, guestMode = false) {
   function syncMode() {
     modeButtons.forEach((x, i) => x.setAttribute('aria-pressed', MODES[i][0] === mode && docSelect.value !== 'contract' ? 'true' : 'false'));
     docWrap.hidden = mode === 'consult';
+    // در مشاوره فقط «مشاوره» دیده می‌شود؛ سایر حالت‌ها بعد از توافق بر نتیجه باز می‌شوند.
+    modeButtons.forEach((x, i) => { x.hidden = MODES[i][0] !== 'consult' && mode === 'consult' && !acceptedConclusion; });
+    contractModeButton.hidden = mode === 'consult' && !acceptedConclusion;
     composerText.placeholder = mode === 'consult' ? PLACEHOLDERS.consult : PLACEHOLDERS.other;
     syncContractPicker();
     renderSuggestions();
@@ -992,7 +1015,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     threadId = null;
     history.length = 0;
     stopVoiceMode();
-    voicePanel.hidden = false;
+    voicePanel.hidden = !voiceAllowed;
     acceptedConclusion = '';
     acceptBtn.hidden = true;
     partyPanel.hidden = true;
@@ -1034,6 +1057,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
   ]);
   composer.addEventListener('submit', (e) => { e.preventDefault(); send(); });
 
+  voicePanel.hidden = !voiceAllowed;
   syncMode();
   return h('div', { class: 'ai-shell' }, [
     h('section', { class: 'ai-main', 'aria-label': 'گفت‌وگو با دستیار' }, [toolbar, stream, composer]),

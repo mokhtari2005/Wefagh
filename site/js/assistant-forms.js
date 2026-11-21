@@ -123,23 +123,37 @@ function card(doc) {
 }
 
 export function assistantMenuPage() {
- const docs=DOCS.map(card);
  return h('div',{class:'assistant assistant-document-menu'},[
   h('span',{class:'section-kicker',text:'آکادمی وکالت شهرام مختاری'}),
   h('h1',{text:'دستیار هوشمند وکیل'}),
-  h('p',{class:'muted',text:'نوع خدمت یا سند را انتخاب کنید تا فرم اختصاصی آن در صفحه‌ای جداگانه باز شود.'}),
+  h('p',{class:'muted',text:'یکی از دو بخش را انتخاب کنید.'}),
   h('section',{class:'assistant-menu-section'},[
-   h('h2',{text:'خدمات حقوقی'}),
    h('a',{class:'assistant-document-card assistant-consult-card',href:'#/assistant/consult'},[
     h('span',{class:'assistant-document-icon'},[icon('scale',{size:22})]),
-    h('span',{class:'assistant-document-copy'},[h('strong',{text:'مشاوره حقوقی و تحلیل پرونده'}),h('small',{text:'پرسش حقوقی، تحلیل و بررسی متن'})]),
+    h('span',{class:'assistant-document-copy'},[h('strong',{text:'مشاوره حقوقی هوشمند'}),h('small',{text:'پرسش حقوقی، تحلیل و گفت‌وگوی متنی یا صوتی'})]),
+    icon('arrow-left',{size:18})
+   ]),
+   h('a',{class:'assistant-document-card',href:'#/assistant/documents'},[
+    h('span',{class:'assistant-document-icon'},[icon('file-text',{size:22})]),
+    h('span',{class:'assistant-document-copy'},[h('strong',{text:'تنظیم اسناد'}),h('small',{text:'دادخواست، لایحه، وکالت‌نامه و قراردادها'})]),
     icon('arrow-left',{size:18})
    ])
   ]),
+  h('details',{class:'ai-notice'},[h('summary',{text:'ملاحظات استفاده از دستیار'}),h('p',{class:'muted',text:ASSISTANT_NOTICE})])
+ ]);
+}
+
+/** صفحهٔ تنظیم اسناد: فهرست اسناد و قراردادها و سوابق. */
+export function assistantDocumentsMenuPage() {
+ const docs=DOCS.map(card);
+ return h('div',{class:'assistant assistant-document-menu'},[
+  h('a',{class:'assistant-back-link',href:'#/assistant',text:'← بازگشت به دستیار'}),
+  h('span',{class:'section-kicker',text:'آکادمی وکالت شهرام مختاری'}),
+  h('h1',{text:'تنظیم اسناد'}),
+  h('p',{class:'muted',text:'نوع سند یا قرارداد را انتخاب کنید تا فرم اختصاصی آن باز شود.'}),
   h('section',{class:'assistant-menu-section'},[h('h2',{text:'تنظیم اسناد قضایی و حقوقی'}),h('div',{class:'assistant-document-grid'},docs)]),
   h('section',{class:'assistant-menu-section'},[h('h2',{text:'تنظیم قرارداد'}),card(['contract','تنظیم انواع قرارداد','file-text','انتخاب نوع قرارداد و تکمیل فرم اختصاصی'])]),
   h('p',{class:'ai-history-link'},[h('a',{href:'#/assistant/history',text:'سوابق گفت‌وگوها ←'})]),
-  h('details',{class:'ai-notice'},[h('summary',{text:'ملاحظات استفاده از دستیار'}),h('p',{class:'muted',text:ASSISTANT_NOTICE})])
  ]);
 }
 
