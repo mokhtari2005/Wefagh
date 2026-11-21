@@ -169,7 +169,8 @@ export async function generateText(env, { system, contents, maxOutputTokens = 10
     }
   }
   const text = textOrLog('text', model, data);
-  if (!json) return { text, model };
+  const grounding = useGoogleSearch ? extractGrounding(data) : null;
+  if (!json) return { text, model, ...(grounding ? { grounding } : {}) };
   if (used.plain) {
     // پاسخ ساده: اگر مدل JSON داد همان را می‌پذیریم، وگرنه کل متن را پاسخ نهایی می‌گیریم.
     const stripped = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
