@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../worker/src/index.js';
 import { AiError, extractText, generateText, synthesizeSpeech, aiConfigured, modelIds } from '../worker/src/ai/gemini.js';
-import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES } from '../worker/src/ai/routes.js';
+import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims } from '../worker/src/ai/routes.js';
 import { mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt, LEGAL_DISCLAIMER } from '../worker/src/ai/prompts.js';
 import { groqConfigured, reviewLegalDraft, groqReviewNotes, GROQ_API, GROQ_REVIEW_MODEL } from '../worker/src/ai/groq.js';
 import batch01 from '../worker/src/moot/bank/batch-01.js';
@@ -171,6 +171,21 @@ test('پرونده و دستور سیستمی روی سرور است و پیام
   assert.ok(asst.includes('دادخواست'));
   assert.ok(asst.includes('[جای خالی'));
   assert.ok(LEGAL_DISCLAIMER.includes('جایگزین بررسی حرفه‌ای وکیل نیست'));
+});
+
+test('کنترل سمت سرور، شماره ماده و مهلت فاقد پشتوانه را پیش از نمایش خنثی می‌کند', () => {
+  const guarded = guardUnverifiedLegalClaims(
+    'طبق ماده ۱۷۹ و ماده ۱۸۳ باید ظرف ۳۰ روز اقدام کنید؛ همچنین ماده ۴۲۲ قابل اعمال است.',
+    [{ articleNumber: '۴۲۲' }],
+    'ماده ۴۲۲ قانون مدنی؛ هیچ مهلت ۳۰ روزه‌ای در منبع نیست.',
+  );
+  assert.match(guarded.text, /شماره نیازمند تطبیق با متن رسمی/);
+  assert.match(guarded.text, /مدت نیازمند تطبیق با منبع رسمی/);
+  assert.match(guarded.text, /ماده ۴۲۲/);
+  assert.equal(guarded.changed, true);
+  const safe = guardUnverifiedLegalClaims('ماده ۴۲۲ فوری است.', [{ articleNumber: '۴۲۲' }], 'ماده ۴۲۲');
+  assert.equal(safe.text, 'ماده ۴۲۲ فوری است.');
+  assert.equal(safe.changed, false);
 });
 
 test('مسیر دستیار از ورود تا پاسخ ساخت‌یافته (با Gemini ساختگی) کامل کار می‌کند', async () => {
