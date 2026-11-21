@@ -215,11 +215,11 @@ test('میز محاکمه هوشمند: حالت مستقل، پرامپت چن�
     text: 'واقعیت‌های مستند باید از ادعاهای طرفین تفکیک شوند. قوی‌ترین دفاع طرف مقابل، پاسخ موکل و ارزیابی بی‌طرفانه قاضی در این گزارش بررسی می‌شود.',
     notes: [],
   };
-  let system = '';
+  const systems = [];
   await withFetch(async (url, init) => {
-    system = JSON.parse(init.body).systemInstruction.parts[0].text;
+    systems.push(JSON.parse(init.body).systemInstruction.parts[0].text);
     return jsonRes(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(modelJson) }] } }] });
-  }, async () => {
+  }, async (calls) => {
     const env = { DB: fakeDb({ loggedIn: true }), GEMINI_API_KEY: KEY };
     const res = await worker.fetch(req('/api/ai/assistant', {
       body: { mode: 'litigation', docType: 'retrial', message: 'این پرونده را از دیدگاه طرف مقابل، وکیل موکل و قاضی بررسی کن.', history: [] },
@@ -228,11 +228,13 @@ test('میز محاکمه هوشمند: حالت مستقل، پرامپت چن�
     const data = await res.json();
     assert.equal(res.status, 200);
     assert.equal(data.ok, true);
-    assert.match(system, /میز محاکمه هوشمند/);
-    assert.match(system, /قوی‌ترین استدلال‌ها و ایرادهای طرف مقابل/);
-    assert.match(system, /مانند قاضی بی‌طرف/);
-    assert.match(system, /ماده ۴۲۶/);
-    assert.match(system, /تأییدنشده/);
+    assert.equal(calls.length, 3);
+    assert.ok(systems.every((system) => system.includes('میز محاکمه هوشمند')));
+    assert.ok(systems.some((system) => system.includes('قوی‌ترین دفاع‌ها، ایرادهای شکلی و ماهوی')));
+    assert.ok(systems.some((system) => system.includes('نقش تو وکیل موکل/کاربر است')));
+    assert.ok(systems.some((system) => system.includes('قاضی بی‌طرف و ارزیاب')));
+    assert.ok(systems.every((system) => system.includes('ماده ۴۲۶')));
+    assert.ok(systems.every((system) => system.includes('تأییدنشده')));
     assert.match(data.text, /واقعیت‌های مستند/);
     assert.ok(data.notes.some((note) => note.includes('بازبینی مستقل')));
   });
@@ -382,6 +384,9 @@ test('بازبین میز محاکمه نقش‌های طرف مقابل، وک�
     assert.match(sent.messages[0].content, /وکیل طرف مقابل/);
     assert.match(sent.messages[0].content, /وکیل موکل/);
     assert.match(sent.messages[0].content, /قاضی بی‌طرف/);
+    assert.match(sent.messages[0].content, /راستی‌آزمایی استنادات/);
+    assert.match(sent.messages[0].content, /کنترل خواسته‌ها/);
+    assert.match(sent.messages[0].content, /نقل‌قول ترکیبی/);
     return jsonRes(200, { choices: [{ message: { content: JSON.stringify(reviewJson) } }] });
   }, async () => {
     const result = await reviewLegalDraft({ GROQ_API_KEY: groqKey }, {
@@ -504,4 +509,54 @@ test('مواد ۵۶ و ۵۷ قانون اجرای احکام مدنی در ان�
   assert.match(prompt, /استثنای رضایت کتبی ماده ۵۷ را به متن ماده ۵۶ اضافه یا با آن ادغام نکن/);
   assert.match(prompt, /توقیف را با مالکیت شخص ثالث یا مستحق‌للغیر درآمدن مبیع یکی ندان/);
   assert.match(prompt, /نقل‌قول ترکیبی نکن/);
+});
+
+
+test('میز محاکمه سه عامل مستقل را جداگانه اجرا می‌کند و گزارش واحد می‌سازد', async () => {
+  const roleCalls = [];
+  await withFetch(async (url, init) => {
+    assert.ok(url.includes('generativelanguage.googleapis.com'));
+    const sent = JSON.parse(init.body);
+    const system = sent.systemInstruction.parts[0].text;
+    const contents = sent.contents || [];
+    assert.match(JSON.stringify(contents), /فروشنده در قرارداد آزادی ملک را تضمین کرده است/);
+    assert.match(system, /حافظه استدلال پرونده/);
+    assert.match(system, /کنترل خواسته‌ها/);
+    let answer;
+    if (system.includes('قوی‌ترین دفاع‌ها، ایرادهای شکلی و ماهوی')) {
+      roleCalls.push('opposing');
+      answer = 'دفاع فروشنده: خواسته خریدار با ایراد تعارض خواسته‌ها روبه‌رو است.';
+    } else if (system.includes('ابتدا همه ایرادهای مطرح‌شده')) {
+      roleCalls.push('client');
+      answer = 'پاسخ خریدار: اظهار خلاف واقع فروشنده و جهل خریدار باید بررسی شود.';
+    } else if (system.includes('قاضی بی‌طرف و ارزیاب')) {
+      roleCalls.push('judge');
+      const judgeInput = contents.map((item) => (item.parts || []).map((part) => part.text || '').join(' ')).join(' ');
+      assert.match(judgeInput, /دفاع فروشنده/);
+      assert.match(judgeInput, /پاسخ خریدار/);
+      answer = 'جمع‌بندی قاضی: تعارض خواسته‌ها و مبنای خسارت باید روشن شود.';
+    } else {
+      throw new Error('نقش ناشناخته در میز محاکمه');
+    }
+    return jsonRes(200, { candidates: [{ content: { parts: [{ text: answer }] }, finishReason: 'STOP' }] });
+  }, async (calls) => {
+    const env = { DB: fakeDb({ loggedIn: true }), GEMINI_API_KEY: KEY };
+    const res = await worker.fetch(req('/api/ai/assistant', {
+      body: {
+        mode: 'litigation',
+        docType: 'retrial',
+        message: 'پرونده انتقال مال توقیف‌شده را از سه موضع بررسی کن.',
+        history: [{ role: 'user', text: 'در گفت‌وگوی قبلی احراز شد که فروشنده در قرارداد آزادی ملک را تضمین کرده است.' }],
+      },
+      cookie: 'tok',
+    }), env);
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.ok, true);
+    assert.equal(calls.length, 3);
+    assert.deepEqual(roleCalls.sort(), ['client', 'judge', 'opposing']);
+    assert.match(data.text, /استدلال مستقل وکیل طرف مقابل/);
+    assert.match(data.text, /پاسخ وکیل موکل/);
+    assert.match(data.text, /ارزیابی و جمع‌بندی قاضی بی‌طرف/);
+  });
 });

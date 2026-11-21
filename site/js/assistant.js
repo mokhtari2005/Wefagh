@@ -272,6 +272,23 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
 
   // ---------- حالت و نوع سند ----------
   let mode = MODES.some(([value]) => value === initialMode) ? initialMode : 'consult';
+  const workspaceIntro = h('section', { class: 'ai-workbench-intro', role: 'region', 'aria-label': 'راهنمای بخش' }, [
+    h('h1', { text: 'مشاوره حقوقی هوشمند' }),
+    h('p', { class: 'muted', text: 'گفت‌وگوی تعاملی برای روشن‌کردن مسئله، تکمیل واقعیت‌های مؤثر و رسیدن به راهکار حقوقی.' }),
+  ]);
+  function syncWorkspaceIntro() {
+    const copy = {
+      consult: ['مشاوره حقوقی هوشمند', 'گفت‌وگوی تعاملی برای روشن‌کردن مسئله، تکمیل واقعیت‌های مؤثر و رسیدن به راهکار حقوقی.'],
+      litigation: ['میز محاکمه هوشمند', 'پرونده را از سه موضع مستقل می‌سنجد: وکیل طرف مقابل، وکیل موکل و قاضی بی‌طرف. خروجی، یک گزارش واحد از مواجهه استدلال‌ها و نقاط آسیب‌پذیر پرونده است.'],
+      research: ['تحقیق و راستی‌آزمایی حقوقی', 'تمرکز بر شناسایی منابع، متن مقررات، اعتبار زمانی و انطباق هر استناد با گزاره حقوقی مورد ادعا.'],
+      analyze: ['تحلیل حقوقی پرونده', 'استخراج وقایع، خواسته‌ها، ادله، مسائل حقوقی و خطرهای اصلی پرونده.'],
+      review: ['بررسی و اصلاح متن حقوقی', 'بازبینی ساختار، نگارش، استدلال، ابهام‌ها و تعارض‌های متن ارائه‌شده.'],
+      draft: ['تنظیم اسناد حقوقی', 'تنظیم پیش‌نویس بر پایه اطلاعات و نتیجه مشاوره تأییدشده.'],
+    };
+    const selected = copy[mode] || copy.consult;
+    workspaceIntro.firstElementChild.textContent = selected[0];
+    workspaceIntro.lastElementChild.textContent = selected[1];
+  }
   const modeGroup = h('div', { class: 'ai-seg', role: 'group', 'aria-label': 'نوع کار' });
   const modeIcons = { consult: 'scale', draft: 'edit', analyze: 'search', litigation: 'gavel', research: 'book-open-check', review: 'clipboard-list' };
   const modeButtons = MODES.map(([value, label]) => {
@@ -333,7 +350,12 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     contractModeButton.hidden = mode === 'consult' && !acceptedConclusion;
     composerText.placeholder = mode === 'consult'
       ? (voiceAllowed ? 'پیام خود را برای دستیار بنویسید…' : PLACEHOLDERS.consult)
-      : PLACEHOLDERS.other;
+      : mode === 'litigation'
+        ? 'شرح پرونده، خواسته، موضع خود و اسناد یا دفاع طرف مقابل را وارد کنید…'
+        : mode === 'research'
+          ? 'پرسش حقوقی یا استناد مورد بررسی را دقیق بنویسید…'
+          : PLACEHOLDERS.other;
+    syncWorkspaceIntro();
     syncContractPicker();
     renderSuggestions();
   }
@@ -1041,7 +1063,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     status.textContent = saved
       ? (mode === 'consult'
         ? (res.data.status === 'ready' ? 'اگر با جمع‌بندی مشاوره موافقید، نتیجه را تأیید کنید تا وارد مرحله تنظیم سند شوید.' : 'برای تکمیل مشاوره، به پرسش‌های دستیار پاسخ دهید.')
-        : 'پیش‌نویس آماده است. آن را بررسی کنید؛ پیش از استفاده باید وکیل تطبیق دهد.')
+        : (mode === 'litigation' ? 'گزارش میز محاکمه با سه موضع مستقل آماده شد؛ ایرادهای مهم و استنادات را پیش از تصمیم نهایی کنترل کنید.' : 'خروجی آماده است. آن را بررسی کنید؛ پیش از استفاده باید وکیل تطبیق دهد.'))
       : 'پاسخ نمایش داده شد، اما ذخیرهٔ آن در تاریخچه انجام نشد.';
   }
 
@@ -1095,7 +1117,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
   voicePanel.hidden = !voiceAllowed;
   syncMode();
   return h('div', { class: 'ai-shell' }, [
-    h('section', { class: 'ai-main', 'aria-label': 'گفت‌وگو با دستیار' }, [toolbar, stream, composer]),
+    h('section', { class: 'ai-main', 'aria-label': 'گفت‌وگو با دستیار' }, [workspaceIntro, toolbar, stream, composer]),
   ]);
 }
 
