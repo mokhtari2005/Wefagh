@@ -297,7 +297,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
   function renderSuggestions() {
     // فقط نمونه‌های همین حالت نشان داده می‌شود تا صفحه کوتاه بماند.
     suggestionsBox.replaceChildren(...SUGGESTIONS.filter(([m]) => m === mode).map(([m, d, text]) => {
-      const b = h('btn secondary ai-suggestion', { class: 'btn secondary ai-suggestion', type: 'button', text });
+      const b = h('button', { class: 'btn secondary ai-suggestion', type: 'button', text });
       b.addEventListener('click', () => {
         docSelect.value = d;
         composerText.value = text;
