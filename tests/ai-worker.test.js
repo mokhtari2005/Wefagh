@@ -238,6 +238,32 @@ test('میز محاکمه هوشمند: حالت مستقل، پرامپت چن�
   });
 });
 
+test('تحقیق و راستی‌آزمایی حقوقی: حالت مستقل و دستور کنترل انطباق استناد', async () => {
+  const modelJson = {
+    status: 'ready', questions: [],
+    text: 'نتیجه تحقیق: ماده قانونی باید هم از حیث متن معتبر و هم از حیث ارتباط با گزاره مورد استناد بررسی شود.',
+    notes: ['منبع رسمی برای تطبیق نهایی لازم است.'],
+  };
+  let system = '';
+  await withFetch(async (url, init) => {
+    system = JSON.parse(init.body).systemInstruction.parts[0].text;
+    return jsonRes(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(modelJson) }] } }] });
+  }, async () => {
+    const env = { DB: fakeDb({ loggedIn: true }), GEMINI_API_KEY: KEY };
+    const res = await worker.fetch(req('/api/ai/assistant', {
+      body: { mode: 'research', docType: 'other', message: 'مبنای قانونی این ادعا را بررسی کن.', history: [] },
+      cookie: 'tok',
+    }), env);
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.ok, true);
+    assert.match(system, /پژوهشگر حقوقی/);
+    assert.match(system, /میزان انطباق/);
+    assert.match(system, /ادعای جست‌وجوی برخط/);
+    assert.match(data.text, /نتیجه تحقیق/);
+  });
+});
+
 test('ارسال تلگرام در دستیار فقط با رضایت همان نوبت انجام می‌شود', async () => {
   const modelJson = {
     status: 'ready', questions: [],
