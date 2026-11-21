@@ -280,13 +280,13 @@ export async function findVerifiedLegalArticles(db, query) {
       const persian = ascii.replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
       bindings.push(lawParam, ascii, persian);
       const n = bindings.length;
-      clauses.push(`(l.title LIKE ?${n-2} AND a.article_number IN (? ${n-1}, ?${n}))`);
+      clauses.push(`(l.title LIKE ?${n-2} AND a.article_number IN (?${n-1}, ?${n}))`);
     }
     // عبارت IN با سه پارامتر برای هر ارجاع؛ از تطبیق مبهم شماره در قوانین دیگر جلوگیری می‌شود.
     const exactSql = `SELECT l.title AS lawTitle,l.law_type AS lawType,l.source_name AS sourceName,l.source_url AS sourceUrl,a.article_number AS articleNumber,a.heading,a.body
       FROM legal_articles a JOIN legal_laws l ON l.id=a.law_id
       WHERE l.status='verified' AND a.status='verified' AND (${clauses.join(' OR ')})
-      ORDER BY l.title,a.id LIMIT 12`.replace(/IN \\? (\\d+)/g, 'IN (?$1');
+      ORDER BY l.title,a.id LIMIT 12`
     const result = await db.prepare(exactSql).bind(...bindings).all();
     exact.push(...(result.results || []));
   }
