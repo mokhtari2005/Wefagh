@@ -209,6 +209,35 @@ test('مسیر دستیار از ورود تا پاسخ ساخت‌یافته (�
   });
 });
 
+test('میز محاکمه هوشمند: حالت مستقل، پرامپت چندمنظری و بازبینی یکپارچه', async () => {
+  const modelJson = {
+    status: 'ready', questions: [],
+    text: 'واقعیت‌های مستند باید از ادعاهای طرفین تفکیک شوند. قوی‌ترین دفاع طرف مقابل، پاسخ موکل و ارزیابی بی‌طرفانه قاضی در این گزارش بررسی می‌شود.',
+    notes: [],
+  };
+  let system = '';
+  await withFetch(async (url, init) => {
+    system = JSON.parse(init.body).systemInstruction.parts[0].text;
+    return jsonRes(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(modelJson) }] } }] });
+  }, async () => {
+    const env = { DB: fakeDb({ loggedIn: true }), GEMINI_API_KEY: KEY };
+    const res = await worker.fetch(req('/api/ai/assistant', {
+      body: { mode: 'litigation', docType: 'retrial', message: 'این پرونده را از دیدگاه طرف مقابل، وکیل موکل و قاضی بررسی کن.', history: [] },
+      cookie: 'tok',
+    }), env);
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.ok, true);
+    assert.match(system, /میز محاکمه هوشمند/);
+    assert.match(system, /قوی‌ترین استدلال‌ها و ایرادهای طرف مقابل/);
+    assert.match(system, /ارزیابی بی‌طرفانه/);
+    assert.match(system, /ماده ۴۲۶/);
+    assert.match(system, /تأییدنشده/);
+    assert.match(data.text, /واقعیت‌های مستند/);
+    assert.ok(data.notes.some((note) => note.includes('بازبینی مستقل')));
+  });
+});
+
 test('نقش‌های دادگاه فقط سه نقش معتبر دارند و مرحلهٔ ناشناخته رد می‌شود', async () => {
   await withFetch(async () => { throw new Error('نباید فراخوانی شود'); }, async () => {
     const env = { DB: fakeDb({ loggedIn: true, caseRow: SAMPLE_ROW }), GEMINI_API_KEY: KEY };
