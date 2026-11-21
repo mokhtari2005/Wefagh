@@ -315,6 +315,7 @@ const SEIZED_PROPERTY_ARTICLES = Object.freeze([
     heading: 'نقل‌وانتقال مال توقیف‌شده',
     body: 'هر گونه نقل و انتقال اعم از قطعی و شرطی و رهنی نسبت به مال توقیف شده باطل و بلااثر است.',
     sourceName: 'سامانه ملی قوانین و مقررات؛ متن قانون اجرای احکام مدنی',
+    sourceStatus: 'curated_reference',
     sourceUrl: 'https://qavanin.ir/Law/PrintText/83430',
   },
   {
@@ -575,7 +576,8 @@ async function assistant(request, env) {
       'قانون: ' + a.lawTitle,
       'ماده ' + a.articleNumber + (a.heading ? ' ـ ' + a.heading : ''),
       a.body,
-      'منبع ثبت‌شده: ' + (a.sourceName || 'ثبت نشده') + (a.sourceUrl ? ' (' + a.sourceUrl + ')' : ''),
+      'منبع: ' + (a.sourceName || 'ثبت نشده') + (a.sourceUrl ? ' (' + a.sourceUrl + ')' : ''),
+      'وضعیت منبع: ' + (a.sourceStatus === 'curated_reference' ? 'مرجع قانونی داخلی با پیوند رسمی؛ تطبیق نهایی متن و اعتبار لازم است' : 'بازیابی‌شده از مواد تأییدشده بانک داخلی'),
     ].join('\n')).join('\n\n---\n\n') : '';
     let webResearch = null;
     let webSearchAttempted = false;
