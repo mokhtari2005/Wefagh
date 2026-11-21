@@ -914,7 +914,9 @@ export async function adminPage() {
     row.append(heading, analysisPanel);
     if (item.status === 'open') {
       const repair = el('button', { class: 'btn', type: 'button', text: 'تحلیل دوباره' });
-      repair.disabled = !repairConfigured;
+      // خطای موقت endpoint وضعیت نباید دکمه را برای همیشه از دسترس خارج کند؛ خود درخواست POST علت دقیق را برمی‌گرداند.
+      repair.disabled = false;
+      repair.title = repairConfigured ? 'تحلیل گزارش و بررسی کد مرتبط' : repairHint;
       repair.addEventListener('click', async () => {
         if (!window.confirm('هوش مصنوعی گزارش و کد مرتبط را بررسی می‌کند و فقط در صورت یافتن اصلاح امن، یک Pull Request برای بازبینی می‌سازد. هیچ تغییری مستقیماً منتشر نمی‌شود. ادامه می‌دهید؟')) return;
         repair.disabled = true;
@@ -991,11 +993,18 @@ export async function adminPage() {
     renderDiagnosticSummary(diagnosticItems);
     diagnosticsNotice.className = 'form-status diagnostics-live-status';
     diagnosticsNotice.textContent = `${result.data.openCount} گزارش نیازمند رسیدگی از ${diagnosticItems.length} گزارش اخیر.`;
-    const repairStatus = await getJson('/api/admin/diagnostics/repair/status');
+    let repairStatus;
+    try {
+      repairStatus = await getJson('/api/admin/diagnostics/repair/status', { timeoutMs: 15000 });
+    } catch {
+      repairStatus = { ok: false };
+    }
     repairConfigured = repairStatus.ok && repairStatus.data.configured;
     repairHint = repairConfigured
-      ? 'عامل هوشمند آمادهٔ ساخت PR پیشنهادی است؛ هیچ تغییری خودکار روی main منتشر نمی‌شود.'
-      : 'برای ساخت PR خودکار، Secret با نام GH_REPAIR_TOKEN در Cloudflare Worker لازم است؛ کلید Gemini نیز باید فعال باشد.';
+      ? 'عامل هوشمند آمادهٔ تحلیل است؛ در صورت یافتن اصلاح امن، PR پیشنهادی ساخته می‌شود و هیچ تغییری خودکار منتشر نمی‌شود.'
+      : repairStatus.ok
+        ? (repairStatus.data.hint || 'تنظیمات لازم برای تحلیل کامل نیست؛ با زدن دکمه، علت دقیق از سرور نمایش داده می‌شود.')
+        : 'وضعیت سرویس تحلیل قابل بررسی نیست؛ دکمه را می‌توانید بزنید تا خطای واقعی درخواست مشخص شود.';
     renderDiagnosticList();
   }
   const diagnosticsPanel = el('section', { class: 'diagnostics-page' }, [
