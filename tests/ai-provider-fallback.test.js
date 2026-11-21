@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateText } from '../worker/src/ai/gemini.js';
+import { generateTextWithFallback } from '../worker/src/ai/fallback.js';
 
 const env = { GEMINI_API_KEY: 'test-key-123456789', GEMINI_TEXT_MODEL: 'gemini-2.5-flash' };
 const input = { system: 'system', contents: [{ role: 'user', parts: [{ text: 'hello' }] }] };
@@ -75,6 +76,28 @@ test('uses a distinct fallback when Gemini 3.5 Flash-Lite is primary', async () 
     assert.equal(urls.length, 2);
     assert.ok(urls[0].includes('gemini-3.5-flash-lite'));
     assert.ok(urls[1].includes('gemini-3.8-flash'));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+
+test('never promotes Groq to a generation fallback, even when the legacy flag is passed', async () => {
+  const originalFetch = globalThis.fetch;
+  const urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(String(url));
+    return new Response(JSON.stringify({ error: { status: 'INTERNAL' } }), { status: 503 });
+  };
+  try {
+    await assert.rejects(
+      generateTextWithFallback(env, input, { allowGroq: true }),
+      (error) => error.code === 'AI_PROVIDER_ERROR',
+    );
+    assert.equal(urls.length, 2);
+    assert.ok(urls.every((url) => url.includes('generativelanguage.googleapis.com')));
+    assert.ok(urls.some((url) => url.includes('gemini-2.5-flash')));
+    assert.ok(urls.some((url) => url.includes('gemini-3.5-flash-lite')));
   } finally {
     globalThis.fetch = originalFetch;
   }
