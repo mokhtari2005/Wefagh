@@ -622,8 +622,16 @@ function assistantWorkspace(initialThread, guestMode = false) {
         playReplyBtn.hidden = false;
         setVoiceState('ready', 'پخش خودکار ممکن نشد؛ برای شنیدن پاسخ، «پخش دوباره پاسخ» را بزنید.');
       };
-      await currentAudio.play();
-      playReplyBtn.hidden = true;
+      try {
+        await currentAudio.play();
+        playReplyBtn.hidden = true;
+      } catch (playError) {
+        speaking = false;
+        playReplyBtn.hidden = false;
+        setVoiceState('ready', 'پاسخ صوتی آماده است؛ برای پخش روی «پخش دوباره پاسخ» بزنید.');
+        console.info('assistant.voice_autoplay_blocked', playError?.name || 'Error');
+        return;
+      }
     } catch (error) {
       speaking = false;
       console.warn('assistant.voice_playback_unavailable', error?.message || error?.name || 'Error');
