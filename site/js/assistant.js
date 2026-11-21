@@ -337,10 +337,12 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart') 
       return b;
     }));
   }
-  const emptyState = h('div', { class: 'ai-empty' }, [
+  const emptyState = h('div', { class: 'ai-empty', hidden: voiceAllowed }, [
     h('p', { class: 'muted', text: 'پرسش یا شرح پرونده را بنویسید؛ اگر منبع معتبری نباشد، پاسخ صریحاً همین را می‌گوید.' }),
     suggestionsBox,
   ]);
+  // در حالت هوشمند، چت از ابتدا مانند گفت‌وگوی پشتیبانی آغاز می‌شود؛ نه با فرم خالی.
+  if (voiceAllowed) history.push({ role: 'ai', text: 'سلام، خوش آمدید. من دستیار هوشمند آکادمی وکالت هستم. لطفاً موضوع یا مسئله‌ای را که می‌خواهید بررسی کنیم، به زبان خودتان توضیح دهید. اگر برای فهم دقیق‌تر موضوع به اطلاعات بیشتری نیاز داشته باشم، در همین گفت‌وگو از شما می‌پرسم.' });
   const pendingTitle = h('strong', { class: 'ai-pending-title', text: 'در حال آماده‌سازی پاسخ حقوقی…' });
   const pendingElapsed = h('span', { class: 'ai-progress-elapsed', text: 'زمان سپری‌شده: ۰:۰۰' });
   const pendingRemaining = h('span', { class: 'ai-progress-remaining', text: 'زمان تخمینی باقی‌مانده: ۱:۰۵' });
@@ -1014,7 +1016,8 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart') 
     renderLog();
     const saved = await persistTurn(userText, reply).catch(() => false);
     if (mode === 'consult' && voiceMode) speakReply(reply);
-    if (mode === 'consult' && res.data.status === 'ready') acceptBtn.hidden = false;
+    // گزینه ورود به تنظیم سند فقط با اعلام آمادگی صریح سرور، بدون سؤال باز و با جمع‌بندی واقعی ظاهر می‌شود.
+    if (mode === 'consult' && res.data.status === 'ready' && !(res.data.questions || []).length && reply.trim().length >= 120) acceptBtn.hidden = false;
     status.textContent = saved
       ? (mode === 'consult'
         ? (res.data.status === 'ready' ? 'اگر با جمع‌بندی مشاوره موافقید، نتیجه را تأیید کنید تا وارد مرحله تنظیم سند شوید.' : 'برای تکمیل مشاوره، به پرسش‌های دستیار پاسخ دهید.')
@@ -1057,7 +1060,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart') 
   renderLog();
   if (initialThread && /^[1-9][0-9]{0,15}$/.test(initialThread)) loadThread(initialThread);
 
-  const toolbar = h('div', { class: 'ai-toolbar' }, [modeGroup, docWrap, contractWrap, newBtn]);
+  const toolbar = h('div', { class: voiceAllowed ? 'ai-toolbar ai-smart-toolbar' : 'ai-toolbar' }, voiceAllowed ? [newBtn] : [modeGroup, docWrap, contractWrap, newBtn]);
   const composer = h('form', { class: voiceAllowed ? 'ai-composer ai-chat-composer' : 'ai-composer', 'aria-label': voiceAllowed ? 'چت با دستیار' : 'ارسال پیام' }, [
     acceptBtn, partyPanel, attachChip,
     composerText,
