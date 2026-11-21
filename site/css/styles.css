@@ -3940,3 +3940,44 @@ body.classroom-fullscreen-fallback { overflow:hidden; }
     min-width: 112px;
   }
 }
+
+
+/* Consultation-first legal document workflow. */
+.ai-accept-consultation {
+  display: block;
+  width: 100%;
+  margin: .25rem 0 .75rem;
+  white-space: normal;
+  line-height: 1.8;
+}
+.ai-party-panel {
+  display: grid;
+  gap: .7rem;
+  padding: 1rem;
+  margin: .25rem 0 .85rem;
+  border: 1px solid var(--sand-line, #d7cbb4);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--paper, #fffdf8) 92%, var(--gold, #c6a15b) 8%);
+}
+.ai-party-panel[hidden] { display: none; }
+.ai-party-panel h3 { margin: 0; font-size: 1rem; }
+.ai-party-panel > p { margin: 0; line-height: 1.8; }
+.ai-party-field { display: grid; gap: .35rem; min-width: 0; font-weight: 700; font-size: .9rem; }
+.ai-party-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding: .7rem .8rem;
+  border: 1px solid var(--sand-line, #d7cbb4);
+  border-radius: 9px;
+  background: var(--paper, #fffdf8);
+  color: var(--ink, #26352f);
+  font: inherit;
+  font-weight: 400;
+}
+.ai-party-input:focus-visible { outline: 2px solid var(--deep, #174d43); outline-offset: 2px; }
+@media (max-width: 600px) {
+  .ai-party-panel { padding: .8rem; }
+  .ai-accept-consultation { min-height: 46px; }
+}
