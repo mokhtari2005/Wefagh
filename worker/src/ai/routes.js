@@ -9,9 +9,9 @@ import { handleThreads } from './threads.js';
 import { AiError, aiConfigured, transcribeAudio, synthesizeLongSpeech } from './gemini.js';
 import { generateTextWithFallback, stripResponseFormatting } from './fallback.js';
 import { groqConfigured } from './groq.js';
-import { reviewWithWorkersAI, workersAiConfigured } from './cloudflare.js';
+import { reviewWithWorkersAI, workersAiConfigured, workersAiReviewNotes } from './cloudflare.js';
 import { clampReply } from './speech.js';
-import { reviewLegalDraft, groqReviewShortNote } from './groq.js';
+import { reviewLegalDraft, groqReviewNotes, groqReviewShortNote } from './groq.js';
 import { AttachmentError, ATTACHMENT_LIMITS, processAttachments, buildUserParts, summarizeAttachments } from './attachments.js';
 import {
   LEGAL_DISCLAIMER, ASSISTANT_DOC_TYPES, ASSISTANT_MODES, ASSISTANT_SCHEMA, MOOT_EVAL_SCHEMA,
@@ -406,10 +406,13 @@ async function assistant(request, env) {
     if (truncated) notes.push('پاسخ به‌دلیل طول زیاد کامل نشد. برای ادامه بنویسید «ادامه بده».');
     for (const warning of citationWarnings(text)) if (!notes.includes(warning)) notes.push(warning);
     // برای حفظ محرمانگی، در صورت وجود پیوست، پیش‌نویس حاوی محتوای استخراج‌شده به ارائه‌دهندهٔ سوم ارسال نمی‌شود.
+    let reviewDetails = [];
     if (attachments.length) {
       notes.push('هشدار: بازبینی مستقل انجام نشد.');
+      reviewDetails = ['به‌دلیل وجود پیوست، بازبینی مستقل Groq اجرا نشد تا محتوای سند به سرویس دیگری منتقل نشود.'];
     } else if (provider === 'groq') {
       notes.push('چون پاسخ اصلی همین نوبت با Groq تولید شده، بازبینی مستقل جداگانه اجرا نشد تا یک سرویس هم‌زمان نقش تولیدکننده و بازبین را نداشته باشد.');
+      reviewDetails = ['پاسخ با Groq تولید شده است؛ بازبینی مستقلِ جداگانه انجام نشده و صحت حقوقی آن تأیید نشده است.'];
     } else {
       stage = 'groq_review';
       let reviewArticles = legalArticles;
@@ -435,12 +438,14 @@ async function assistant(request, env) {
       });
       if (reviewBankUnavailable) notes.push('جست‌وجوی تکمیلی بانک قوانین برای بازبین Groq انجام نشد؛ نتیجه بر اساس مواد بازیابی‌شده در مرحله نخست و سایر اطلاعات موجود است.');
       notes.push(groqReviewShortNote(review));
+      reviewDetails = groqReviewNotes(review);
       if (mode === 'draft' && workersAiConfigured(env)) {
         stage = 'cloudflare_workers_ai_review';
         const thirdReview = await reviewWithWorkersAI(env, { mode, docType, question: message, draft: text });
         notes.push(thirdReview.status === 'reviewed'
           ? 'بازبینی مستقل سوم با Cloudflare Workers AI انجام شد.'
           : 'بازبینی مستقل سوم انجام نشد.');
+        reviewDetails.push(...workersAiReviewNotes(thirdReview));
       }
     }
     if (!attachments.length && mode === 'draft' && provider === 'groq' && workersAiConfigured(env)) {
@@ -449,6 +454,7 @@ async function assistant(request, env) {
       notes.push(thirdReview.status === 'reviewed'
         ? 'بازبینی مستقل سوم با Cloudflare Workers AI انجام شد.'
         : 'بازبینی مستقل سوم انجام نشد.');
+      reviewDetails.push(...workersAiReviewNotes(thirdReview));
     }
     for (const a of attachments) {
       if (a.truncated) notes.push(`فقط بخش ابتدایی «${a.name}» (حداکثر ${ATTACHMENT_LIMITS.extractedChars.toLocaleString('fa-IR')} نویسه) بررسی شد.`);
@@ -459,6 +465,7 @@ async function assistant(request, env) {
       questions,
       text,
       notes,
+      reviewDetails,
       attachments: summarizeAttachments(attachments),
       disclaimer: LEGAL_DISCLAIMER,
     });
