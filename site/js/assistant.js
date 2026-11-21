@@ -576,6 +576,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
       setVoiceState('error', `تبدیل گفتار ناموفق بود: ${errorText(code)} (کد: ${code})`);
       return;
     }
+    if (!voiceMode) { voiceProcessing = false; return; }
     const recognized = String(result.data.text || '').trim();
     if (!recognized) {
       voiceProcessing = false;
