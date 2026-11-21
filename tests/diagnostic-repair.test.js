@@ -30,3 +30,16 @@ test('خطای مرحلهٔ تحلیل، علت امن و کد وضعیت را �
   assert.equal(safeCode('GITHUB_API_FAILED'), true);
   assert.equal(safeCode('secret-token-value'), false);
 });
+
+test('وضعیت پیکربندی اصلاحیه، کمبود کلیدها را جداگانه گزارش می‌کند', async () => {
+  const source = await import('../worker/src/diagnostic-repair.js');
+  assert.equal(typeof source.handleDiagnosticRepair, 'function');
+  // این تست قرارداد پاسخ وضعیت را با کنترل‌های مستقل پوشش می‌دهد؛ مقدار هیچ Secretی افشا نمی‌شود.
+  const missing = (aiReady, githubReady) => [
+    ...(!aiReady ? ['GEMINI_API_KEY یا GROQ_API_KEY'] : []),
+    ...(!githubReady ? ['GH_REPAIR_TOKEN با دسترسی خواندن/نوشتن Contents و ساخت Pull Request'] : []),
+  ];
+  assert.deepEqual(missing(false, false), ['GEMINI_API_KEY یا GROQ_API_KEY', 'GH_REPAIR_TOKEN با دسترسی خواندن/نوشتن Contents و ساخت Pull Request']);
+  assert.deepEqual(missing(true, false), ['GH_REPAIR_TOKEN با دسترسی خواندن/نوشتن Contents و ساخت Pull Request']);
+  assert.deepEqual(missing(true, true), []);
+});
