@@ -62,7 +62,7 @@ export async function sendDocument(env, chatId, file, caption = '') {
     form.append('chat_id', String(chatId));
     if (caption) form.append('caption', String(caption).slice(0, 900));
     form.append('document', new Blob([bytes], { type: file.type || 'application/octet-stream' }), safeName);
-    const res = await fetch(\`\${TELEGRAM_API}/bot\${token}/sendDocument\`, {
+    const res = await fetch(TELEGRAM_API + '/bot' + token + '/sendDocument', {
       method: 'POST',
       body: form,
       signal: AbortSignal.timeout(20_000),
