@@ -47,6 +47,37 @@ export async function sendMessage(env, chatId, text) {
   return allOk;
 }
 
+/** ارسال فایل پیوست به گفت‌وگوی متصل؛ فایل‌های بیش از ۸ مگابایت پذیرفته نمی‌شوند. */
+export async function sendDocument(env, chatId, file, caption = '') {
+  try {
+    const bytes = file?.bytes;
+    if (!telegramConfigured(env) || !Number.isSafeInteger(Number(chatId))
+      || !(bytes instanceof Uint8Array) || bytes.length === 0 || bytes.length > 8 * 1024 * 1024) return false;
+    const name = String(file?.name || 'attachment').split(/[\\\\/]/).pop()
+      .replace(/[\\u0000-\\u001f\\u007f<>:"'\x60]/g, ' ')
+      .replace(/\\s+/g, ' ').trim().slice(0, 80) || 'attachment';
+    const type = typeof file?.type === 'string' && file.type.length <= 120
+      ? file.type : 'application/octet-stream';
+    const form = new FormData();
+    form.append('chat_id', String(chatId));
+    if (caption) form.append('caption', String(caption).slice(0, 900));
+    form.append('document', new Blob([bytes], { type }), name);
+    const res = await fetch(`${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN.trim()}/sendDocument`, {
+      method: 'POST',
+      body: form,
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!res.ok) {
+      console.error(JSON.stringify({ where: 'telegram.send_document', httpStatus: res.status }));
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error(JSON.stringify({ where: 'telegram.send_document', error: err?.name || 'Error' }));
+    return false;
+  }
+}
+
 /** مقایسهٔ زمان‌ثابت دو رشته (برای هدر محرمانهٔ webhook). */
 export function safeEqual(a, b) {
   const x = new TextEncoder().encode(String(a ?? ''));
