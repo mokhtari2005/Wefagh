@@ -212,7 +212,7 @@ export async function searchLegalWeb(env, query, timeoutMs = 45_000) {
       'هر منبع را با عنوان و پیوند دقیق معرفی کن. از ساختن شماره ماده، رأی، نظریه، تاریخ یا نقل‌قول خودداری کن.',
       'موضوعات حقوقی برای جست‌وجو (بدون اطلاعات شخصی یا شرح وقایع پرونده):',
       input,
-    ].join('\\n'),
+    ].join('\n'),
     tools: [{ type: 'google_search' }],
   };
   const data = await post(
@@ -247,7 +247,7 @@ export async function searchLegalWeb(env, query, timeoutMs = 45_000) {
       }
     }
   }
-  const text = texts.join('\\n\\n').trim();
+  const text = texts.join('\n\n').trim();
   if (!text && !sources.length) return { text: '', sources: [], queries, status: 'no_results' };
   return { text, sources: sources.slice(0, 12), queries: queries.slice(0, 8), status: 'grounded', model };
 }
