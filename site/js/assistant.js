@@ -3,7 +3,7 @@
 import { h } from './dom.js';
 import { icon } from './icons.js';
 import { getJson, postJson, postForm, sendJson } from './api.js';
-import { aiStatus, errorText } from './ai-client.js';
+import { aiStatus, errorText, blobToBase64, pickRecordingMime, baseMime } from './ai-client.js';
 import { formatShamsi } from './shamsi.js';
 
 export const DOC_TYPES = [
@@ -427,110 +427,231 @@ function assistantWorkspace(initialThread, guestMode = false) {
   // ---------- کادر ارسال ----------
   const composerText = h('textarea', { class: 'ai-input', rows: '3', maxlength: String(MESSAGE_LIMIT), 'aria-label': 'پیام یا شرح پرونده', placeholder: 'موضوع دعوا، سمت موکل، مرجع رسیدگی، مرحله، خواسته، وقایع و دلایل موجود…' });
   const counter = h('span', { class: 'muted ai-counter', 'aria-live': 'polite', text: `0 / ${MESSAGE_LIMIT}` });
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const mediaRecorderAvailable = Boolean(navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== 'undefined');
   let voiceMode = false;
-  let recognition = null;
-  let voiceTranscript = '';
-  let voiceSilenceTimer = null;
+  let recording = false;
+  let voiceProcessing = false;
   let speaking = false;
-  let recognitionRestartPending = false;
-  const voiceBtn = h('button', { class: 'btn secondary ai-voice-toggle', type: 'button', text: 'شروع گفت‌وگوی صوتی' });
-  const voiceHint = h('span', { class: 'muted ai-voice-hint', role: 'status', 'aria-live': 'polite', text: SpeechRecognition ? 'برای گفت‌وگوی صوتی، میکروفون را فعال کنید. گفتار با سرویس تشخیص گفتار مرورگر به متن تبدیل و سپس برای پاسخ به هوش مصنوعی ارسال می‌شود.' : 'گفت‌وگوی صوتی در این مرورگر پشتیبانی نمی‌شود؛ می‌توانید از دیکته صفحه‌کلید استفاده کنید.' });
+  let recorder = null;
+  let mediaStream = null;
+  let audioChunks = [];
+  let currentAudio = null;
+  let currentAudioUrl = null;
+  let recordTimeout = null;
+  const voiceBtn = h('button', { class: 'btn ai-voice-toggle', type: 'button', text: 'شروع گفت‌وگوی صوتی' });
+  const voiceEndBtn = h('button', { class: 'btn secondary ai-voice-end', type: 'button', text: 'پایان گفت‌وگو', hidden: '' });
+  const playReplyBtn = h('button', { class: 'btn secondary ai-voice-play', type: 'button', text: 'پخش دوباره پاسخ', hidden: '' });
+  const voiceWave = h('div', { class: 'ai-voice-wave', 'data-state': mediaRecorderAvailable ? 'idle' : 'unsupported', role: 'img', 'aria-label': 'وضعیت گفت‌وگوی صوتی' },
+    Array.from({ length: 9 }, () => h('span', { 'aria-hidden': 'true' }))
+  );
+  const voiceHint = h('span', { class: 'muted ai-voice-hint', role: 'status', 'aria-live': 'polite', text: mediaRecorderAvailable
+    ? 'برای شروع، دکمه گفت‌وگوی صوتی را بزنید. هر بار صحبت را پایان دهید تا صدا به متن تبدیل و پاسخ صوتی پخش شود.'
+    : 'ضبط صدا در این مرورگر پشتیبانی نمی‌شود؛ Safari یا Chrome را به‌روز کنید و مجوز میکروفون را بررسی کنید.' });
+  const voicePanel = h('div', { class: 'ai-voice-panel', 'aria-label': 'کنترل گفت‌وگوی صوتی' }, [
+    h('div', { class: 'ai-voice-actions' }, [voiceBtn, voiceEndBtn, playReplyBtn]),
+    voiceWave,
+    voiceHint,
+  ]);
+  function setVoiceState(state, message) {
+    voiceWave.dataset.state = state;
+    voiceWave.setAttribute('aria-label', message);
+    voiceHint.textContent = message;
+    voiceBtn.textContent = recording ? 'پایان صحبت و ارسال' : voiceMode ? 'شروع صحبت' : 'شروع گفت‌وگوی صوتی';
+    voiceBtn.setAttribute('aria-pressed', recording ? 'true' : 'false');
+    voiceBtn.disabled = !mediaRecorderAvailable || voiceProcessing || speaking;
+    voiceEndBtn.hidden = !voiceMode;
+  }
+  function releaseMicrophone() {
+    mediaStream?.getTracks().forEach((track) => track.stop());
+    mediaStream = null;
+  }
   function stopSpeaking() {
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-    speaking = false;
-  }
-  function speakReply(text) {
-    if (!voiceMode || !('speechSynthesis' in window) || !text) return;
-    stopSpeaking();
-    const utterance = new SpeechSynthesisUtterance(String(text).replace(/\[جای خالی:[^\]]*\]/g, 'جای خالی'));
-    utterance.lang = 'fa-IR';
-    utterance.rate = 1;
-    utterance.onstart = () => { speaking = true; voiceHint.textContent = 'پاسخ دستیار در حال پخش است…'; };
-    utterance.onend = () => {
-      speaking = false;
-      if (voiceMode && !busy) startListening();
-    };
-    utterance.onerror = () => {
-      speaking = false;
-      if (voiceMode && !busy) { voiceHint.textContent = 'پخش صوتی ممکن نشد؛ پاسخ به‌صورت نوشتاری در دسترس است.'; startListening(); }
-    };
-    window.speechSynthesis.speak(utterance);
-  }
-  function startListening() {
-    if (!voiceMode || !recognition || busy || speaking) return;
-    try {
-      voiceTranscript = '';
-      recognition.start();
-      voiceHint.textContent = 'گوش می‌دهم؛ صحبت کنید…';
-    } catch (error) {
-      if (error?.name !== 'InvalidStateError') voiceHint.textContent = 'دسترسی میکروفون برقرار نشد. مجوز میکروفون مرورگر را بررسی کنید.';
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.src = '';
+      currentAudio = null;
     }
+    if (currentAudioUrl) URL.revokeObjectURL(currentAudioUrl);
+    currentAudioUrl = null;
+    speaking = false;
+    playReplyBtn.hidden = true;
   }
   function stopVoiceMode() {
     voiceMode = false;
-    recognitionRestartPending = false;
-    stopSpeaking();
-    if (recognition) {
-      try { recognition.stop(); } catch {}
+    if (recordTimeout) clearTimeout(recordTimeout);
+    recordTimeout = null;
+    if (recorder && recording) {
+      recording = false;
+      try { recorder.stop(); } catch {}
     }
-    voiceBtn.textContent = 'شروع گفت‌وگوی صوتی';
-    voiceBtn.setAttribute('aria-pressed', 'false');
-    voiceHint.textContent = 'گفت‌وگوی صوتی متوقف شد.';
+    recorder = null;
+    audioChunks = [];
+    releaseMicrophone();
+    stopSpeaking();
+    voiceProcessing = false;
+    setVoiceState('idle', 'گفت‌وگوی صوتی متوقف شد.');
+    voiceEndBtn.hidden = true;
   }
-  if (SpeechRecognition) {
-    recognition = new SpeechRecognition();
-    recognition.lang = 'fa-IR';
-    recognition.continuous = true;
-    recognition.interimResults = false;
-    recognition.onresult = (event) => {
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          const recognized = event.results[i][0].transcript.trim();
-          if (!acceptBtn.hidden && /(?:تأیید|تایید|موافقم|قبول دارم|بله.{0,12}(?:تنظیم|سند)|تنظیم سند)/i.test(recognized)) {
-            voiceTranscript = '';
-            acceptBtn.click();
-            return;
-          }
-          voiceTranscript += recognized + ' ';
-          if (voiceSilenceTimer) clearTimeout(voiceSilenceTimer);
-          voiceSilenceTimer = setTimeout(() => { if (voiceMode && voiceTranscript.trim() && recognition) { try { recognition.stop(); } catch {} } }, 1400);
+  async function startRecording() {
+    if (!voiceMode || recording || voiceProcessing || speaking || !mediaRecorderAvailable) return;
+    setVoiceState('connecting', 'در حال اتصال به میکروفون…');
+    try {
+      mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      if (!voiceMode) { releaseMicrophone(); return; }
+      const preferredMime = pickRecordingMime();
+      recorder = preferredMime
+        ? new MediaRecorder(mediaStream, { mimeType: preferredMime, audioBitsPerSecond: 32000 })
+        : new MediaRecorder(mediaStream);
+      audioChunks = [];
+      recorder.addEventListener('dataavailable', (event) => {
+        if (event.data?.size) audioChunks.push(event.data);
+      });
+      recorder.addEventListener('error', () => {
+        recording = false;
+        releaseMicrophone();
+        recorder = null;
+        setVoiceState('error', 'ضبط صدا با خطا متوقف شد؛ دوباره تلاش کنید.');
+      }, { once: true });
+      recorder.addEventListener('stop', () => {
+        const mime = recorder?.mimeType || audioChunks[0]?.type || '';
+        const blob = new Blob(audioChunks, { type: mime });
+        audioChunks = [];
+        recorder = null;
+        releaseMicrophone();
+        if (!voiceMode) return;
+        if (!blob.size) {
+          setVoiceState('error', 'صدایی ضبط نشد؛ دوباره صحبت کنید.');
+          return;
         }
-      }
-    };
-    recognition.onerror = (event) => {
-      if (!voiceMode) return;
-      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-        voiceHint.textContent = 'مجوز میکروفون داده نشد. دسترسی میکروفون سایت را در تنظیمات مرورگر فعال کنید.';
-        stopVoiceMode();
-      } else if (event.error !== 'no-speech' && event.error !== 'aborted') {
-        voiceHint.textContent = 'تشخیص گفتار با مشکل روبه‌رو شد؛ دوباره تلاش کنید.';
-      }
-    };
-    recognition.onend = () => {
-      if (!voiceMode) return;
-      if (voiceSilenceTimer) { clearTimeout(voiceSilenceTimer); voiceSilenceTimer = null; }
-      const spoken = voiceTranscript.trim();
-      if (spoken && !busy) {
-        composerText.value = [composerText.value.trim(), spoken].filter(Boolean).join(' ');
-        counter.textContent = `${composerText.value.length} / ${MESSAGE_LIMIT}`;
-        voiceTranscript = '';
-        send();
-      } else if (voiceMode && !busy && !speaking) {
-        setTimeout(() => startListening(), 250);
-      }
-    };
+        transcribeVoice(blob).catch((error) => {
+          console.error('assistant.voice_transcription_failed', error?.name || 'Error');
+          voiceProcessing = false;
+          setVoiceState('error', 'تبدیل صدا به متن انجام نشد؛ اتصال اینترنت و دسترسی میکروفون را بررسی و دوباره تلاش کنید.');
+        });
+      }, { once: true });
+      recorder.start();
+      recording = true;
+      setVoiceState('listening', 'میکروفون فعال است؛ صحبت کنید و سپس «پایان صحبت و ارسال» را بزنید.');
+      recordTimeout = window.setTimeout(() => {
+        if (recording) stopRecording();
+      }, 90000);
+    } catch (error) {
+      releaseMicrophone();
+      recorder = null;
+      const message = error?.name === 'NotAllowedError' || error?.name === 'SecurityError'
+        ? 'اجازه میکروفون صادر نشد؛ دسترسی میکروفون سایت را در تنظیمات Safari فعال کنید.'
+        : error?.name === 'NotFoundError'
+          ? 'میکروفونی در دستگاه پیدا نشد.'
+          : 'شروع ضبط ممکن نشد؛ مجوز میکروفون و تنظیمات مرورگر را بررسی کنید.';
+      setVoiceState('error', message);
+    }
   }
-  voiceBtn.disabled = !SpeechRecognition;
-  voiceBtn.setAttribute('aria-pressed', 'false');
+  function stopRecording() {
+    if (!recording || !recorder) return;
+    recording = false;
+    if (recordTimeout) clearTimeout(recordTimeout);
+    recordTimeout = null;
+    voiceProcessing = true;
+    setVoiceState('processing', 'ضبط پایان یافت؛ در حال تبدیل گفتار به متن…');
+    try { recorder.stop(); } catch {
+      voiceProcessing = false;
+      releaseMicrophone();
+      setVoiceState('error', 'پایان ضبط با خطا روبه‌رو شد؛ دوباره تلاش کنید.');
+    }
+  }
+  async function transcribeVoice(blob) {
+    const mimeType = baseMime(blob.type || 'audio/mp4');
+    if (!['audio/webm', 'audio/mp4', 'audio/ogg', 'audio/wav'].includes(mimeType)) {
+      voiceProcessing = false;
+      setVoiceState('error', 'قالب ضبط صدا در این مرورگر پشتیبانی نمی‌شود؛ Safari را به‌روز کنید.');
+      return;
+    }
+    const data = await blobToBase64(blob);
+    const result = await postJson('/api/ai/transcribe', { mimeType, data, language: 'fa' }, { timeoutMs: 120000 });
+    if (!result.ok || !result.data?.ok) {
+      voiceProcessing = false;
+      const code = result.data?.error || (result.timeoutError ? 'AI_REQUEST_TIMEOUT' : result.networkError ? 'NETWORK' : 'AI_UNAVAILABLE');
+      setVoiceState('error', `تبدیل گفتار ناموفق بود: ${errorText(code)} (کد: ${code})`);
+      return;
+    }
+    const recognized = String(result.data.text || '').trim();
+    if (!recognized) {
+      voiceProcessing = false;
+      setVoiceState('ready', 'گفتاری تشخیص داده نشد؛ دوباره صحبت کنید.');
+      return;
+    }
+    composerText.value = [composerText.value.trim(), recognized].filter(Boolean).join(' ').slice(0, MESSAGE_LIMIT);
+    counter.textContent = `${composerText.value.length} / ${MESSAGE_LIMIT}`;
+    voiceProcessing = false;
+    setVoiceState('processing', 'متن گفتار دریافت شد؛ در حال ارسال برای مشاوره حقوقی…');
+    await send();
+  }
+  async function speakReply(text) {
+    if (!voiceMode || !text) return;
+    const spokenText = String(text).replace(/\[جای خالی:[^\]]*\]/g, 'جای خالی').slice(0, 2000);
+    speaking = true;
+    setVoiceState('speaking', 'پاسخ دستیار در حال آماده‌سازی و پخش است…');
+    try {
+      const response = await fetch('/api/ai/speech', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'audio/wav' },
+        body: JSON.stringify({ text: spokenText, voice: 'Kore' }),
+      });
+      if (!response.ok) {
+        let code = 'AI_UNAVAILABLE';
+        try { code = (await response.json())?.error || code; } catch {}
+        throw new Error(code);
+      }
+      const audioBlob = await response.blob();
+      if (!audioBlob.size) throw new Error('EMPTY_AUDIO');
+      if (currentAudioUrl) URL.revokeObjectURL(currentAudioUrl);
+      currentAudioUrl = URL.createObjectURL(audioBlob);
+      currentAudio = new Audio(currentAudioUrl);
+      currentAudio.onended = () => {
+        speaking = false;
+        currentAudio = null;
+        if (currentAudioUrl) URL.revokeObjectURL(currentAudioUrl);
+        currentAudioUrl = null;
+        setVoiceState('ready', 'پاسخ پخش شد؛ برای ادامه گفت‌وگو، «شروع صحبت» را بزنید.');
+      };
+      currentAudio.onerror = () => {
+        speaking = false;
+        playReplyBtn.hidden = false;
+        setVoiceState('ready', 'پخش خودکار ممکن نشد؛ برای شنیدن پاسخ، «پخش دوباره پاسخ» را بزنید.');
+      };
+      await currentAudio.play();
+      playReplyBtn.hidden = true;
+    } catch (error) {
+      speaking = false;
+      playReplyBtn.hidden = false;
+      setVoiceState('ready', 'پاسخ متنی آماده است؛ پخش صوتی انجام نشد. برای تلاش دوباره، «پخش دوباره پاسخ» را بزنید.');
+      console.warn('assistant.voice_playback_unavailable', error?.message || error?.name || 'Error');
+    }
+  }
+  voiceBtn.disabled = !mediaRecorderAvailable;
   voiceBtn.addEventListener('click', () => {
-    if (!SpeechRecognition) return;
-    if (voiceMode) { stopVoiceMode(); return; }
-    voiceMode = true;
-    voiceBtn.textContent = 'پایان گفت‌وگوی صوتی';
-    voiceBtn.setAttribute('aria-pressed', 'true');
-    voiceHint.textContent = 'درخواست دسترسی میکروفون؛ گفتار شما برای تبدیل به متن از سرویس تشخیص گفتار مرورگر استفاده می‌کند.';
-    startListening();
+    if (!mediaRecorderAvailable || voiceProcessing || speaking) return;
+    if (recording) { stopRecording(); return; }
+    if (!voiceMode) {
+      voiceMode = true;
+      voiceEndBtn.hidden = false;
+    }
+    startRecording();
+  });
+  voiceEndBtn.addEventListener('click', stopVoiceMode);
+  playReplyBtn.addEventListener('click', async () => {
+    if (!currentAudio) return;
+    try {
+      await currentAudio.play();
+      playReplyBtn.hidden = true;
+      speaking = true;
+      setVoiceState('speaking', 'پاسخ دستیار در حال پخش است…');
+    } catch {
+      setVoiceState('error', 'پخش پاسخ ممکن نشد؛ صدای دستگاه و تنظیمات مرورگر را بررسی کنید.');
+    }
   });
   composerText.addEventListener('input', () => { counter.textContent = `${composerText.value.length} / ${MESSAGE_LIMIT}`; });
   const fileInput = h('input', { type: 'file', accept: ATTACH_ACCEPT, multiple: '', hidden: '', 'aria-hidden': 'true', tabindex: '-1' });
@@ -602,8 +723,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     const lastAnswer = [...history].reverse().find((item) => item.role === 'ai' && item.text)?.text || '';
     if (!lastAnswer) { status.textContent = 'ابتدا گفت‌وگوی مشاوره را تکمیل کنید.'; return; }
     stopVoiceMode();
-    voiceBtn.hidden = true;
-    voiceHint.hidden = true;
+    voicePanel.hidden = true;
     acceptedConclusion = lastAnswer;
     mode = 'draft';
     docSelect.value = 'petition';
@@ -683,7 +803,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
       const which = res.data?.file ? ` (فایل: ${res.data.file})` : '';
       status.textContent = `${errorText(code)}${which} (کد: ${code}${res.data?.providerStatus ? ` · HTTP ${res.data.providerStatus}` : ''}${res.data?.providerReason ? ` ${res.data.providerReason}` : ''}${res.data?.reason ? ` · ${res.data.reason}` : ''} متن و پیوست‌های شما حفظ شد.`;
       renderLog();
-      if (voiceMode) startListening();
+      if (voiceMode) setVoiceState('ready', 'ارسال گفتار ناموفق بود؛ متن حفظ شده است. برای تلاش دوباره «شروع صحبت» را بزنید.');
       return;
     }
     // فقط نام فایل‌ها در گفت‌وگو و تاریخچه می‌ماند؛ محتوای فایل هرگز ذخیره نمی‌شود.
@@ -711,8 +831,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     threadId = null;
     history.length = 0;
     stopVoiceMode();
-    voiceBtn.hidden = false;
-    voiceHint.hidden = false;
+    voicePanel.hidden = false;
     acceptedConclusion = '';
     acceptBtn.hidden = true;
     partyPanel.hidden = true;
@@ -747,8 +866,8 @@ function assistantWorkspace(initialThread, guestMode = false) {
   const composer = h('form', { class: 'ai-composer', 'aria-label': 'ارسال پیام' }, [
     acceptBtn, partyPanel, attachChip,
     composerText,
-    h('div', { class: 'ai-composer-bar' }, [attachBtn, fileInput, voiceBtn, counter, sendBtn]),
-    voiceHint,
+    h('div', { class: 'ai-composer-bar' }, [attachBtn, fileInput, counter, sendBtn]),
+    voicePanel,
     status,
     h('p', { class: 'ai-history-link' }, [h('a', { href: '#/assistant/history', text: 'سوابق گفت‌وگوها ←' })]),
   ]);
