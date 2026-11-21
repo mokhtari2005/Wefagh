@@ -316,7 +316,9 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart') 
     // در مشاوره فقط «مشاوره» دیده می‌شود؛ سایر حالت‌ها بعد از توافق بر نتیجه باز می‌شوند.
     modeButtons.forEach((x, i) => { x.hidden = MODES[i][0] !== 'consult' && mode === 'consult' && !acceptedConclusion; });
     contractModeButton.hidden = mode === 'consult' && !acceptedConclusion;
-    composerText.placeholder = mode === 'consult' ? PLACEHOLDERS.consult : PLACEHOLDERS.other;
+    composerText.placeholder = mode === 'consult'
+      ? (voiceAllowed ? 'پیام خود را برای دستیار بنویسید…' : PLACEHOLDERS.consult)
+      : PLACEHOLDERS.other;
     syncContractPicker();
     renderSuggestions();
   }
@@ -424,7 +426,13 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart') 
   }
 
   // ---------- کادر ارسال ----------
-  const composerText = h('textarea', { class: 'ai-input', rows: '3', maxlength: String(MESSAGE_LIMIT), 'aria-label': 'پیام یا شرح پرونده', placeholder: 'موضوع دعوا، سمت موکل، مرجع رسیدگی، مرحله، خواسته، وقایع و دلایل موجود…' });
+  const composerText = h('textarea', {
+    class: voiceAllowed ? 'ai-input ai-chat-input' : 'ai-input',
+    rows: voiceAllowed ? '1' : '3',
+    maxlength: String(MESSAGE_LIMIT),
+    'aria-label': voiceAllowed ? 'پیام به دستیار' : 'پیام یا شرح پرونده',
+    placeholder: voiceAllowed ? 'پیام خود را برای دستیار بنویسید…' : 'موضوع دعوا، سمت موکل، مرجع رسیدگی، مرحله، خواسته، وقایع و دلایل موجود…',
+  });
   const counter = h('span', { class: 'muted ai-counter', 'aria-live': 'polite', text: `0 / ${MESSAGE_LIMIT}` });
   const mediaRecorderAvailable = Boolean(navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== 'undefined');
   let voiceMode = false;
@@ -872,7 +880,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart') 
     status.textContent = problems.length ? problems.join(' ') : (picked.length ? 'پیوست شد. با ارسال، فایل برای بررسی همراه پیام فرستاده می‌شود.' : '');
   });
 
-  const sendBtn = h('button', { class: 'btn ai-send', type: 'button', text: 'ارسال' });
+  const sendBtn = h('button', { class: 'btn ai-send', type: 'button', text: voiceAllowed ? 'ارسال پیام' : 'ارسال' });
   const newBtn = h('button', { class: 'btn secondary', type: 'button', text: 'گفت‌وگوی تازه' });
   const status = h('p', { class: 'muted ai-status', role: 'status', 'aria-live': 'polite' });
   let acceptedConclusion = '';
@@ -1050,7 +1058,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart') 
   if (initialThread && /^[1-9][0-9]{0,15}$/.test(initialThread)) loadThread(initialThread);
 
   const toolbar = h('div', { class: 'ai-toolbar' }, [modeGroup, docWrap, contractWrap, newBtn]);
-  const composer = h('form', { class: 'ai-composer', 'aria-label': 'ارسال پیام' }, [
+  const composer = h('form', { class: voiceAllowed ? 'ai-composer ai-chat-composer' : 'ai-composer', 'aria-label': voiceAllowed ? 'چت با دستیار' : 'ارسال پیام' }, [
     acceptBtn, partyPanel, attachChip,
     composerText,
     h('div', { class: 'ai-composer-bar' }, [attachBtn, fileInput, counter, sendBtn]),
