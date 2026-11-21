@@ -228,11 +228,11 @@ export async function handleLegalBank(request, env, path) {
 export function extractExplicitLegalReferences(query) {
   const text = String(query || '');
   const refs = [];
-  const re = /(?:ماده|مواد)\\s*([۰-۹0-9]+(?:\\s*(?:،|,|و|تا|الی|[-–])\\s*[۰-۹0-9]+)*)\\s*(?:از\\s*)?(قانون\\s+[^،؛\\n.]{3,100})/gu;
+  const re = /(?:ماده|مواد)\s*([۰-۹0-9]+(?:\s*(?:،|,|و|تا|الی|[-–])\s*[۰-۹0-9]+)*)\s*(?:از\s*)?(قانون\s+[^،؛\n.]{3,100})/gu;
   for (const match of text.matchAll(re)) {
     const numbers = (match[1].match(/[۰-۹0-9]+/g) || []).map((n) =>
       n.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))));
-    const lawTitle = match[2].trim().replace(/\\s+/g, ' ');
+    const lawTitle = match[2].trim().replace(/\s+/g, ' ');
     for (const number of numbers) refs.push({ lawTitle, articleNumber: number });
   }
   const seen = new Set();
@@ -257,8 +257,8 @@ function legalSearchTerms(query) {
     .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
     .toLowerCase();
   const counts = new Map();
-  for (const token of normalized.split(/[^\\p{L}\\p{N}]+/u)) {
-    if (token.length < 3 || SEARCH_STOP_WORDS.has(token) || /^\\d+$/.test(token)) continue;
+  for (const token of normalized.split(/[^\p{L}\p{N}]+/u)) {
+    if (token.length < 3 || SEARCH_STOP_WORDS.has(token) || /^\d+$/.test(token)) continue;
     counts.set(token, (counts.get(token) || 0) + 1);
   }
   return [...counts.entries()]
