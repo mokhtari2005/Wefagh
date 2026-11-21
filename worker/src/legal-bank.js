@@ -277,6 +277,26 @@ export function buildLegalResearchQuery(query) {
   ].join('\n');
 }
 
+// فقط شماره موادی از متنِ واقعاً مورد ارجاع در منابع رسمی اجازه عبور از citation guard می‌گیرند.
+export function extractOfficialGroundedArticleReferences(sources) {
+  const officialDomains = new Set([
+    'qavanin.ir','rrk.ir','ara.jri.ac.ir','eadil.com','edarehoquqy.eadl.ir',
+    'divan-edalat.ir','adliran.ir','rc.majlis.ir',
+  ]);
+  const refs = new Set();
+  for (const source of Array.isArray(sources) ? sources : []) {
+    if (typeof source?.url !== 'string' || typeof source?.citedText !== 'string' || !source.citedText.trim()) continue;
+    let hostname = '';
+    try { hostname = new URL(source.url).hostname.toLowerCase(); } catch { continue; }
+    if (![...officialDomains].some((domain) => hostname === domain || hostname.endsWith('.' + domain))) continue;
+    for (const match of source.citedText.matchAll(/(?:ماده|مواد)\\s*([۰-۹0-9]+)/gu)) {
+      const number = match[1].replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+      refs.add(number);
+    }
+  }
+  return [...refs].map((articleNumber) => ({ articleNumber }));
+}
+
 const SEARCH_STOP_WORDS = new Set([
   'از','به','در','با','برای','و','یا','که','را','این','آن','یک','های','ها','می','شود','است','هست',
   'آیا','اگر','اما','باید','باشد','شده','کرده','کرد','نسبت','مورد','موارد','مطابق','طبق','قانون',
