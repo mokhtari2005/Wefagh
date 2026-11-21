@@ -407,7 +407,6 @@ async function runLitigationWorkbench(env, { contents, legalContext, attachments
     }, { allowGroq });
 
   const stageInput = (text) => [...contents, { role: 'user', parts: [{ text }] }];
-  const originalPrompt = contents.map((item) => (item.parts || []).map((part) => part.text || '').join('\n')).join('\n');
   const opening = [
     'مرحله اول مناظره حقوقی ـ طرح موضع مستقل',
     'بر پایه تمام اطلاعات پرونده، ابتدا موضوعات اختلافی، وقایع مؤثر، بار اثبات و مبانی قانونی را استخراج کن.',
@@ -552,7 +551,7 @@ async function assistant(request, env) {
         system: assistantSystemPrompt({ mode, docType, hasAttachments: attachments.length > 0, legalContext }),
         contents,
         // توکن‌های «تفکر» مدل هم از این سقف کم می‌شوند؛ سقف پایین باعث قطع شدن پیش‌نویس‌های فارسی می‌شد.
-        maxOutputTokens: mode === 'consult' ? 3500 : 6000,
+        maxOutputTokens: mode === 'consult' ? 5500 : 6000,
         timeoutMs: 45_000,
         json: true,
         schema: ASSISTANT_SCHEMA,
