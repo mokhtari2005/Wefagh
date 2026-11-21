@@ -417,13 +417,13 @@ function assistantWorkspace(initialThread, guestMode = false) {
   let waveformAnalyser = null;
   let waveformSource = null;
   let waveformFrame = null;
-  const waveformBars = Array.from(voiceWave.children);
   const voiceBtn = h('button', { class: 'btn ai-voice-toggle', type: 'button', text: 'شروع گفت‌وگوی صوتی' });
   const voiceEndBtn = h('button', { class: 'btn secondary ai-voice-end', type: 'button', text: 'پایان گفت‌وگو', hidden: '' });
   const playReplyBtn = h('button', { class: 'btn secondary ai-voice-play', type: 'button', text: 'پخش دوباره پاسخ', hidden: '' });
   const voiceWave = h('div', { class: 'ai-voice-wave', 'data-state': mediaRecorderAvailable ? 'idle' : 'unsupported', role: 'img', 'aria-label': 'وضعیت گفت‌وگوی صوتی' },
     Array.from({ length: 9 }, () => h('span', { 'aria-hidden': 'true' }))
   );
+  const waveformBars = Array.from(voiceWave.children);
   const voiceHint = h('span', { class: 'muted ai-voice-hint', role: 'status', 'aria-live': 'polite', text: mediaRecorderAvailable
     ? 'برای شروع گفت‌وگوی پیوسته، دکمه را بزنید و اجازه میکروفون را صادر کنید. پس از هر پاسخ، دستیار دوباره گوش می‌دهد؛ برای توقف، «پایان گفت‌وگو» را بزنید. صدای ضبط‌شده فقط برای تبدیل گفتار به متن به Gemini فرستاده می‌شود و در تاریخچه ذخیره نمی‌شود.'
     : 'ضبط صدا در این مرورگر پشتیبانی نمی‌شود؛ Safari یا Chrome را به‌روز کنید و مجوز میکروفون را بررسی کنید.' });
