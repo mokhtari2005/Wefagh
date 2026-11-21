@@ -224,14 +224,91 @@ export async function handleLegalBank(request, env, path) {
   return null;
 }
 
-// برای تزریق به زمینهٔ مدل فقط مواد تأییدشده برگردانده می‌شوند.
+// استخراج ارجاعات صریح به ماده و عنوان قانون؛ این مسیر بر جست‌وجوی واژه‌ای مقدم است.
+export function extractExplicitLegalReferences(query) {
+  const text = String(query || '');
+  const refs = [];
+  const re = /(?:ماده|مواد)\\s*([۰-۹0-9]+(?:\\s*(?:،|,|و|تا|الی|[-–])\\s*[۰-۹0-9]+)*)\\s*(?:از\\s*)?(قانون\\s+[^،؛\\n.]{3,100})/gu;
+  for (const match of text.matchAll(re)) {
+    const numbers = (match[1].match(/[۰-۹0-9]+/g) || []).map((n) =>
+      n.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))));
+    const lawTitle = match[2].trim().replace(/\\s+/g, ' ');
+    for (const number of numbers) refs.push({ lawTitle, articleNumber: number });
+  }
+  const seen = new Set();
+  return refs.filter((ref) => {
+    const key = ref.lawTitle + '::' + ref.articleNumber;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 12);
+}
+
+const SEARCH_STOP_WORDS = new Set([
+  'از','به','در','با','برای','و','یا','که','را','این','آن','یک','های','ها','می','شود','است','هست',
+  'آیا','اگر','اما','باید','باشد','شده','کرده','کرد','نسبت','مورد','موارد','مطابق','طبق','قانون',
+  'ماده','مواد','قانونی','حقوقی','حقوق','دعوا','پرونده','خواسته','پاسخ','بررسی','تحلیل','مطرح',
+  'کن','کنید','شود','می‌شود','همچنین','مربوط','مرتبط','شخص','طرف','طرفین','دادگاه','دادخواست',
+]);
+
+function legalSearchTerms(query) {
+  const normalized = String(query || '').normalize('NFKC')
+    .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .toLowerCase();
+  const counts = new Map();
+  for (const token of normalized.split(/[^\\p{L}\\p{N}]+/u)) {
+    if (token.length < 3 || SEARCH_STOP_WORDS.has(token) || /^\\d+$/.test(token)) continue;
+    counts.set(token, (counts.get(token) || 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((a,b) => b[1]-a[1] || b[0].length-a[0].length)
+    .slice(0, 12).map(([token]) => token);
+}
+
+// بازیابی دو مرحله‌ای: ابتدا مواد صریحاً شماره‌گذاری‌شده از همان قانون، سپس تطبیق موضوعی
+// بر کل متن پرسش (نه فقط شش واژهٔ ابتدایی). فقط اسناد و موادی که مدیر تأیید کرده است.
 export async function findVerifiedLegalArticles(db, query) {
-  const terms = [...new Set(String(query||'').split(/[\s،؛,.()]+/).map(x=>x.trim()).filter(x=>x.length>=2))].slice(0,6);
-  if (!terms.length) return [];
-  const where = terms.map((_,i)=>`(a.body LIKE ?${i+1} OR a.article_number LIKE ?${i+1} OR l.title LIKE ?${i+1})`).join(' OR ');
-  const bindings = terms.map(t=>`%${t}%`);
-  const result = await db.prepare(`SELECT l.title AS lawTitle,l.source_name AS sourceName,l.source_url AS sourceUrl,a.article_number AS articleNumber,a.heading,a.body
-    FROM legal_articles a JOIN legal_laws l ON l.id=a.law_id
-    WHERE l.status='verified' AND a.status='verified' AND (${where}) LIMIT 6`).bind(...bindings).all();
-  return result.results || [];
+  const explicit = extractExplicitLegalReferences(query);
+  const exact = [];
+  if (explicit.length) {
+    const clauses = [];
+    const bindings = [];
+    for (const ref of explicit) {
+      const lawParam = `%${ref.lawTitle}%`;
+      const ascii = ref.articleNumber;
+      const persian = ascii.replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
+      bindings.push(lawParam, ascii, persian);
+      const n = bindings.length;
+      clauses.push(`(l.title LIKE ?${n-2} AND a.article_number IN (? ${n-1}, ?${n}))`);
+    }
+    // عبارت IN با سه پارامتر برای هر ارجاع؛ از تطبیق مبهم شماره در قوانین دیگر جلوگیری می‌شود.
+    const exactSql = `SELECT l.title AS lawTitle,l.law_type AS lawType,l.source_name AS sourceName,l.source_url AS sourceUrl,a.article_number AS articleNumber,a.heading,a.body
+      FROM legal_articles a JOIN legal_laws l ON l.id=a.law_id
+      WHERE l.status='verified' AND a.status='verified' AND (${clauses.join(' OR ')})
+      ORDER BY l.title,a.id LIMIT 12`.replace(/IN \\? (\\d+)/g, 'IN (?$1');
+    const result = await db.prepare(exactSql).bind(...bindings).all();
+    exact.push(...(result.results || []));
+  }
+
+  const terms = legalSearchTerms(query);
+  let topical = [];
+  if (terms.length) {
+    const where = terms.map((_,i)=>`(a.body LIKE ?${i+1} OR a.article_number LIKE ?${i+1} OR l.title LIKE ?${i+1} OR l.subject LIKE ?${i+1})`).join(' OR ');
+    const bindings = terms.flatMap(t => [`%${t}%`,`%${t}%`,`%${t}%`,`%${t}%`]);
+    const score = terms.map((_,i)=>`(CASE WHEN a.body LIKE ?${terms.length*4+i+1} OR l.title LIKE ?${terms.length*4+i+1} OR l.subject LIKE ?${terms.length*4+i+1} THEN 1 ELSE 0 END)`).join(' + ');
+    const scoreBindings = terms.flatMap(t=>[`%${t}%`,`%${t}%`,`%${t}%`]);
+    const result = await db.prepare(`SELECT l.title AS lawTitle,l.law_type AS lawType,l.source_name AS sourceName,l.source_url AS sourceUrl,a.article_number AS articleNumber,a.heading,a.body
+      FROM legal_articles a JOIN legal_laws l ON l.id=a.law_id
+      WHERE l.status='verified' AND a.status='verified' AND (${where})
+      ORDER BY (${score}) DESC,l.title,a.id LIMIT 12`).bind(...bindings,...scoreBindings).all();
+    topical = result.results || [];
+  }
+  const seen = new Set();
+  return [...exact,...topical].filter((item) => {
+    const key = `${item.lawTitle}::${item.articleNumber}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 12);
 }
