@@ -208,6 +208,9 @@ export function assistantPage(params = {}) {
 
 /** انتخاب روش پاسخ‌گویی: متنی، یا هوشمند (چت و گفت‌وگوی صوتی در یک محیط). */
 function methodChooser(onPick, title = 'مشاوره حقوقی هوشمند') {
+  const description = title === 'مشاوره حقوقی هوشمند'
+    ? 'روش پاسخ‌گویی را انتخاب کنید. هر دو از همان مشاوره، حافظهٔ گفت‌وگو و بازبینی پشت‌صحنه استفاده می‌کنند.'
+    : `روش پاسخ‌گویی را برای بخش «${title}» انتخاب کنید؛ متن یا گفت‌وگوی صوتی در همین گردش‌کار در دسترس است.`;
   const card = (title, desc, method) => {
     const b = h('button', { class: 'assistant-document-card', type: 'button' }, [
       h('span', { class: 'assistant-document-copy' }, [h('strong', { text: title }), h('small', { text: desc })]),
@@ -217,7 +220,7 @@ function methodChooser(onPick, title = 'مشاوره حقوقی هوشمند') {
   };
   return h('section', { class: 'ai-method-chooser', 'aria-label': 'روش پاسخ‌گویی' }, [
     h('h1', { text: title }),
-    h('p', { class: 'muted', text: 'روش پاسخ‌گویی را انتخاب کنید. هر دو از همان مشاوره، حافظهٔ گفت‌وگو و بازبینی پشت‌صحنه استفاده می‌کنند.' }),
+    h('p', { class: 'muted', text: description }),
     h('div', { class: 'assistant-document-grid' }, [
       card('پاسخ‌گویی متنی', 'پرسش یا شرح پرونده را تایپ کنید و گفت‌وگو را ادامه دهید.', 'text'),
       card('پاسخ‌گویی هوشمند', 'چت متنی و گفت‌وگوی صوتی؛ بین آن‌ها جابه‌جا شوید بدون از دست رفتن گفت‌وگو.', 'smart'),
