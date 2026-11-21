@@ -538,22 +538,22 @@ async function assistant(request, env) {
     }
     const curatedArticles = VEHICLE_DEFECT_TOPIC.test(legalSearchText) ? VEHICLE_DEFECT_ARTICLES : [];
     const promptArticles = [...legalArticles, ...curatedArticles];
-    let legalContext = promptArticles.length ? promptArticles.map((a) => `قانون: ${a.lawTitle}\nماده ${a.articleNumber}${a.heading ? ` ـ ${a.heading}` : ''}\n${a.body}\nمنبع ثبت‌شده: ${a.sourceName || 'ثبت نشده'}${a.sourceUrl ? ` (${a.sourceUrl})` : ''}`).join('\n\n---\n\n') : '';
+    const legalContext = promptArticles.length ? promptArticles.map((a) => `قانون: ${a.lawTitle}\nماده ${a.articleNumber}${a.heading ? ` ـ ${a.heading}` : ''}\n${a.body}\nمنبع ثبت‌شده: ${a.sourceName || 'ثبت نشده'}${a.sourceUrl ? ` (${a.sourceUrl})` : ''}`).join('\n\n---\n\n') : '';
     // جست‌وجوی وب فقط برای مشاورهٔ متنی، بدون پیوست و با پرس‌وجوی حقوقیِ whitelist انجام می‌شود.
     // نام اشخاص، شرح وقایع، شماره پرونده و متن پیوست به موتور جست‌وجو ارسال نمی‌شود.
     let webResearch = null;
-    const verifiedLegalContext = legalContext;
+    let webResearchContext = '';
     if (mode === 'consult' && attachments.length === 0 && env.GEMINI_SEARCH_GROUNDING_ENABLED === 'true') {
       stage = 'legal_web_search';
       webResearch = await searchLegalAuthorities(env, legalSearchText);
       if (webResearch.status === 'searched') {
-        legalContext = [legalContext, [
-          'یافته‌های جست‌وجوی وب (خلاصهٔ تولیدشده از نتایج جست‌وجو؛ نه متن رسمی احرازشده):',
+        webResearchContext = [
+          'نتایج جست‌وجوی وب (خلاصهٔ تولیدشده از نتایج جست‌وجو؛ نه متن رسمی احرازشده و نه بخشی از بانک قوانین تأییدشده):',
           webResearch.summary,
           'منابع وبی بازیابی‌شده:',
           ...webResearch.sources.map((source, index) => '[' + (index + 1) + '] ' + source.title + ' — ' + source.uri),
-          'این نتایج فقط سرنخ تحقیق‌اند؛ متن جاری قانون، اصالت رأی و اعتبار منبع باید از متن رسمی مستقلاً تطبیق شود.',
-        ].join('\n')].filter(Boolean).join('\n\n---\n\n');
+          'این نتایج فقط سرنخ تحقیق‌اند؛ متن جاری قانون، اصالت رأی و اعتبار منبع باید از متن رسمی مستقلاً تطبیق شود. آن‌ها را به‌عنوان مواد تأییدشده بانک داخلی معرفی نکن.',
+        ].join('\n');
       }
     }
     stage = mode === 'litigation' ? 'litigation_role_debate' : 'gemini_generation';
@@ -566,7 +566,7 @@ async function assistant(request, env) {
       provider = report.provider;
     } else {
       const generated = await generateTextWithFallback(env, {
-        system: assistantSystemPrompt({ mode, docType, hasAttachments: attachments.length > 0, legalContext }),
+        system: [assistantSystemPrompt({ mode, docType, hasAttachments: attachments.length > 0, legalContext }), webResearchContext].filter(Boolean).join('\n\n'),
         contents,
         // توکن‌های «تفکر» مدل هم از این سقف کم می‌شوند؛ سقف پایین باعث قطع شدن پیش‌نویس‌های فارسی می‌شد.
         maxOutputTokens: mode === 'consult' ? 5500 : 6000,
@@ -584,7 +584,7 @@ async function assistant(request, env) {
     if (provider === 'groq') notes.push('به‌دلیل اختلال سرویس اصلی، دست‌کم یکی از مراحل تولید این گزارش از مسیر جایگزین تولید شد. مواد قانونیِ بازیابی‌شده از بانک آکادمی بدون تغییر در اختیار مدل قرار گرفتند؛ پاسخ همچنان نیازمند بررسی و راستی‌آزمایی حقوقی است.');
     if (legalBankUnavailable) notes.push('بانک قوانین در این درخواست پاسخ نداد؛ پاسخ بدون استناد به مواد ثبت‌شده در بانک تهیه شد و استنادها باید جداگانه بررسی شوند.');
     const rawText = typeof data.text === 'string' ? data.text : '';
-    const guardedText = guardUnverifiedLegalClaims(rawText, promptArticles, verifiedLegalContext);
+    const guardedText = guardUnverifiedLegalClaims(rawText, promptArticles, legalContext);
     let text = guardedText.text;
     if (webResearch?.status === 'searched' && webResearch.sources.length) {
       text += '\n\n## منابع وبی بازیابی‌شده برای پیگیری و راستی‌آزمایی\n' + webResearch.sources.map((source, index) => (index + 1) + '. [' + source.title + '](' + source.uri + ') — ' + source.domain).join('\n');
