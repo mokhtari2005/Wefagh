@@ -257,7 +257,16 @@ export function buildLegalResearchQuery(query) {
   const text = String(query || '');
   const refs = extractExplicitLegalReferences(text);
   const terms = LEGAL_RESEARCH_TERMS.filter((term) => text.includes(term));
-  const lawRefs = refs.map((ref) => `${ref.lawTitle} ماده ${ref.articleNumber}`);
+  const safeLawTitles = [
+    'قانون اجرای احکام مدنی','قانون مدنی','قانون آیین دادرسی مدنی','قانون آیین دادرسی کیفری',
+    'قانون مجازات اسلامی','قانون تجارت','قانون کار','قانون ثبت اسناد و املاک',
+    'قانون حمایت خانواده','قانون صدور چک','قانون مسئولیت مدنی','قانون امور حسبی',
+  ];
+  const lawRefs = refs.filter((ref) => safeLawTitles.some((title) => text.includes(title)))
+    .map((ref) => {
+      const title = safeLawTitles.find((candidate) => text.includes(candidate) && ref.lawTitle.includes(candidate));
+      return title ? `${title} ماده ${ref.articleNumber}` : null;
+    }).filter(Boolean);
   const topics = [...new Set([...lawRefs, ...terms])].slice(0, 14);
   if (!topics.length) return '';
   return [
