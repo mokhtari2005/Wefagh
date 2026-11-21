@@ -599,7 +599,7 @@ async function assistant(request, env) {
     }
     if (guardedText.changed) notes.push('شماره مواد یا مهلت‌های فاقد پشتوانه در منابع تأییدشده، برای جلوگیری از ارائه استناد نادرست با عبارت نیازمند بررسی جایگزین شدند.');
     if (truncated) notes.push('پاسخ به‌دلیل طول زیاد کامل نشد. برای ادامه بنویسید «ادامه بده».');
-    for (const warning of citationWarnings(text)) if (!notes.includes(warning)) notes.push(warning);
+    for (const warning of citationWarnings(guardedText.text)) if (!notes.includes(warning)) notes.push(warning);
     // برای حفظ محرمانگی، در صورت وجود پیوست، پیش‌نویس حاوی محتوای استخراج‌شده به ارائه‌دهندهٔ سوم ارسال نمی‌شود.
     if (attachments.length) {
       notes.push('هشدار: بازبینی مستقل انجام نشد.');
