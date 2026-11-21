@@ -5,7 +5,7 @@ import { ASSISTANT_DOCUMENT_IDS, ASSISTANT_CONTRACT_FORM_IDS, assistantMenuPage,
 test('assistant document selector exposes dedicated pages for every supported document', () => {
   assert.ok(ASSISTANT_DOCUMENT_IDS.length >= 10);
   assert.equal(new Set(ASSISTANT_DOCUMENT_IDS).size, ASSISTANT_DOCUMENT_IDS.length);
-  for (const id of ['petition', 'defense', 'appeal', 'cassation', 'enforcement', 'notice', 'criminal_complaint', 'reply', 'judicial_request', 'letter', 'other']) {
+  for (const id of ['petition', 'defense', 'appeal', 'cassation', 'enforcement', 'notice', 'criminal_complaint', 'reply', 'retrial', 'third_party', 'opposition', 'counterclaim', 'execution_objection', 'jurisdiction', 'evidence_request', 'judicial_request', 'letter', 'other']) {
     assert.ok(ASSISTANT_DOCUMENT_IDS.includes(id), id);
   }
   assert.equal(typeof assistantMenuPage, 'function');

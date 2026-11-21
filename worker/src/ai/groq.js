@@ -144,6 +144,9 @@ export async function reviewLegalDraft(env, { mode, docType, question, draft, le
   const legalBankContext = bankItems.length
     ? bankItems.join('\n\n---\n\n')
     : 'برای این درخواست هیچ ماده تأییدشده‌ای از بانک قوانین بازیابی نشد.';
+  const reviewerSystem = mode === 'litigation'
+    ? `${REVIEW_SYSTEM}\n\nدر حالت «میز محاکمه هوشمند»، بازبینی را از سه منظر مستقل انجام بده: ۱) وکیل طرف مقابل: قوی‌ترین ایرادهای شکلی و ماهوی و استدلال‌هایی را که می‌تواند علیه موکل مطرح کند استخراج کن؛ ۲) وکیل موکل: برای هر ایراد، پاسخ یا راه اصلاحی قابل دفاع پیشنهاد بده؛ ۳) قاضی بی‌طرف: مشخص کن کدام اختلاف یا خلأ دلیل هنوز حل نشده و برای تصمیم‌گیری چه واقعیت یا مدرکی تعیین‌کننده است. این سه منظر را در category هر issue با برچسب‌های «وکیل طرف مقابل»، «وکیل موکل» و «قاضی بی‌طرف» مشخص کن. استدلال مخالف را ضعیف‌سازی نکن، پاسخ موکل را بر واقعیت‌های پرونده بنا کن و از پیش‌بینی قطعی رأی خودداری کن. این گزارش باید مستقل و انتقادی باشد؛ صرفاً متن پیش‌نویس را تأیید نکن.`
+    : REVIEW_SYSTEM;
 
   let response;
   let selectedModel = GROQ_REVIEW_MODEL;
@@ -160,7 +163,7 @@ export async function reviewLegalDraft(env, { mode, docType, question, draft, le
         body: JSON.stringify({
           model: selectedModel,
           messages: [
-            { role: 'system', content: REVIEW_SYSTEM },
+            { role: 'system', content: reviewerSystem },
             { role: 'user', content: [
               `حالت کار: ${clean(mode, 40)}`,
               `نوع سند: ${clean(docType, 100) || 'تعیین نشده'}`,

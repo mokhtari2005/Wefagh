@@ -13,6 +13,13 @@ const DOCS = [
  ['notice','اظهارنامه','file-text','اعلام رسمی مطالبه، اخطار یا اراده'],
  ['criminal_complaint','شکواییه کیفری','gavel','شرح واقعه، طرفین و ادله شکایت'],
  ['reply','پاسخ به سند طرف مقابل','edit','پاسخ به دادخواست، لایحه یا دفاعیات'],
+ ['retrial','اعاده دادرسی','scale','بررسی جهات قانونی اعاده دادرسی و دلایل جدید'],
+ ['third_party','اعتراض ثالث','gavel','حمایت از حق شخص ثالث متأثر از رأی'],
+ ['opposition','واخواهی','file-text','اعتراض به حکم غیابی و بررسی عذر عدم حضور'],
+ ['counterclaim','دعوای متقابل','clipboard-list','تنظیم دعوای متقابل مرتبط با دعوای اصلی'],
+ ['execution_objection','اعتراض اجرایی','shield-check','اعتراض به اجرائیه یا عملیات اجرایی'],
+ ['jurisdiction','ایراد صلاحیت','landmark','بررسی صلاحیت ذاتی و محلی مرجع رسیدگی'],
+ ['evidence_request','درخواست ادله','file-search','تأمین دلیل، مطالبه سند یا درخواست ارائه دلیل'],
  ['judicial_request','درخواست قضایی','clipboard-list','درخواست متناسب با موضوع پرونده'],
  ['letter','نامه حقوقی','file-text','مکاتبه رسمی با اشخاص و مراجع'],
  ['other','سایر اسناد','folder','تنظیم یا تحلیل سند با قالب اختصاصی']
@@ -62,6 +69,74 @@ const SCHEMAS = {
   ['court','مرجع رسیدگی و شماره پرونده','text',false],['document','نوع سند و تاریخ ارائه آن','text',true],
   ['opponent','طرف ارائه‌کننده و ادعاهای او','area',true],['responses','پاسخ به هر ادعا یا بند','area',true],
   ['evidence','مستندات و دلایل پاسخ','area',false],['requests','درخواست نهایی','area',false]
+ ]],
+ retrial: ['دادخواست یا لایحه اعاده دادرسی', [
+  ['court','مرجع صادرکننده رأی و مرجع رسیدگی به اعاده دادرسی','text',true],
+  ['judgment','شماره، تاریخ و قطعیت رأی مورد درخواست','area',true],
+  ['parties','طرفین رأی و سمت متقاضی','area',true],
+  ['ground','جهت قانونی مورد استناد برای اعاده دادرسی','area',true],
+  ['discovery','زمان و نحوه اطلاع از جهت یا دلیل مورد استناد','area',false],
+  ['facts','شرح دقیق وقایع و انطباق آن با جهت قانونی ادعایی','area',true],
+  ['evidence','اسناد و مدارک پشتیبان و زمان تحصیل آن‌ها','area',true],
+  ['requests','خواسته و درخواست نهایی','area',true]
+ ]],
+ third_party: ['دادخواست یا لایحه اعتراض ثالث', [
+  ['court','مرجع صادرکننده رأی و مرجع رسیدگی','text',true],
+  ['judgment','مشخصات رأی مورد اعتراض و تاریخ ابلاغ یا اطلاع','area',true],
+  ['parties','طرفین دعوای اصلی و مشخصات معترض ثالث','area',true],
+  ['right','حق یا منفعت مستقل معترض ثالث','area',true],
+  ['impact','نحوه تأثیر رأی بر حق معترض و وجه ورود ضرر','area',true],
+  ['grounds','جهات و مبانی اعتراض ثالث','area',true],
+  ['evidence','اسناد و مدارک اثبات حق ثالث','area',true],
+  ['requests','خواسته و آثار مورد درخواست','area',true]
+ ]],
+ opposition: ['دادخواست یا لایحه واخواهی', [
+  ['court','دادگاه صادرکننده حکم غیابی','text',true],
+  ['judgment','شماره، تاریخ و مفاد حکم و وضعیت ابلاغ','area',true],
+  ['parties','واخواه و واخوانده و سمت آن‌ها','area',true],
+  ['absence','علت عدم حضور یا عدم اطلاع از جریان دادرسی','area',false],
+  ['service','نحوه و تاریخ ابلاغ و زمان اطلاع واقعی','area',true],
+  ['grounds','ایرادات شکلی و ماهوی نسبت به حکم','area',true],
+  ['evidence','دلایل و مستندات واخواهی','area',false],
+  ['requests','درخواست نهایی','area',true]
+ ]],
+ counterclaim: ['دادخواست دعوای متقابل', [
+  ['court','مرجع رسیدگی به دعوای اصلی','text',true],
+  ['case','شماره پرونده و مرحله رسیدگی دعوای اصلی','text',true],
+  ['parties','خواهان و خوانده دعوای اصلی و سمت آن‌ها در دعوای متقابل','area',true],
+  ['original','خواسته و سبب دعوای اصلی','area',true],
+  ['counterclaim','خواسته و سبب دعوای متقابل','area',true],
+  ['connection','ارتباط کامل یا منشأ مشترک دو دعوا','area',true],
+  ['evidence','دلایل و مستندات دعوای متقابل','area',false],
+  ['requests','خواسته نهایی و تقاضای رسیدگی توأمان','area',true]
+ ]],
+ execution_objection: ['اعتراض به اجرائیه یا عملیات اجرایی', [
+  ['authority','واحد اجرا، شعبه و مرجع مربوط','text',true],
+  ['judgment','مشخصات حکم، اجرائیه و پرونده اجرایی','area',true],
+  ['parties','محکوم‌له، محکوم‌علیه و معترض','area',true],
+  ['operation','اقدام یا عملیات اجرایی مورد اعتراض','area',true],
+  ['date','تاریخ ابلاغ یا اطلاع از اقدام مورد اعتراض','text',false],
+  ['grounds','جهات و مبانی اعتراض و ایرادهای اجرایی','area',true],
+  ['evidence','دلایل و مستندات اعتراض','area',false],
+  ['requests','اقدام مورد تقاضا از مرجع اجرا یا دادگاه','area',true]
+ ]],
+ jurisdiction: ['ایراد عدم صلاحیت', [
+  ['court','مرجع فعلی رسیدگی و شعبه','text',true],
+  ['claim','خواسته و موضوع دعوا','area',true],
+  ['facts','اقامتگاه طرفین و محل وقوع یا اجرای تعهد','area',false],
+  ['jurisdiction','نوع صلاحیت مورد ایراد: ذاتی یا محلی','text',true],
+  ['grounds','مبانی قانونی و دلایل عدم صلاحیت','area',true],
+  ['alternative','مرجع صالح مورد ادعا و مبنای آن','area',false],
+  ['requests','درخواست صدور قرار مقتضی و ارسال پرونده در صورت لزوم','area',true]
+ ]],
+ evidence_request: ['درخواست تأمین دلیل یا مطالبه دلیل', [
+  ['authority','مرجع صالح و حوزه مربوط','text',true],
+  ['subject','موضوع دلیل یا سند مورد درخواست','area',true],
+  ['facts','وقایع و وضعیت موجود و علت نیاز به دلیل','area',true],
+  ['urgency','فوریت و خطر از بین رفتن یا دشوارشدن دسترسی به دلیل','area',false],
+  ['evidence','نوع دلیل، سند، معاینه، تحقیق یا کارشناسی مورد تقاضا','area',true],
+  ['holder','شخص یا مرجعی که سند یا دلیل نزد اوست','area',false],
+  ['requests','درخواست مشخص و حدود اقدام مورد تقاضا','area',true]
  ]],
  judicial_request: ['درخواست قضایی', [
   ['authority','مرجع قضایی و شعبه','text',true],['parties','اشخاص مرتبط و سمت آن‌ها','area',false],
@@ -126,7 +201,7 @@ export function assistantMenuPage() {
  return h('div',{class:'assistant assistant-document-menu'},[
   h('span',{class:'section-kicker',text:'آکادمی وکالت شهرام مختاری'}),
   h('h1',{text:'دستیار هوشمند وکیل'}),
-  h('p',{class:'muted',text:'یکی از دو بخش را انتخاب کنید.'}),
+  h('p',{class:'muted',text:'بخش موردنظر را انتخاب کنید؛ هر بخش گردش‌کار و ابزارهای متناسب خود را دارد.'}),
   h('section',{class:'assistant-menu-section'},[
    h('a',{class:'assistant-document-card assistant-consult-card',href:'#/assistant/consult'},[
     h('span',{class:'assistant-document-icon'},[icon('scale',{size:22})]),
@@ -137,8 +212,19 @@ export function assistantMenuPage() {
     h('span',{class:'assistant-document-icon'},[icon('file-text',{size:22})]),
     h('span',{class:'assistant-document-copy'},[h('strong',{text:'تنظیم اسناد'}),h('small',{text:'دادخواست، لایحه، وکالت‌نامه و قراردادها'})]),
     icon('arrow-left',{size:18})
+   ]),
+   h('a',{class:'assistant-document-card',href:'#/assistant/litigation'},[
+    h('span',{class:'assistant-document-icon'},[icon('gavel',{size:22})]),
+    h('span',{class:'assistant-document-copy'},[h('strong',{text:'میز محاکمه هوشمند'}),h('small',{text:'دفاع طرف مقابل، پاسخ وکیل موکل و ارزیابی بی‌طرفانه قاضی'})]),
+    icon('arrow-left',{size:18})
+   ]),
+   h('a',{class:'assistant-document-card',href:'#/assistant/research'},[
+    h('span',{class:'assistant-document-icon'},[icon('book-open-check',{size:22})]),
+    h('span',{class:'assistant-document-copy'},[h('strong',{text:'تحقیق و راستی‌آزمایی حقوقی'}),h('small',{text:'بررسی مواد قانونی، انطباق استنادها و خلأهای تحقیق'})]),
+    icon('arrow-left',{size:18})
    ])
   ]),
+  h('p',{class:'ai-history-link'},[h('a',{href:'#/assistant/history',text:'مشاهده سوابق گفت‌وگوها ←'})]),
   h('details',{class:'ai-notice'},[h('summary',{text:'ملاحظات استفاده از دستیار'}),h('p',{class:'muted',text:ASSISTANT_NOTICE})])
  ]);
 }

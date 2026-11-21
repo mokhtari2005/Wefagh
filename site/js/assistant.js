@@ -11,6 +11,10 @@ export const DOC_TYPES = [
   ['petition', 'پیش‌نویس دادخواست'], ['defense', 'پیش‌نویس لایحه دفاعیه'], ['appeal', 'لایحه تجدیدنظرخواهی'],
   ['cassation', 'لایحه فرجام‌خواهی'], ['enforcement', 'درخواست و لایحهٔ اجرایی'], ['notice', 'اظهارنامه'],
   ['criminal_complaint', 'شکواییه و دفاعیات کیفری'], ['reply', 'پاسخ به دادخواست یا لایحهٔ طرف مقابل'],
+  ['retrial', 'دادخواست یا لایحه اعاده دادرسی'], ['third_party', 'دادخواست یا لایحه اعتراض ثالث'],
+  ['opposition', 'دادخواست یا لایحه واخواهی'], ['counterclaim', 'دادخواست دعوای متقابل'],
+  ['execution_objection', 'اعتراض به عملیات اجرایی یا اجرائیه'], ['jurisdiction', 'ایراد صلاحیت و درخواست ارسال پرونده'],
+  ['evidence_request', 'درخواست تأمین دلیل یا ارائه و مطالبه دلیل'],
   ['contract', 'تنظیم یا بازنویسی قرارداد'], ['judicial_request', 'درخواست قضایی متناسب با موضوع'],
   ['letter', 'نامهٔ رسمی و مکاتبهٔ حقوقی'], ['other', 'سایر اسناد (تحلیل و بررسی)'],
 ];
@@ -51,9 +55,9 @@ export const CONTRACT_TYPES = Object.freeze([
   ['ecommerce', 'فروش اینترنتی و تجارت الکترونیکی'],
   ['custom', 'سایر قراردادها / قرارداد اختصاصی'],
 ]);
-export const MODES = [['consult', 'مشاوره حقوقی'], ['analyze', 'تحلیل حقوقی پرونده'], ['review', 'بررسی و اصلاح متن']];
+export const MODES = [['consult', 'مشاوره حقوقی'], ['analyze', 'تحلیل حقوقی پرونده'], ['litigation', 'میز محاکمه هوشمند'], ['research', 'تحقیق و راستی‌آزمایی حقوقی'], ['review', 'بررسی و اصلاح متن']];
 
-export const ASSISTANT_NOTICE = 'این ابزار آموزشی و پیش‌نویس‌ساز است. خروجی آن پیش از هر استفاده در پرونده واقعی باید توسط وکیل با قوانین و مقررات جاری و رویهٔ معتبر تطبیق داده شود. اطلاعات پرونده در این بخش فقط برای تولید پاسخ به سرویس هوش مصنوعی فرستاده می‌شود.';
+export const ASSISTANT_NOTICE = 'این ابزار آموزشی و پیش‌نویس‌ساز است. خروجی آن پیش از استفاده در پرونده واقعی باید توسط وکیل با قوانین و مقررات جاری و رویه معتبر تطبیق داده شود. اطلاعات و پیوست‌های انتخاب‌شده برای تولید پاسخ به سرویس هوش مصنوعی ارسال می‌شوند؛ پیش از ارسال، اطلاعات محرمانه و هویتی غیرضروری را حذف یا ناشناس کنید.';
 
 const MESSAGE_LIMIT = 6000;
 
@@ -144,6 +148,10 @@ const SUGGESTIONS = [
   ['draft', 'petition', 'دادخواست مطالبهٔ وجه چک برگشتی را پیش‌نویس کن.'],
   ['analyze', 'petition', 'نقاط قوت و ضعف این پرونده را تحلیل کن: ...'],
   ['review', 'petition', 'این متن لایحه را از نظر ساختار و استدلال بازبینی کن: ...'],
+  ['litigation', 'retrial', 'این پرونده را از دیدگاه وکیل طرف مقابل، وکیل موکل و قاضی بی‌طرف بررسی کن و استنادات را جداگانه راستی‌آزمایی کن.'],
+  ['research', 'other', 'درباره این مسئله تحقیق حقوقی انجام بده و برای هر ماده قانونی توضیح بده دقیقاً کدام گزاره را پشتیبانی می‌کند؛ موارد تأییدنشده را جدا کن.'],
+  ['litigation', 'third_party', 'شرایط و جهات اعتراض ثالث را با توجه به رأی و اسناد پیوست بررسی کن.'],
+  ['litigation', 'retrial', 'بررسی کن آیا وقایع و مدارک این پرونده با یکی از جهات قانونی اعاده دادرسی منطبق است یا خیر.'],
 ];
 
 /** پیام‌های کاربر و پاسخ دستیار برای ارسال دوباره به سرور؛ سقف ۴۰ پیام مطابق محدودیت سرور. */
@@ -185,7 +193,9 @@ export function assistantPage(params = {}) {
       body.replaceChildren(h('div', { class: 'notice', role: 'note', text: 'سرویس دستیار هنوز روی سرور فعال نشده است. پس از فعال‌سازی، این بخش آماده استفاده می‌شود.' }));
       return;
     }
-    body.replaceChildren(methodChooser((method) => body.replaceChildren(assistantWorkspace(guestMode ? null : params.thread, guestMode, method))));
+    const initialMode = MODES.some(([value]) => value === params.mode) ? params.mode : 'consult';
+    const chooserTitle = initialMode === 'litigation' ? 'میز محاکمه هوشمند' : initialMode === 'research' ? 'تحقیق و راستی‌آزمایی حقوقی' : 'مشاوره حقوقی هوشمند';
+    body.replaceChildren(methodChooser((method) => body.replaceChildren(assistantWorkspace(guestMode ? null : params.thread, guestMode, method, initialMode)), chooserTitle));
   })().catch((error) => {
     console.error('assistant.access_check_failed', error);
     body.replaceChildren(h('div', { class: 'notice', role: 'alert' }, [
@@ -197,7 +207,10 @@ export function assistantPage(params = {}) {
 }
 
 /** انتخاب روش پاسخ‌گویی: متنی، یا هوشمند (چت و گفت‌وگوی صوتی در یک محیط). */
-function methodChooser(onPick) {
+function methodChooser(onPick, title = 'مشاوره حقوقی هوشمند') {
+  const description = title === 'مشاوره حقوقی هوشمند'
+    ? 'روش پاسخ‌گویی را انتخاب کنید. هر دو از همان مشاوره، حافظهٔ گفت‌وگو و بازبینی پشت‌صحنه استفاده می‌کنند.'
+    : `روش پاسخ‌گویی را برای بخش «${title}» انتخاب کنید؛ متن یا گفت‌وگوی صوتی در همین گردش‌کار در دسترس است.`;
   const card = (title, desc, method) => {
     const b = h('button', { class: 'assistant-document-card', type: 'button' }, [
       h('span', { class: 'assistant-document-copy' }, [h('strong', { text: title }), h('small', { text: desc })]),
@@ -206,8 +219,8 @@ function methodChooser(onPick) {
     return b;
   };
   return h('section', { class: 'ai-method-chooser', 'aria-label': 'روش پاسخ‌گویی' }, [
-    h('h1', { text: 'مشاوره حقوقی هوشمند' }),
-    h('p', { class: 'muted', text: 'روش پاسخ‌گویی را انتخاب کنید. هر دو از همان مشاوره، حافظهٔ گفت‌وگو و بازبینی پشت‌صحنه استفاده می‌کنند.' }),
+    h('h1', { text: title }),
+    h('p', { class: 'muted', text: description }),
     h('div', { class: 'assistant-document-grid' }, [
       card('پاسخ‌گویی متنی', 'پرسش یا شرح پرونده را تایپ کنید و گفت‌وگو را ادامه دهید.', 'text'),
       card('پاسخ‌گویی هوشمند', 'چت متنی و گفت‌وگوی صوتی؛ بین آن‌ها جابه‌جا شوید بدون از دست رفتن گفت‌وگو.', 'smart'),
@@ -226,7 +239,7 @@ function downloadText(text, name) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function assistantWorkspace(initialThread, guestMode = false, method = 'smart') {
+function assistantWorkspace(initialThread, guestMode = false, method = 'smart', initialMode = 'consult') {
   const voiceAllowed = method === 'smart';
   const history = [];
   let busy = false;
@@ -258,9 +271,9 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart') 
   }
 
   // ---------- حالت و نوع سند ----------
-  let mode = 'consult';
+  let mode = MODES.some(([value]) => value === initialMode) ? initialMode : 'consult';
   const modeGroup = h('div', { class: 'ai-seg', role: 'group', 'aria-label': 'نوع کار' });
-  const modeIcons = { consult: 'scale', draft: 'edit', analyze: 'search', review: 'clipboard-list' };
+  const modeIcons = { consult: 'scale', draft: 'edit', analyze: 'search', litigation: 'gavel', research: 'book-open-check', review: 'clipboard-list' };
   const modeButtons = MODES.map(([value, label]) => {
     const b = h('button', { class: 'ai-seg-btn', type: 'button', 'aria-label': label }, [
       h('span', { class: 'ai-mode-icon', 'aria-hidden': 'true' }, [icon(modeIcons[value], { size: 19 })]),
@@ -286,6 +299,8 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart') 
   });
   modeGroup.append(...modeButtons);
   const docSelect = h('select', { 'aria-label': 'نوع سند' }, DOC_TYPES.map(([v, t]) => h('option', { value: v, text: t })));
+  if (initialMode === 'litigation') docSelect.value = 'retrial';
+  else if (initialMode === 'research') docSelect.value = 'other';
   const docWrap = h('label', { class: 'ai-doc-picker' }, [h('span', { text: 'نوع سند' }), docSelect]);
   const contractSelect = h('select', { 'aria-label': 'نوع قرارداد' }, [
     h('option', { value: '', text: 'انتخاب نوع قرارداد…' }),
@@ -899,6 +914,10 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart') 
     const labels = docSelect.value === 'contract' ? ['طرف اول', 'طرف دوم']
       : docSelect.value === 'criminal_complaint' ? ['شاکی', 'مشتکی‌عنه']
       : docSelect.value === 'appeal' ? ['تجدیدنظرخواه', 'تجدیدنظرخوانده']
+      : docSelect.value === 'retrial' ? ['درخواست‌کننده اعاده دادرسی', 'طرف مقابل']
+      : docSelect.value === 'third_party' ? ['معترض ثالث', 'طرف یا طرفین دعوای اصلی']
+      : docSelect.value === 'opposition' ? ['واخواه', 'واخوانده']
+      : docSelect.value === 'execution_objection' ? ['معترض یا محکوم‌علیه', 'طرف مقابل یا محکوم‌له']
       : ['خواهان', 'خوانده'];
     partyOneLabel.textContent = `${labels[0]} ـ نام`;
     partyOneAddressLabel.textContent = `${labels[0]} ـ نشانی`;
@@ -1008,7 +1027,8 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart') 
     const userText = [typed, names.length ? `[پیوست: ${names.join('، ')}]` : ''].filter(Boolean).join('\n');
     history.push({ role: 'user', text: userText });
     const reply = summarizeReply(res.data);
-    history.push({ role: 'ai', text: reply, notes: res.data.notes || [], disclaimer: res.data.status === 'ready' ? res.data.disclaimer : '' });
+    const responseNotes = [...(res.data.notes || [])];
+    history.push({ role: 'ai', text: reply, notes: responseNotes, disclaimer: res.data.status === 'ready' ? res.data.disclaimer : '' });
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
     attachments = [];
@@ -1037,7 +1057,8 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart') 
     partyOneAddress.value = '';
     partyTwoName.value = '';
     partyTwoAddress.value = '';
-    mode = 'consult';
+    mode = MODES.some(([value]) => value === initialMode) ? initialMode : 'consult';
+    docSelect.value = initialMode === 'litigation' ? 'retrial' : initialMode === 'research' ? 'other' : DOC_TYPES[0][0];
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
     attachments = [];
@@ -1060,7 +1081,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart') 
   renderLog();
   if (initialThread && /^[1-9][0-9]{0,15}$/.test(initialThread)) loadThread(initialThread);
 
-  const toolbar = h('div', { class: voiceAllowed ? 'ai-toolbar ai-smart-toolbar' : 'ai-toolbar' }, voiceAllowed ? [newBtn] : [modeGroup, docWrap, contractWrap, newBtn]);
+  const toolbar = h('div', { class: voiceAllowed ? 'ai-toolbar ai-smart-toolbar' : 'ai-toolbar' }, [modeGroup, docWrap, contractWrap, newBtn]);
   const composer = h('form', { class: voiceAllowed ? 'ai-composer ai-chat-composer' : 'ai-composer', 'aria-label': voiceAllowed ? 'چت با دستیار' : 'ارسال پیام' }, [
     acceptBtn, partyPanel, attachChip,
     composerText,

@@ -209,6 +209,61 @@ test('مسیر دستیار از ورود تا پاسخ ساخت‌یافته (�
   });
 });
 
+test('میز محاکمه هوشمند: حالت مستقل، پرامپت چندمنظری و بازبینی یکپارچه', async () => {
+  const modelJson = {
+    status: 'ready', questions: [],
+    text: 'واقعیت‌های مستند باید از ادعاهای طرفین تفکیک شوند. قوی‌ترین دفاع طرف مقابل، پاسخ موکل و ارزیابی بی‌طرفانه قاضی در این گزارش بررسی می‌شود.',
+    notes: [],
+  };
+  let system = '';
+  await withFetch(async (url, init) => {
+    system = JSON.parse(init.body).systemInstruction.parts[0].text;
+    return jsonRes(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(modelJson) }] } }] });
+  }, async () => {
+    const env = { DB: fakeDb({ loggedIn: true }), GEMINI_API_KEY: KEY };
+    const res = await worker.fetch(req('/api/ai/assistant', {
+      body: { mode: 'litigation', docType: 'retrial', message: 'این پرونده را از دیدگاه طرف مقابل، وکیل موکل و قاضی بررسی کن.', history: [] },
+      cookie: 'tok',
+    }), env);
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.ok, true);
+    assert.match(system, /میز محاکمه هوشمند/);
+    assert.match(system, /قوی‌ترین استدلال‌ها و ایرادهای طرف مقابل/);
+    assert.match(system, /مانند قاضی بی‌طرف/);
+    assert.match(system, /ماده ۴۲۶/);
+    assert.match(system, /تأییدنشده/);
+    assert.match(data.text, /واقعیت‌های مستند/);
+    assert.ok(data.notes.some((note) => note.includes('بازبینی مستقل')));
+  });
+});
+
+test('تحقیق و راستی‌آزمایی حقوقی: حالت مستقل و دستور کنترل انطباق استناد', async () => {
+  const modelJson = {
+    status: 'ready', questions: [],
+    text: 'نتیجه تحقیق: ماده قانونی باید هم از حیث متن معتبر و هم از حیث ارتباط با گزاره مورد استناد بررسی شود.',
+    notes: ['منبع رسمی برای تطبیق نهایی لازم است.'],
+  };
+  let system = '';
+  await withFetch(async (url, init) => {
+    system = JSON.parse(init.body).systemInstruction.parts[0].text;
+    return jsonRes(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(modelJson) }] } }] });
+  }, async () => {
+    const env = { DB: fakeDb({ loggedIn: true }), GEMINI_API_KEY: KEY };
+    const res = await worker.fetch(req('/api/ai/assistant', {
+      body: { mode: 'research', docType: 'other', message: 'مبنای قانونی این ادعا را بررسی کن.', history: [] },
+      cookie: 'tok',
+    }), env);
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.ok, true);
+    assert.match(system, /پژوهشگر حقوقی/);
+    assert.match(system, /میزان انطباق/);
+    assert.match(system, /ادعای جست‌وجوی برخط/);
+    assert.match(data.text, /نتیجه تحقیق/);
+  });
+});
+
 test('نقش‌های دادگاه فقط سه نقش معتبر دارند و مرحلهٔ ناشناخته رد می‌شود', async () => {
   await withFetch(async () => { throw new Error('نباید فراخوانی شود'); }, async () => {
     const env = { DB: fakeDb({ loggedIn: true, caseRow: SAMPLE_ROW }), GEMINI_API_KEY: KEY };
@@ -307,6 +362,36 @@ test('Groq بازبین مستقل فقط با Secret فعال می‌شود و 
   assert.equal(GROQ_REVIEW_MODEL, 'openai/gpt-oss-120b');
   assert.match(groqReviewNotes({ status: 'quota_exceeded' })[0], /سهمیه رایگان/);
   assert.match(groqReviewNotes({ status: 'not_configured' })[0], /GROQ_API_KEY/);
+});
+
+test('بازبین میز محاکمه نقش‌های طرف مقابل، وکیل موکل و قاضی را جداگانه بررسی می‌کند', async () => {
+  const groqKey = 'groq-test-key-0123456789';
+  const reviewJson = {
+    risk: 'medium',
+    summary: 'دو ایراد مهم و یک خلأ اثباتی باقی است.',
+    issues: [
+      { severity: 'high', category: 'وکیل طرف مقابل', observation: 'دلیل کافی برای اثبات انجام تعهد ارائه نشده است.', recommendation: 'مدارک انجام تعهد و مکاتبات را ضمیمه کنید.' },
+      { severity: 'medium', category: 'وکیل موکل', observation: 'پاسخ به ایراد طرف مقابل باید به سند مشخص متصل شود.', recommendation: 'پاسخ را با ارجاع به مستند موجود تکمیل کنید.' },
+      { severity: 'high', category: 'قاضی بی‌طرف', observation: 'زمان دقیق ابلاغ و آغاز مهلت روشن نیست.', recommendation: 'گواهی ابلاغ و تاریخ اطلاع را احراز کنید.' },
+    ],
+    citations: [],
+  };
+  await withFetch(async (url, init) => {
+    assert.equal(url, GROQ_API);
+    const sent = JSON.parse(init.body);
+    assert.match(sent.messages[0].content, /وکیل طرف مقابل/);
+    assert.match(sent.messages[0].content, /وکیل موکل/);
+    assert.match(sent.messages[0].content, /قاضی بی‌طرف/);
+    return jsonRes(200, { choices: [{ message: { content: JSON.stringify(reviewJson) } }] });
+  }, async () => {
+    const result = await reviewLegalDraft({ GROQ_API_KEY: groqKey }, {
+      mode: 'litigation', docType: 'retrial',
+      question: 'اعتراض به رأی قطعی را بررسی کن.',
+      draft: 'متن پیش‌نویس برای بررسی مستقل.',
+    });
+    assert.equal(result.status, 'reviewed');
+    assert.deepEqual(result.review.issues.map((item) => item.category), ['وکیل طرف مقابل', 'وکیل موکل', 'قاضی بی‌طرف']);
+  });
 });
 
 test('Groq پیش‌نویس را مستقل بررسی می‌کند و خروجی را فقط به‌صورت هشدار نمایش می‌دهد', async () => {

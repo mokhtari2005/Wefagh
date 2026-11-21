@@ -21,7 +21,10 @@ test('حدها و پسوندهای واجد شرایط واجهه دقیقاً �
 test('نوع‌های سند و حالت‌های واجهه همه در سرور معتبرند (هیچ مقداری رد نمی‌شود)', () => {
   for (const [value] of DOC_TYPES) assert.ok(Object.hasOwn(ASSISTANT_DOC_TYPES, value), value);
   assert.ok(DOC_TYPES.some(([v]) => v === 'other'), 'گزینهٔ «سایر اسناد» موجود باشد');
-  assert.deepEqual(MODES.map(([v]) => v), [...ASSISTANT_MODES]);
+  const uiModes = MODES.map(([v]) => v);
+  assert.ok(uiModes.every((value) => ASSISTANT_MODES.includes(value)), 'هر حالت نمایشی باید در سرور معتبر باشد');
+  assert.ok(uiModes.includes('litigation') && uiModes.includes('research'));
+  assert.ok(ASSISTANT_MODES.includes('draft'), 'تنظیم سند پس از تأیید مشاوره همچنان یک حالت داخلی سرور است');
 });
 
 test('checkNewFile: پسوند، خالی، حجم، تعداد و مجموع', () => {
