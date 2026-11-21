@@ -643,7 +643,10 @@ async function assistant(request, env) {
       ? '\n\n### منابع بازیابی‌شده در جست‌وجوی وب\n' + webResearch.sources.map((source, index) => String(index + 1) + '. [' + source.title + '](' + source.url + ')').join('\n')
       : '';
     const rawText = (typeof data.text === 'string' ? data.text : '') + webSourcesBlock;
-    const guardedText = guardUnverifiedLegalClaims(rawText, promptArticles, legalContext);
+    const webCitedArticles = webResearch?.status === 'grounded'
+      ? [...webResearch.text.matchAll(/(?:ماده|مواد)\\s*([۰-۹0-9]+)/gu)].map((match) => ({ articleNumber: match[1] }))
+      : [];
+    const guardedText = guardUnverifiedLegalClaims(rawText, [...promptArticles, ...webCitedArticles], legalContext);
     const text = guardedText.text;
     if (guardedText.changed) notes.push('شماره مواد یا مهلت‌های فاقد پشتوانه در منابع تأییدشده، برای جلوگیری از ارائه استناد نادرست با عبارت نیازمند بررسی جایگزین شدند.');
     if (truncated) notes.push('پاسخ به‌دلیل طول زیاد کامل نشد. برای ادامه بنویسید «ادامه بده».');
