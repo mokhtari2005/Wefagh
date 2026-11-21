@@ -201,7 +201,7 @@ export function assistantMenuPage() {
  return h('div',{class:'assistant assistant-document-menu'},[
   h('span',{class:'section-kicker',text:'آکادمی وکالت شهرام مختاری'}),
   h('h1',{text:'دستیار هوشمند وکیل'}),
-  h('p',{class:'muted',text:'یکی از دو بخش را انتخاب کنید.'}),
+  h('p',{class:'muted',text:'بخش موردنظر را انتخاب کنید؛ هر بخش گردش‌کار و ابزارهای متناسب خود را دارد.'}),
   h('section',{class:'assistant-menu-section'},[
    h('a',{class:'assistant-document-card assistant-consult-card',href:'#/assistant/consult'},[
     h('span',{class:'assistant-document-icon'},[icon('scale',{size:22})]),
@@ -224,6 +224,7 @@ export function assistantMenuPage() {
     icon('arrow-left',{size:18})
    ])
   ]),
+  h('p',{class:'ai-history-link'},[h('a',{href:'#/assistant/history',text:'مشاهده سوابق گفت‌وگوها ←'})]),
   h('details',{class:'ai-notice'},[h('summary',{text:'ملاحظات استفاده از دستیار'}),h('p',{class:'muted',text:ASSISTANT_NOTICE})])
  ]);
 }
