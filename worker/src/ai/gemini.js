@@ -137,6 +137,7 @@ export async function generateText(env, { system, contents, maxOutputTokens = 10
       systemInstruction: { parts: [{ text: system }] },
       contents,
       generationConfig,
+      ...(useGoogleSearch ? { tools: [{ googleSearch: {} }] } : {}),
     };
   };
   // برنامهٔ تلاش‌ها: مدل اصلی، مدل جایگزین، و (فقط اگر خواسته شود) یک درخواست ساده بدون schema و بدون حالت JSON
