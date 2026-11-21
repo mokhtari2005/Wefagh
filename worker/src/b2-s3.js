@@ -132,7 +132,7 @@ export async function b2ListObjects(env, prefix) {
     if (continuationToken) query.push(['continuation-token', continuationToken]);
     const response = await signedFetch(env, '', { method: 'GET', query });
     const xml = await response.text();
-    for (const match of xml.matchAll(/<Contents>([\\s\\S]*?)<\\/Contents>/g)) {
+    for (const match of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
       const item = match[1];
       objects.push({
         key: tag(item, 'Key'),
@@ -140,7 +140,7 @@ export async function b2ListObjects(env, prefix) {
         size: Number(tag(item, 'Size') || 0),
       });
     }
-    if (!/<IsTruncated>true<\\/IsTruncated>/.test(xml)) return objects;
+    if (!/<IsTruncated>true<\/IsTruncated>/.test(xml)) return objects;
     continuationToken = tag(xml, 'NextContinuationToken');
     if (!continuationToken) throw new Error('B2_LIST_PAGINATION_INVALID');
   }
