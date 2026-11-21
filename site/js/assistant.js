@@ -50,7 +50,7 @@ export const CONTRACT_TYPES = Object.freeze([
   ['ecommerce', 'فروش اینترنتی و تجارت الکترونیکی'],
   ['custom', 'سایر قراردادها / قرارداد اختصاصی'],
 ]);
-export const MODES = [['consult', 'مشاوره حقوقی'], ['draft', 'تنظیم سند'], ['analyze', 'تحلیل حقوقی پرونده'], ['review', 'بررسی و اصلاح متن']];
+export const MODES = [['consult', 'مشاوره حقوقی'], ['analyze', 'تحلیل حقوقی پرونده'], ['review', 'بررسی و اصلاح متن']];
 
 export const ASSISTANT_NOTICE = 'این ابزار آموزشی و پیش‌نویس‌ساز است. خروجی آن پیش از هر استفاده در پرونده واقعی باید توسط وکیل با قوانین و مقررات جاری و رویهٔ معتبر تطبیق داده شود. اطلاعات پرونده در این بخش فقط برای تولید پاسخ به سرویس هوش مصنوعی فرستاده می‌شود.';
 
@@ -246,6 +246,8 @@ function assistantWorkspace(initialThread, guestMode = false) {
     b.setAttribute('aria-pressed', value === mode ? 'true' : 'false');
     b.addEventListener('click', () => {
       mode = value;
+      if (value === 'consult') { acceptedConclusion = ''; partyPanel.hidden = true; acceptBtn.hidden = true; }
+      else { acceptBtn.hidden = true; }
       syncMode();
     });
     return b;
@@ -259,7 +261,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     docSelect.value = 'contract';
     syncMode();
   });
-  modeGroup.append(...modeButtons, contractModeButton);
+  modeGroup.append(...modeButtons);
   const docSelect = h('select', { 'aria-label': 'نوع سند' }, DOC_TYPES.map(([v, t]) => h('option', { value: v, text: t })));
   const docWrap = h('label', { class: 'ai-doc-picker' }, [h('span', { text: 'نوع سند' }), docSelect]);
   const contractSelect = h('select', { 'aria-label': 'نوع قرارداد' }, [
@@ -281,8 +283,8 @@ function assistantWorkspace(initialThread, guestMode = false) {
     syncContractModeButton();
   }
   const PLACEHOLDERS = {
-    consult: 'پرسش حقوقی یا قضایی خود را بنویسید؛ هرچه جزئیات (مرجع، مرحله، تاریخ‌ها) دقیق‌تر باشد پاسخ دقیق‌تر است…',
-    other: 'موضوع دعوا، سمت موکل، مرجع رسیدگی، مرحله، خواسته، وقایع و دلایل موجود…',
+    consult: 'پرسش حقوقی یا قضایی خود را بنویسید؛ گفت‌وگو تا رسیدن به نتیجه روشن ادامه پیدا می‌کند…',
+    other: 'در صورت نیاز، توضیح تکمیلی یا متن مورد بررسی را وارد کنید…',
   };
   function syncMode() {
     modeButtons.forEach((x, i) => x.setAttribute('aria-pressed', MODES[i][0] === mode && docSelect.value !== 'contract' ? 'true' : 'false'));
@@ -460,24 +462,68 @@ function assistantWorkspace(initialThread, guestMode = false) {
   const sendBtn = h('button', { class: 'btn ai-send', type: 'button', text: 'ارسال' });
   const newBtn = h('button', { class: 'btn secondary', type: 'button', text: 'گفت‌وگوی تازه' });
   const status = h('p', { class: 'muted ai-status', role: 'status', 'aria-live': 'polite' });
+  let acceptedConclusion = '';
+  const acceptBtn = h('button', { class: 'btn ai-accept-consultation', type: 'button', text: 'نتیجه مشاوره را تأیید می‌کنم و می‌خواهم سند تنظیم شود', hidden: '' });
+  const partyOneName = h('input', { type: 'text', class: 'ai-party-input', maxlength: '180', placeholder: 'نام و نام خانوادگی' });
+  const partyOneAddress = h('textarea', { class: 'ai-party-input', rows: '2', maxlength: '1000', placeholder: 'نشانی کامل' });
+  const partyTwoName = h('input', { type: 'text', class: 'ai-party-input', maxlength: '180', placeholder: 'نام و نام خانوادگی' });
+  const partyTwoAddress = h('textarea', { class: 'ai-party-input', rows: '2', maxlength: '1000', placeholder: 'نشانی کامل' });
+  const partyPanel = h('section', { class: 'ai-party-panel', hidden: '' }, [
+    h('h3', { text: 'مشخصات اشخاص برای درج در سند' }),
+    h('p', { class: 'muted', text: 'اطلاعات حقوقی و محتوای سند از گفت‌وگوی مشاوره استخراج می‌شود؛ اینجا فقط مشخصات و نشانی اشخاص را وارد کنید.' }),
+    h('label', { class: 'ai-party-field' }, [h('span', { text: 'خواهان / شاکی / طرف اول ـ نام' }), partyOneName]),
+    h('label', { class: 'ai-party-field' }, [h('span', { text: 'خواهان / شاکی / طرف اول ـ نشانی' }), partyOneAddress]),
+    h('label', { class: 'ai-party-field' }, [h('span', { text: 'خوانده / طرف دوم ـ نام' }), partyTwoName]),
+    h('label', { class: 'ai-party-field' }, [h('span', { text: 'خوانده / طرف دوم ـ نشانی' }), partyTwoAddress]),
+  ]);
+  acceptBtn.addEventListener('click', () => {
+    const lastAnswer = [...history].reverse().find((item) => item.role === 'ai' && item.text)?.text || '';
+    if (!lastAnswer) { status.textContent = 'ابتدا گفت‌وگوی مشاوره را تکمیل کنید.'; return; }
+    acceptedConclusion = lastAnswer;
+    mode = 'draft';
+    docSelect.value = 'petition';
+    partyPanel.hidden = false;
+    acceptBtn.hidden = true;
+    syncMode();
+    status.textContent = 'نتیجه مشاوره تأیید شد. نوع سند و مشخصات اشخاص را تکمیل کنید.';
+    docSelect.focus();
+  });
 
   async function send() {
     if (busy) return;
     const rawTyped = composerText.value.trim();
     const contractLabel = CONTRACT_TYPES.find(([value]) => value === contractSelect.value)?.[1];
-    const typed = mode !== 'consult' && docSelect.value === 'contract' && contractLabel
-      ? `نوع قرارداد درخواستی: ${contractLabel}\n\nشرح و شرایط موردنظر کاربر:\n${rawTyped}`
-      : rawTyped;
+    let typed = rawTyped;
+    if (mode === 'draft') {
+      if (!acceptedConclusion) { status.textContent = 'تنظیم سند فقط پس از تأیید نتیجه مشاوره امکان‌پذیر است.'; return; }
+      if (!partyOneName.value.trim() || !partyOneAddress.value.trim() || !partyTwoName.value.trim() || !partyTwoAddress.value.trim()) {
+        status.textContent = 'نام و نشانی هر دو شخص را تکمیل کنید.';
+        (!partyOneName.value.trim() ? partyOneName : !partyOneAddress.value.trim() ? partyOneAddress : !partyTwoName.value.trim() ? partyTwoName : partyTwoAddress).focus();
+        return;
+      }
+      const partyLabel = docSelect.value === 'contract' ? 'طرف اول و طرف دوم قرارداد' : 'خواهان/شاکی و خوانده';
+      const contractInfo = docSelect.value === 'contract' && contractLabel ? `\nنوع قرارداد: ${contractLabel}` : '';
+      typed = [
+        'نتیجه مشاوره که کاربر صریحاً تأیید کرده است:',
+        acceptedConclusion,
+        `مشخصات ${partyLabel}:`,
+        `شخص اول ـ نام: ${partyOneName.value.trim()}\nنشانی: ${partyOneAddress.value.trim()}`,
+        `شخص دوم ـ نام: ${partyTwoName.value.trim()}\nنشانی: ${partyTwoAddress.value.trim()}`,
+        contractInfo,
+        rawTyped ? `توضیح تکمیلی کاربر: ${rawTyped}` : '',
+      ].filter(Boolean).join('\n\n');
+    }
     if (mode !== 'consult' && docSelect.value === 'contract' && !contractLabel) {
       status.textContent = 'ابتدا نوع قرارداد را از فهرست انتخاب کنید.';
       contractSelect.focus();
       return;
     }
-    if (!typed && !attachments.length) { status.textContent = 'ابتدا شرح پرونده یا متن را بنویسید یا فایلی پیوست کنید.'; return; }
+    if (!typed && !attachments.length && mode !== 'draft') { status.textContent = 'ابتدا شرح پرونده یا متن را بنویسید یا فایلی پیوست کنید.'; return; }
     if (typed.length > MESSAGE_LIMIT) {
       status.textContent = `متن بیش از ${MESSAGE_LIMIT.toLocaleString('fa-IR')} نویسه است. آن را کوتاه‌تر کنید یا بخش بلند را به‌صورت فایل پیوست کنید.`;
       return;
     }
+    if (mode === 'consult') acceptBtn.hidden = true;
     busy = true;
     sendBtn.disabled = true;
     attachBtn.disabled = true;
@@ -525,8 +571,11 @@ function assistantWorkspace(initialThread, guestMode = false) {
     renderAttachments();
     renderLog();
     const saved = await persistTurn(userText, reply).catch(() => false);
+    if (mode === 'consult' && res.data.status === 'ready') acceptBtn.hidden = false;
     status.textContent = saved
-      ? (res.data.status === 'ready' ? 'پیش‌نویس آماده است. آن را بررسی کنید؛ پیش از استفاده باید وکیل تطبیق دهد.' : 'برای تکمیل، پاسخ پرسش‌های دستیار را بنویسید.')
+      ? (mode === 'consult'
+        ? (res.data.status === 'ready' ? 'اگر با جمع‌بندی مشاوره موافقید، نتیجه را تأیید کنید تا وارد مرحله تنظیم سند شوید.' : 'برای تکمیل مشاوره، به پرسش‌های دستیار پاسخ دهید.')
+        : 'پیش‌نویس آماده است. آن را بررسی کنید؛ پیش از استفاده باید وکیل تطبیق دهد.')
       : 'پاسخ نمایش داده شد، اما ذخیرهٔ آن در تاریخچه انجام نشد.';
   }
 
@@ -556,7 +605,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
 
   const toolbar = h('div', { class: 'ai-toolbar' }, [modeGroup, docWrap, contractWrap, newBtn]);
   const composer = h('form', { class: 'ai-composer', 'aria-label': 'ارسال پیام' }, [
-    attachChip,
+    acceptBtn, partyPanel, attachChip,
     composerText,
     h('div', { class: 'ai-composer-bar' }, [attachBtn, fileInput, counter, sendBtn]),
     status,
