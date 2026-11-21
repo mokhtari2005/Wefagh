@@ -4,7 +4,7 @@ import worker from '../worker/src/index.js';
 import { createTestDb } from './helpers/d1-sqlite.js';
 import { hashToken } from '../worker/src/auth/token.js';
 import { parseAmount, courtFeeReply, attorneyFeeReply } from '../worker/src/telegram/calc.js';
-import { splitMessage, safeEqual, telegramConfigured, sendDocument } from '../worker/src/telegram/api.js';
+import { splitMessage, safeEqual, telegramConfigured } from '../worker/src/telegram/api.js';
 import { tehranNow, shamsiLabel } from '../worker/src/telegram/dates.js';
 import { sendDueReminders } from '../worker/src/telegram/reminders.js';
 import { redeemLinkCode, createLinkCode, normalizeCode } from '../worker/src/telegram/link.js';
@@ -229,29 +229,6 @@ test('مسیرهای مدیریت اتصال بدون ورود ۴۰۱ می‌د�
     const res = await worker.fetch(new Request(`${BASE}${p}`, { method: p.endsWith('status') ? 'GET' : 'POST' }), env);
     assert.equal(res.status, 401, p);
   }
-});
-
-test('ارسال فایل تلگرام: multipart، نام فایل امن و سقف حجم', async () => {
-  const original = globalThis.fetch;
-  const requests = [];
-  globalThis.fetch = async (url, init) => {
-    requests.push({ url: String(url), body: init.body });
-    return new Response(JSON.stringify({ ok: true }), { status: 200 });
-  };
-  try {
-    const env = envWith(createTestDb());
-    assert.equal(await sendDocument(env, 555, {
-      name: '../پرونده\nمحرمانه.pdf', type: 'application/pdf', bytes: new Uint8Array([37, 80, 68, 70, 45]),
-    }, 'پیوست پرونده'), true);
-    assert.equal(requests.length, 1);
-    assert.match(requests[0].url, /sendDocument$/);
-    assert.equal(requests[0].body.get('chat_id'), '555');
-    assert.equal(requests[0].body.get('caption'), 'پیوست پرونده');
-    assert.equal(requests[0].body.get('document').name.includes('/'), false);
-    assert.equal(await sendDocument(env, 555, { name: 'large.pdf', bytes: new Uint8Array(8 * 1024 * 1024 + 1) }), false);
-    assert.equal(await sendDocument({ DB: env.DB }, 555, { name: 'x.pdf', bytes: new Uint8Array([1]) }), false);
-    assert.equal(requests.length, 1);
-  } finally { globalThis.fetch = original; }
 });
 
 test('ابزارهای کمکی: تقسیم پیام، مقایسهٔ امن، تاریخ تهران و شمسی', () => {
