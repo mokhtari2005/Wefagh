@@ -644,7 +644,7 @@ async function assistant(request, env) {
       : '';
     const rawText = (typeof data.text === 'string' ? data.text : '') + webSourcesBlock;
     const webCitedArticles = webResearch?.status === 'grounded'
-      ? [...webResearch.text.matchAll(/(?:ماده|مواد)\\s*([۰-۹0-9]+)/gu)].map((match) => ({ articleNumber: match[1] }))
+      ? [...webResearch.text.matchAll(/(?:ماده|مواد)\s*([۰-۹0-9]+)/gu)].map((match) => ({ articleNumber: match[1] }))
       : [];
     const guardedText = guardUnverifiedLegalClaims(rawText, [...promptArticles, ...webCitedArticles], legalContext);
     const text = guardedText.text;
