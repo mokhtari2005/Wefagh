@@ -9,7 +9,6 @@ import { handleThreads } from './threads.js';
 import { AiError, aiConfigured, transcribeAudio, synthesizeLongSpeech } from './gemini.js';
 import { generateTextWithFallback, stripResponseFormatting } from './fallback.js';
 import { groqConfigured } from './groq.js';
-import { sendMessage as sendTelegramMessage, sendDocument as sendTelegramDocument } from '../telegram/api.js';
 import { reviewWithWorkersAI, workersAiConfigured } from './cloudflare.js';
 import { clampReply } from './speech.js';
 import { reviewLegalDraft, groqReviewShortNote, groqReviewNotes } from './groq.js';
@@ -379,7 +378,7 @@ async function readAssistantInput(request) {
     return { error: fail('INVALID_FORM', 400) };
   }
   const field = (name) => (typeof form.get(name) === 'string' ? form.get(name) : undefined);
-  const body = { mode: field('mode'), docType: field('docType'), message: field('message'), telegramDelivery: field('telegramDelivery') === 'true' };
+  const body = { mode: field('mode'), docType: field('docType'), message: field('message') };
   const historyRaw = field('history');
   if (historyRaw) {
     try {
@@ -514,33 +513,6 @@ async function assistant(request, env) {
     for (const a of attachments) {
       if (a.truncated) notes.push(`فقط بخش ابتدایی «${a.name}» (حداکثر ${ATTACHMENT_LIMITS.extractedChars.toLocaleString('fa-IR')} نویسه) بررسی شد.`);
     }
-    let telegramDelivery = 'not_requested';
-    if (body.telegramDelivery === true && auth.user?.id) {
-      try {
-        const linked = await env.DB.prepare('SELECT chat_id FROM telegram_links WHERE user_id = ?1').bind(auth.user.id).first();
-        if (!linked?.chat_id) {
-          telegramDelivery = 'not_linked';
-        } else {
-          const report = [
-            mode === 'litigation' ? 'گزارش میز محاکمه هوشمند' : 'پاسخ دستیار هوشمند وکیل',
-            '',
-            text,
-            notes.length ? '\n\nنکات تکمیلی:\n' + notes.join('\n') : '',
-            '',
-            LEGAL_DISCLAIMER,
-          ].join('\n');
-          const messageSent = await sendTelegramMessage(env, linked.chat_id, report);
-          const fileResults = await Promise.all(files.map((file) =>
-            sendTelegramDocument(env, linked.chat_id, file, 'پیوست ارسالی برای بررسی حقوقی')
-          ));
-          const filesSent = fileResults.every(Boolean);
-          telegramDelivery = messageSent && filesSent ? 'sent' : 'partial';
-        }
-      } catch (err) {
-        telegramDelivery = 'failed';
-        console.error(JSON.stringify({ where: 'ai.telegram_delivery', error: err?.name || 'Error' }));
-      }
-    }
     return json({
       ok: true,
       status: data.status === 'need_info' ? 'need_info' : 'ready',
@@ -549,7 +521,6 @@ async function assistant(request, env) {
       notes,
       attachments: summarizeAttachments(attachments),
       disclaimer: LEGAL_DISCLAIMER,
-      telegramDelivery,
     });
   } catch (err) {
     return aiFailure(err, stage);
