@@ -215,11 +215,11 @@ test('میز محاکمه هوشمند: حالت مستقل، پرامپت چن�
     text: 'واقعیت‌های مستند باید از ادعاهای طرفین تفکیک شوند. قوی‌ترین دفاع طرف مقابل، پاسخ موکل و ارزیابی بی‌طرفانه قاضی در این گزارش بررسی می‌شود.',
     notes: [],
   };
-  let system = '';
+  const systems = [];
   await withFetch(async (url, init) => {
-    system = JSON.parse(init.body).systemInstruction.parts[0].text;
+    systems.push(JSON.parse(init.body).systemInstruction.parts[0].text);
     return jsonRes(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(modelJson) }] } }] });
-  }, async () => {
+  }, async (calls) => {
     const env = { DB: fakeDb({ loggedIn: true }), GEMINI_API_KEY: KEY };
     const res = await worker.fetch(req('/api/ai/assistant', {
       body: { mode: 'litigation', docType: 'retrial', message: 'این پرونده را از دیدگاه طرف مقابل، وکیل موکل و قاضی بررسی کن.', history: [] },
@@ -228,11 +228,13 @@ test('میز محاکمه هوشمند: حالت مستقل، پرامپت چن�
     const data = await res.json();
     assert.equal(res.status, 200);
     assert.equal(data.ok, true);
-    assert.match(system, /میز محاکمه هوشمند/);
-    assert.match(system, /قوی‌ترین استدلال‌ها و ایرادهای طرف مقابل/);
-    assert.match(system, /مانند قاضی بی‌طرف/);
-    assert.match(system, /ماده ۴۲۶/);
-    assert.match(system, /تأییدنشده/);
+    assert.equal(calls.length, 3);
+    assert.ok(systems.every((system) => system.includes('میز محاکمه هوشمند')));
+    assert.ok(systems.some((system) => system.includes('قوی‌ترین دفاع‌ها، ایرادهای شکلی و ماهوی')));
+    assert.ok(systems.some((system) => system.includes('نقش تو وکیل موکل/کاربر است')));
+    assert.ok(systems.some((system) => system.includes('قاضی بی‌طرف و ارزیاب')));
+    assert.ok(systems.every((system) => system.includes('ماده ۴۲۶')));
+    assert.ok(systems.every((system) => system.includes('تأییدنشده')));
     assert.match(data.text, /واقعیت‌های مستند/);
     assert.ok(data.notes.some((note) => note.includes('بازبینی مستقل')));
   });
