@@ -1080,7 +1080,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart') 
   const telegramDeliveryInput = h('input', { type: 'checkbox', 'aria-label': 'ارسال پاسخ و فایل‌ها به تلگرام متصل' });
   const telegramDeliveryLabel = h('label', { class: 'ai-telegram-delivery', hidden: '' }, [
     telegramDeliveryInput,
-    h('span', { text: 'ارسال پاسخ و پیوست‌ها به تلگرام متصل' }),
+    h('span', { text: 'ارسال پاسخ و فایل‌ها به تلگرام متصل (فقط با انتخاب شما)' }),
   ]);
   if (!guestMode) {
     getJson('/api/telegram/status').then((r) => {
