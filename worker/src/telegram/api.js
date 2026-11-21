@@ -47,37 +47,6 @@ export async function sendMessage(env, chatId, text) {
   return allOk;
 }
 
-/** ارسال فایل پیوست فقط پس از درخواست صریح کاربر؛ توکن در لاگ یا خروجی قرار نمی‌گیرد. */
-export async function sendDocument(env, chatId, file, caption = '') {
-  const token = typeof env?.TELEGRAM_BOT_TOKEN === 'string' ? env.TELEGRAM_BOT_TOKEN.trim() : '';
-  const bytes = file?.bytes;
-  const size = bytes?.byteLength ?? bytes?.length ?? 0;
-  if (token.length < 20 || !chatId || !bytes || !size || size > 8 * 1024 * 1024) return false;
-  const safeName = String(file?.name || 'attachment')
-    .replace(/[\/\\\u0000-\u001f\u007f]/g, '_')
-    .replace(/^\.+/, '')
-    .slice(0, 120) || 'attachment';
-  try {
-    const form = new FormData();
-    form.append('chat_id', String(chatId));
-    if (caption) form.append('caption', String(caption).slice(0, 900));
-    form.append('document', new Blob([bytes], { type: file.type || 'application/octet-stream' }), safeName);
-    const res = await fetch(TELEGRAM_API + '/bot' + token + '/sendDocument', {
-      method: 'POST',
-      body: form,
-      signal: AbortSignal.timeout(20_000),
-    });
-    if (!res.ok) {
-      console.error(JSON.stringify({ where: 'telegram.send_document', httpStatus: res.status }));
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.error(JSON.stringify({ where: 'telegram.send_document', error: err?.name || 'Error' }));
-    return false;
-  }
-}
-
 /** مقایسهٔ زمان‌ثابت دو رشته (برای هدر محرمانهٔ webhook). */
 export function safeEqual(a, b) {
   const x = new TextEncoder().encode(String(a ?? ''));
