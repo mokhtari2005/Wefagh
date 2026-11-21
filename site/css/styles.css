@@ -1111,9 +1111,6 @@ h1, h2, h3 { color: var(--teal-dark); }
 .ai-privacy { font-size: .85rem; margin: 0; line-height: 1.8; }
 .ai-attachment[hidden] { display: none; }
 .ai-status { margin: 0; font-size: .9rem; min-height: 1.2em; }
-.ai-telegram-delivery { display: flex; align-items: center; gap: .55rem; font-size: .85rem; color: var(--ink-soft); line-height: 1.6; }
-.ai-telegram-delivery[hidden] { display: none; }
-.ai-telegram-checkbox { width: 18px; height: 18px; flex: 0 0 auto; accent-color: var(--deep); }
 @media (min-width: 900px) {
   /* تاریخچه زیر گفت‌وگو قرار می‌گیرد؛ فقط ارتفاع کادر گفت‌وگو محدود می‌شود. */
   .ai-main { height: min(78vh, 760px); min-height: 0; }
