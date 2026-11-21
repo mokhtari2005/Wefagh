@@ -184,7 +184,13 @@ export function assistantPage(params = {}) {
       return;
     }
     body.replaceChildren(assistantWorkspace(guestMode ? null : params.thread, guestMode));
-  })();
+  })().catch((error) => {
+    console.error('assistant.access_check_failed', error);
+    body.replaceChildren(h('div', { class: 'notice', role: 'alert' }, [
+      h('p', { text: 'بررسی دسترسی به دستیار کامل نشد. اتصال یا وضعیت ورود را بررسی کنید و دوباره تلاش کنید.' }),
+      h('p', {}, [h('a', { href: '#/assistant', text: 'تلاش دوباره' })]),
+    ]));
+  });
   return wrap;
 }
 
