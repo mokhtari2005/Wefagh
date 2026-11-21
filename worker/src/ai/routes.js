@@ -710,6 +710,7 @@ async function assistant(request, env) {
       questions,
       text,
       notes,
+      searchSuggestionHtml: webResearch?.status === 'grounded' ? (webResearch.searchSuggestionHtml || '') : '',
       attachments: summarizeAttachments(attachments),
       disclaimer: LEGAL_DISCLAIMER,
     });
