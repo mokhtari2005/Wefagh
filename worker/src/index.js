@@ -30,6 +30,7 @@ import { handleMapTiles } from './map-tiles.js';
 import { handleDiagnostics } from './diagnostics.js';
 import { handleDiagnosticRepair } from './diagnostic-repair.js';
 import { handleDiagnosticSelfTest } from './diagnostic-self-test.js';
+import { runScheduledBackup, handleBackupStatus } from './backups.js';
 import { handleVisitorAnalytics } from './visitor-analytics.js';
 import { handleCommunity } from './community.js';
 import { handleClassroom } from './classroom.js';
@@ -83,6 +84,7 @@ export default {
     }
 
     if (path.startsWith('/api/map/tiles/')) return handleMapTiles(request);
+    if (path === '/api/admin/backups/status') return handleBackupStatus(request, env, path);
     if (path === '/api/admin/diagnostics/self-test' || path === '/api/admin/diagnostics/write-test') return handleDiagnosticSelfTest(request, env, path);
     if (path.startsWith('/api/admin/diagnostics/repair')) return handleDiagnosticRepair(request, env, path);
     if (path === '/api/admin/diagnostics' || path.startsWith('/api/admin/diagnostics/') || path.startsWith('/api/diagnostics/')) return handleDiagnostics(request, env, path);
@@ -249,6 +251,9 @@ export default {
       ctx.waitUntil(purgeExpiredClassroomRecordings(env).catch((err) => console.error(JSON.stringify({ where: 'classroom-recording.cron', error: err?.name || 'Error' }))));
       ctx.waitUntil(sendDuePushReminders(env).catch((err) => console.error(JSON.stringify({ where: 'push.cron', error: err?.name || 'Error' }))));
       ctx.waitUntil(sendDueEmailReminders(env).catch((err) => console.error(JSON.stringify({ where: 'email.deadline.cron', error: err?.name || 'Error' }))));
+    }
+    if (event.cron === '0 */6 * * *') {
+      ctx.waitUntil(runScheduledBackup(env).catch((err) => console.error(JSON.stringify({ where: 'system-backup.cron', code: err?.code || err?.name || 'Error' }))));
     }
     if (event.cron === '30 1 * * *') {
       ctx.waitUntil(collectLegalNews(env).catch((err) => console.error(JSON.stringify({ where: 'media.news.cron', error: err?.name || 'Error' }))));
