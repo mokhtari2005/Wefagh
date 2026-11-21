@@ -640,7 +640,7 @@ async function assistant(request, env) {
         '. این موارد نباید به‌عنوان مستند تأییدشده استفاده شوند.');
     }
     const webSourcesBlock = webResearch && webResearch.status === 'grounded' && webResearch.sources.length
-      ? '\n\n### منابع بازیابی‌شده در جست‌وجوی وب\n' + webResearch.sources.map((source, index) => String(index + 1) + '. [' + source.title + '](' + source.url + ')' + (source.citedText ? '\\n   گزیده متن مرتبط: «' + source.citedText.slice(0, 360) + '»' : '')).join('\n')
+      ? '\n\n### منابع بازیابی‌شده در جست‌وجوی وب\n' + webResearch.sources.map((source, index) => String(index + 1) + '. [' + source.title + '](' + source.url + ')' + (source.citedText ? '\n   گزیده متن مرتبط: «' + source.citedText.slice(0, 360) + '»' : '')).join('\n')
       : '';
     const rawText = (typeof data.text === 'string' ? data.text : '') + webSourcesBlock;
     const webCitedArticles = webResearch?.status === 'grounded'
