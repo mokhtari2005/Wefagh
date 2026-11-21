@@ -257,6 +257,33 @@ test('حالت مشاورهٔ حقوقی بدون نوع سند پاسخ می‌
   });
 });
 
+test('مشاوره درباره تصادف پنهان خودرو، مواد مدنی مرتبط را فراهم و استناد و مهلت ساختگی را حذف می‌کند', async () => {
+  const modelJson = {
+    status: 'ready', questions: [],
+    text: 'طبق ماده ۱۷۹ خریدار ظرف ۳۰ روز باید اقدام کند. ماده ۴۲۲ حق فسخ یا ارش را مقرر کرده است.',
+    notes: [],
+  };
+  let system = '';
+  await withFetch(async (url, init) => {
+    system = JSON.parse(init.body).systemInstruction.parts[0].text;
+    return jsonRes(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(modelJson) }] } }] });
+  }, async () => {
+    const env = { DB: fakeDb({ loggedIn: true }), GEMINI_API_KEY: KEY };
+    const res = await worker.fetch(req('/api/ai/assistant', {
+      body: { mode: 'consult', message: 'بعد از خرید خودرو متوجه تصادف پنهان پیش از فروش شده‌ام؛ چه کنم؟', history: [] },
+      cookie: 'tok',
+    }), env);
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.match(system, /ماده ۴۲۲/);
+    assert.match(system, /ماده ۴۳۵/);
+    assert.match(data.text, /شماره نیازمند تطبیق با متن رسمی/);
+    assert.match(data.text, /مدت نیازمند تطبیق با منبع رسمی/);
+    assert.match(data.text, /ماده ۴۲۲ حق فسخ یا ارش/);
+    assert.ok(data.notes.some((note) => note.includes('فاقد پشتوانه')));
+  });
+});
+
 test('تاریخچهٔ دستیار: پیام بلند کوتاه و پیام خالی حذف می‌شود، نه اینکه درخواست رد شود', async () => {
   const { lenientHistory } = await import('../worker/src/ai/routes.js');
   const out = lenientHistory([
