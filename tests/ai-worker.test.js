@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../worker/src/index.js';
-import { AiError, extractText, generateText, synthesizeSpeech, aiConfigured, modelIds } from '../worker/src/ai/gemini.js';
+import { AiError, extractText, generateText, synthesizeSpeech, searchLegalWeb, aiConfigured, modelIds } from '../worker/src/ai/gemini.js';
 import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims, curatedLegalArticlesForQuery } from '../worker/src/ai/routes.js';
 import { searchLegalWeb } from '../worker/src/ai/gemini.js';
 import { extractExplicitLegalReferences, findVerifiedLegalArticles, buildLegalResearchQuery } from '../worker/src/legal-bank.js';
@@ -63,6 +63,50 @@ test('کلید API فقط از Secret خوانده می‌شود و وضعیت �
   assert.equal(res.status, 200);
   assert.ok(text.includes('"configured":true'));
   assert.ok(!text.includes(KEY));
+});
+
+
+test('جست‌وجوی حقوقی با Grounding فقط پیوندهای دارای ارجاع را برمی‌گرداند', async () => {
+  const env = { GEMINI_API_KEY: KEY, GEMINI_TEXT_MODEL: 'gemini-3.5-flash-lite' };
+  await withFetch(async (url, init) => {
+    assert.ok(url.endsWith('/v1beta/interactions'));
+    assert.equal(init.headers['x-goog-api-key'], KEY);
+    assert.equal(init.headers['Api-Revision'], '2026-05-20');
+    const body = JSON.parse(init.body);
+    assert.equal(body.model, 'gemini-3.5-flash-lite');
+    assert.deepEqual(body.tools, [{ type: 'google_search' }]);
+    assert.match(body.input, /قانون اجرای احکام مدنی/);
+    return jsonRes(200, {
+      status: 'completed',
+      steps: [
+        { type: 'google_search_call', arguments: { queries: ['ماده ۵۶ قانون اجرای احکام مدنی'] } },
+        { type: 'model_output', content: [{ type: 'text', text: 'ماده ۵۶ نقل‌وانتقال مال توقیف‌شده را باطل می‌داند.', annotations: [{ type: 'url_citation', title: 'متن قانون اجرای احکام مدنی', url: 'https://qavanin.ir/Law/PrintText/83430' }] }] },
+      ],
+    });
+  }, async () => {
+    const result = await searchLegalWeb(env, buildLegalResearchQuery('انتقال مال توقیف‌شده و مواد ۵۶ و ۵۷ قانون اجرای احکام مدنی'));
+    assert.equal(result.status, 'grounded');
+    assert.match(result.text, /ماده ۵۶/);
+    assert.equal(result.sources[0].url, 'https://qavanin.ir/Law/PrintText/83430');
+    assert.deepEqual(result.queries, ['ماده ۵۶ قانون اجرای احکام مدنی']);
+  });
+});
+
+test('نتیجه ناقص جست‌وجوی وب به‌عنوان منبع مستند پذیرفته نمی‌شود', async () => {
+  const env = { GEMINI_API_KEY: KEY };
+  await withFetch(async () => jsonRes(200, { status: 'in_progress', steps: [] }), async () => {
+    const result = await searchLegalWeb(env, 'قانون اجرای احکام مدنی ماده ۵۶');
+    assert.equal(result.status, 'incomplete');
+    assert.equal(result.sources.length, 0);
+  });
+});
+
+test('پرس‌وجوی بیرونی حقوقی فقط اصطلاحات حقوقی و ارجاعات قانونی را نگه می‌دارد', () => {
+  const query = buildLegalResearchQuery('مواد ۵۶ و ۵۷ قانون اجرای احکام مدنی درباره توقیف ملک متعلق به علی رضایی، پرونده ۱۲۳۴۵');
+  assert.match(query, /ماده 56/);
+  assert.match(query, /توقیف/);
+  assert.ok(!query.includes('علی رضایی'));
+  assert.ok(!query.includes('۱۲۳۴۵'));
 });
 
 test('بدون کلید هیچ درخواستی به Gemini ارسال نمی‌شود', async () => {
