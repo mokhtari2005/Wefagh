@@ -324,6 +324,7 @@ const SEIZED_PROPERTY_ARTICLES = Object.freeze([
     heading: 'قرارداد یا تعهد زیان‌بار نسبت به مال توقیف‌شده',
     body: 'هر گونه قرارداد یا تعهدی که نسبت به مال توقیف شده بعد از توقیف به ضرر محکوم له منعقد شود نافذ نخواهد بود مگر اینکه محکوم له کتباً رضایت دهد.',
     sourceName: 'سامانه ملی قوانین و مقررات؛ متن قانون اجرای احکام مدنی',
+    sourceStatus: 'curated_reference',
     sourceUrl: 'https://qavanin.ir/Law/PrintText/83430',
   },
 ]);
