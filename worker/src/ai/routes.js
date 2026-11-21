@@ -567,7 +567,7 @@ async function assistant(request, env) {
     const explicitLegalReferences = extractExplicitLegalReferences(legalSearchText);
     const missingExplicitReferences = explicitLegalReferences.filter((ref) =>
       !promptArticles.some((article) =>
-        article.lawTitle?.includes(ref.lawTitle.replace(/^قانون\\s*/, '')) &&
+        article.lawTitle?.includes(ref.lawTitle.replace(/^قانون\s*/, '')) &&
         normalizeLegalDigits(article.articleNumber) === ref.articleNumber
       )
     );
