@@ -472,7 +472,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     if (m.searchSuggestionHtml) children.push(h('iframe', {
       class: 'ai-google-search-suggestions',
       title: 'پیشنهادهای جست‌وجوی Google',
-      sandbox: 'allow-scripts allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation',
+      sandbox: 'allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation',
       referrerpolicy: 'no-referrer',
       loading: 'lazy',
       srcdoc: m.searchSuggestionHtml,
