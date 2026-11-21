@@ -430,6 +430,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
   let voiceMode = false;
   let recognition = null;
   let voiceTranscript = '';
+  let voiceSilenceTimer = null;
   let speaking = false;
   let recognitionRestartPending = false;
   const voiceBtn = h('button', { class: 'btn secondary ai-voice-toggle', type: 'button', text: 'شروع گفت‌وگوی صوتی' });
@@ -470,7 +471,6 @@ function assistantWorkspace(initialThread, guestMode = false) {
     recognitionRestartPending = false;
     stopSpeaking();
     if (recognition) {
-      recognition.onend = null;
       try { recognition.stop(); } catch {}
     }
     voiceBtn.textContent = 'شروع گفت‌وگوی صوتی';
@@ -484,7 +484,11 @@ function assistantWorkspace(initialThread, guestMode = false) {
     recognition.interimResults = false;
     recognition.onresult = (event) => {
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) voiceTranscript += event.results[i][0].transcript + ' ';
+        if (event.results[i].isFinal) {
+          voiceTranscript += event.results[i][0].transcript + ' ';
+          if (voiceSilenceTimer) clearTimeout(voiceSilenceTimer);
+          voiceSilenceTimer = setTimeout(() => { if (voiceMode && voiceTranscript.trim() && recognition) { try { recognition.stop(); } catch {} } }, 1400);
+        }
       }
     };
     recognition.onerror = (event) => {
@@ -498,6 +502,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     };
     recognition.onend = () => {
       if (!voiceMode) return;
+      if (voiceSilenceTimer) { clearTimeout(voiceSilenceTimer); voiceSilenceTimer = null; }
       const spoken = voiceTranscript.trim();
       if (spoken && !busy) {
         composerText.value = [composerText.value.trim(), spoken].filter(Boolean).join(' ');
@@ -656,6 +661,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
       const which = res.data?.file ? ` (فایل: ${res.data.file})` : '';
       status.textContent = `${errorText(code)}${which} (کد: ${code}${res.data?.providerStatus ? ` · HTTP ${res.data.providerStatus}` : ''}${res.data?.providerReason ? ` ${res.data.providerReason}` : ''}${res.data?.reason ? ` · ${res.data.reason}` : ''} متن و پیوست‌های شما حفظ شد.`;
       renderLog();
+      if (voiceMode) startListening();
       return;
     }
     // فقط نام فایل‌ها در گفت‌وگو و تاریخچه می‌ماند؛ محتوای فایل هرگز ذخیره نمی‌شود.
