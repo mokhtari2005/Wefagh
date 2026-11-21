@@ -331,22 +331,28 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
   if (typeof text !== 'string' || !text) return { text: text || '', changed: false };
   const allowed = new Set(legalArticles.map((item) => normalizeLegalDigits(item.articleNumber)));
   let changed = false;
-  let guarded = text.replace(/(?:ماده|مواد)\s*([۰-۹0-9]+)(?:\s*(?:تا|الی|[-–])\s*([۰-۹0-9]+))?/gu, (match, first, last) => {
-    const numbers = [first, last].filter(Boolean).map(normalizeLegalDigits);
-    if (numbers.every((number) => allowed.has(number))) return match;
+  let guarded = text.replace(/(?:ماده|مواد)\\s*([۰-۹0-9]+(?:(?:\\s*(?:،|,|و|تا|الی|[-–])\\s*)[۰-۹0-9]+)*)/gu, (match, sequence) => {
+    const numbers = sequence.match(/[۰-۹0-9]+/g) || [];
+    const range = /(?:تا|الی|[-–])/.test(sequence);
+    const values = numbers.map(normalizeLegalDigits);
+    const unsupported = range && values.length === 2
+      ? (Number(values[1]) >= Number(values[0]) && Number(values[1]) - Number(values[0]) <= 100
+        ? Array.from({ length: Number(values[1]) - Number(values[0]) + 1 }, (_, i) => String(Number(values[0]) + i)).some((number) => !allowed.has(number))
+        : true)
+      : values.some((number) => !allowed.has(number));
+    if (!unsupported) return match;
     changed = true;
     return 'ماده [شماره نیازمند تطبیق با متن رسمی]';
   });
-  guarded = guarded.replace(/([۰-۹0-9]{1,3})\s*(روز|ماه|هفته|سال)/gu, (match) => {
-    const normalizedMatch = normalizeLegalDigits(match).replace(/\s+/g, ' ');
-    const source = normalizeLegalDigits(verifiedContext).replace(/\s+/g, ' ');
+  guarded = guarded.replace(/([۰-۹0-9]{1,3})\\s*(روز|ماه|هفته|سال)/gu, (match) => {
+    const normalizedMatch = normalizeLegalDigits(match).replace(/\\s+/g, ' ');
+    const source = normalizeLegalDigits(verifiedContext).replace(/\\s+/g, ' ');
     if (source.includes(normalizedMatch)) return match;
     changed = true;
     return '[مدت نیازمند تطبیق با منبع رسمی]';
   });
   return { text: guarded, changed };
 }
-
 
 const DEFAULT_ATTACHMENT_MESSAGE = 'پیوست‌ها را بر اساس نوع کار و نوع سند انتخاب‌شده بررسی کن.';
 /** ورودی دستیار: JSON (بدون پیوست) یا multipart/form-data (با پیوست). فایل‌ها هرگز در لاگ یا تاریخچه ذخیره نمی‌شوند. */
