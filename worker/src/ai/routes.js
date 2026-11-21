@@ -337,7 +337,7 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
   if (typeof text !== 'string' || !text) return { text: text || '', changed: false };
   const allowed = new Set(legalArticles.map((item) => normalizeLegalDigits(item.articleNumber)));
   let changed = false;
-  let guarded = text.replace(/(?:ماده|مواد)\\s*([۰-۹0-9]+(?:(?:\\s*(?:،|,|و|تا|الی|[-–])\\s*)[۰-۹0-9]+)*)/gu, (match, sequence) => {
+  let guarded = text.replace(/(?:ماده|مواد)\s*([۰-۹0-9]+(?:(?:\s*(?:،|,|و|تا|الی|[-–])\s*)[۰-۹0-9]+)*)/gu, (match, sequence) => {
     const numbers = sequence.match(/[۰-۹0-9]+/g) || [];
     const range = /(?:تا|الی|[-–])/.test(sequence);
     const values = numbers.map(normalizeLegalDigits);
@@ -350,9 +350,9 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
     changed = true;
     return 'ماده [شماره نیازمند تطبیق با متن رسمی]';
   });
-  guarded = guarded.replace(/([۰-۹0-9]{1,3})\\s*(روز|ماه|هفته|سال)/gu, (match) => {
-    const normalizedMatch = normalizeLegalDigits(match).replace(/\\s+/g, ' ');
-    const source = normalizeLegalDigits(verifiedContext).replace(/\\s+/g, ' ');
+  guarded = guarded.replace(/([۰-۹0-9]{1,3})\s*(روز|ماه|هفته|سال)/gu, (match) => {
+    const normalizedMatch = normalizeLegalDigits(match).replace(/\s+/g, ' ');
+    const source = normalizeLegalDigits(verifiedContext).replace(/\s+/g, ' ');
     if (source.includes(normalizedMatch)) return match;
     changed = true;
     return '[مدت نیازمند تطبیق با منبع رسمی]';
@@ -432,8 +432,8 @@ async function assistant(request, env) {
     ];
     let legalArticles = [];
     let legalBankUnavailable = false;
+    const legalSearchText = [...history.slice().reverse().map((item) => item.text), message].join('\n\n');
     try {
-      const legalSearchText = [...history.slice().reverse().map((item) => item.text), message].join('\n\n');
       legalArticles = await findVerifiedLegalArticles(env.DB, legalSearchText);
     } catch (err) {
       // خرابی بانک نباید پاسخ اصلی را از کار بیندازد؛ فقط زمینهٔ مستند حذف و هشدار داده می‌شود.
