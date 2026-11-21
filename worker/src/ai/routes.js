@@ -11,7 +11,7 @@ import { generateTextWithFallback, stripResponseFormatting } from './fallback.js
 import { groqConfigured } from './groq.js';
 import { reviewWithWorkersAI, workersAiConfigured } from './cloudflare.js';
 import { clampReply } from './speech.js';
-import { reviewLegalDraft, groqReviewShortNote } from './groq.js';
+import { reviewLegalDraft, groqReviewShortNote, groqReviewNotes } from './groq.js';
 import { AttachmentError, ATTACHMENT_LIMITS, processAttachments, buildUserParts, summarizeAttachments } from './attachments.js';
 import {
   LEGAL_DISCLAIMER, ASSISTANT_DOC_TYPES, ASSISTANT_MODES, ASSISTANT_SCHEMA, MOOT_EVAL_SCHEMA,
@@ -494,6 +494,7 @@ async function assistant(request, env) {
       });
       if (reviewBankUnavailable) notes.push('جست‌وجوی تکمیلی بانک قوانین برای بازبین Groq انجام نشد؛ نتیجه بر اساس مواد بازیابی‌شده در مرحله نخست و سایر اطلاعات موجود است.');
       notes.push(groqReviewShortNote(review));
+      if (mode === 'litigation') notes.push(...groqReviewNotes(review).slice(0, 8));
       if (mode === 'draft' && workersAiConfigured(env)) {
         stage = 'cloudflare_workers_ai_review';
         const thirdReview = await reviewWithWorkersAI(env, { mode, docType, question: message, draft: text });
