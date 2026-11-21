@@ -29,13 +29,13 @@ function jsonRes(status, body) {
 }
 
 // D1 ساختگی: نشست معتبر یا بدون نشست.
-function fakeDb({ loggedIn = false, caseRow = null } = {}) {
+function fakeDb({ loggedIn = false, caseRow = null, telegramChatId = null } = {}) {
   return {
     prepare(sql) {
       return {
         bind() {
           return {
-            first: async () => (sql.includes('FROM admin_content') ? caseRow : sql.includes('FROM sessions') && loggedIn ? { id: 7, email: 'u@example.com', display_name: 'کاربر' } : null),
+            first: async () => (sql.includes('FROM admin_content') ? caseRow : sql.includes('FROM sessions') && loggedIn ? { id: 7, email: 'u@example.com', display_name: 'کاربر' } : sql.includes('FROM telegram_links') && telegramChatId ? { chat_id: telegramChatId } : null),
             all: async () => ({ results: loggedIn ? [{ role: 'user' }] : [] }),
             run: async () => ({ success: true }),
           };
@@ -235,6 +235,51 @@ test('میز محاکمه هوشمند: حالت مستقل، پرامپت چن�
     assert.match(system, /تأییدنشده/);
     assert.match(data.text, /واقعیت‌های مستند/);
     assert.ok(data.notes.some((note) => note.includes('بازبینی مستقل')));
+  });
+});
+
+test('ارسال تلگرام در دستیار فقط با رضایت همان نوبت انجام می‌شود', async () => {
+  const modelJson = {
+    status: 'ready', questions: [],
+    text: 'گزارش تحلیلی میز محاکمه: دفاع طرف مقابل، پاسخ موکل و ارزیابی بی‌طرفانه.',
+    notes: [],
+  };
+  const telegramCalls = [];
+  await withFetch(async (url, init) => {
+    if (url.includes('generativelanguage.googleapis.com')) {
+      return jsonRes(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(modelJson) }] } }] });
+    }
+    if (url.includes('api.telegram.org')) {
+      telegramCalls.push(JSON.parse(init.body));
+      return jsonRes(200, { ok: true });
+    }
+    throw new Error('unexpected request');
+  }, async () => {
+    const env = {
+      DB: fakeDb({ loggedIn: true, telegramChatId: 555 }),
+      GEMINI_API_KEY: KEY,
+      TELEGRAM_BOT_TOKEN: '123456789:AAFakeTokenForTestsOnly_0123456789',
+    };
+    const sent = await worker.fetch(req('/api/ai/assistant', {
+      body: { mode: 'litigation', docType: 'retrial', message: 'پرونده را بررسی کن.', history: [], telegramDelivery: true },
+      cookie: 'tok',
+    }), env);
+    const sentData = await sent.json();
+    assert.equal(sent.status, 200);
+    assert.equal(sentData.telegramDelivery, 'sent');
+    assert.equal(telegramCalls.length, 1);
+    assert.match(telegramCalls[0].text, /گزارش میز محاکمه هوشمند/);
+    assert.match(telegramCalls[0].text, /گزارش تحلیلی میز محاکمه/);
+
+    telegramCalls.length = 0;
+    const notSent = await worker.fetch(req('/api/ai/assistant', {
+      body: { mode: 'litigation', docType: 'retrial', message: 'پرونده را بررسی کن.', history: [] },
+      cookie: 'tok',
+    }), env);
+    const notSentData = await notSent.json();
+    assert.equal(notSent.status, 200);
+    assert.equal(notSentData.telegramDelivery, 'not_requested');
+    assert.equal(telegramCalls.length, 0, 'بدون رضایت صریح نباید هیچ پیامی به تلگرام ارسال شود');
   });
 });
 
