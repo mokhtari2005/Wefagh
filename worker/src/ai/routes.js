@@ -2,6 +2,7 @@
 // همه مسیرها (به‌جز وضعیت) نیاز به ورود دارند. کلید API هرگز در پاسخ یا لاگ نمی‌آید.
 import { getPublishedCase, SLUG_RE } from '../moot/caseStore.js';
 import { findVerifiedLegalArticles } from '../legal-bank.js';
+import { searchLegalAuthorities } from './legal-search.js';
 import { json, readJsonBody } from '../http.js';
 import { currentUser } from '../auth/routes.js';
 import { registrationRequired } from '../access.js';
@@ -537,7 +538,23 @@ async function assistant(request, env) {
     }
     const curatedArticles = VEHICLE_DEFECT_TOPIC.test(legalSearchText) ? VEHICLE_DEFECT_ARTICLES : [];
     const promptArticles = [...legalArticles, ...curatedArticles];
-    const legalContext = promptArticles.length ? promptArticles.map((a) => `قانون: ${a.lawTitle}\nماده ${a.articleNumber}${a.heading ? ` ـ ${a.heading}` : ''}\n${a.body}\nمنبع ثبت‌شده: ${a.sourceName || 'ثبت نشده'}${a.sourceUrl ? ` (${a.sourceUrl})` : ''}`).join('\n\n---\n\n') : '';
+    let legalContext = promptArticles.length ? promptArticles.map((a) => `قانون: ${a.lawTitle}\nماده ${a.articleNumber}${a.heading ? ` ـ ${a.heading}` : ''}\n${a.body}\nمنبع ثبت‌شده: ${a.sourceName || 'ثبت نشده'}${a.sourceUrl ? ` (${a.sourceUrl})` : ''}`).join('\n\n---\n\n') : '';
+    // جست‌وجوی وب فقط برای مشاورهٔ متنی، بدون پیوست و با پرس‌وجوی حقوقیِ whitelist انجام می‌شود.
+    // نام اشخاص، شرح وقایع، شماره پرونده و متن پیوست به موتور جست‌وجو ارسال نمی‌شود.
+    let webResearch = null;
+    if (mode === 'consult' && attachments.length === 0 && env.GEMINI_SEARCH_GROUNDING_ENABLED === 'true') {
+      stage = 'legal_web_search';
+      webResearch = await searchLegalAuthorities(env, legalSearchText);
+      if (webResearch.status === 'searched') {
+        legalContext = [legalContext, [
+          'یافته‌های جست‌وجوی وب (خلاصهٔ تولیدشده از نتایج جست‌وجو؛ نه متن رسمی احرازشده):',
+          webResearch.summary,
+          'منابع وبی بازیابی‌شده:',
+          ...webResearch.sources.map((source, index) => '[' + (index + 1) + '] ' + source.title + ' — ' + source.uri),
+          'این نتایج فقط سرنخ تحقیق‌اند؛ متن جاری قانون، اصالت رأی و اعتبار منبع باید از متن رسمی مستقلاً تطبیق شود.',
+        ].join('\n')].filter(Boolean).join('\n\n---\n\n');
+      }
+    }
     stage = mode === 'litigation' ? 'litigation_role_debate' : 'gemini_generation';
     let data;
     let truncated = false;
@@ -567,7 +584,15 @@ async function assistant(request, env) {
     if (legalBankUnavailable) notes.push('بانک قوانین در این درخواست پاسخ نداد؛ پاسخ بدون استناد به مواد ثبت‌شده در بانک تهیه شد و استنادها باید جداگانه بررسی شوند.');
     const rawText = typeof data.text === 'string' ? data.text : '';
     const guardedText = guardUnverifiedLegalClaims(rawText, promptArticles, legalContext);
-    const text = guardedText.text;
+    let text = guardedText.text;
+    if (webResearch?.status === 'searched' && webResearch.sources.length) {
+      text += '\n\n## منابع وبی بازیابی‌شده برای پیگیری و راستی‌آزمایی\n' + webResearch.sources.map((source, index) => (index + 1) + '. [' + source.title + '](' + source.uri + ') — ' + source.domain).join('\n');
+      notes.push('جست‌وجوی وب با Google Search انجام شد. منابع زیر سرنخ تحقیق‌اند و به‌معنای تأیید رسمی متن قانون، اعتبار رأی یا جاری‌بودن مقرره نیستند.');
+    } else if (webResearch?.status === 'failed') {
+      notes.push('جست‌وجوی وب حقوقی انجام نشد؛ پاسخ صرفاً بر منابع داخلی و دانش مدل متکی است.');
+    } else if (webResearch?.status === 'no_sources' || webResearch?.status === 'no_legal_terms') {
+      notes.push('از جست‌وجوی وب، منبع قابل استنادی بازیابی نشد؛ استنادهای بیرونی تأییدشده تلقی نمی‌شوند.');
+    }
     if (guardedText.changed) notes.push('شماره مواد یا مهلت‌های فاقد پشتوانه در منابع تأییدشده، برای جلوگیری از ارائه استناد نادرست با عبارت نیازمند بررسی جایگزین شدند.');
     if (truncated) notes.push('پاسخ به‌دلیل طول زیاد کامل نشد. برای ادامه بنویسید «ادامه بده».');
     for (const warning of citationWarnings(text)) if (!notes.includes(warning)) notes.push(warning);
@@ -715,7 +740,7 @@ export async function handleAi(request, env, path) {
 async function routeAi(request, env, path) {
   if (path === '/api/ai/status') {
     if (request.method !== 'GET') return fail('METHOD_NOT_ALLOWED', 405);
-    return json({ ok: true, configured: aiConfigured(env) || groqConfigured(env), providers: { gemini: aiConfigured(env), groq: groqConfigured(env), cloudflareWorkersAI: workersAiConfigured(env) } });
+    return json({ ok: true, configured: aiConfigured(env) || groqConfigured(env), providers: { gemini: aiConfigured(env), groq: groqConfigured(env), cloudflareWorkersAI: workersAiConfigured(env), googleSearchGrounding: env.GEMINI_SEARCH_GROUNDING_ENABLED === 'true' && aiConfigured(env) } });
   }
   if (path === '/api/ai/speech') return speech(request, env);
   if (path === '/api/ai/transcribe') return transcribe(request, env);
