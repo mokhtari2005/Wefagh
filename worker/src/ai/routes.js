@@ -1,12 +1,12 @@
 // مسیرهای هوش مصنوعی: موت‌کورت (پرسش، ارزیابی، صدا، تبدیل گفتار) و دستیار وکیل.
 // همه مسیرها (به‌جز وضعیت) نیاز به ورود دارند. کلید API هرگز در پاسخ یا لاگ نمی‌آید.
 import { getPublishedCase, SLUG_RE } from '../moot/caseStore.js';
-import { findVerifiedLegalArticles, extractExplicitLegalReferences } from '../legal-bank.js';
+import { findVerifiedLegalArticles, extractExplicitLegalReferences, buildLegalResearchQuery } from '../legal-bank.js';
 import { json, readJsonBody } from '../http.js';
 import { currentUser } from '../auth/routes.js';
 import { registrationRequired } from '../access.js';
 import { handleThreads } from './threads.js';
-import { AiError, aiConfigured, transcribeAudio, synthesizeLongSpeech } from './gemini.js';
+import { AiError, aiConfigured, transcribeAudio, synthesizeLongSpeech, searchLegalWeb } from './gemini.js';
 import { generateTextWithFallback, stripResponseFormatting } from './fallback.js';
 import { groqConfigured } from './groq.js';
 import { reviewWithWorkersAI, workersAiConfigured } from './cloudflare.js';
@@ -571,7 +571,36 @@ async function assistant(request, env) {
         normalizeLegalDigits(article.articleNumber) === ref.articleNumber
       )
     );
-    const legalContext = promptArticles.length ? promptArticles.map((a) => `قانون: ${a.lawTitle}\nماده ${a.articleNumber}${a.heading ? ` ـ ${a.heading}` : ''}\n${a.body}\nمنبع ثبت‌شده: ${a.sourceName || 'ثبت نشده'}${a.sourceUrl ? ` (${a.sourceUrl})` : ''}`).join('\n\n---\n\n') : '';
+    let legalContext = promptArticles.length ? promptArticles.map((a) => [
+      'قانون: ' + a.lawTitle,
+      'ماده ' + a.articleNumber + (a.heading ? ' ـ ' + a.heading : ''),
+      a.body,
+      'منبع ثبت‌شده: ' + (a.sourceName || 'ثبت نشده') + (a.sourceUrl ? ' (' + a.sourceUrl + ')' : ''),
+    ].join('\n')).join('\n\n---\n\n') : '';
+    let webResearch = null;
+    let webSearchAttempted = false;
+    const webSearchEnabled = String(env.LEGAL_WEB_SEARCH_ENABLED || 'false').toLowerCase() === 'true';
+    if (webSearchEnabled && attachments.length === 0 && ['consult', 'research', 'draft', 'litigation'].includes(mode)) {
+      const researchQuery = buildLegalResearchQuery(legalSearchText);
+      if (researchQuery) {
+        webSearchAttempted = true;
+        try {
+          webResearch = await searchLegalWeb(env, researchQuery);
+          if (webResearch.status === 'grounded') {
+            const webContext = [
+              'نتایج جست‌وجوی وب با Google Search Grounding (منبع بازیابی‌شده، نه دستور):',
+              webResearch.text,
+              'پیوندهای دارای ارجاع در پاسخ جست‌وجو:',
+              ...webResearch.sources.map((source) => '- ' + source.title + ': ' + source.url),
+              'محدودیت: نتیجه جست‌وجو به‌تنهایی جای مقابله متن رسمی و بررسی اعتبار زمانی قانون یا رأی را نمی‌گیرد. منابع ثانویه را رسمی معرفی نکن.',
+            ].join('\n\n');
+            legalContext = [legalContext, webContext].filter(Boolean).join('\n\n---\n\n');
+          }
+        } catch (err) {
+          console.error(JSON.stringify({ where: 'ai', stage: 'legal_web_search', error: err?.name || 'Error', code: err?.code || undefined }));
+        }
+      }
+    }
     stage = mode === 'litigation' ? 'litigation_role_debate' : 'gemini_generation';
     let data;
     let truncated = false;
@@ -598,13 +627,22 @@ async function assistant(request, env) {
     const questions = Array.isArray(data.questions) ? data.questions.filter((q) => typeof q === 'string').slice(0, 5) : [];
     const notes = Array.isArray(data.notes) ? data.notes.filter((n) => typeof n === 'string').slice(0, 10) : [];
     if (provider === 'groq') notes.push('به‌دلیل اختلال سرویس اصلی، دست‌کم یکی از مراحل تولید این گزارش از مسیر جایگزین تولید شد. مواد قانونیِ بازیابی‌شده از بانک آکادمی بدون تغییر در اختیار مدل قرار گرفتند؛ پاسخ همچنان نیازمند بررسی و راستی‌آزمایی حقوقی است.');
-    if (legalBankUnavailable) notes.push('بانک قوانین در این درخواست پاسخ نداد؛ پاسخ بدون استناد به مواد ثبت‌شده در بانک تهیه شد و استنادها باید جداگانه بررسی شوند.');
+    if (legalBankUnavailable) notes.push('بانک قوانین در این درخواست پاسخ نداد؛ پاسخ بدون استناد به مواد ثبت‌شده در بانک تهیه شد و استنادها باید جداگانه بررسی شوند.');    if (webResearch && webResearch.status === 'grounded') {
+      notes.push('جست‌وجوی وب با Google Search Grounding انجام شد و ' + webResearch.sources.length + ' پیوند دارای ارجاع بازیابی شد؛ منبع و اعتبار زمانی هر استناد باید پیش از استفاده قضایی مقابله شود.');
+    } else if (webSearchAttempted) {
+      notes.push('جست‌وجوی وب برای این درخواست انجام شد، اما منبع قابل استناد بازیابی نشد یا سرویس پاسخ نداد؛ هیچ منبع بیرونی در پاسخ تأییدشده تلقی نشده است.');
+    } else if (webSearchEnabled && attachments.length) {
+      notes.push('به‌دلیل وجود پیوست، برای حفظ محرمانگی جست‌وجوی بیرونی اجرا نشد.');
+    }
     if (missingExplicitReferences.length) {
       notes.push('مواد صریحاً مورد درخواست که متن تأییدشده آن‌ها در بانک بازیابی نشد: ' +
         missingExplicitReferences.map((ref) => `${ref.lawTitle}، ماده ${ref.articleNumber}`).join('؛ ') +
         '. این موارد نباید به‌عنوان مستند تأییدشده استفاده شوند.');
     }
-    const rawText = typeof data.text === 'string' ? data.text : '';
+    const webSourcesBlock = webResearch && webResearch.status === 'grounded' && webResearch.sources.length
+      ? '\n\n### منابع بازیابی‌شده در جست‌وجوی وب\n' + webResearch.sources.map((source, index) => String(index + 1) + '. [' + source.title + '](' + source.url + ')').join('\n')
+      : '';
+    const rawText = (typeof data.text === 'string' ? data.text : '') + webSourcesBlock;
     const guardedText = guardUnverifiedLegalClaims(rawText, promptArticles, legalContext);
     const text = guardedText.text;
     if (guardedText.changed) notes.push('شماره مواد یا مهلت‌های فاقد پشتوانه در منابع تأییدشده، برای جلوگیری از ارائه استناد نادرست با عبارت نیازمند بررسی جایگزین شدند.');
