@@ -57,7 +57,7 @@ export const CONTRACT_TYPES = Object.freeze([
 ]);
 export const MODES = [['consult', 'مشاوره حقوقی'], ['analyze', 'تحلیل حقوقی پرونده'], ['litigation', 'میز محاکمه هوشمند'], ['research', 'تحقیق و راستی‌آزمایی حقوقی'], ['review', 'بررسی و اصلاح متن']];
 
-export const ASSISTANT_NOTICE = 'این ابزار آموزشی و پیش‌نویس‌ساز است. خروجی آن پیش از استفاده در پرونده واقعی باید توسط وکیل با قوانین و مقررات جاری و رویه معتبر تطبیق داده شود. اطلاعات برای تولید پاسخ به سرویس هوش مصنوعی ارسال می‌شود؛ ارسال متن پاسخ و فایل‌های پیوست به تلگرام متصل فقط با انتخاب جداگانه شما برای همان نوبت انجام می‌شود.';
+export const ASSISTANT_NOTICE = 'این ابزار آموزشی و پیش‌نویس‌ساز است. خروجی آن پیش از استفاده در پرونده واقعی باید توسط وکیل با قوانین و مقررات جاری و رویه معتبر تطبیق داده شود. اطلاعات و پیوست‌های انتخاب‌شده برای تولید پاسخ به سرویس هوش مصنوعی ارسال می‌شوند؛ پیش از ارسال، اطلاعات محرمانه و هویتی غیرضروری را حذف یا ناشناس کنید.';
 
 const MESSAGE_LIMIT = 6000;
 
@@ -994,9 +994,6 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     stream.scrollTop = stream.scrollHeight;
     status.textContent = '';
     const sent = attachments.slice();
-    // رضایت ارسال تلگرام فقط برای همین نوبت معتبر است؛ برای نوبت بعدی کاربر باید دوباره انتخاب کند.
-    const sendToTelegram = telegramDeliveryInput.checked;
-    telegramDeliveryInput.checked = false;
     let res;
     if (sent.length) {
       const form = new FormData();
@@ -1004,11 +1001,10 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       form.append('docType', docSelect.value);
       form.append('message', typed);
       form.append('history', JSON.stringify(trimHistory(history)));
-      form.append('telegramDelivery', sendToTelegram ? 'true' : 'false');
       for (const a of sent) form.append('files', a.file, a.file.name);
       res = await postForm('/api/ai/assistant', form, { timeoutMs: 120000 });
     } else {
-      res = await postJson('/api/ai/assistant', { mode, docType: docSelect.value, message: typed, history: trimHistory(history), telegramDelivery: sendToTelegram }, { timeoutMs: 120000 });
+      res = await postJson('/api/ai/assistant', { mode, docType: docSelect.value, message: typed, history: trimHistory(history) }, { timeoutMs: 120000 });
     }
     stopPendingProgress();
     busy = false;
@@ -1032,10 +1028,6 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     history.push({ role: 'user', text: userText });
     const reply = summarizeReply(res.data);
     const responseNotes = [...(res.data.notes || [])];
-    if (res.data.telegramDelivery === 'sent') responseNotes.push('نسخه کامل پاسخ و پیوست‌ها به تلگرام متصل شما ارسال شد.');
-    else if (res.data.telegramDelivery === 'partial') responseNotes.push('ارسال به تلگرام کامل نشد؛ ممکن است بخشی از گزارش یا پیوست‌ها ارسال نشده باشد.');
-    else if (res.data.telegramDelivery === 'not_linked') responseNotes.push('حساب تلگرام متصل پیدا نشد؛ خروجی فقط در همین صفحه نمایش داده شد.');
-    else if (res.data.telegramDelivery === 'failed') responseNotes.push('ارسال به تلگرام ناموفق بود؛ خروجی در همین صفحه در دسترس است.');
     history.push({ role: 'ai', text: reply, notes: responseNotes, disclaimer: res.data.status === 'ready' ? res.data.disclaimer : '' });
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
@@ -1056,7 +1048,6 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
   function newConversation() {
     threadId = null;
     history.length = 0;
-    telegramDeliveryInput.checked = false;
     stopVoiceMode();
     voicePanel.hidden = !voiceAllowed;
     acceptedConclusion = '';
@@ -1090,17 +1081,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
   renderLog();
   if (initialThread && /^[1-9][0-9]{0,15}$/.test(initialThread)) loadThread(initialThread);
 
-  const telegramDeliveryInput = h('input', { type: 'checkbox', 'aria-label': 'ارسال پاسخ و فایل‌ها به تلگرام متصل' });
-  const telegramDeliveryLabel = h('label', { class: 'ai-telegram-delivery', hidden: '' }, [
-    telegramDeliveryInput,
-    h('span', { text: 'ارسال پاسخ و فایل‌ها به تلگرام متصل (فقط با انتخاب شما)' }),
-  ]);
-  if (!guestMode) {
-    getJson('/api/telegram/status').then((r) => {
-      telegramDeliveryLabel.hidden = !(r.ok && r.data?.linked);
-    }).catch(() => { telegramDeliveryLabel.hidden = true; });
-  }
-  const toolbar = h('div', { class: voiceAllowed ? 'ai-toolbar ai-smart-toolbar' : 'ai-toolbar' }, [modeGroup, docWrap, contractWrap, telegramDeliveryLabel, newBtn]);
+  const toolbar = h('div', { class: voiceAllowed ? 'ai-toolbar ai-smart-toolbar' : 'ai-toolbar' }, [modeGroup, docWrap, contractWrap, newBtn]);
   const composer = h('form', { class: voiceAllowed ? 'ai-composer ai-chat-composer' : 'ai-composer', 'aria-label': voiceAllowed ? 'چت با دستیار' : 'ارسال پیام' }, [
     acceptBtn, partyPanel, attachChip,
     composerText,
