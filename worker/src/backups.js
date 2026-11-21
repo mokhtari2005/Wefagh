@@ -12,7 +12,7 @@ const MAX_BACKUP_BYTES = 20 * 1024 * 1024;
 const encoder = new TextEncoder();
 
 function decodeBase64(value) {
-  const binary = atob(value.replace(/\\s/g, ''));
+  const binary = atob(value.replace(/\s/g, ''));
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 }
 function encodeBase64(bytes) {
@@ -69,7 +69,7 @@ async function exportDatabase(db) {
   let totalRows = 0;
   for (const table of schema) {
     const name = String(table.name || '');
-    if (!name || name.includes('\\u0000')) throw backupError('BACKUP_TABLE_NAME_INVALID');
+    if (!name || name.includes('\u0000')) throw backupError('BACKUP_TABLE_NAME_INVALID');
     const quoted = '"' + name.replace(/"/g, '""') + '"';
     const rows = [];
     for (let offset = 0; ; offset += PAGE_SIZE) {
