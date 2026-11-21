@@ -635,7 +635,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     setVoiceState('processing', 'متن گفتار دریافت شد؛ در حال ارسال برای مشاوره حقوقی…');
     await send();
   }
-  const VOICE_GREETING = 'سلام، وقتتون بخیر. من دستیار صوتی آکادمی وکالت شهرام مختاری هستم. در این بخش، شما سؤال حقوقی یا شرح پرونده‌تون رو با صدای خودتون مطرح می‌کنید؛ گفتارتون به متن تبدیل می‌شه تا موضوع رو دقیق بررسی کنیم. اگر اطلاعاتی کم باشه، چند سؤال کوتاه می‌پرسم و بعد پاسخ منسجم رو به‌صورت متن و صدا ارائه می‌کنم. بفرمایید، چه سؤال یا مشکلی دارید؟';
+  const VOICE_GREETING = 'سلام، وقت بخیر. من دستیار صوتی آکادمی وکالت شهرام مختاری هستم. سؤال یا شرح پرونده‌تون رو بفرمایید؛ اگر اطلاعاتی لازم باشه، چند سؤال کوتاه می‌پرسم و بعد پاسخ رو به‌صورت متن و صدا ارائه می‌کنم.';
   async function speakReply(text) {
     if (!voiceMode || !text) return;
     const spokenText = String(text).replace(/\[جای خالی:[^\]]*\]/g, 'جای خالی').slice(0, 2000);
@@ -647,6 +647,8 @@ function assistantWorkspace(initialThread, guestMode = false) {
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', Accept: 'audio/wav' },
         body: JSON.stringify({ text: spokenText, voice: 'Kore' }),
+        // اگر سرویس گفتار کند باشد، سریع به صدای داخلی مرورگر برمی‌گردیم.
+        signal: AbortSignal.timeout(12_000),
       });
       if (!response.ok) {
         let code = 'AI_UNAVAILABLE';
