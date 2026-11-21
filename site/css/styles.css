@@ -4142,6 +4142,3 @@ body.classroom-fullscreen-fallback { overflow:hidden; }
   .ai-chat-input { min-height: 52px; }
 }
 
-.ai-telegram-delivery { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; font-size: .82rem; color: var(--ink-soft); cursor: pointer; }
-.ai-telegram-delivery input { accent-color: var(--assistant-navy); width: 16px; height: 16px; flex: 0 0 auto; }
-.ai-telegram-delivery[hidden] { display: none; }
