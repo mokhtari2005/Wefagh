@@ -84,6 +84,19 @@ async function post(env, op, model, url, payload, timeoutMs = AI_TIMEOUT_MS) {
 }
 
 /** متن پاسخ مدل. اگر محتوا بلاک شده یا خالی باشد خطای مشخص برمی‌گرداند. */
+export function extractGrounding(data) {
+  const metadata = data?.candidates?.[0]?.groundingMetadata;
+  const chunks = Array.isArray(metadata?.groundingChunks) ? metadata.groundingChunks : [];
+  const sources = chunks
+    .map((chunk) => chunk?.web)
+    .filter((web) => web && typeof web.uri === 'string' && /^https:\/\//i.test(web.uri))
+    .map((web) => ({ title: String(web.title || '').slice(0, 180), uri: web.uri }));
+  const queries = Array.isArray(metadata?.webSearchQueries)
+    ? metadata.webSearchQueries.filter((q) => typeof q === 'string').slice(0, 5)
+    : [];
+  return sources.length || queries.length ? { sources, queries } : null;
+}
+
 export function extractText(data) {
   if (data?.promptFeedback?.blockReason) throw new AiError('AI_BLOCKED', 422);
   const parts = data?.candidates?.[0]?.content?.parts;
@@ -107,7 +120,7 @@ function textOrLog(op, model, data) {
 }
 
 /** تولید متن (و JSON ساخت‌یافته در صورت تعیین schema). */
-export async function generateText(env, { system, contents, maxOutputTokens = 1024, json = false, schema = null, timeoutMs = AI_TIMEOUT_MS, plainFallback = false }) {
+export async function generateText(env, { system, contents, maxOutputTokens = 1024, json = false, schema = null, timeoutMs = AI_TIMEOUT_MS, plainFallback = false, useGoogleSearch = false }) {
   const configuredModel = modelIds(env).text;
   const fallbackModel = fallbackTextModel(configuredModel);
   const makePayload = (model, { useSchema, useMime }) => {
@@ -161,9 +174,9 @@ export async function generateText(env, { system, contents, maxOutputTokens = 10
     const stripped = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
     try {
       const value = JSON.parse(stripped);
-      if (value && typeof value === 'object' && typeof value.text === 'string') return { data: value, model };
+      if (value && typeof value === 'object' && typeof value.text === 'string') return { data: value, model, ...(grounding ? { grounding } : {}) };
     } catch { /* متن عادی است */ }
-    return { data: { status: 'ready', questions: [], notes: [], text }, model };
+    return { data: { status: 'ready', questions: [], notes: [], text }, model, ...(grounding ? { grounding } : {}) };
   }
   let parsed;
   let parseFailed = false;
@@ -178,7 +191,7 @@ export async function generateText(env, { system, contents, maxOutputTokens = 10
       logGeminiFailure('text', model, { stage: 'content', reason: 'BAD_JSON_SHAPE', finishReason: safeEnum(data?.candidates?.[0]?.finishReason) });
       throw new AiError('AI_EMPTY', 502);
     }
-    return { data: parsed, model };
+    return { data: parsed, model, ...(grounding ? { grounding } : {}) };
   }
   {
     // پاسخ طولانی ممکن است وسط JSON قطع شود (MAX_TOKENS)؛ بخش سالم متن را نگه می‌داریم به‌جای خطا.
@@ -186,7 +199,7 @@ export async function generateText(env, { system, contents, maxOutputTokens = 10
     const repaired = finishReason === 'MAX_TOKENS' ? repairTruncatedJson(text) : null;
     if (repaired) {
       logGeminiFailure('text', model, { stage: 'content', reason: 'JSON_REPAIRED', finishReason });
-      return { data: repaired, truncated: true, model };
+      return { data: repaired, truncated: true, model, ...(grounding ? { grounding } : {}) };
     }
     logGeminiFailure('text', model, { stage: 'content', reason: 'BAD_JSON_OUTPUT', finishReason });
     throw new AiError('AI_EMPTY', 502);
