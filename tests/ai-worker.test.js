@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../worker/src/index.js';
 import { AiError, extractText, generateText, synthesizeSpeech, aiConfigured, modelIds } from '../worker/src/ai/gemini.js';
-import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES } from '../worker/src/ai/routes.js';
+import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims } from '../worker/src/ai/routes.js';
 import { mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt, LEGAL_DISCLAIMER } from '../worker/src/ai/prompts.js';
 import { groqConfigured, reviewLegalDraft, groqReviewNotes, GROQ_API, GROQ_REVIEW_MODEL } from '../worker/src/ai/groq.js';
 import batch01 from '../worker/src/moot/bank/batch-01.js';
@@ -173,6 +173,21 @@ test('پرونده و دستور سیستمی روی سرور است و پیام
   assert.ok(LEGAL_DISCLAIMER.includes('جایگزین بررسی حرفه‌ای وکیل نیست'));
 });
 
+test('کنترل سمت سرور، شماره ماده و مهلت فاقد پشتوانه را پیش از نمایش خنثی می‌کند', () => {
+  const guarded = guardUnverifiedLegalClaims(
+    'طبق ماده ۱۷۹ و ماده ۱۸۳ باید ظرف ۳۰ روز اقدام کنید؛ همچنین ماده ۴۲۲ قابل اعمال است.',
+    [{ articleNumber: '۴۲۲' }],
+    'ماده ۴۲۲ قانون مدنی؛ منبع درباره مهلت زمانی حکمی ندارد.',
+  );
+  assert.match(guarded.text, /شماره نیازمند تطبیق با متن رسمی/);
+  assert.match(guarded.text, /مدت نیازمند تطبیق با منبع رسمی/);
+  assert.match(guarded.text, /ماده ۴۲۲/);
+  assert.equal(guarded.changed, true);
+  const safe = guardUnverifiedLegalClaims('ماده ۴۲۲ فوری است.', [{ articleNumber: '۴۲۲' }], 'ماده ۴۲۲');
+  assert.equal(safe.text, 'ماده ۴۲۲ فوری است.');
+  assert.equal(safe.changed, false);
+});
+
 test('مسیر دستیار از ورود تا پاسخ ساخت‌یافته (با Gemini ساختگی) کامل کار می‌کند', async () => {
   const modelJson = { status: 'ready', questions: [], text: 'پیش‌نویس آزمایشی [جای خالی: نام موکل]', notes: ['بررسی شود'] };
   await withFetch(async (url, init) => {
@@ -239,6 +254,33 @@ test('حالت مشاورهٔ حقوقی بدون نوع سند پاسخ می‌
     assert.match(data.text, /مهلت/);
     assert.ok(system.includes('پاسخ مشاوره‌ای'));
     assert.ok(!system.includes('تهیه کن'));
+  });
+});
+
+test('مشاوره درباره تصادف پنهان خودرو، مواد مدنی مرتبط را فراهم و استناد و مهلت ساختگی را حذف می‌کند', async () => {
+  const modelJson = {
+    status: 'ready', questions: [],
+    text: 'طبق ماده ۱۷۹ خریدار ظرف ۳۰ روز باید اقدام کند. ماده ۴۲۲ حق فسخ یا ارش را مقرر کرده است.',
+    notes: [],
+  };
+  let system = '';
+  await withFetch(async (url, init) => {
+    system = JSON.parse(init.body).systemInstruction.parts[0].text;
+    return jsonRes(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(modelJson) }] } }] });
+  }, async () => {
+    const env = { DB: fakeDb({ loggedIn: true }), GEMINI_API_KEY: KEY };
+    const res = await worker.fetch(req('/api/ai/assistant', {
+      body: { mode: 'consult', message: 'بعد از خرید خودرو متوجه تصادف پنهان پیش از فروش شده‌ام؛ چه کنم؟', history: [] },
+      cookie: 'tok',
+    }), env);
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.match(system, /ماده ۴۲۲/);
+    assert.match(system, /ماده ۴۳۵/);
+    assert.match(data.text, /شماره نیازمند تطبیق با متن رسمی/);
+    assert.match(data.text, /مدت نیازمند تطبیق با منبع رسمی/);
+    assert.match(data.text, /ماده ۴۲۲ حق فسخ یا ارش/);
+    assert.ok(data.notes.some((note) => note.includes('فاقد پشتوانه')));
   });
 });
 

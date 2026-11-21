@@ -306,6 +306,60 @@ export function citationWarnings(text) {
   return CITATION_PATTERNS.some((re) => re.test(text)) ? [CITATION_WARNING] : [];
 }
 
+const VEHICLE_DEFECT_TOPIC = /خودرو|اتومبیل|ماشین|تصادف|خیار عیب|عیب پنهان|عیب مخفی/u;
+const VEHICLE_DEFECT_ARTICLES = Object.freeze([
+  ['۴۲۲', 'انتخاب مشتری میان فسخ معامله و نگهداری مبیع معیوب با اخذ ارش.'],
+  ['۴۲۳', 'ثبوت خیار عیب منوط به مخفی و موجود بودن عیب در زمان عقد است.'],
+  ['۴۲۴', 'عیب مخفی است اگر مشتری هنگام بیع از آن آگاه نبوده باشد؛ خواه عیب واقعاً مستور بوده یا ظاهر بوده ولی مشتری متوجه نشده باشد.'],
+  ['۴۲۵', 'عیبی که پس از بیع و پیش از قبض حادث شود در حکم عیب سابق است.'],
+  ['۴۲۶', 'تشخیص عیب بر حسب عرف و عادت انجام می‌شود.'],
+  ['۴۲۷', 'میزان ارش با ارزیابی اهل خبره از ارزش مبیع سالم و معیوب و نسبت آن‌ها به ثمن معامله محاسبه می‌شود.'],
+  ['۴۲۸', 'در صورت اختلاف اهل خبره در قیمت‌گذاری، حد وسط قیمت‌ها معتبر است.'],
+  ['۴۲۹', 'در مواردی مانند تلف مبیع نزد مشتری، انتقال به غیر یا تغییر مبیع، ممکن است حق فسخ ساقط و فقط ارش قابل مطالبه باشد.'],
+  ['۴۳۰', 'اگر عیب حادث پس از قبض ناشی از عیب قدیم باشد، حق رد نیز باقی می‌ماند.'],
+  ['۴۳۱', 'در فروش چند مال بدون تعیین ثمن جداگانه، ظهور عیب در بعض آن‌ها تابع حکم خاص ماده است و انتخاب مشتری محدودیت دارد.'],
+  ['۴۳۲', 'در تعدد مشتریان، رد سهم یک مشتری بدون رضایت فروشنده تابع محدودیت مقرر در ماده است.'],
+  ['۴۳۳', 'در تعدد فروشندگان، مشتری می‌تواند سهم یکی را رد و سهم دیگری را با اخذ ارش قبول کند.'],
+  ['۴۳۴', 'بطلان فقط در فرضی مطرح است که مبیع اصلاً مالیت و قیمت نداشته باشد؛ عیب معمولی به‌خودی‌خود موجب بطلان نیست.'],
+  ['۴۳۵', 'خیار عیب پس از آگاهی از عیب فوری است.'],
+  ['۴۳۶', 'در صورت تبری فروشنده از عیوب، حدود اثر شرط و عیب مورد تبری باید بررسی شود.'],
+  ['۴۳۸', 'تدلیس عملیاتی است که موجب فریب طرف معامله شود.'],
+  ['۴۳۹', 'اگر فروشنده تدلیس کرده باشد، مشتری حق فسخ بیع را خواهد داشت.'],
+  ['۴۴۰', 'خیار تدلیس پس از علم به آن فوری است.'],
+].map(([articleNumber, body]) => ({
+  lawTitle: 'قانون مدنی', articleNumber, heading: 'خیار عیب و تدلیس', body,
+  sourceName: 'قانون مدنی؛ متن رسمی قوانین و مقررات', sourceUrl: 'https://qavanin.ir/Law/PrintText/?IDS=12021850837713548188&font=',
+})));
+
+const normalizeLegalDigits = (value) => String(value).replace(/[۰-۹]/g, (digit) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)));
+
+export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedContext = '') {
+  if (typeof text !== 'string' || !text) return { text: text || '', changed: false };
+  const allowed = new Set(legalArticles.map((item) => normalizeLegalDigits(item.articleNumber)));
+  let changed = false;
+  let guarded = text.replace(/(?:ماده|مواد)\s*([۰-۹0-9]+(?:(?:\s*(?:،|,|و|تا|الی|[-–])\s*)[۰-۹0-9]+)*)/gu, (match, sequence) => {
+    const numbers = sequence.match(/[۰-۹0-9]+/g) || [];
+    const range = /(?:تا|الی|[-–])/.test(sequence);
+    const values = numbers.map(normalizeLegalDigits);
+    const unsupported = range && values.length === 2
+      ? (Number(values[1]) >= Number(values[0]) && Number(values[1]) - Number(values[0]) <= 100
+        ? Array.from({ length: Number(values[1]) - Number(values[0]) + 1 }, (_, i) => String(Number(values[0]) + i)).some((number) => !allowed.has(number))
+        : true)
+      : values.some((number) => !allowed.has(number));
+    if (!unsupported) return match;
+    changed = true;
+    return 'ماده [شماره نیازمند تطبیق با متن رسمی]';
+  });
+  guarded = guarded.replace(/([۰-۹0-9]{1,3})\s*(روز|ماه|هفته|سال)/gu, (match) => {
+    const normalizedMatch = normalizeLegalDigits(match).replace(/\s+/g, ' ');
+    const source = normalizeLegalDigits(verifiedContext).replace(/\s+/g, ' ');
+    if (source.includes(normalizedMatch)) return match;
+    changed = true;
+    return '[مدت نیازمند تطبیق با منبع رسمی]';
+  });
+  return { text: guarded, changed };
+}
+
 const DEFAULT_ATTACHMENT_MESSAGE = 'پیوست‌ها را بر اساس نوع کار و نوع سند انتخاب‌شده بررسی کن.';
 /** ورودی دستیار: JSON (بدون پیوست) یا multipart/form-data (با پیوست). فایل‌ها هرگز در لاگ یا تاریخچه ذخیره نمی‌شوند. */
 async function readAssistantInput(request) {
@@ -378,15 +432,17 @@ async function assistant(request, env) {
     ];
     let legalArticles = [];
     let legalBankUnavailable = false;
+    const legalSearchText = [...history.slice().reverse().map((item) => item.text), message].join('\n\n');
     try {
-      const legalSearchText = [...history.slice().reverse().map((item) => item.text), message].join('\n\n');
       legalArticles = await findVerifiedLegalArticles(env.DB, legalSearchText);
     } catch (err) {
       // خرابی بانک نباید پاسخ اصلی را از کار بیندازد؛ فقط زمینهٔ مستند حذف و هشدار داده می‌شود.
       legalBankUnavailable = true;
       console.error(JSON.stringify({ where: 'ai', stage: 'legal_bank_query', error: err?.name || 'Error' }));
     }
-    const legalContext = legalArticles.length ? legalArticles.map((a) => `قانون: ${a.lawTitle}\nماده ${a.articleNumber}${a.heading ? ` ـ ${a.heading}` : ''}\n${a.body}\nمنبع ثبت‌شده: ${a.sourceName || 'ثبت نشده'}${a.sourceUrl ? ` (${a.sourceUrl})` : ''}`).join('\n\n---\n\n') : '';
+    const curatedArticles = VEHICLE_DEFECT_TOPIC.test(legalSearchText) ? VEHICLE_DEFECT_ARTICLES : [];
+    const promptArticles = [...legalArticles, ...curatedArticles];
+    const legalContext = promptArticles.length ? promptArticles.map((a) => `قانون: ${a.lawTitle}\nماده ${a.articleNumber}${a.heading ? ` ـ ${a.heading}` : ''}\n${a.body}\nمنبع ثبت‌شده: ${a.sourceName || 'ثبت نشده'}${a.sourceUrl ? ` (${a.sourceUrl})` : ''}`).join('\n\n---\n\n') : '';
     stage = 'gemini_generation';
     const { data, truncated, provider } = await generateTextWithFallback(env, {
       system: assistantSystemPrompt({ mode, docType, hasAttachments: attachments.length > 0, legalContext }),
@@ -402,7 +458,10 @@ async function assistant(request, env) {
     const notes = Array.isArray(data.notes) ? data.notes.filter((n) => typeof n === 'string').slice(0, 10) : [];
     if (provider === 'groq') notes.push('به‌دلیل اختلال سرویس اصلی، پاسخ این نوبت از مسیر جایگزین تولید شد. مواد قانونیِ بازیابی‌شده از بانک آکادمی بدون تغییر در اختیار مدل قرار گرفتند؛ پاسخ همچنان نیازمند بررسی و راستی‌آزمایی حقوقی است.');
     if (legalBankUnavailable) notes.push('بانک قوانین در این درخواست پاسخ نداد؛ پاسخ بدون استناد به مواد ثبت‌شده در بانک تهیه شد و استنادها باید جداگانه بررسی شوند.');
-    const text = typeof data.text === 'string' ? data.text : '';
+    const rawText = typeof data.text === 'string' ? data.text : '';
+    const guardedText = guardUnverifiedLegalClaims(rawText, promptArticles, legalContext);
+    const text = guardedText.text;
+    if (guardedText.changed) notes.push('شماره مواد یا مهلت‌های فاقد پشتوانه در منابع تأییدشده، برای جلوگیری از ارائه استناد نادرست با عبارت نیازمند بررسی جایگزین شدند.');
     if (truncated) notes.push('پاسخ به‌دلیل طول زیاد کامل نشد. برای ادامه بنویسید «ادامه بده».');
     for (const warning of citationWarnings(text)) if (!notes.includes(warning)) notes.push(warning);
     // برای حفظ محرمانگی، در صورت وجود پیوست، پیش‌نویس حاوی محتوای استخراج‌شده به ارائه‌دهندهٔ سوم ارسال نمی‌شود.
@@ -412,7 +471,7 @@ async function assistant(request, env) {
       notes.push('چون پاسخ اصلی همین نوبت با Groq تولید شده، بازبینی مستقل جداگانه اجرا نشد تا یک سرویس هم‌زمان نقش تولیدکننده و بازبین را نداشته باشد.');
     } else {
       stage = 'groq_review';
-      let reviewArticles = legalArticles;
+      let reviewArticles = [...promptArticles];
       let reviewBankUnavailable = false;
       try {
         // جست‌وجوی دوم با متن پاسخ Gemini هم انجام می‌شود تا استنادهای تازه‌مطرح‌شده نیز تطبیق داده شوند.

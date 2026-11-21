@@ -690,7 +690,10 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart') 
   function speakGreeting() {
     if (!voiceMode) return;
     if (greetingFileOk) { playGreetingFile(); return; }
-    speakGreetingWithSpeechSynthesis();
+    // تا زمان نصب فایل خوشامدگویی باکیفیت، صدای فارسی نامطمئن سیستم را پخش نکن.
+    speaking = false;
+    setVoiceState('ready', 'خوشامدگویی صوتی باکیفیت هنوز نصب نشده است؛ متن خوشامدگویی را بخوانید. دستیار آماده شنیدن است.');
+    startRecording();
   }
 
   function speakGreetingWithSpeechSynthesis() {
