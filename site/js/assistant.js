@@ -5,6 +5,7 @@ import { icon } from './icons.js';
 import { getJson, postJson, postForm, sendJson } from './api.js';
 import { aiStatus, errorText, blobToBase64, pickRecordingMime, baseMime } from './ai-client.js';
 import { formatShamsi } from './shamsi.js';
+import { VOICE_GREETING_TEXT, VOICE_GREETING_AUDIO_SRC } from './voice-greeting.js';
 
 export const DOC_TYPES = [
   ['petition', 'پیش‌نویس دادخواست'], ['defense', 'پیش‌نویس لایحه دفاعیه'], ['appeal', 'لایحه تجدیدنظرخواهی'],
@@ -520,6 +521,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
   }
   function stopVoiceMode() {
     voiceMode = false;
+    if (greetingAudio) { try { greetingAudio.pause(); } catch {} greetingAudio = null; }
     if (recordTimeout) clearTimeout(recordTimeout);
     recordTimeout = null;
     if (recorder && recording) {
@@ -635,8 +637,40 @@ function assistantWorkspace(initialThread, guestMode = false) {
     setVoiceState('processing', 'متن گفتار دریافت شد؛ در حال ارسال برای مشاوره حقوقی…');
     await send();
   }
-  const VOICE_GREETING = 'سلام، وقت بخیر. من دستیار صوتی آکادمی وکالت شهرام مختاری هستم. سؤال یا شرح پرونده‌تون رو بفرمایید؛ اگر اطلاعاتی لازم باشه، چند سؤال کوتاه می‌پرسم و بعد پاسخ رو به‌صورت متن و صدا ارائه می‌کنم.';
+  const VOICE_GREETING = VOICE_GREETING_TEXT;
+  // فایل خوشامدگویی یک‌بار در شروع صفحه بررسی می‌شود (HEAD)؛ اگر نبود یا نوع آن صوتی نبود، از صدای مرورگر استفاده می‌شود.
+  let greetingFileOk = false;
+  let greetingAudio = null;
+  fetch(VOICE_GREETING_AUDIO_SRC, { method: 'HEAD', cache: 'no-store' })
+    .then((r) => { greetingFileOk = r.ok && (r.headers.get('content-type') || '').startsWith('audio/'); })
+    .catch(() => { greetingFileOk = false; });
+
+  // پخش فایل ذخیره‌شده، همزمان با کلیک کاربر (بدون فراخوانی Gemini). پس از پایان، ضبط آماده می‌شود.
+  function playGreetingFile() {
+    speaking = true;
+    const audio = new Audio(VOICE_GREETING_AUDIO_SRC);
+    audio.setAttribute('playsinline', '');
+    audio.preload = 'auto';
+    greetingAudio = audio;
+    const finish = (message, startNext) => {
+      speaking = false;
+      greetingAudio = null;
+      setVoiceState('ready', message);
+      if (startNext && voiceMode) window.setTimeout(() => startRecording(), 300);
+    };
+    audio.addEventListener('ended', () => finish('خوشامدگویی تمام شد؛ حالا سؤال یا شرح پرونده‌تون رو بگید.', true));
+    audio.addEventListener('error', () => finish('فایل خوشامدگویی پخش نشد؛ متن آن بالا نوشته شده است. «شروع صحبت» را بزنید.', false));
+    audio.play().catch(() => finish('پخش خودکار مرورگر مسدود شد؛ متن را بخوانید و «شروع صحبت» را بزنید.', false));
+    setVoiceState('speaking', VOICE_GREETING);
+  }
+
   function speakGreeting() {
+    if (!voiceMode) return;
+    if (greetingFileOk) { playGreetingFile(); return; }
+    speakGreetingWithSpeechSynthesis();
+  }
+
+  function speakGreetingWithSpeechSynthesis() {
     if (!voiceMode) return;
     if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance !== 'function') {
       setVoiceState('ready', VOICE_GREETING);

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>ساخت فایل خوشامدگویی دستیار</title>
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+<main class="card" style="max-width:720px;margin:24px auto;padding:16px">
+  <h1>ساخت فایل خوشامدگویی دستیار</h1>
+  <p class="muted">این صفحه فقط یک بار اجرا می‌شود. باید با حساب واردشدهٔ سایت باز شود. متن زیر از /api/ai/speech تولید می‌شود و فایل خروجی را دانلود کنید.</p>
+  <p id="text" style="line-height:2"></p>
+  <button id="generate" class="btn" type="button">تولید فایل</button>
+  <p id="status" class="form-status" role="status"></p>
+  <audio id="preview" controls preload="none" style="width:100%;margin-top:12px"></audio>
+  <p><a id="download" class="btn secondary" hidden download="greeting.wav">دانلود greeting.wav</a></p>
+</main>
+<script type="module" src="/tools/greeting-audio.js"></script>
+</body>
+</html>
