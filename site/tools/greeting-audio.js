@@ -21,8 +21,11 @@ button.addEventListener('click', async () => {
     });
     const type = res.headers.get('content-type') || '';
     if (!res.ok || !type.startsWith('audio/')) {
+      // کد خطای سرور (مثلاً UNAUTHENTICATED یا AI_RATE_LIMITED) را از بدنهٔ JSON می‌خوانیم تا علت واقعی دیده شود.
+      const data = type.includes('json') ? await res.json().catch(() => null) : null;
+      const code = data?.error ? ` · کد خطا: ${data.error}` : '';
       status.className = 'form-status err';
-      status.textContent = `تولید صدا انجام نشد (HTTP ${res.status}). با حساب واردشده باز کرده‌اید؟`;
+      status.textContent = `تولید صدا انجام نشد (HTTP ${res.status}${code}).${res.status === 401 ? ' ابتدا با حساب کاربری وارد شوید.' : ''}`;
       return;
     }
     const blob = await res.blob();
