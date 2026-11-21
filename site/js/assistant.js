@@ -445,7 +445,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     Array.from({ length: 9 }, () => h('span', { 'aria-hidden': 'true' }))
   );
   const voiceHint = h('span', { class: 'muted ai-voice-hint', role: 'status', 'aria-live': 'polite', text: mediaRecorderAvailable
-    ? 'برای شروع، دکمه گفت‌وگوی صوتی را بزنید. هر بار صحبت را پایان دهید تا صدا به متن تبدیل و پاسخ صوتی پخش شود.'
+    ? 'برای شروع، دکمه گفت‌وگوی صوتی را بزنید. هر بار صحبت را پایان دهید تا صدا به متن تبدیل و پاسخ صوتی پخش شود. صدای ضبط‌شده فقط برای تبدیل به متن به Gemini فرستاده می‌شود و در تاریخچه ذخیره نمی‌شود.'
     : 'ضبط صدا در این مرورگر پشتیبانی نمی‌شود؛ Safari یا Chrome را به‌روز کنید و مجوز میکروفون را بررسی کنید.' });
   const voicePanel = h('div', { class: 'ai-voice-panel', 'aria-label': 'کنترل گفت‌وگوی صوتی' }, [
     h('div', { class: 'ai-voice-actions' }, [voiceBtn, voiceEndBtn, playReplyBtn]),
@@ -654,6 +654,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     }
   }
   voiceBtn.disabled = !mediaRecorderAvailable;
+  voiceBtn.setAttribute('aria-pressed', 'false');
   voiceBtn.addEventListener('click', () => {
     if (!mediaRecorderAvailable || voiceProcessing || speaking) return;
     if (recording) { stopRecording(); return; }
@@ -817,7 +818,8 @@ function assistantWorkspace(initialThread, guestMode = false) {
     }
     stopPendingProgress();
     busy = false;
-    if (voiceMode) voiceProcessing = false;
+    if (voiceMode) { voiceProcessing = false; setVoiceState('ready', 'پاسخ دریافت شد؛ در حال آماده‌سازی ادامه گفت‌وگو…'); }
+    else voiceBtn.disabled = !mediaRecorderAvailable;
     sendBtn.disabled = false;
     attachBtn.disabled = false;
     pending.hidden = true;
