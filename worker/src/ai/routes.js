@@ -495,7 +495,7 @@ async function assistant(request, env) {
     let truncated = false;
     let provider = 'gemini';
     if (mode === 'litigation') {
-      const report = await runLitigationWorkbench(env, { contents, legalContext, attachments });
+      const report = await runLitigationWorkbench(env, { contents, legalContext, attachments, docType });
       data = { status: 'ready', questions: [], text: report.text, notes: [] };
       provider = report.provider;
     } else {
