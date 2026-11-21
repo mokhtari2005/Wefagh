@@ -170,7 +170,13 @@ export function assistantPage(params = {}) {
   wrap.append(body);
 
   (async () => {
-    const [me, status, settings] = await Promise.all([getJson('/api/me'), aiStatus(), getJson('/api/access-settings').catch(() => ({ ok: false }))]);
+    // هر بررسی جدا محافظت می‌شود: خطای یکی نباید کل صفحه را متوقف کند.
+    const guard = (promise, fallback, label) => promise.catch((error) => { console.error(`assistant.${label}_failed`, error); return fallback; });
+    const [me, status, settings] = await Promise.all([
+      guard(getJson('/api/me'), { ok: false }, 'me'),
+      guard(aiStatus(), { configured: true }, 'status'),
+      guard(getJson('/api/access-settings'), { ok: false }, 'settings'),
+    ]);
     const guestMode = !me.ok && settings.ok && settings.data?.registrationRequired === false;
     if (!me.ok && !guestMode) {
       body.replaceChildren(h('div', { class: 'notice', role: 'note' }, [
@@ -552,7 +558,12 @@ function assistantWorkspace(initialThread, guestMode = false) {
   });
 
   renderLog();
-  if (initialThread && /^[1-9][0-9]{0,15}$/.test(initialThread)) loadThread(initialThread);
+  if (initialThread && /^[1-9][0-9]{0,15}$/.test(initialThread)) {
+    loadThread(initialThread).catch((error) => {
+      console.error('assistant.load_thread_failed', error);
+      status.textContent = 'بازیابی گفت‌وگو انجام نشد.';
+    });
+  }
 
   const toolbar = h('div', { class: 'ai-toolbar' }, [modeGroup, docWrap, contractWrap, newBtn]);
   const composer = h('form', { class: 'ai-composer', 'aria-label': 'ارسال پیام' }, [
