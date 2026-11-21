@@ -169,13 +169,13 @@ export function summarizeReply(data) {
 }
 
 const SEARCH_SUGGESTION_MARKER = '\n<!--GOOGLE_SEARCH_SUGGESTION:';
-function packStoredAiMessage(text, suggestionHtml = '') {
+export function packStoredAiMessage(text, suggestionHtml = '') {
   if (typeof suggestionHtml !== 'string' || !suggestionHtml || suggestionHtml.length > 5000) return text;
   const encoded = encodeURIComponent(suggestionHtml);
   const packed = text + SEARCH_SUGGESTION_MARKER + encoded + '-->';
   return packed.length <= 23800 ? packed : text;
 }
-function unpackStoredAiMessage(content) {
+export function unpackStoredAiMessage(content) {
   const raw = typeof content === 'string' ? content : '';
   const markerIndex = raw.lastIndexOf(SEARCH_SUGGESTION_MARKER);
   if (markerIndex < 0) return { text: raw, searchSuggestionHtml: '' };
