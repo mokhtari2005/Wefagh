@@ -4041,28 +4041,25 @@ body.classroom-fullscreen-fallback { overflow:hidden; }
   justify-content: center;
   gap: 5px;
   width: 100%;
-  min-height: 44px;
-  padding: .35rem .75rem;
+  min-height: 64px;
+  padding: .5rem .75rem;
   border: 1px solid color-mix(in srgb, var(--sand-line, #d7cbb4) 75%, transparent);
   border-radius: 10px;
   background: color-mix(in srgb, var(--paper, #fffdf8) 86%, var(--teal, #287568) 14%);
 }
 .ai-voice-wave span {
   display: block;
-  width: 4px;
-  height: 24px;
+  width: 5px;
+  height: 34px;
   border-radius: 999px;
   background: var(--teal, #287568);
-  transform: scaleY(.14);
+  transform: scaleY(.12);
   transform-origin: center;
-  opacity: .72;
+  opacity: .9;
+  transition: transform 75ms linear;
 }
-.ai-voice-wave[data-state="listening"] span {
-  animation: ai-voice-wave 760ms ease-in-out infinite alternate;
-  opacity: 1;
-}
-.ai-voice-wave[data-state="listening"] span:nth-child(3n) { animation-duration: 560ms; }
-.ai-voice-wave[data-state="listening"] span:nth-child(2n) { animation-duration: 920ms; }
+.ai-voice-wave[data-live="true"] span { animation: none !important; opacity: 1; }
+.ai-voice-wave[data-state="listening"] span { background: var(--teal, #287568); }
 .ai-voice-wave[data-state="processing"] span,
 .ai-voice-wave[data-state="connecting"] span {
   animation: ai-voice-processing 1.05s ease-in-out infinite;
@@ -4070,6 +4067,7 @@ body.classroom-fullscreen-fallback { overflow:hidden; }
 .ai-voice-wave[data-state="speaking"] span {
   animation: ai-voice-speaking 620ms ease-in-out infinite alternate;
 }
+.ai-voice-wave[data-state="speaking"][data-live="true"] span { animation: none !important; }
 .ai-voice-wave[data-state="error"] span,
 .ai-voice-wave[data-state="unsupported"] span { background: #b64b43; }
 .ai-voice-wave[data-state="error"] { background: #fff4f1; }
@@ -4106,6 +4104,8 @@ body.classroom-fullscreen-fallback { overflow:hidden; }
 .ai-composer-bar .ai-counter { margin-inline-start: auto; }
 @media (max-width: 600px) {
   .ai-voice-panel { padding: .7rem; }
+  .ai-voice-wave { min-height: 72px; gap: 6px; }
+  .ai-voice-wave span { width: 6px; height: 42px; }
   .ai-voice-actions { display: grid; grid-template-columns: 1fr 1fr; }
   .ai-voice-actions .ai-voice-toggle { grid-column: 1 / -1; width: 100%; }
   .ai-voice-actions .btn { width: 100%; }
