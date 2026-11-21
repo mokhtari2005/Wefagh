@@ -9,7 +9,6 @@ import { handleThreads } from './threads.js';
 import { AiError, aiConfigured, transcribeAudio, synthesizeLongSpeech } from './gemini.js';
 import { generateTextWithFallback, stripResponseFormatting } from './fallback.js';
 import { groqConfigured } from './groq.js';
-import { sendMessage as sendTelegramMessage, sendDocument as sendTelegramDocument, telegramConfigured } from '../telegram/api.js';
 import { reviewWithWorkersAI, workersAiConfigured } from './cloudflare.js';
 import { clampReply } from './speech.js';
 import { reviewLegalDraft, groqReviewShortNote, groqReviewNotes } from './groq.js';
@@ -379,7 +378,7 @@ async function readAssistantInput(request) {
     return { error: fail('INVALID_FORM', 400) };
   }
   const field = (name) => (typeof form.get(name) === 'string' ? form.get(name) : undefined);
-  const body = { mode: field('mode'), docType: field('docType'), message: field('message'), telegramDelivery: field('telegramDelivery') === 'true' };
+  const body = { mode: field('mode'), docType: field('docType'), message: field('message') };
   const historyRaw = field('history');
   if (historyRaw) {
     try {
@@ -515,57 +514,6 @@ async function assistant(request, env) {
       if (a.truncated) notes.push(`فقط بخش ابتدایی «${a.name}» (حداکثر ${ATTACHMENT_LIMITS.extractedChars.toLocaleString('fa-IR')} نویسه) بررسی شد.`);
     }
 
-    let telegramDelivery;
-    if (body.telegramDelivery === true && auth.user?.id) {
-      try {
-        const linked = await env.DB.prepare('SELECT chat_id FROM telegram_links WHERE user_id = ?1 LIMIT 1')
-          .bind(auth.user.id).first();
-        if (!linked?.chat_id) {
-          telegramDelivery = 'not_linked';
-        } else if (!telegramConfigured(env)) {
-          telegramDelivery = 'not_configured';
-        } else {
-          const modeLabel = ASSISTANT_MODES.includes(mode) ? mode : 'دستیار حقوقی';
-          const docLabel = docType && ASSISTANT_DOC_TYPES[docType] ? ASSISTANT_DOC_TYPES[docType] : '';
-          const report = [
-            'گزارش دستیار وکیل آکادمی وکالت شهرام مختاری',
-            `بخش: ${modeLabel}${docLabel ? ` — ${docLabel}` : ''}`,
-            '',
-            'درخواست این نوبت:',
-            message,
-            '',
-            'پاسخ دستیار:',
-            text,
-            questions.length ? `\nپرسش‌های تکمیلی:\n${questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}` : '',
-            notes.length ? `\nنکات و هشدارها:\n• ${notes.join('\n• ')}` : '',
-            '',
-            LEGAL_DISCLAIMER,
-          ].filter(Boolean).join('\n');
-          const messageSent = await sendTelegramMessage(env, linked.chat_id, report);
-          const fileResults = await Promise.all(files.map((file) =>
-            sendTelegramDocument(env, linked.chat_id, file, 'پیوست ارسالی برای بررسی حقوقی')
-          ));
-          const filesSent = fileResults.every(Boolean);
-          telegramDelivery = messageSent && filesSent ? 'sent'
-            : messageSent || fileResults.some(Boolean) ? 'partial' : 'failed';
-        }
-      } catch (err) {
-        telegramDelivery = 'failed';
-        console.error(JSON.stringify({ where: 'ai.telegram_delivery', error: err?.name || 'Error' }));
-      }
-      const deliveryNote = {
-        sent: 'گزارش این نوبت و پیوست‌های انتخاب‌شده به تلگرام متصل ارسال شد.',
-        partial: 'ارسال تلگرام کامل نبود؛ ممکن است بخشی از گزارش یا پیوست‌ها ارسال شده باشد.',
-        not_linked: 'ارسال تلگرام انجام نشد؛ هنوز حساب تلگرام به حساب سایت متصل نیست.',
-        not_configured: 'ارسال تلگرام انجام نشد؛ سرویس ارسال در حال حاضر روی سرور فعال نیست.',
-        failed: 'ارسال تلگرام ناموفق بود؛ پاسخ اصلی در سایت در دسترس است.',
-      }[telegramDelivery];
-      if (deliveryNote) notes.push(deliveryNote);
-    } else if (body.telegramDelivery === true) {
-      telegramDelivery = 'not_linked';
-      notes.push('ارسال تلگرام انجام نشد؛ این قابلیت فقط برای حساب واردشده و متصل‌شده در دسترس است.');
-    }
-
     return json({
       ok: true,
       status: data.status === 'need_info' ? 'need_info' : 'ready',
@@ -573,7 +521,6 @@ async function assistant(request, env) {
       text,
       notes,
       attachments: summarizeAttachments(attachments),
-      ...(body.telegramDelivery === true ? { telegramDelivery } : {}),
       disclaimer: LEGAL_DISCLAIMER,
     });
   } catch (err) {
