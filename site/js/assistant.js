@@ -148,6 +148,9 @@ const SUGGESTIONS = [
   ['draft', 'petition', 'دادخواست مطالبهٔ وجه چک برگشتی را پیش‌نویس کن.'],
   ['analyze', 'petition', 'نقاط قوت و ضعف این پرونده را تحلیل کن: ...'],
   ['review', 'petition', 'این متن لایحه را از نظر ساختار و استدلال بازبینی کن: ...'],
+  ['litigation', 'retrial', 'این پرونده را از دیدگاه وکیل طرف مقابل، وکیل موکل و قاضی بی‌طرف بررسی کن و استنادات را جداگانه راستی‌آزمایی کن.'],
+  ['litigation', 'third_party', 'شرایط و جهات اعتراض ثالث را با توجه به رأی و اسناد پیوست بررسی کن.'],
+  ['litigation', 'retrial', 'بررسی کن آیا وقایع و مدارک این پرونده با یکی از جهات قانونی اعاده دادرسی منطبق است یا خیر.'],
 ];
 
 /** پیام‌های کاربر و پاسخ دستیار برای ارسال دوباره به سرور؛ سقف ۴۰ پیام مطابق محدودیت سرور. */
@@ -1068,7 +1071,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart') 
   renderLog();
   if (initialThread && /^[1-9][0-9]{0,15}$/.test(initialThread)) loadThread(initialThread);
 
-  const toolbar = h('div', { class: voiceAllowed ? 'ai-toolbar ai-smart-toolbar' : 'ai-toolbar' }, voiceAllowed ? [newBtn] : [modeGroup, docWrap, contractWrap, newBtn]);
+  const toolbar = h('div', { class: voiceAllowed ? 'ai-toolbar ai-smart-toolbar' : 'ai-toolbar' }, [modeGroup, docWrap, contractWrap, newBtn]);
   const composer = h('form', { class: voiceAllowed ? 'ai-composer ai-chat-composer' : 'ai-composer', 'aria-label': voiceAllowed ? 'چت با دستیار' : 'ارسال پیام' }, [
     acceptBtn, partyPanel, attachChip,
     composerText,
