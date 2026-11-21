@@ -426,6 +426,100 @@ function assistantWorkspace(initialThread, guestMode = false) {
   // ---------- کادر ارسال ----------
   const composerText = h('textarea', { class: 'ai-input', rows: '3', maxlength: String(MESSAGE_LIMIT), 'aria-label': 'پیام یا شرح پرونده', placeholder: 'موضوع دعوا، سمت موکل، مرجع رسیدگی، مرحله، خواسته، وقایع و دلایل موجود…' });
   const counter = h('span', { class: 'muted ai-counter', 'aria-live': 'polite', text: `0 / ${MESSAGE_LIMIT}` });
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let voiceMode = false;
+  let recognition = null;
+  let voiceTranscript = '';
+  let speaking = false;
+  let recognitionRestartPending = false;
+  const voiceBtn = h('button', { class: 'btn secondary ai-voice-toggle', type: 'button', text: 'شروع گفت‌وگوی صوتی' });
+  const voiceHint = h('span', { class: 'muted ai-voice-hint', role: 'status', 'aria-live': 'polite', text: SpeechRecognition ? 'برای گفت‌وگوی صوتی، میکروفون را فعال کنید.' : 'گفت‌وگوی صوتی در این مرورگر پشتیبانی نمی‌شود؛ می‌توانید از دیکته صفحه‌کلید استفاده کنید.' });
+  function stopSpeaking() {
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    speaking = false;
+  }
+  function speakReply(text) {
+    if (!voiceMode || !('speechSynthesis' in window) || !text) return;
+    stopSpeaking();
+    const utterance = new SpeechSynthesisUtterance(String(text).replace(/\[جای خالی:[^\]]*\]/g, 'جای خالی'));
+    utterance.lang = 'fa-IR';
+    utterance.rate = 1;
+    utterance.onstart = () => { speaking = true; voiceHint.textContent = 'پاسخ دستیار در حال پخش است…'; };
+    utterance.onend = () => {
+      speaking = false;
+      if (voiceMode && !busy) startListening();
+    };
+    utterance.onerror = () => {
+      speaking = false;
+      if (voiceMode && !busy) { voiceHint.textContent = 'پخش صوتی ممکن نشد؛ پاسخ به‌صورت نوشتاری در دسترس است.'; startListening(); }
+    };
+    window.speechSynthesis.speak(utterance);
+  }
+  function startListening() {
+    if (!voiceMode || !recognition || busy || speaking) return;
+    try {
+      voiceTranscript = '';
+      recognition.start();
+      voiceHint.textContent = 'گوش می‌دهم؛ صحبت کنید…';
+    } catch (error) {
+      if (error?.name !== 'InvalidStateError') voiceHint.textContent = 'دسترسی میکروفون برقرار نشد. مجوز میکروفون مرورگر را بررسی کنید.';
+    }
+  }
+  function stopVoiceMode() {
+    voiceMode = false;
+    recognitionRestartPending = false;
+    stopSpeaking();
+    if (recognition) {
+      recognition.onend = null;
+      try { recognition.stop(); } catch {}
+    }
+    voiceBtn.textContent = 'شروع گفت‌وگوی صوتی';
+    voiceBtn.setAttribute('aria-pressed', 'false');
+    voiceHint.textContent = 'گفت‌وگوی صوتی متوقف شد.';
+  }
+  if (SpeechRecognition) {
+    recognition = new SpeechRecognition();
+    recognition.lang = 'fa-IR';
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.onresult = (event) => {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) voiceTranscript += event.results[i][0].transcript + ' ';
+      }
+    };
+    recognition.onerror = (event) => {
+      if (!voiceMode) return;
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        voiceHint.textContent = 'مجوز میکروفون داده نشد. دسترسی میکروفون سایت را در تنظیمات مرورگر فعال کنید.';
+        stopVoiceMode();
+      } else if (event.error !== 'no-speech' && event.error !== 'aborted') {
+        voiceHint.textContent = 'تشخیص گفتار با مشکل روبه‌رو شد؛ دوباره تلاش کنید.';
+      }
+    };
+    recognition.onend = () => {
+      if (!voiceMode) return;
+      const spoken = voiceTranscript.trim();
+      if (spoken && !busy) {
+        composerText.value = [composerText.value.trim(), spoken].filter(Boolean).join(' ');
+        counter.textContent = `${composerText.value.length} / ${MESSAGE_LIMIT}`;
+        voiceTranscript = '';
+        send();
+      } else if (voiceMode && !busy && !speaking) {
+        setTimeout(() => startListening(), 250);
+      }
+    };
+  }
+  voiceBtn.disabled = !SpeechRecognition;
+  voiceBtn.setAttribute('aria-pressed', 'false');
+  voiceBtn.addEventListener('click', () => {
+    if (!SpeechRecognition) return;
+    if (voiceMode) { stopVoiceMode(); return; }
+    voiceMode = true;
+    voiceBtn.textContent = 'پایان گفت‌وگوی صوتی';
+    voiceBtn.setAttribute('aria-pressed', 'true');
+    voiceHint.textContent = 'درخواست دسترسی میکروفون؛ صحبت کنید…';
+    startListening();
+  });
   composerText.addEventListener('input', () => { counter.textContent = `${composerText.value.length} / ${MESSAGE_LIMIT}`; });
   const fileInput = h('input', { type: 'file', accept: ATTACH_ACCEPT, multiple: '', hidden: '', 'aria-hidden': 'true', tabindex: '-1' });
   const attachBtn = h('button', { class: 'btn secondary', type: 'button', text: 'پیوست فایل' });
@@ -481,6 +575,9 @@ function assistantWorkspace(initialThread, guestMode = false) {
   acceptBtn.addEventListener('click', () => {
     const lastAnswer = [...history].reverse().find((item) => item.role === 'ai' && item.text)?.text || '';
     if (!lastAnswer) { status.textContent = 'ابتدا گفت‌وگوی مشاوره را تکمیل کنید.'; return; }
+    stopVoiceMode();
+    voiceBtn.hidden = true;
+    voiceHint.hidden = true;
     acceptedConclusion = lastAnswer;
     mode = 'draft';
     docSelect.value = 'petition';
@@ -573,6 +670,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     renderAttachments();
     renderLog();
     const saved = await persistTurn(userText, reply).catch(() => false);
+    if (mode === 'consult' && voiceMode) speakReply(reply);
     if (mode === 'consult' && res.data.status === 'ready') acceptBtn.hidden = false;
     status.textContent = saved
       ? (mode === 'consult'
@@ -584,6 +682,9 @@ function assistantWorkspace(initialThread, guestMode = false) {
   function newConversation() {
     threadId = null;
     history.length = 0;
+    stopVoiceMode();
+    voiceBtn.hidden = false;
+    voiceHint.hidden = false;
     acceptedConclusion = '';
     acceptBtn.hidden = true;
     partyPanel.hidden = true;
@@ -618,7 +719,8 @@ function assistantWorkspace(initialThread, guestMode = false) {
   const composer = h('form', { class: 'ai-composer', 'aria-label': 'ارسال پیام' }, [
     acceptBtn, partyPanel, attachChip,
     composerText,
-    h('div', { class: 'ai-composer-bar' }, [attachBtn, fileInput, counter, sendBtn]),
+    h('div', { class: 'ai-composer-bar' }, [attachBtn, fileInput, voiceBtn, counter, sendBtn]),
+    voiceHint,
     status,
     h('p', { class: 'ai-history-link' }, [h('a', { href: '#/assistant/history', text: 'سوابق گفت‌وگوها ←' })]),
   ]);
