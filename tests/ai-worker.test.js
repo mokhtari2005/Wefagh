@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../worker/src/index.js';
 import { AiError, extractText, generateText, synthesizeSpeech, aiConfigured, modelIds } from '../worker/src/ai/gemini.js';
-import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims } from '../worker/src/ai/routes.js';
+import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims, curatedLegalArticlesForQuery } from '../worker/src/ai/routes.js';
+import { extractExplicitLegalReferences, findVerifiedLegalArticles } from '../worker/src/legal-bank.js';
 import { mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt, LEGAL_DISCLAIMER } from '../worker/src/ai/prompts.js';
 import { groqConfigured, reviewLegalDraft, groqReviewNotes, GROQ_API, GROQ_REVIEW_MODEL } from '../worker/src/ai/groq.js';
 import batch01 from '../worker/src/moot/bank/batch-01.js';
@@ -186,6 +187,39 @@ test('کنترل سمت سرور، شماره ماده و مهلت فاقد پش
   const safe = guardUnverifiedLegalClaims('ماده ۴۲۲ فوری است.', [{ articleNumber: '۴۲۲' }], 'ماده ۴۲۲');
   assert.equal(safe.text, 'ماده ۴۲۲ فوری است.');
   assert.equal(safe.changed, false);
+});
+
+
+test('بازیابی مواد صریحاً شماره‌گذاری‌شده را پیش از جست‌وجوی موضوعی انجام می‌دهد', async () => {
+  const refs = extractExplicitLegalReferences('مواد ۵۶ و ۵۷ قانون اجرای احکام مدنی باید جداگانه بررسی شوند.');
+  assert.deepEqual(refs, [
+    { lawTitle: 'قانون اجرای احکام مدنی', articleNumber: '56' },
+    { lawTitle: 'قانون اجرای احکام مدنی', articleNumber: '57' },
+  ]);
+  const calls = [];
+  const db = {
+    prepare(sql) {
+      return { bind(...bindings) {
+        return { all: async () => {
+          calls.push({ sql, bindings });
+          return { results: sql.includes('a.article_number IN')
+            ? [{ lawTitle: 'قانون اجرای احکام مدنی', articleNumber: '۵۶', body: 'متن ماده ۵۶' }]
+            : [] };
+        } };
+      } };
+    },
+  };
+  const found = await findVerifiedLegalArticles(db, 'مواد ۵۶ و ۵۷ قانون اجرای احکام مدنی');
+  assert.equal(found[0].articleNumber, '۵۶');
+  assert.ok(calls[0].sql.includes("l.status='verified' AND a.status='verified'"));
+  assert.ok(calls[0].sql.includes('a.article_number IN (?2, ?3)'));
+  assert.ok(calls[0].bindings.includes('%قانون اجرای احکام مدنی%'));
+});
+
+test('بانک زمینه‌ای، مواد ۵۶ و ۵۷ قانون اجرای احکام مدنی را برای پرونده مال توقیف‌شده فراهم می‌کند', () => {
+  const articles = curatedLegalArticlesForQuery('فروش ملک توقیف‌شده و انتقال مال توقیف‌شده');
+  assert.deepEqual(articles.map((item) => item.articleNumber), ['۵۶', '۵۷']);
+  assert.ok(articles.every((item) => item.lawTitle === 'قانون اجرای احکام مدنی' && item.sourceUrl.startsWith('https://')));
 });
 
 test('مسیر دستیار از ورود تا پاسخ ساخت‌یافته (با Gemini ساختگی) کامل کار می‌کند', async () => {
