@@ -1,7 +1,7 @@
 // مسیرهای هوش مصنوعی: موت‌کورت (پرسش، ارزیابی، صدا، تبدیل گفتار) و دستیار وکیل.
 // همه مسیرها (به‌جز وضعیت) نیاز به ورود دارند. کلید API هرگز در پاسخ یا لاگ نمی‌آید.
 import { getPublishedCase, SLUG_RE } from '../moot/caseStore.js';
-import { findVerifiedLegalArticles } from '../legal-bank.js';
+import { findVerifiedLegalArticles, extractExplicitLegalReferences } from '../legal-bank.js';
 import { json, readJsonBody } from '../http.js';
 import { currentUser } from '../auth/routes.js';
 import { registrationRequired } from '../access.js';
@@ -307,6 +307,33 @@ export function citationWarnings(text) {
 }
 
 const VEHICLE_DEFECT_TOPIC = /خودرو|اتومبیل|ماشین|تصادف|خیار عیب|عیب پنهان|عیب مخفی/u;
+const SEIZED_PROPERTY_TOPIC = /مال\\s+توقیف|مال\\s+بازداشت|ملک\\s+توقیف|توقیف\\s+ملک|بازداشت\\s+ملک|انتقال\\s+مال\\s+توقیف/u;
+const SEIZED_PROPERTY_ARTICLES = Object.freeze([
+  {
+    lawTitle: 'قانون اجرای احکام مدنی',
+    articleNumber: '۵۶',
+    heading: 'نقل‌وانتقال مال توقیف‌شده',
+    body: 'هر گونه نقل و انتقال اعم از قطعی و شرطی و رهنی نسبت به مال توقیف شده باطل و بلااثر است.',
+    sourceName: 'سامانه ملی قوانین و مقررات؛ متن قانون اجرای احکام مدنی',
+    sourceUrl: 'https://qavanin.ir/Law/PrintText/83430',
+  },
+  {
+    lawTitle: 'قانون اجرای احکام مدنی',
+    articleNumber: '۵۷',
+    heading: 'قرارداد یا تعهد زیان‌بار نسبت به مال توقیف‌شده',
+    body: 'هر گونه قرارداد یا تعهدی که نسبت به مال توقیف شده بعد از توقیف به ضرر محکوم له منعقد شود نافذ نخواهد بود مگر اینکه محکوم له کتباً رضایت دهد.',
+    sourceName: 'سامانه ملی قوانین و مقررات؛ متن قانون اجرای احکام مدنی',
+    sourceUrl: 'https://qavanin.ir/Law/PrintText/83430',
+  },
+]);
+
+export function curatedLegalArticlesForQuery(query) {
+  const text = String(query || '');
+  return [
+    ...(SEIZED_PROPERTY_TOPIC.test(text) ? SEIZED_PROPERTY_ARTICLES : []),
+    ...(VEHICLE_DEFECT_TOPIC.test(text) ? VEHICLE_DEFECT_ARTICLES : []),
+  ];
+}
 const VEHICLE_DEFECT_ARTICLES = Object.freeze([
   ['۴۲۲', 'انتخاب مشتری میان فسخ معامله و نگهداری مبیع معیوب با اخذ ارش.'],
   ['۴۲۳', 'ثبوت خیار عیب منوط به مخفی و موجود بودن عیب در زمان عقد است.'],
@@ -535,8 +562,15 @@ async function assistant(request, env) {
       legalBankUnavailable = true;
       console.error(JSON.stringify({ where: 'ai', stage: 'legal_bank_query', error: err?.name || 'Error' }));
     }
-    const curatedArticles = VEHICLE_DEFECT_TOPIC.test(legalSearchText) ? VEHICLE_DEFECT_ARTICLES : [];
+    const curatedArticles = curatedLegalArticlesForQuery(legalSearchText);
     const promptArticles = [...legalArticles, ...curatedArticles];
+    const explicitLegalReferences = extractExplicitLegalReferences(legalSearchText);
+    const missingExplicitReferences = explicitLegalReferences.filter((ref) =>
+      !promptArticles.some((article) =>
+        article.lawTitle?.includes(ref.lawTitle.replace(/^قانون\\s*/, '')) &&
+        normalizeLegalDigits(article.articleNumber) === ref.articleNumber
+      )
+    );
     const legalContext = promptArticles.length ? promptArticles.map((a) => `قانون: ${a.lawTitle}\nماده ${a.articleNumber}${a.heading ? ` ـ ${a.heading}` : ''}\n${a.body}\nمنبع ثبت‌شده: ${a.sourceName || 'ثبت نشده'}${a.sourceUrl ? ` (${a.sourceUrl})` : ''}`).join('\n\n---\n\n') : '';
     stage = mode === 'litigation' ? 'litigation_role_debate' : 'gemini_generation';
     let data;
@@ -565,6 +599,11 @@ async function assistant(request, env) {
     const notes = Array.isArray(data.notes) ? data.notes.filter((n) => typeof n === 'string').slice(0, 10) : [];
     if (provider === 'groq') notes.push('به‌دلیل اختلال سرویس اصلی، دست‌کم یکی از مراحل تولید این گزارش از مسیر جایگزین تولید شد. مواد قانونیِ بازیابی‌شده از بانک آکادمی بدون تغییر در اختیار مدل قرار گرفتند؛ پاسخ همچنان نیازمند بررسی و راستی‌آزمایی حقوقی است.');
     if (legalBankUnavailable) notes.push('بانک قوانین در این درخواست پاسخ نداد؛ پاسخ بدون استناد به مواد ثبت‌شده در بانک تهیه شد و استنادها باید جداگانه بررسی شوند.');
+    if (missingExplicitReferences.length) {
+      notes.push('مواد صریحاً مورد درخواست که متن تأییدشده آن‌ها در بانک بازیابی نشد: ' +
+        missingExplicitReferences.map((ref) => `${ref.lawTitle}، ماده ${ref.articleNumber}`).join('؛ ') +
+        '. این موارد نباید به‌عنوان مستند تأییدشده استفاده شوند.');
+    }
     const rawText = typeof data.text === 'string' ? data.text : '';
     const guardedText = guardUnverifiedLegalClaims(rawText, promptArticles, legalContext);
     const text = guardedText.text;
