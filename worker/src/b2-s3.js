@@ -113,3 +113,42 @@ export async function b2DeleteObjectVersions(env, key) {
 }
 
 
+
+
+// Backup helpers: isolated object prefix; callers must never expose backup objects publicly.
+export async function b2PutObject(env, key, body, contentType = 'application/octet-stream') {
+  await signedFetch(env, key, {
+    method: 'PUT',
+    headers: { 'content-type': contentType, 'cache-control': 'private, no-store' },
+    body,
+  });
+}
+
+export async function b2ListObjects(env, prefix) {
+  const objects = [];
+  let continuationToken = '';
+  for (let page = 0; page < 10; page++) {
+    const query = [['list-type', '2'], ['prefix', prefix], ['max-keys', '1000']];
+    if (continuationToken) query.push(['continuation-token', continuationToken]);
+    const response = await signedFetch(env, '', { method: 'GET', query });
+    const xml = await response.text();
+    for (const match of xml.matchAll(/<Contents>([\\s\\S]*?)<\\/Contents>/g)) {
+      const item = match[1];
+      objects.push({
+        key: tag(item, 'Key'),
+        lastModified: tag(item, 'LastModified'),
+        size: Number(tag(item, 'Size') || 0),
+      });
+    }
+    if (!/<IsTruncated>true<\\/IsTruncated>/.test(xml)) return objects;
+    continuationToken = tag(xml, 'NextContinuationToken');
+    if (!continuationToken) throw new Error('B2_LIST_PAGINATION_INVALID');
+  }
+  throw new Error('B2_LIST_PAGE_LIMIT');
+}
+
+export async function b2DeleteObject(env, key) {
+  // Remove retained versions first, then the current object/delete marker.
+  await b2DeleteObjectVersions(env, key);
+  await signedFetch(env, key, { method: 'DELETE' });
+}
