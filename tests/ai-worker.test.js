@@ -230,7 +230,7 @@ test('میز محاکمه هوشمند: حالت مستقل، پرامپت چن�
     assert.equal(data.ok, true);
     assert.match(system, /میز محاکمه هوشمند/);
     assert.match(system, /قوی‌ترین استدلال‌ها و ایرادهای طرف مقابل/);
-    assert.match(system, /ارزیابی بی‌طرفانه/);
+    assert.match(system, /مانند قاضی بی‌طرف/);
     assert.match(system, /ماده ۴۲۶/);
     assert.match(system, /تأییدنشده/);
     assert.match(data.text, /واقعیت‌های مستند/);
