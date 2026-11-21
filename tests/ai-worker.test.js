@@ -79,6 +79,7 @@ test('جست‌وجوی حقوقی با Grounding فقط پیوندهای دار
       status: 'completed',
       steps: [
         { type: 'google_search_call', arguments: { queries: ['ماده ۵۶ قانون اجرای احکام مدنی'] } },
+        { type: 'google_search_result', result: [{ search_suggestions: '<div class="google-search-chip">Search</div>' }] },
         { type: 'model_output', content: [{ type: 'text', text: 'ماده ۵۶ نقل‌وانتقال مال توقیف‌شده را باطل می‌داند.', annotations: [{ type: 'url_citation', title: 'متن قانون اجرای احکام مدنی', url: 'https://qavanin.ir/Law/PrintText/83430', startIndex: 0, endIndex: 11 }] }] },
       ],
     });
@@ -88,6 +89,7 @@ test('جست‌وجوی حقوقی با Grounding فقط پیوندهای دار
     assert.match(result.text, /ماده ۵۶/);
     assert.equal(result.sources[0].url, 'https://qavanin.ir/Law/PrintText/83430');
     assert.equal(result.sources[0].citedText, 'ماده ۵۶ نقل');
+    assert.equal(result.searchSuggestionHtml, '<div class="google-search-chip">Search</div>');
     assert.deepEqual(result.queries, ['ماده ۵۶ قانون اجرای احکام مدنی']);
   });
 });
