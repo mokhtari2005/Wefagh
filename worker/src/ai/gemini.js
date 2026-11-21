@@ -247,7 +247,12 @@ export async function searchLegalWeb(env, query, timeoutMs = 45_000) {
         try {
           if (new URL(url).protocol !== 'https:' || !title) continue;
         } catch { continue; }
-        if (!sources.some((source) => source.url === url)) sources.push({ title: title.slice(0, 180), url });
+        const start = Number.isInteger(annotation.startIndex) ? annotation.startIndex : Number.isInteger(annotation.start_index) ? annotation.start_index : null;
+        const end = Number.isInteger(annotation.endIndex) ? annotation.endIndex : Number.isInteger(annotation.end_index) ? annotation.end_index : null;
+        const citedText = start !== null && end !== null && start >= 0 && end >= start && end <= block.text.length
+          ? block.text.slice(start, end)
+          : '';
+        if (!sources.some((source) => source.url === url)) sources.push({ title: title.slice(0, 180), url, citedText });
       }
     }
   }
