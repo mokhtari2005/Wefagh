@@ -542,6 +542,7 @@ async function assistant(request, env) {
     // جست‌وجوی وب فقط برای مشاورهٔ متنی، بدون پیوست و با پرس‌وجوی حقوقیِ whitelist انجام می‌شود.
     // نام اشخاص، شرح وقایع، شماره پرونده و متن پیوست به موتور جست‌وجو ارسال نمی‌شود.
     let webResearch = null;
+    const verifiedLegalContext = legalContext;
     if (mode === 'consult' && attachments.length === 0 && env.GEMINI_SEARCH_GROUNDING_ENABLED === 'true') {
       stage = 'legal_web_search';
       webResearch = await searchLegalAuthorities(env, legalSearchText);
@@ -583,7 +584,7 @@ async function assistant(request, env) {
     if (provider === 'groq') notes.push('به‌دلیل اختلال سرویس اصلی، دست‌کم یکی از مراحل تولید این گزارش از مسیر جایگزین تولید شد. مواد قانونیِ بازیابی‌شده از بانک آکادمی بدون تغییر در اختیار مدل قرار گرفتند؛ پاسخ همچنان نیازمند بررسی و راستی‌آزمایی حقوقی است.');
     if (legalBankUnavailable) notes.push('بانک قوانین در این درخواست پاسخ نداد؛ پاسخ بدون استناد به مواد ثبت‌شده در بانک تهیه شد و استنادها باید جداگانه بررسی شوند.');
     const rawText = typeof data.text === 'string' ? data.text : '';
-    const guardedText = guardUnverifiedLegalClaims(rawText, promptArticles, legalContext);
+    const guardedText = guardUnverifiedLegalClaims(rawText, promptArticles, verifiedLegalContext);
     let text = guardedText.text;
     if (webResearch?.status === 'searched' && webResearch.sources.length) {
       text += '\n\n## منابع وبی بازیابی‌شده برای پیگیری و راستی‌آزمایی\n' + webResearch.sources.map((source, index) => (index + 1) + '. [' + source.title + '](' + source.uri + ') — ' + source.domain).join('\n');
