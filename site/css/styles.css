@@ -4152,3 +4152,18 @@ body.classroom-fullscreen-fallback { overflow:hidden; }
   background: transparent;
   overflow: hidden;
 }
+
+.ai-search-sources {
+  margin: 12px 0 4px;
+  padding-inline-start: 22px;
+  font-size: .92em;
+}
+.ai-search-sources a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.ai-search-source-excerpt {
+  margin: 4px 0 10px;
+  color: var(--muted, #666);
+  font-size: .9em;
+}
