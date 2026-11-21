@@ -228,7 +228,7 @@ test('میز محاکمه هوشمند: حالت مستقل، پرامپت چن�
     const data = await res.json();
     assert.equal(res.status, 200);
     assert.equal(data.ok, true);
-    assert.equal(calls.length, 3);
+    assert.equal(calls.length, 7);
     assert.ok(systems.every((system) => system.includes('میز محاکمه هوشمند')));
     assert.ok(systems.some((system) => system.includes('قوی‌ترین دفاع‌ها، ایرادهای شکلی و ماهوی')));
     assert.ok(systems.some((system) => system.includes('نقش تو وکیل موکل/کاربر است')));
@@ -512,7 +512,7 @@ test('مواد ۵۶ و ۵۷ قانون اجرای احکام مدنی در ان�
 });
 
 
-test('میز محاکمه سه عامل مستقل را جداگانه اجرا می‌کند و گزارش واحد می‌سازد', async () => {
+test('میز محاکمه مناظره هفت‌مرحله‌ای را اجرا می‌کند و گزارش واحد مستند می‌سازد', async () => {
   const roleCalls = [];
   await withFetch(async (url, init) => {
     assert.ok(url.includes('generativelanguage.googleapis.com'));
@@ -522,19 +522,19 @@ test('میز محاکمه سه عامل مستقل را جداگانه اجرا 
     assert.match(JSON.stringify(contents), /فروشنده در قرارداد آزادی ملک را تضمین کرده است/);
     assert.match(system, /حافظه استدلال پرونده/);
     assert.match(system, /کنترل خواسته‌ها/);
+    const latest = (contents.at(-1)?.parts || []).map((part) => part.text || '').join(' ');
     let answer;
     if (system.includes('قوی‌ترین دفاع‌ها، ایرادهای شکلی و ماهوی')) {
       roleCalls.push('opposing');
-      answer = 'دفاع فروشنده: خواسته خریدار با ایراد تعارض خواسته‌ها روبه‌رو است.';
+      answer = latest.includes('مرحله اول') ? 'دفاع فروشنده دور نخست: تعارض خواسته‌ها.' : 'پاسخ تکمیلی فروشنده دور دوم: ایراد بار اثبات.';
     } else if (system.includes('ابتدا همه ایرادهای مطرح‌شده')) {
       roleCalls.push('client');
-      answer = 'پاسخ خریدار: اظهار خلاف واقع فروشنده و جهل خریدار باید بررسی شود.';
+      answer = latest.includes('مرحله اول') ? 'پاسخ خریدار دور نخست: اظهار خلاف واقع و جهل.' : 'پاسخ تکمیلی خریدار دور دوم: ادله و آثار تدلیس.';
     } else if (system.includes('قاضی بی‌طرف و ارزیاب')) {
       roleCalls.push('judge');
-      const judgeInput = contents.map((item) => (item.parts || []).map((part) => part.text || '').join(' ')).join(' ');
-      assert.match(judgeInput, /دفاع فروشنده/);
-      assert.match(judgeInput, /پاسخ خریدار/);
-      answer = 'جمع‌بندی قاضی: تعارض خواسته‌ها و مبنای خسارت باید روشن شود.';
+      if (latest.includes('مرحله دوم')) answer = 'نقد قاضی دور نخست: ادله و تعارض خواسته‌ها باید روشن شود.';
+      else if (latest.includes('مرحله هفتم')) answer = 'کارنامه تحلیلی: قوت استنادها و خلأ اثباتی.';
+      else answer = 'تحلیل نهایی قاضی: نتیجه مشروط و مستند پرونده.';
     } else {
       throw new Error('نقش ناشناخته در میز محاکمه');
     }
@@ -553,10 +553,11 @@ test('میز محاکمه سه عامل مستقل را جداگانه اجرا 
     const data = await res.json();
     assert.equal(res.status, 200);
     assert.equal(data.ok, true);
-    assert.equal(calls.length, 3);
-    assert.deepEqual(roleCalls.sort(), ['client', 'judge', 'opposing']);
-    assert.match(data.text, /استدلال مستقل وکیل طرف مقابل/);
-    assert.match(data.text, /پاسخ وکیل موکل/);
-    assert.match(data.text, /ارزیابی و جمع‌بندی قاضی بی‌طرف/);
+    assert.equal(calls.length, 7);
+    assert.deepEqual(roleCalls.sort(), ['client', 'client', 'judge', 'judge', 'judge', 'opposing', 'opposing']);
+    for (const heading of ['دور نخست ـ استدلال وکیل طرف مقابل', 'دور نخست ـ استدلال وکیل موکل', 'ارزیابی قاضی پس از دور نخست', 'دور دوم ـ پاسخ وکیل طرف مقابل', 'دور دوم ـ پاسخ وکیل موکل', 'ارزیابی نهایی قاضی و گزارش مستند', 'کارنامه تحلیلی مناظره']) {
+      assert.ok(data.text.includes(heading), heading);
+    }
+    assert.match(data.text, /تحلیل نهایی قاضی/);
   });
 });
