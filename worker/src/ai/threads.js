@@ -4,7 +4,7 @@ import { json, readJsonBody } from '../http.js';
 import { currentUser } from '../auth/routes.js';
 
 const ID_RE = /^[1-9][0-9]{0,15}$/;
-const MAX_MESSAGE = 12000;
+const MAX_MESSAGE = 24000;
 const MAX_THREADS_LISTED = 50;
 const MAX_MESSAGES_PER_THREAD = 200;
 
