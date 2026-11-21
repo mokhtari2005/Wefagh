@@ -3943,6 +3943,7 @@ body.classroom-fullscreen-fallback { overflow:hidden; }
 
 
 /* Consultation-first legal document workflow. */
+.ai-accept-consultation[hidden] { display: none; }
 .ai-accept-consultation {
   display: block;
   width: 100%;
