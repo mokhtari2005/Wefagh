@@ -986,6 +986,9 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart') 
     stream.scrollTop = stream.scrollHeight;
     status.textContent = '';
     const sent = attachments.slice();
+    // رضایت ارسال تلگرام فقط برای همین نوبت معتبر است؛ برای نوبت بعدی کاربر باید دوباره انتخاب کند.
+    const sendToTelegram = telegramDeliveryInput.checked;
+    telegramDeliveryInput.checked = false;
     let res;
     if (sent.length) {
       const form = new FormData();
@@ -993,11 +996,11 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart') 
       form.append('docType', docSelect.value);
       form.append('message', typed);
       form.append('history', JSON.stringify(trimHistory(history)));
-      form.append('telegramDelivery', telegramDeliveryInput.checked ? 'true' : 'false');
+      form.append('telegramDelivery', sendToTelegram ? 'true' : 'false');
       for (const a of sent) form.append('files', a.file, a.file.name);
       res = await postForm('/api/ai/assistant', form, { timeoutMs: 120000 });
     } else {
-      res = await postJson('/api/ai/assistant', { mode, docType: docSelect.value, message: typed, history: trimHistory(history), telegramDelivery: telegramDeliveryInput.checked }, { timeoutMs: 120000 });
+      res = await postJson('/api/ai/assistant', { mode, docType: docSelect.value, message: typed, history: trimHistory(history), telegramDelivery: sendToTelegram }, { timeoutMs: 120000 });
     }
     stopPendingProgress();
     busy = false;
@@ -1045,6 +1048,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart') 
   function newConversation() {
     threadId = null;
     history.length = 0;
+    telegramDeliveryInput.checked = false;
     stopVoiceMode();
     voicePanel.hidden = !voiceAllowed;
     acceptedConclusion = '';
