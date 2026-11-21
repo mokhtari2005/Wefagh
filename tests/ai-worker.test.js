@@ -29,13 +29,13 @@ function jsonRes(status, body) {
 }
 
 // D1 ساختگی: نشست معتبر یا بدون نشست.
-function fakeDb({ loggedIn = false, caseRow = null } = {}) {
+function fakeDb({ loggedIn = false, caseRow = null, telegramChatId = null } = {}) {
   return {
     prepare(sql) {
       return {
         bind() {
           return {
-            first: async () => (sql.includes('FROM admin_content') ? caseRow : sql.includes('FROM sessions') && loggedIn ? { id: 7, email: 'u@example.com', display_name: 'کاربر' } : null),
+            first: async () => (sql.includes('FROM admin_content') ? caseRow : sql.includes('FROM sessions') && loggedIn ? { id: 7, email: 'u@example.com', display_name: 'کاربر' } : sql.includes('FROM telegram_links') && telegramChatId ? { chat_id: telegramChatId } : null),
             all: async () => ({ results: loggedIn ? [{ role: 'user' }] : [] }),
             run: async () => ({ success: true }),
           };
@@ -261,6 +261,52 @@ test('تحقیق و راستی‌آزمایی حقوقی: حالت مستقل و
     assert.match(system, /میزان انطباق/);
     assert.match(system, /ادعای جست‌وجوی برخط/);
     assert.match(data.text, /نتیجه تحقیق/);
+  });
+});
+
+test('ارسال گزارش دستیار به تلگرام فقط با انتخاب همان نوبت انجام می‌شود', async () => {
+  const modelJson = {
+    status: 'ready', questions: [],
+    text: 'گزارش تحلیلی: دفاع طرف مقابل، پاسخ موکل و ارزیابی قاضی.',
+    notes: [],
+  };
+  const telegramCalls = [];
+  await withFetch(async (url, init) => {
+    if (url.includes('generativelanguage.googleapis.com')) {
+      return jsonRes(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(modelJson) }] } }] });
+    }
+    if (url.includes('api.telegram.org')) {
+      telegramCalls.push(JSON.parse(init.body));
+      return jsonRes(200, { ok: true });
+    }
+    throw new Error('unexpected request');
+  }, async () => {
+    const env = {
+      DB: fakeDb({ loggedIn: true, telegramChatId: 555 }),
+      GEMINI_API_KEY: KEY,
+      TELEGRAM_BOT_TOKEN: '123456789:AAFakeTokenForTestsOnly_0123456789',
+      TELEGRAM_WEBHOOK_SECRET: 'webhook-secret-0123456789',
+    };
+    const sent = await worker.fetch(req('/api/ai/assistant', {
+      body: { mode: 'litigation', docType: 'retrial', message: 'پرونده را بررسی کن.', history: [], telegramDelivery: true },
+      cookie: 'tok',
+    }), env);
+    const sentData = await sent.json();
+    assert.equal(sent.status, 200);
+    assert.equal(sentData.telegramDelivery, 'sent');
+    assert.equal(telegramCalls.length, 1);
+    assert.match(telegramCalls[0].text, /گزارش دستیار وکیل/);
+    assert.match(telegramCalls[0].text, /گزارش تحلیلی/);
+
+    telegramCalls.length = 0;
+    const notSent = await worker.fetch(req('/api/ai/assistant', {
+      body: { mode: 'litigation', docType: 'retrial', message: 'پرونده را بررسی کن.', history: [] },
+      cookie: 'tok',
+    }), env);
+    const notSentData = await notSent.json();
+    assert.equal(notSent.status, 200);
+    assert.equal(notSentData.telegramDelivery, undefined);
+    assert.equal(telegramCalls.length, 0, 'بدون انتخاب صریح نباید هیچ پیام تلگرامی ارسال شود');
   });
 });
 
