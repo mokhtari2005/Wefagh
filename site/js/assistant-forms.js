@@ -137,6 +137,16 @@ export function assistantMenuPage() {
     h('span',{class:'assistant-document-icon'},[icon('file-text',{size:22})]),
     h('span',{class:'assistant-document-copy'},[h('strong',{text:'تنظیم اسناد'}),h('small',{text:'دادخواست، لایحه، وکالت‌نامه و قراردادها'})]),
     icon('arrow-left',{size:18})
+   ]),
+   h('a',{class:'assistant-document-card',href:'#/assistant/litigation'},[
+    h('span',{class:'assistant-document-icon'},[icon('gavel',{size:22})]),
+    h('span',{class:'assistant-document-copy'},[h('strong',{text:'میز محاکمه هوشمند'}),h('small',{text:'دفاع طرف مقابل، پاسخ وکیل موکل و ارزیابی بی‌طرفانه قاضی'})]),
+    icon('arrow-left',{size:18})
+   ]),
+   h('a',{class:'assistant-document-card',href:'#/assistant/research'},[
+    h('span',{class:'assistant-document-icon'},[icon('book-open-check',{size:22})]),
+    h('span',{class:'assistant-document-copy'},[h('strong',{text:'تحقیق و راستی‌آزمایی حقوقی'}),h('small',{text:'بررسی مواد قانونی، انطباق استنادها و خلأهای تحقیق'})]),
+    icon('arrow-left',{size:18})
    ])
   ]),
   h('details',{class:'ai-notice'},[h('summary',{text:'ملاحظات استفاده از دستیار'}),h('p',{class:'muted',text:ASSISTANT_NOTICE})])
