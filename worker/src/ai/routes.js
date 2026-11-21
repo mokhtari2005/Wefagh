@@ -530,11 +530,10 @@ async function assistant(request, env) {
             LEGAL_DISCLAIMER,
           ].join('\n');
           const messageSent = await sendTelegramMessage(env, linked.chat_id, report);
-          let filesSent = true;
-          for (const file of files) {
-            const sentFile = await sendTelegramDocument(env, linked.chat_id, file, 'پیوست ارسالی برای بررسی حقوقی');
-            if (!sentFile) filesSent = false;
-          }
+          const fileResults = await Promise.all(files.map((file) =>
+            sendTelegramDocument(env, linked.chat_id, file, 'پیوست ارسالی برای بررسی حقوقی')
+          ));
+          const filesSent = fileResults.every(Boolean);
           telegramDelivery = messageSent && filesSent ? 'sent' : 'partial';
         }
       } catch (err) {
