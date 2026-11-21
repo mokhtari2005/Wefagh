@@ -168,6 +168,25 @@ export function summarizeReply(data) {
   return data.text || '';
 }
 
+const SEARCH_SUGGESTION_MARKER = '\\n<!--GOOGLE_SEARCH_SUGGESTION:';
+function packStoredAiMessage(text, suggestionHtml = '') {
+  if (typeof suggestionHtml !== 'string' || !suggestionHtml || suggestionHtml.length > 5000) return text;
+  const encoded = encodeURIComponent(suggestionHtml);
+  const packed = text + SEARCH_SUGGESTION_MARKER + encoded + '-->';
+  return packed.length <= 11800 ? packed : text;
+}
+function unpackStoredAiMessage(content) {
+  const raw = typeof content === 'string' ? content : '';
+  const markerIndex = raw.lastIndexOf(SEARCH_SUGGESTION_MARKER);
+  if (markerIndex < 0) return { text: raw, searchSuggestionHtml: '' };
+  const encoded = raw.slice(markerIndex + SEARCH_SUGGESTION_MARKER.length).replace(/-->\\s*$/, '');
+  try {
+    return { text: raw.slice(0, markerIndex), searchSuggestionHtml: decodeURIComponent(encoded) };
+  } catch {
+    return { text: raw, searchSuggestionHtml: '' };
+  }
+}
+
 export function assistantPage(params = {}) {
   const wrap = h('div', { class: 'assistant' }, [
     h('h1', { text: 'دستیار هوشمند وکیل' }),
@@ -251,14 +270,17 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     const res = await getJson(`/api/ai/threads/${encodeURIComponent(id)}/messages`);
     if (!res.ok) { status.textContent = 'بازیابی گفت‌وگو انجام نشد.'; return; }
     history.length = 0;
-    for (const m of res.data?.messages || []) history.push({ role: m.role === 'ai' ? 'ai' : 'user', text: m.content });
+    for (const m of res.data?.messages || []) {
+      if (m.role === 'ai') history.push({ role: 'ai', ...unpackStoredAiMessage(m.content) });
+      else history.push({ role: 'user', text: m.content });
+    }
     threadId = Number(id);
     renderLog();
     acceptBtn.hidden = true;
     status.textContent = 'گفت‌وگو بازیابی شد. برای تأیید نتیجه، ابتدا از دستیار بخواهید جمع‌بندی نهایی مشاوره را ارائه کند.';
   }
 
-  async function persistTurn(userText, aiText) {
+  async function persistTurn(userText, aiText, searchSuggestionHtml = '') {
     if (guestMode) return true; // تاریخچهٔ مهمان فقط در حافظهٔ همین صفحه می‌ماند.
     if (!threadId) {
       const created = await postJson('/api/ai/threads', { title: userText.slice(0, 60) });
@@ -266,7 +288,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       threadId = created.data.thread.id;
     }
     const a = await postJson(`/api/ai/threads/${threadId}/messages`, { role: 'user', content: userText });
-    const b = await postJson(`/api/ai/threads/${threadId}/messages`, { role: 'ai', content: aiText });
+    const b = await postJson(`/api/ai/threads/${threadId}/messages`, { role: 'ai', content: packStoredAiMessage(aiText, searchSuggestionHtml) });
     return a.ok && b.ok;
   }
 
@@ -447,6 +469,14 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       h('span', { class: 'ai-role', text: 'دستیار' }),
       h('div', { class: 'ai-text pre-wrap', text: m.text }),
     ];
+    if (m.searchSuggestionHtml) children.push(h('iframe', {
+      class: 'ai-google-search-suggestions',
+      title: 'پیشنهادهای جست‌وجوی Google',
+      sandbox: 'allow-scripts allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation',
+      referrerpolicy: 'no-referrer',
+      loading: 'lazy',
+      srcdoc: m.searchSuggestionHtml,
+    }));
     if (m.notes?.length) children.push(h('ul', {
       class: 'ai-notes',
       'aria-label': 'نکات تکمیلی',
@@ -1050,13 +1080,13 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     history.push({ role: 'user', text: userText });
     const reply = summarizeReply(res.data);
     const responseNotes = [...(res.data.notes || [])];
-    history.push({ role: 'ai', text: reply, notes: responseNotes, disclaimer: res.data.status === 'ready' ? res.data.disclaimer : '' });
+    history.push({ role: 'ai', text: reply, notes: responseNotes, searchSuggestionHtml: res.data.searchSuggestionHtml || '', disclaimer: res.data.status === 'ready' ? res.data.disclaimer : '' });
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
     attachments = [];
     renderAttachments();
     renderLog();
-    const saved = await persistTurn(userText, reply).catch(() => false);
+    const saved = await persistTurn(userText, reply, res.data.searchSuggestionHtml || '').catch(() => false);
     if (mode === 'consult' && voiceMode) speakReply(reply);
     // گزینه ورود به تنظیم سند فقط با اعلام آمادگی صریح سرور، بدون سؤال باز و با جمع‌بندی واقعی ظاهر می‌شود.
     if (mode === 'consult' && res.data.status === 'ready' && !(res.data.questions || []).length && reply.trim().length >= 120) acceptBtn.hidden = false;
