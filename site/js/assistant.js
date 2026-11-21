@@ -413,14 +413,19 @@ function assistantWorkspace(initialThread, guestMode = false) {
   let currentAudio = null;
   let currentAudioUrl = null;
   let recordTimeout = null;
+  let audioContext = null;
+  let waveformAnalyser = null;
+  let waveformSource = null;
+  let waveformFrame = null;
   const voiceBtn = h('button', { class: 'btn ai-voice-toggle', type: 'button', text: 'شروع گفت‌وگوی صوتی' });
   const voiceEndBtn = h('button', { class: 'btn secondary ai-voice-end', type: 'button', text: 'پایان گفت‌وگو', hidden: '' });
   const playReplyBtn = h('button', { class: 'btn secondary ai-voice-play', type: 'button', text: 'پخش دوباره پاسخ', hidden: '' });
   const voiceWave = h('div', { class: 'ai-voice-wave', 'data-state': mediaRecorderAvailable ? 'idle' : 'unsupported', role: 'img', 'aria-label': 'وضعیت گفت‌وگوی صوتی' },
     Array.from({ length: 9 }, () => h('span', { 'aria-hidden': 'true' }))
   );
+  const waveformBars = Array.from(voiceWave.children);
   const voiceHint = h('span', { class: 'muted ai-voice-hint', role: 'status', 'aria-live': 'polite', text: mediaRecorderAvailable
-    ? 'برای شروع، دکمه گفت‌وگوی صوتی را بزنید. هر بار صحبت را پایان دهید تا صدا به متن تبدیل و پاسخ صوتی پخش شود. صدای ضبط‌شده فقط برای تبدیل به متن به Gemini فرستاده می‌شود و در تاریخچه ذخیره نمی‌شود.'
+    ? 'برای شروع گفت‌وگوی پیوسته، دکمه را بزنید و اجازه میکروفون را صادر کنید. پس از هر پاسخ، دستیار دوباره گوش می‌دهد؛ برای توقف، «پایان گفت‌وگو» را بزنید. صدای ضبط‌شده فقط برای تبدیل گفتار به متن به Gemini فرستاده می‌شود و در تاریخچه ذخیره نمی‌شود.'
     : 'ضبط صدا در این مرورگر پشتیبانی نمی‌شود؛ Safari یا Chrome را به‌روز کنید و مجوز میکروفون را بررسی کنید.' });
   const voicePanel = h('div', { class: 'ai-voice-panel', 'aria-label': 'کنترل گفت‌وگوی صوتی' }, [
     h('div', { class: 'ai-voice-actions' }, [voiceBtn, voiceEndBtn, playReplyBtn]),
@@ -436,9 +441,70 @@ function assistantWorkspace(initialThread, guestMode = false) {
     voiceBtn.disabled = !mediaRecorderAvailable || voiceProcessing || speaking || busy;
     voiceEndBtn.hidden = !voiceMode;
   }
+  function stopWaveform() {
+    if (waveformFrame !== null) cancelAnimationFrame(waveformFrame);
+    waveformFrame = null;
+    waveformSource?.disconnect();
+    waveformSource = null;
+    waveformAnalyser = null;
+    voiceWave.dataset.live = 'false';
+    waveformBars.forEach((bar) => { bar.style.transform = 'scaleY(.12)'; });
+  }
+  function drawWaveform() {
+    if (!waveformAnalyser || !waveformBars.length) return;
+    const values = new Uint8Array(waveformAnalyser.frequencyBinCount);
+    waveformAnalyser.getByteFrequencyData(values);
+    const step = Math.max(1, Math.floor(values.length / waveformBars.length));
+    waveformBars.forEach((bar, index) => {
+      let total = 0;
+      const start = index * step;
+      for (let j = start; j < Math.min(values.length, start + step); j++) total += values[j];
+      const level = total / Math.max(1, Math.min(step, values.length - start)) / 255;
+      const height = Math.max(.09, Math.min(1, .10 + level * 2.25));
+      bar.style.transform = `scaleY(${height.toFixed(2)})`;
+    });
+    waveformFrame = requestAnimationFrame(drawWaveform);
+  }
+  async function connectWaveform(source, monitorOutput = false) {
+    stopWaveform();
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    try {
+      if (!audioContext) audioContext = new AudioContextClass();
+      if (audioContext.state === 'suspended') await audioContext.resume();
+      waveformAnalyser = audioContext.createAnalyser();
+      waveformAnalyser.fftSize = 128;
+      waveformAnalyser.smoothingTimeConstant = .78;
+      waveformSource = source;
+      waveformSource.connect(waveformAnalyser);
+      if (monitorOutput) waveformAnalyser.connect(audioContext.destination);
+      voiceWave.dataset.live = 'true';
+      drawWaveform();
+    } catch (error) {
+      console.info('assistant.waveform_unavailable', error?.name || 'Error');
+      stopWaveform();
+    }
+  }
+  async function connectMicrophoneWaveform() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    if (!audioContext) audioContext = new AudioContextClass();
+    await connectWaveform(audioContext.createMediaStreamSource(mediaStream), false);
+  }
+  async function connectPlaybackWaveform(audioElement) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    if (!audioContext) audioContext = new AudioContextClass();
+    await connectWaveform(audioContext.createMediaElementSource(audioElement), true);
+  }
   function releaseMicrophone() {
     mediaStream?.getTracks().forEach((track) => track.stop());
     mediaStream = null;
+  }
+  function closeAudioContext() {
+    stopWaveform();
+    if (audioContext && audioContext.state !== 'closed') audioContext.close().catch(() => {});
+    audioContext = null;
   }
   function stopSpeaking() {
     if (currentAudio) {
@@ -450,6 +516,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     currentAudioUrl = null;
     speaking = false;
     playReplyBtn.hidden = true;
+    stopWaveform();
   }
   function stopVoiceMode() {
     voiceMode = false;
@@ -463,6 +530,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     audioChunks = [];
     releaseMicrophone();
     stopSpeaking();
+    closeAudioContext();
     voiceProcessing = false;
     setVoiceState('idle', 'گفت‌وگوی صوتی متوقف شد.');
     voiceEndBtn.hidden = true;
@@ -471,10 +539,13 @@ function assistantWorkspace(initialThread, guestMode = false) {
     if (!voiceMode || recording || voiceProcessing || speaking || busy || !mediaRecorderAvailable) return;
     setVoiceState('connecting', 'در حال اتصال به میکروفون…');
     try {
-      mediaStream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      });
+      if (!mediaStream || !mediaStream.getAudioTracks().some((track) => track.readyState === 'live')) {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        });
+      }
       if (!voiceMode) { releaseMicrophone(); return; }
+      await connectMicrophoneWaveform();
       const preferredMime = pickRecordingMime();
       recorder = preferredMime
         ? new MediaRecorder(mediaStream, { mimeType: preferredMime, audioBitsPerSecond: 32000 })
@@ -494,7 +565,6 @@ function assistantWorkspace(initialThread, guestMode = false) {
         const blob = new Blob(audioChunks, { type: mime });
         audioChunks = [];
         recorder = null;
-        releaseMicrophone();
         if (!voiceMode) return;
         if (!blob.size) {
           setVoiceState('error', 'صدایی ضبط نشد؛ دوباره صحبت کنید.');
@@ -508,7 +578,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
       }, { once: true });
       recorder.start();
       recording = true;
-      setVoiceState('listening', 'میکروفون فعال است؛ صحبت کنید و سپس «پایان صحبت و ارسال» را بزنید.');
+      setVoiceState('listening', 'میکروفون فعال است؛ صحبت کنید. پس از پایان صحبت، دکمه «پایان صحبت و ارسال» را بزنید. موج صدا شدت واقعی صدای شما را نشان می‌دهد.');
       recordTimeout = window.setTimeout(() => {
         if (recording) stopRecording();
       }, 90000);
@@ -526,6 +596,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
   function stopRecording() {
     if (!recording || !recorder) return;
     recording = false;
+    stopWaveform();
     if (recordTimeout) clearTimeout(recordTimeout);
     recordTimeout = null;
     voiceProcessing = true;
@@ -556,6 +627,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     if (!recognized) {
       voiceProcessing = false;
       setVoiceState('ready', 'گفتاری تشخیص داده نشد؛ دوباره صحبت کنید.');
+      if (voiceMode) window.setTimeout(() => startRecording(), 350);
       return;
     }
     composerText.value = [composerText.value.trim(), recognized].filter(Boolean).join(' ').slice(0, MESSAGE_LIMIT);
@@ -591,7 +663,9 @@ function assistantWorkspace(initialThread, guestMode = false) {
         currentAudio = null;
         if (currentAudioUrl) URL.revokeObjectURL(currentAudioUrl);
         currentAudioUrl = null;
-        setVoiceState('ready', 'پاسخ پخش شد؛ برای ادامه گفت‌وگو، «شروع صحبت» را بزنید.');
+        stopWaveform();
+        setVoiceState('ready', 'پاسخ تمام شد؛ دوباره گوش می‌دهم. برای پایان، «پایان گفت‌وگو» را بزنید.');
+        if (voiceMode) window.setTimeout(() => startRecording(), 350);
       };
       currentAudio.onerror = () => {
         speaking = false;
@@ -599,6 +673,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
         setVoiceState('ready', 'پخش خودکار ممکن نشد؛ برای شنیدن پاسخ، «پخش دوباره پاسخ» را بزنید.');
       };
       try {
+        await connectPlaybackWaveform(currentAudio);
         await currentAudio.play();
         playReplyBtn.hidden = true;
       } catch (playError) {
@@ -620,7 +695,8 @@ function assistantWorkspace(initialThread, guestMode = false) {
           utterance.lang = 'fa-IR';
           utterance.onend = () => {
             speaking = false;
-            setVoiceState('ready', 'پاسخ پخش شد؛ برای ادامه گفت‌وگو، «شروع صحبت» را بزنید.');
+            setVoiceState('ready', 'پاسخ تمام شد؛ دوباره گوش می‌دهم. برای پایان، «پایان گفت‌وگو» را بزنید.');
+            if (voiceMode) window.setTimeout(() => startRecording(), 350);
           };
           utterance.onerror = () => {
             speaking = false;
