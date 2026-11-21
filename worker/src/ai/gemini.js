@@ -253,7 +253,7 @@ export async function searchLegalWeb(env, query, timeoutMs = 45_000) {
   }
   const text = texts.join('\n\n').trim();
   if (!text && !sources.length) return { text: '', sources: [], queries, status: 'no_results' };
-  return { text, sources: sources.slice(0, 12), queries: queries.slice(0, 8), status: 'grounded', model };
+  return { text, sources: sources.slice(0, 12), queries: queries.slice(0, 8), status: sources.length ? 'grounded' : 'unreferenced', model };
 }
 
 /** JSON قطع‌شده در میان رشتهٔ text را با بستن رشته و آبجکت ترمیم می‌کند؛ در صورت ناموفق بودن null. */
