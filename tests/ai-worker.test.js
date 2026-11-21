@@ -409,6 +409,36 @@ test('Groq بازبین مستقل فقط با Secret فعال می‌شود و 
   assert.match(groqReviewNotes({ status: 'not_configured' })[0], /GROQ_API_KEY/);
 });
 
+test('بازبین میز محاکمه نقش‌های طرف مقابل، وکیل موکل و قاضی را جداگانه بررسی می‌کند', async () => {
+  const groqKey = 'groq-test-key-0123456789';
+  const reviewJson = {
+    risk: 'medium',
+    summary: 'دو ایراد مهم و یک خلأ اثباتی باقی است.',
+    issues: [
+      { severity: 'high', category: 'وکیل طرف مقابل', observation: 'دلیل کافی برای اثبات انجام تعهد ارائه نشده است.', recommendation: 'مدارک انجام تعهد و مکاتبات را ضمیمه کنید.' },
+      { severity: 'medium', category: 'وکیل موکل', observation: 'پاسخ به ایراد طرف مقابل باید به سند مشخص متصل شود.', recommendation: 'پاسخ را با ارجاع به مستند موجود تکمیل کنید.' },
+      { severity: 'high', category: 'قاضی بی‌طرف', observation: 'زمان دقیق ابلاغ و آغاز مهلت روشن نیست.', recommendation: 'گواهی ابلاغ و تاریخ اطلاع را احراز کنید.' },
+    ],
+    citations: [],
+  };
+  await withFetch(async (url, init) => {
+    assert.equal(url, GROQ_API);
+    const sent = JSON.parse(init.body);
+    assert.match(sent.messages[0].content, /وکیل طرف مقابل/);
+    assert.match(sent.messages[0].content, /وکیل موکل/);
+    assert.match(sent.messages[0].content, /قاضی بی‌طرف/);
+    return jsonRes(200, { choices: [{ message: { content: JSON.stringify(reviewJson) } }] });
+  }, async () => {
+    const result = await reviewLegalDraft({ GROQ_API_KEY: groqKey }, {
+      mode: 'litigation', docType: 'retrial',
+      question: 'اعتراض به رأی قطعی را بررسی کن.',
+      draft: 'متن پیش‌نویس برای بررسی مستقل.',
+    });
+    assert.equal(result.status, 'reviewed');
+    assert.deepEqual(result.review.issues.map((item) => item.category), ['وکیل طرف مقابل', 'وکیل موکل', 'قاضی بی‌طرف']);
+  });
+});
+
 test('Groq پیش‌نویس را مستقل بررسی می‌کند و خروجی را فقط به‌صورت هشدار نمایش می‌دهد', async () => {
   const groqKey = 'groq-test-key-0123456789';
   const geminiJson = { status: 'ready', questions: [], text: 'پیش‌نویس لایحه با استناد به ماده ۱۲۳', notes: [] };
