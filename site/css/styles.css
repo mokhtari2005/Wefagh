@@ -4117,3 +4117,27 @@ body.classroom-fullscreen-fallback { overflow:hidden; }
 @media (prefers-reduced-motion: reduce) {
   .ai-voice-wave span { animation: none !important; transform: scaleY(.28); }
 }
+
+
+/* کادر گفت‌وگوی هوشمند: ورودی کوتاه و ثابت در پایین محیط چت */
+.ai-chat-composer {
+  position: relative;
+  gap: .65rem;
+  border-top: 1px solid #e8e2d5;
+  background: #fffefa;
+}
+.ai-chat-input {
+  min-height: 54px;
+  max-height: 180px;
+  resize: none;
+  border-radius: 18px;
+  padding: .8rem 1rem;
+  line-height: 1.8;
+  background: #fff;
+}
+.ai-chat-input::placeholder { color: #7a8290; }
+.ai-chat-composer .ai-composer-bar { align-items: center; }
+@media (max-width: 899px) {
+  .ai-chat-composer { padding: .75rem; }
+  .ai-chat-input { min-height: 52px; }
+}
