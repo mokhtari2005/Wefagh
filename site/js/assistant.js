@@ -147,7 +147,8 @@ const SUGGESTIONS = [
 
 /** پیام‌های کاربر و پاسخ دستیار به شکل متن برای ارسال دوباره به سرور (محدود به ۱۰ مورد آخر). */
 export function trimHistory(history) {
-  return history.slice(-10).map((m) => ({ role: m.role, text: String(m.text || '').slice(0, MESSAGE_LIMIT) }));
+  // سقف با محدودیت سمت سرور هماهنگ است تا گفت‌وگوی طولانی مشاوره در زمان تنظیم سند حذف نشود.
+  return history.slice(-40).map((m) => ({ role: m.role, text: String(m.text || '').slice(0, 4000) }));
 }
 
 /** متن پاسخ دستیار برای تاریخچه: پرسش‌های تکمیلی یا متن پیش‌نویس. */
@@ -506,7 +507,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
       const contractInfo = docSelect.value === 'contract' && contractLabel ? `\nنوع قرارداد: ${contractLabel}` : '';
       typed = [
         'نتیجه مشاوره که کاربر صریحاً تأیید کرده است:',
-        acceptedConclusion,
+        'کاربر جمع‌بندی آخر مشاوره را صریحاً تأیید کرده است. تمام پیام‌های قبلی همین گفت‌وگو را برای استخراج مبانی و جزئیات به کار ببر.',
         `مشخصات ${partyLabel}:`,
         `شخص اول ـ نام: ${partyOneName.value.trim()}\nنشانی: ${partyOneAddress.value.trim()}`,
         `شخص دوم ـ نام: ${partyTwoName.value.trim()}\nنشانی: ${partyTwoAddress.value.trim()}`,
@@ -583,10 +584,19 @@ function assistantWorkspace(initialThread, guestMode = false) {
   function newConversation() {
     threadId = null;
     history.length = 0;
+    acceptedConclusion = '';
+    acceptBtn.hidden = true;
+    partyPanel.hidden = true;
+    partyOneName.value = '';
+    partyOneAddress.value = '';
+    partyTwoName.value = '';
+    partyTwoAddress.value = '';
+    mode = 'consult';
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
     attachments = [];
     renderAttachments();
+    syncMode();
     renderLog();
     status.textContent = '';
     composerText.focus();
