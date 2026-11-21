@@ -50,7 +50,7 @@ export const CONTRACT_TYPES = Object.freeze([
   ['ecommerce', 'فروش اینترنتی و تجارت الکترونیکی'],
   ['custom', 'سایر قراردادها / قرارداد اختصاصی'],
 ]);
-export const MODES = [['consult', 'مشاوره حقوقی'], ['draft', 'تنظیم سند'], ['analyze', 'تحلیل حقوقی پرونده'], ['review', 'بررسی و اصلاح متن']];
+export const MODES = [['consult', 'مشاوره حقوقی'], ['analyze', 'تحلیل حقوقی پرونده'], ['review', 'بررسی و اصلاح متن']];
 
 export const ASSISTANT_NOTICE = 'این ابزار آموزشی و پیش‌نویس‌ساز است. خروجی آن پیش از هر استفاده در پرونده واقعی باید توسط وکیل با قوانین و مقررات جاری و رویهٔ معتبر تطبیق داده شود. اطلاعات پرونده در این بخش فقط برای تولید پاسخ به سرویس هوش مصنوعی فرستاده می‌شود.';
 
@@ -145,9 +145,10 @@ const SUGGESTIONS = [
   ['review', 'petition', 'این متن لایحه را از نظر ساختار و استدلال بازبینی کن: ...'],
 ];
 
-/** پیام‌های کاربر و پاسخ دستیار به شکل متن برای ارسال دوباره به سرور (محدود به ۱۰ مورد آخر). */
+/** پیام‌های کاربر و پاسخ دستیار برای ارسال دوباره به سرور؛ سقف ۴۰ پیام مطابق محدودیت سرور. */
 export function trimHistory(history) {
-  return history.slice(-10).map((m) => ({ role: m.role, text: String(m.text || '').slice(0, MESSAGE_LIMIT) }));
+  // سقف با محدودیت سمت سرور هماهنگ است تا گفت‌وگوی طولانی مشاوره در زمان تنظیم سند حذف نشود.
+  return history.slice(-40).map((m) => ({ role: m.role, text: String(m.text || '').slice(0, 4000) }));
 }
 
 /** متن پاسخ دستیار برای تاریخچه: پرسش‌های تکمیلی یا متن پیش‌نویس. */
@@ -219,7 +220,8 @@ function assistantWorkspace(initialThread, guestMode = false) {
     for (const m of res.data?.messages || []) history.push({ role: m.role === 'ai' ? 'ai' : 'user', text: m.content });
     threadId = Number(id);
     renderLog();
-    status.textContent = 'گفت‌وگو بازیابی شد. ادامه دهید.';
+    acceptBtn.hidden = true;
+    status.textContent = 'گفت‌وگو بازیابی شد. برای تأیید نتیجه، ابتدا از دستیار بخواهید جمع‌بندی نهایی مشاوره را ارائه کند.';
   }
 
   async function persistTurn(userText, aiText) {
@@ -246,6 +248,8 @@ function assistantWorkspace(initialThread, guestMode = false) {
     b.setAttribute('aria-pressed', value === mode ? 'true' : 'false');
     b.addEventListener('click', () => {
       mode = value;
+      if (value === 'consult') { acceptedConclusion = ''; partyPanel.hidden = true; acceptBtn.hidden = true; }
+      else { acceptBtn.hidden = true; }
       syncMode();
     });
     return b;
@@ -259,7 +263,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     docSelect.value = 'contract';
     syncMode();
   });
-  modeGroup.append(...modeButtons, contractModeButton);
+  modeGroup.append(...modeButtons);
   const docSelect = h('select', { 'aria-label': 'نوع سند' }, DOC_TYPES.map(([v, t]) => h('option', { value: v, text: t })));
   const docWrap = h('label', { class: 'ai-doc-picker' }, [h('span', { text: 'نوع سند' }), docSelect]);
   const contractSelect = h('select', { 'aria-label': 'نوع قرارداد' }, [
@@ -272,6 +276,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
   docSelect.addEventListener('change', () => {
     syncContractPicker();
     syncContractModeButton();
+    syncPartyLabels();
   });
   function syncContractModeButton() {
     contractModeButton.setAttribute('aria-pressed', mode !== 'consult' && docSelect.value === 'contract' ? 'true' : 'false');
@@ -281,8 +286,8 @@ function assistantWorkspace(initialThread, guestMode = false) {
     syncContractModeButton();
   }
   const PLACEHOLDERS = {
-    consult: 'پرسش حقوقی یا قضایی خود را بنویسید؛ هرچه جزئیات (مرجع، مرحله، تاریخ‌ها) دقیق‌تر باشد پاسخ دقیق‌تر است…',
-    other: 'موضوع دعوا، سمت موکل، مرجع رسیدگی، مرحله، خواسته، وقایع و دلایل موجود…',
+    consult: 'پرسش حقوقی یا قضایی خود را بنویسید؛ گفت‌وگو تا رسیدن به نتیجه روشن ادامه پیدا می‌کند…',
+    other: 'در صورت نیاز، توضیح تکمیلی یا متن مورد بررسی را وارد کنید…',
   };
   function syncMode() {
     modeButtons.forEach((x, i) => x.setAttribute('aria-pressed', MODES[i][0] === mode && docSelect.value !== 'contract' ? 'true' : 'false'));
@@ -422,6 +427,111 @@ function assistantWorkspace(initialThread, guestMode = false) {
   // ---------- کادر ارسال ----------
   const composerText = h('textarea', { class: 'ai-input', rows: '3', maxlength: String(MESSAGE_LIMIT), 'aria-label': 'پیام یا شرح پرونده', placeholder: 'موضوع دعوا، سمت موکل، مرجع رسیدگی، مرحله، خواسته، وقایع و دلایل موجود…' });
   const counter = h('span', { class: 'muted ai-counter', 'aria-live': 'polite', text: `0 / ${MESSAGE_LIMIT}` });
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let voiceMode = false;
+  let recognition = null;
+  let voiceTranscript = '';
+  let voiceSilenceTimer = null;
+  let speaking = false;
+  let recognitionRestartPending = false;
+  const voiceBtn = h('button', { class: 'btn secondary ai-voice-toggle', type: 'button', text: 'شروع گفت‌وگوی صوتی' });
+  const voiceHint = h('span', { class: 'muted ai-voice-hint', role: 'status', 'aria-live': 'polite', text: SpeechRecognition ? 'برای گفت‌وگوی صوتی، میکروفون را فعال کنید. گفتار با سرویس تشخیص گفتار مرورگر به متن تبدیل و سپس برای پاسخ به هوش مصنوعی ارسال می‌شود.' : 'گفت‌وگوی صوتی در این مرورگر پشتیبانی نمی‌شود؛ می‌توانید از دیکته صفحه‌کلید استفاده کنید.' });
+  function stopSpeaking() {
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    speaking = false;
+  }
+  function speakReply(text) {
+    if (!voiceMode || !('speechSynthesis' in window) || !text) return;
+    stopSpeaking();
+    const utterance = new SpeechSynthesisUtterance(String(text).replace(/\[جای خالی:[^\]]*\]/g, 'جای خالی'));
+    utterance.lang = 'fa-IR';
+    utterance.rate = 1;
+    utterance.onstart = () => { speaking = true; voiceHint.textContent = 'پاسخ دستیار در حال پخش است…'; };
+    utterance.onend = () => {
+      speaking = false;
+      if (voiceMode && !busy) startListening();
+    };
+    utterance.onerror = () => {
+      speaking = false;
+      if (voiceMode && !busy) { voiceHint.textContent = 'پخش صوتی ممکن نشد؛ پاسخ به‌صورت نوشتاری در دسترس است.'; startListening(); }
+    };
+    window.speechSynthesis.speak(utterance);
+  }
+  function startListening() {
+    if (!voiceMode || !recognition || busy || speaking) return;
+    try {
+      voiceTranscript = '';
+      recognition.start();
+      voiceHint.textContent = 'گوش می‌دهم؛ صحبت کنید…';
+    } catch (error) {
+      if (error?.name !== 'InvalidStateError') voiceHint.textContent = 'دسترسی میکروفون برقرار نشد. مجوز میکروفون مرورگر را بررسی کنید.';
+    }
+  }
+  function stopVoiceMode() {
+    voiceMode = false;
+    recognitionRestartPending = false;
+    stopSpeaking();
+    if (recognition) {
+      try { recognition.stop(); } catch {}
+    }
+    voiceBtn.textContent = 'شروع گفت‌وگوی صوتی';
+    voiceBtn.setAttribute('aria-pressed', 'false');
+    voiceHint.textContent = 'گفت‌وگوی صوتی متوقف شد.';
+  }
+  if (SpeechRecognition) {
+    recognition = new SpeechRecognition();
+    recognition.lang = 'fa-IR';
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.onresult = (event) => {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          const recognized = event.results[i][0].transcript.trim();
+          if (!acceptBtn.hidden && /(?:تأیید|تایید|موافقم|قبول دارم|بله.{0,12}(?:تنظیم|سند)|تنظیم سند)/i.test(recognized)) {
+            voiceTranscript = '';
+            acceptBtn.click();
+            return;
+          }
+          voiceTranscript += recognized + ' ';
+          if (voiceSilenceTimer) clearTimeout(voiceSilenceTimer);
+          voiceSilenceTimer = setTimeout(() => { if (voiceMode && voiceTranscript.trim() && recognition) { try { recognition.stop(); } catch {} } }, 1400);
+        }
+      }
+    };
+    recognition.onerror = (event) => {
+      if (!voiceMode) return;
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        voiceHint.textContent = 'مجوز میکروفون داده نشد. دسترسی میکروفون سایت را در تنظیمات مرورگر فعال کنید.';
+        stopVoiceMode();
+      } else if (event.error !== 'no-speech' && event.error !== 'aborted') {
+        voiceHint.textContent = 'تشخیص گفتار با مشکل روبه‌رو شد؛ دوباره تلاش کنید.';
+      }
+    };
+    recognition.onend = () => {
+      if (!voiceMode) return;
+      if (voiceSilenceTimer) { clearTimeout(voiceSilenceTimer); voiceSilenceTimer = null; }
+      const spoken = voiceTranscript.trim();
+      if (spoken && !busy) {
+        composerText.value = [composerText.value.trim(), spoken].filter(Boolean).join(' ');
+        counter.textContent = `${composerText.value.length} / ${MESSAGE_LIMIT}`;
+        voiceTranscript = '';
+        send();
+      } else if (voiceMode && !busy && !speaking) {
+        setTimeout(() => startListening(), 250);
+      }
+    };
+  }
+  voiceBtn.disabled = !SpeechRecognition;
+  voiceBtn.setAttribute('aria-pressed', 'false');
+  voiceBtn.addEventListener('click', () => {
+    if (!SpeechRecognition) return;
+    if (voiceMode) { stopVoiceMode(); return; }
+    voiceMode = true;
+    voiceBtn.textContent = 'پایان گفت‌وگوی صوتی';
+    voiceBtn.setAttribute('aria-pressed', 'true');
+    voiceHint.textContent = 'درخواست دسترسی میکروفون؛ گفتار شما برای تبدیل به متن از سرویس تشخیص گفتار مرورگر استفاده می‌کند.';
+    startListening();
+  });
   composerText.addEventListener('input', () => { counter.textContent = `${composerText.value.length} / ${MESSAGE_LIMIT}`; });
   const fileInput = h('input', { type: 'file', accept: ATTACH_ACCEPT, multiple: '', hidden: '', 'aria-hidden': 'true', tabindex: '-1' });
   const attachBtn = h('button', { class: 'btn secondary', type: 'button', text: 'پیوست فایل' });
@@ -460,24 +570,86 @@ function assistantWorkspace(initialThread, guestMode = false) {
   const sendBtn = h('button', { class: 'btn ai-send', type: 'button', text: 'ارسال' });
   const newBtn = h('button', { class: 'btn secondary', type: 'button', text: 'گفت‌وگوی تازه' });
   const status = h('p', { class: 'muted ai-status', role: 'status', 'aria-live': 'polite' });
+  let acceptedConclusion = '';
+  const acceptBtn = h('button', { class: 'btn ai-accept-consultation', type: 'button', text: 'نتیجه مشاوره را تأیید می‌کنم و می‌خواهم سند تنظیم شود', hidden: '' });
+  const partyOneLabel = h('span', { text: 'خواهان ـ نام' });
+  const partyTwoLabel = h('span', { text: 'خوانده ـ نام' });
+  const partyOneAddressLabel = h('span', { text: 'خواهان ـ نشانی' });
+  const partyTwoAddressLabel = h('span', { text: 'خوانده ـ نشانی' });
+  const partyOneName = h('input', { type: 'text', class: 'ai-party-input', maxlength: '180', placeholder: 'نام و نام خانوادگی' });
+  const partyOneAddress = h('textarea', { class: 'ai-party-input', rows: '2', maxlength: '1000', placeholder: 'نشانی کامل' });
+  const partyTwoName = h('input', { type: 'text', class: 'ai-party-input', maxlength: '180', placeholder: 'نام و نام خانوادگی' });
+  const partyTwoAddress = h('textarea', { class: 'ai-party-input', rows: '2', maxlength: '1000', placeholder: 'نشانی کامل' });
+  function syncPartyLabels() {
+    const labels = docSelect.value === 'contract' ? ['طرف اول', 'طرف دوم']
+      : docSelect.value === 'criminal_complaint' ? ['شاکی', 'مشتکی‌عنه']
+      : docSelect.value === 'appeal' ? ['تجدیدنظرخواه', 'تجدیدنظرخوانده']
+      : ['خواهان', 'خوانده'];
+    partyOneLabel.textContent = `${labels[0]} ـ نام`;
+    partyOneAddressLabel.textContent = `${labels[0]} ـ نشانی`;
+    partyTwoLabel.textContent = `${labels[1]} ـ نام`;
+    partyTwoAddressLabel.textContent = `${labels[1]} ـ نشانی`;
+  }
+  const partyPanel = h('section', { class: 'ai-party-panel', hidden: '' }, [
+    h('h3', { text: 'مشخصات اشخاص برای درج در سند' }),
+    h('p', { class: 'muted', text: 'اطلاعات حقوقی و محتوای سند از گفت‌وگوی مشاوره استخراج می‌شود؛ اینجا فقط مشخصات و نشانی اشخاص را وارد کنید.' }),
+    h('label', { class: 'ai-party-field' }, [partyOneLabel, partyOneName]),
+    h('label', { class: 'ai-party-field' }, [partyOneAddressLabel, partyOneAddress]),
+    h('label', { class: 'ai-party-field' }, [partyTwoLabel, partyTwoName]),
+    h('label', { class: 'ai-party-field' }, [partyTwoAddressLabel, partyTwoAddress]),
+  ]);
+  acceptBtn.addEventListener('click', () => {
+    const lastAnswer = [...history].reverse().find((item) => item.role === 'ai' && item.text)?.text || '';
+    if (!lastAnswer) { status.textContent = 'ابتدا گفت‌وگوی مشاوره را تکمیل کنید.'; return; }
+    stopVoiceMode();
+    voiceBtn.hidden = true;
+    voiceHint.hidden = true;
+    acceptedConclusion = lastAnswer;
+    mode = 'draft';
+    docSelect.value = 'petition';
+    partyPanel.hidden = false;
+    acceptBtn.hidden = true;
+    syncMode();
+    syncPartyLabels();
+    status.textContent = 'نتیجه مشاوره تأیید شد. نوع سند و مشخصات اشخاص را تکمیل کنید.';
+    docSelect.focus();
+  });
 
   async function send() {
     if (busy) return;
     const rawTyped = composerText.value.trim();
     const contractLabel = CONTRACT_TYPES.find(([value]) => value === contractSelect.value)?.[1];
-    const typed = mode !== 'consult' && docSelect.value === 'contract' && contractLabel
-      ? `نوع قرارداد درخواستی: ${contractLabel}\n\nشرح و شرایط موردنظر کاربر:\n${rawTyped}`
-      : rawTyped;
+    let typed = rawTyped;
+    if (mode === 'draft') {
+      if (!acceptedConclusion) { status.textContent = 'تنظیم سند فقط پس از تأیید نتیجه مشاوره امکان‌پذیر است.'; return; }
+      if (!partyOneName.value.trim() || !partyOneAddress.value.trim() || !partyTwoName.value.trim() || !partyTwoAddress.value.trim()) {
+        status.textContent = 'نام و نشانی هر دو شخص را تکمیل کنید.';
+        (!partyOneName.value.trim() ? partyOneName : !partyOneAddress.value.trim() ? partyOneAddress : !partyTwoName.value.trim() ? partyTwoName : partyTwoAddress).focus();
+        return;
+      }
+      const partyLabel = docSelect.value === 'contract' ? 'طرف اول و طرف دوم قرارداد' : 'خواهان/شاکی و خوانده';
+      const contractInfo = docSelect.value === 'contract' && contractLabel ? `\nنوع قرارداد: ${contractLabel}` : '';
+      typed = [
+        'نتیجه مشاوره که کاربر صریحاً تأیید کرده است:',
+        'کاربر جمع‌بندی آخر مشاوره را صریحاً تأیید کرده است. تمام پیام‌های قبلی همین گفت‌وگو را برای استخراج مبانی و جزئیات به کار ببر.',
+        `مشخصات ${partyLabel}:`,
+        `شخص اول ـ نام: ${partyOneName.value.trim()}\nنشانی: ${partyOneAddress.value.trim()}`,
+        `شخص دوم ـ نام: ${partyTwoName.value.trim()}\nنشانی: ${partyTwoAddress.value.trim()}`,
+        contractInfo,
+        rawTyped ? `توضیح تکمیلی کاربر: ${rawTyped}` : '',
+      ].filter(Boolean).join('\n\n');
+    }
     if (mode !== 'consult' && docSelect.value === 'contract' && !contractLabel) {
       status.textContent = 'ابتدا نوع قرارداد را از فهرست انتخاب کنید.';
       contractSelect.focus();
       return;
     }
-    if (!typed && !attachments.length) { status.textContent = 'ابتدا شرح پرونده یا متن را بنویسید یا فایلی پیوست کنید.'; return; }
+    if (!typed && !attachments.length && mode !== 'draft') { status.textContent = 'ابتدا شرح پرونده یا متن را بنویسید یا فایلی پیوست کنید.'; return; }
     if (typed.length > MESSAGE_LIMIT) {
       status.textContent = `متن بیش از ${MESSAGE_LIMIT.toLocaleString('fa-IR')} نویسه است. آن را کوتاه‌تر کنید یا بخش بلند را به‌صورت فایل پیوست کنید.`;
       return;
     }
+    if (mode === 'consult') acceptBtn.hidden = true;
     busy = true;
     sendBtn.disabled = true;
     attachBtn.disabled = true;
@@ -511,6 +683,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
       const which = res.data?.file ? ` (فایل: ${res.data.file})` : '';
       status.textContent = `${errorText(code)}${which} (کد: ${code}${res.data?.providerStatus ? ` · HTTP ${res.data.providerStatus}` : ''}${res.data?.providerReason ? ` ${res.data.providerReason}` : ''}${res.data?.reason ? ` · ${res.data.reason}` : ''} متن و پیوست‌های شما حفظ شد.`;
       renderLog();
+      if (voiceMode) startListening();
       return;
     }
     // فقط نام فایل‌ها در گفت‌وگو و تاریخچه می‌ماند؛ محتوای فایل هرگز ذخیره نمی‌شود.
@@ -525,18 +698,34 @@ function assistantWorkspace(initialThread, guestMode = false) {
     renderAttachments();
     renderLog();
     const saved = await persistTurn(userText, reply).catch(() => false);
+    if (mode === 'consult' && voiceMode) speakReply(reply);
+    if (mode === 'consult' && res.data.status === 'ready') acceptBtn.hidden = false;
     status.textContent = saved
-      ? (res.data.status === 'ready' ? 'پیش‌نویس آماده است. آن را بررسی کنید؛ پیش از استفاده باید وکیل تطبیق دهد.' : 'برای تکمیل، پاسخ پرسش‌های دستیار را بنویسید.')
+      ? (mode === 'consult'
+        ? (res.data.status === 'ready' ? 'اگر با جمع‌بندی مشاوره موافقید، نتیجه را تأیید کنید تا وارد مرحله تنظیم سند شوید.' : 'برای تکمیل مشاوره، به پرسش‌های دستیار پاسخ دهید.')
+        : 'پیش‌نویس آماده است. آن را بررسی کنید؛ پیش از استفاده باید وکیل تطبیق دهد.')
       : 'پاسخ نمایش داده شد، اما ذخیرهٔ آن در تاریخچه انجام نشد.';
   }
 
   function newConversation() {
     threadId = null;
     history.length = 0;
+    stopVoiceMode();
+    voiceBtn.hidden = false;
+    voiceHint.hidden = false;
+    acceptedConclusion = '';
+    acceptBtn.hidden = true;
+    partyPanel.hidden = true;
+    partyOneName.value = '';
+    partyOneAddress.value = '';
+    partyTwoName.value = '';
+    partyTwoAddress.value = '';
+    mode = 'consult';
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
     attachments = [];
     renderAttachments();
+    syncMode();
     renderLog();
     status.textContent = '';
     composerText.focus();
@@ -556,9 +745,10 @@ function assistantWorkspace(initialThread, guestMode = false) {
 
   const toolbar = h('div', { class: 'ai-toolbar' }, [modeGroup, docWrap, contractWrap, newBtn]);
   const composer = h('form', { class: 'ai-composer', 'aria-label': 'ارسال پیام' }, [
-    attachChip,
+    acceptBtn, partyPanel, attachChip,
     composerText,
-    h('div', { class: 'ai-composer-bar' }, [attachBtn, fileInput, counter, sendBtn]),
+    h('div', { class: 'ai-composer-bar' }, [attachBtn, fileInput, voiceBtn, counter, sendBtn]),
+    voiceHint,
     status,
     h('p', { class: 'ai-history-link' }, [h('a', { href: '#/assistant/history', text: 'سوابق گفت‌وگوها ←' })]),
   ]);
