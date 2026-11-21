@@ -3982,3 +3982,22 @@ body.classroom-fullscreen-fallback { overflow:hidden; }
   .ai-party-panel { padding: .8rem; }
   .ai-accept-consultation { min-height: 46px; }
 }
+
+
+/* Persian voice conversation in the lawyer assistant. */
+.ai-voice-toggle[aria-pressed="true"] {
+  color: #fff;
+  background: var(--assistant-navy, #243b5a);
+  border-color: var(--assistant-navy, #243b5a);
+}
+.ai-voice-hint {
+  display: block;
+  margin: 0;
+  font-size: .88rem;
+  line-height: 1.8;
+}
+.ai-voice-hint[hidden] { display: none; }
+.ai-voice-toggle:disabled { opacity: .65; cursor: not-allowed; }
+@media (max-width: 600px) {
+  .ai-voice-toggle { min-height: 46px; }
+}
