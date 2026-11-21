@@ -379,7 +379,7 @@ async function assistant(request, env) {
     let legalArticles = [];
     let legalBankUnavailable = false;
     try {
-      const legalSearchText = [...history.map((item) => item.text), message].join('\n\n');
+      const legalSearchText = [...history.slice().reverse().map((item) => item.text), message].join('\n\n');
       legalArticles = await findVerifiedLegalArticles(env.DB, legalSearchText);
     } catch (err) {
       // خرابی بانک نباید پاسخ اصلی را از کار بیندازد؛ فقط زمینهٔ مستند حذف و هشدار داده می‌شود.
