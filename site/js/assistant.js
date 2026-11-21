@@ -220,8 +220,8 @@ function assistantWorkspace(initialThread, guestMode = false) {
     for (const m of res.data?.messages || []) history.push({ role: m.role === 'ai' ? 'ai' : 'user', text: m.content });
     threadId = Number(id);
     renderLog();
-    acceptBtn.hidden = !history.some((item) => item.role === 'ai' && item.text);
-    status.textContent = 'گفت‌وگو بازیابی شد. اگر با جمع‌بندی موافقید، آن را تأیید کنید و سپس نوع سند و مشخصات اشخاص را وارد کنید.';
+    acceptBtn.hidden = true;
+    status.textContent = 'گفت‌وگو بازیابی شد. برای تأیید نتیجه، ابتدا از دستیار بخواهید جمع‌بندی نهایی مشاوره را ارائه کند.';
   }
 
   async function persistTurn(userText, aiText) {
@@ -435,7 +435,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
   let speaking = false;
   let recognitionRestartPending = false;
   const voiceBtn = h('button', { class: 'btn secondary ai-voice-toggle', type: 'button', text: 'شروع گفت‌وگوی صوتی' });
-  const voiceHint = h('span', { class: 'muted ai-voice-hint', role: 'status', 'aria-live': 'polite', text: SpeechRecognition ? 'برای گفت‌وگوی صوتی، میکروفون را فعال کنید.' : 'گفت‌وگوی صوتی در این مرورگر پشتیبانی نمی‌شود؛ می‌توانید از دیکته صفحه‌کلید استفاده کنید.' });
+  const voiceHint = h('span', { class: 'muted ai-voice-hint', role: 'status', 'aria-live': 'polite', text: SpeechRecognition ? 'برای گفت‌وگوی صوتی، میکروفون را فعال کنید. گفتار با سرویس تشخیص گفتار مرورگر به متن تبدیل و سپس برای پاسخ به هوش مصنوعی ارسال می‌شود.' : 'گفت‌وگوی صوتی در این مرورگر پشتیبانی نمی‌شود؛ می‌توانید از دیکته صفحه‌کلید استفاده کنید.' });
   function stopSpeaking() {
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     speaking = false;
@@ -529,7 +529,7 @@ function assistantWorkspace(initialThread, guestMode = false) {
     voiceMode = true;
     voiceBtn.textContent = 'پایان گفت‌وگوی صوتی';
     voiceBtn.setAttribute('aria-pressed', 'true');
-    voiceHint.textContent = 'درخواست دسترسی میکروفون؛ صحبت کنید…';
+    voiceHint.textContent = 'درخواست دسترسی میکروفون؛ گفتار شما برای تبدیل به متن از سرویس تشخیص گفتار مرورگر استفاده می‌کند.';
     startListening();
   });
   composerText.addEventListener('input', () => { counter.textContent = `${composerText.value.length} / ${MESSAGE_LIMIT}`; });
