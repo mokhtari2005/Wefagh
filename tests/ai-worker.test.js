@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import worker from '../worker/src/index.js';
 import { AiError, extractText, generateText, synthesizeSpeech, searchLegalWeb, aiConfigured, modelIds } from '../worker/src/ai/gemini.js';
 import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims, curatedLegalArticlesForQuery } from '../worker/src/ai/routes.js';
-import { extractExplicitLegalReferences, findVerifiedLegalArticles, buildLegalResearchQuery } from '../worker/src/legal-bank.js';
+import { extractExplicitLegalReferences, findVerifiedLegalArticles, buildLegalResearchQuery, extractOfficialGroundedArticleReferences } from '../worker/src/legal-bank.js';
 import { mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt, LEGAL_DISCLAIMER } from '../worker/src/ai/prompts.js';
 import { groqConfigured, reviewLegalDraft, groqReviewNotes, GROQ_API, GROQ_REVIEW_MODEL } from '../worker/src/ai/groq.js';
 import batch01 from '../worker/src/moot/bank/batch-01.js';
@@ -259,6 +259,16 @@ test('بازیابی مواد صریحاً شماره‌گذاری‌شده را
   assert.ok(calls[0].sql.includes("l.status='verified' AND a.status='verified'"));
   assert.ok(calls[0].sql.includes('a.article_number IN (?2, ?3)'));
   assert.ok(calls[0].bindings.includes('%قانون اجرای احکام مدنی%'));
+});
+
+
+test('فقط ماده‌ای که متن ارجاع‌شده از دامنه رسمی پشتیبانی کند از کنترل استناد عبور می‌کند', () => {
+  const refs = extractOfficialGroundedArticleReferences([
+    { url: 'https://qavanin.ir/law/123', citedText: 'ماده ۵۶ قانون اجرای احکام مدنی' },
+    { url: 'https://example.com/law/456', citedText: 'ماده ۹۹ قانون دیگر' },
+    { url: 'https://rrk.ir/law/789', citedText: 'این متن هیچ شماره ماده‌ای ندارد' },
+  ]);
+  assert.deepEqual(refs, [{ articleNumber: '56' }]);
 });
 
 test('بانک زمینه‌ای، مواد ۵۶ و ۵۷ قانون اجرای احکام مدنی را برای پرونده مال توقیف‌شده فراهم می‌کند', () => {
