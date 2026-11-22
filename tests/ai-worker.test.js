@@ -372,18 +372,23 @@ test('پیوند Google به دامنه رسمی به‌تنهایی شماره 
   assert.match(guarded.text, /شماره نیازمند تطبیق با متن رسمی/);
 });
 
-test('کنترل سمت سرور، شماره ماده و مهلت فاقد پشتوانه را پیش از نمایش خنثی می‌کند', () => {
+test('کنترل استناد، شماره ماده را فقط با تطبیق نام همان قانون و منبع معتبر می‌پذیرد', () => {
+  const civil422 = { lawTitle: 'قانون مدنی', articleNumber: '۴۲۲', lawStatus: 'verified', articleStatus: 'verified' };
   const guarded = guardUnverifiedLegalClaims(
-    'طبق ماده ۱۷۹ و ماده ۱۸۳ باید ظرف ۳۰ روز اقدام کنید؛ همچنین ماده ۴۲۲ قابل اعمال است.',
-    [{ articleNumber: '۴۲۲' }],
+    'طبق ماده ۱۷۹ قانون مدنی و ماده ۱۸۳ قانون مدنی باید ظرف ۳۰ روز اقدام کنید؛ همچنین ماده ۴۲۲ قانون مدنی قابل اعمال است.',
+    [civil422],
     'ماده ۴۲۲ قانون مدنی؛ منبع درباره مهلت زمانی حکمی ندارد.',
   );
   assert.match(guarded.text, /شماره نیازمند تطبیق با متن رسمی/);
   assert.match(guarded.text, /مدت نیازمند تطبیق با منبع رسمی/);
-  assert.match(guarded.text, /ماده ۴۲۲/);
+  assert.match(guarded.text, /ماده ۴۲۲ قانون مدنی/);
   assert.equal(guarded.changed, true);
-  const safe = guardUnverifiedLegalClaims('ماده ۴۲۲ فوری است.', [{ articleNumber: '۴۲۲' }], 'ماده ۴۲۲');
-  assert.equal(safe.text, 'ماده ۴۲۲ فوری است.');
+  const wrongLaw = guardUnverifiedLegalClaims('ماده ۴۲۲ قانون صدور چک قابل اعمال است.', [civil422], '');
+  assert.match(wrongLaw.text, /شماره نیازمند تطبیق با متن رسمی/);
+  const curated = guardUnverifiedLegalClaims('ماده ۴۲۲ قانون مدنی فوری است.', [{ lawTitle: 'قانون مدنی', articleNumber: '۴۲۲', sourceStatus: 'curated_reference' }], '');
+  assert.match(curated.text, /شماره نیازمند تطبیق با متن رسمی/);
+  const safe = guardUnverifiedLegalClaims('ماده ۴۲۲ قانون مدنی فوری است.', [civil422], '');
+  assert.equal(safe.text, 'ماده ۴۲۲ قانون مدنی فوری است.');
   assert.equal(safe.changed, false);
 });
 
