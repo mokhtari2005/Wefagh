@@ -24,7 +24,8 @@ export function buildSafeLegalSearchQuery(input) {
   const exactReferences = extractExplicitLegalReferences(normalized)
     .filter((ref) => safeLawTitles.some((title) => normalized.includes(title) && ref.lawTitle.includes(title)))
     .map((ref) => safeLawTitles.find((title) => normalized.includes(title) && ref.lawTitle.includes(title)) + ' ماده ' + ref.articleNumber);
-  const unique = [...new Set([...exactReferences, ...matches])].slice(0, 8);
+  const remainingMatches = matches.filter((term) => !exactReferences.some((ref) => ref.startsWith(term + ' ماده ')));
+  const unique = [...new Set([...exactReferences, ...remainingMatches])].slice(0, 8);
   return unique.length ? `${unique.join(' ')} حقوق ایران متن قانون رأی قضایی نظریه مشورتی` : '';
 }
 
