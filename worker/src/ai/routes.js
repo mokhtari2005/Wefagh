@@ -1,7 +1,7 @@
 // مسیرهای هوش مصنوعی: موت‌کورت (پرسش، ارزیابی، صدا، تبدیل گفتار) و دستیار وکیل.
 // همه مسیرها (به‌جز وضعیت) نیاز به ورود دارند. کلید API هرگز در پاسخ یا لاگ نمی‌آید.
 import { getPublishedCase, SLUG_RE } from '../moot/caseStore.js';
-import { findVerifiedLegalArticles } from '../legal-bank.js';
+import { findVerifiedLegalArticles, findVerifiedJudicialAuthorities } from '../legal-bank.js';
 import { searchLegalAuthorities } from './legal-search.js';
 import { json, readJsonBody } from '../http.js';
 import { currentUser } from '../auth/routes.js';
@@ -491,14 +491,20 @@ async function assistant(request, env) {
       { role: 'user', parts: buildUserParts(message, attachments) },
     ];
     let legalArticles = [];
+    let judicialAuthorities = [];
     let legalBankUnavailable = false;
     const legalSearchText = [...history.slice().reverse().map((item) => item.text), message].join('\n\n');
     try {
       legalArticles = await findVerifiedLegalArticles(env.DB, legalSearchText);
     } catch (err) {
-      // خرابی بانک نباید پاسخ اصلی را از کار بیندازد؛ فقط زمینهٔ مستند حذف و هشدار داده می‌شود.
       legalBankUnavailable = true;
-      console.error(JSON.stringify({ where: 'ai', stage: 'legal_bank_query', error: err?.name || 'Error' }));
+      console.error(JSON.stringify({ where: 'ai', stage: 'legal_article_query', error: err?.name || 'Error' }));
+    }
+    try {
+      judicialAuthorities = await findVerifiedJudicialAuthorities(env.DB, legalSearchText);
+    } catch (err) {
+      legalBankUnavailable = true;
+      console.error(JSON.stringify({ where: 'ai', stage: 'judicial_authority_query', error: err?.name || 'Error' }));
     }
     const executionTransferArticles = EXECUTION_TRANSFER_TOPIC.test(legalSearchText)
       ? [...EXECUTION_TRANSFER_ARTICLES, ...CIVIL_PROCEDURE_ARTICLES]
@@ -577,20 +583,20 @@ async function assistant(request, env) {
       notes.push('بازبینی مستقل به‌دلیل استفاده از مسیر جایگزین انجام نشد.');
     } else {
       stage = 'groq_review';
-      let reviewArticles = [...curatedArticles, ...legalArticles];
+      let reviewArticles = [...curatedArticles, ...legalArticles, ...judicialAuthorities];
       let reviewBankUnavailable = false;
       try {
         // جست‌وجوی دوم با متن پاسخ Gemini هم انجام می‌شود تا استنادهای تازه‌مطرح‌شده نیز تطبیق داده شوند.
-        const matched = await findVerifiedLegalArticles(env.DB, text);
-        const seen = new Set(reviewArticles.map((a) => `${a.lawTitle}::${a.articleNumber}`));
-        for (const article of matched) {
-          const key = `${article.lawTitle}::${article.articleNumber}`;
+        const [matched, matchedAuthorities] = await Promise.all([\n          findVerifiedLegalArticles(env.DB, text),\n          findVerifiedJudicialAuthorities(env.DB, text),\n        ]);
+        const seen = new Set(reviewArticles.map((a) => `${a.lawTitle}::${a.documentNumber || a.articleNumber}`));
+        for (const article of [...matched, ...matchedAuthorities]) {
+          const key = `${article.lawTitle}::${article.documentNumber || article.articleNumber}`;
           if (!seen.has(key)) {
             reviewArticles.push(article);
             seen.add(key);
           }
         }
-        reviewArticles = reviewArticles.slice(0, 8);
+        reviewArticles = reviewArticles.slice(0, 12);
       } catch (err) {
         reviewBankUnavailable = true;
         console.error(JSON.stringify({ where: 'ai', stage: 'groq_legal_bank_query', error: err?.name || 'Error' }));
