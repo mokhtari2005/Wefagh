@@ -387,6 +387,34 @@ const VEHICLE_DEFECT_ARTICLES = Object.freeze([
 
 const normalizeLegalDigits = (value) => String(value).replace(/[۰-۹]/g, (digit) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)));
 
+export function extractOfficialPageArticleReferences(sources = []) {
+  const found = [];
+  const seen = new Set();
+  for (const source of (Array.isArray(sources) ? sources : [])) {
+    if (source?.pageTextStatus !== 'official_domain_page_text_retrieved') continue;
+    const title = typeof source.title === 'string' ? source.title.trim().slice(0, 180) : '';
+    if (!/(قانون|آیین.?نامه|مقرره|مصوبه)/u.test(title)) continue;
+    const body = typeof source.pageText === 'string' ? source.pageText : '';
+    for (const match of body.matchAll(/(?:ماده|مواد)\s*([۰-۹0-9]+)/gu)) {
+      const articleNumber = normalizeLegalDigits(match[1]);
+      const key = title + '::' + articleNumber;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      found.push({
+        lawTitle: title,
+        lawType: 'law',
+        articleNumber,
+        body: body.slice(Math.max(0, match.index - 100), Math.min(body.length, match.index + 1200)),
+        sourceName: source.domain || 'منبع رسمی بازیابی‌شده',
+        officialSourceUrl: source.uri,
+        sourceStatus: 'official_page_text_retrieved',
+      });
+      if (found.length >= 80) return found;
+    }
+  }
+  return found;
+}
+
 export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedContext = '') {
   if (typeof text !== 'string' || !text) return { text: text || '', changed: false };
   const allowed = new Set(legalArticles.map((item) => normalizeLegalDigits(item.articleNumber)));
@@ -651,7 +679,8 @@ async function assistant(request, env) {
     const rawText = typeof data.text === 'string' ? data.text : '';
     // Google grounding links answer segments to result URLs; it does not provide source-page text.
     // Therefore, a URL association alone must never authorize an otherwise unverified article number.
-    const guardedText = guardUnverifiedLegalClaims(rawText, promptArticles, legalContext);
+    const officialPageArticles = extractOfficialPageArticleReferences(webResearch?.sources || []);
+    const guardedText = guardUnverifiedLegalClaims(rawText, [...promptArticles, ...officialPageArticles], `${legalContext}\\n\\n${webResearchContext}`);
     let text = guardedText.text;
     const searchSources = webResearch?.status === 'searched' ? webResearch.sources : [];
     const hasSearchSuggestions = ['searched', 'suggestions_only'].includes(webResearch?.status) && Boolean(webResearch.searchSuggestionHtml);
