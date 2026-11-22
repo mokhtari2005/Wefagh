@@ -111,7 +111,7 @@ export function createDocumentWizard({ docType, initialValues = {}, onComplete, 
     confirm.addEventListener('click', () => onComplete({ ...values }));
     const edit = node('button', 'btn secondary', 'اصلاح اطلاعات');
     edit.type = 'button';
-    edit.addEventListener('click', () => { index = 0; render(); });
+    edit.addEventListener('click', () => { index = 0; steps.splice(0, steps.length, ...fields); render(); });
     controlWrap.replaceChildren(review);
     label.textContent = '';
     progress.textContent = 'اطلاعات واردشده را بررسی کنید.';
