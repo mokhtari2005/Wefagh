@@ -181,7 +181,9 @@ export function trimHistory(history) {
 /** متن پاسخ دستیار برای تاریخچه: پرسش‌های تکمیلی یا متن پیش‌نویس. */
 export function summarizeReply(data) {
   if (data.status === 'need_info') {
-    return ['برای ادامه این اطلاعات لازم است:', ...(data.questions || []).map((q) => `- ${q}`)].join('\n');
+    const optionQuestions = new Set((Array.isArray(data.questionOptions) ? data.questionOptions : []).map((item) => item?.question).filter(Boolean));
+    const freeQuestions = (data.questions || []).filter((question) => !optionQuestions.has(question));
+    return [freeQuestions.length ? 'برای ادامه این اطلاعات لازم است:' : '', ...freeQuestions.map((question) => `- ${question}`)].filter(Boolean).join('\n') || data.text || '';
   }
   return data.text || '';
 }
