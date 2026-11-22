@@ -54,6 +54,28 @@ function req(path, { method = 'POST', body, cookie = null, type = 'application/j
 }
 
 
+
+test('findVerifiedLegalArticles prioritizes exact law and article citations', async () => {
+  const calls = [];
+  const db = {
+    prepare(sql) {
+      return { bind(...bindings) {
+        return { all: async () => {
+          calls.push({ sql, bindings });
+          return { results: sql.includes('a.article_number IN')
+            ? [{ lawTitle: 'قانون اجرای احکام مدنی', articleNumber: '۵۶', body: 'متن ماده' }]
+            : [] };
+        } };
+      } };
+    },
+  };
+  const found = await findVerifiedLegalArticles(db, 'مواد ۵۶ و ۵۷ قانون اجرای احکام مدنی');
+  assert.equal(found[0].articleNumber, '۵۶');
+  assert.ok(calls[0].sql.includes("l.status='verified' AND a.status='verified'"));
+  assert.ok(calls[0].sql.includes('a.article_number IN (?2, ?3)'));
+  assert.ok(calls[0].bindings.includes('%قانون اجرای احکام مدنی%'));
+});
+
 test('extractGrounding keeps cited passages and Google search suggestions', () => {
   const result = extractGrounding({
     candidates: [{
