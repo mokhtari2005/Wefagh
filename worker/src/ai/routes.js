@@ -332,6 +332,16 @@ const VEHICLE_DEFECT_ARTICLES = Object.freeze([
   sourceName: 'قانون مدنی؛ متن رسمی قوانین و مقررات', sourceUrl: 'https://qavanin.ir/Law/PrintText/?IDS=12021850837713548188&font=',
 })));
 
+const SEIZED_PROPERTY_TOPIC = /مال\\s*توقیف|مالِ\\s*توقیف|توقیف(?:شده|‌شده|\\s+شده)?|رفع\\s*توقیف/u;
+const SEIZED_PROPERTY_ARTICLES = Object.freeze([
+  ['قانون اجرای احکام مدنی', '۵۶', 'هرگونه نقل و انتقال اعم از قطعی و شرطی و رهنی نسبت به مال توقیف‌شده باطل و بلااثر است.'],
+  ['قانون اجرای احکام مدنی', '۵۷', 'هرگونه قرارداد یا تعهدی که نسبت به مال توقیف‌شده بعد از توقیف به ضرر محکوم‌له منعقد شده باشد نافذ نیست مگر اینکه محکوم‌له کتباً رضایت دهد.'],
+  ['قانون آیین دادرسی دادگاه‌های عمومی و انقلاب در امور مدنی', '۱۲', 'دعاوی مربوط به اموال غیرمنقول، اعم از دعاوی مالکیت، مزاحمت، ممانعت از حق، تصرف عدوانی و سایر حقوق راجع به آن، در دادگاهی اقامه می‌شود که مال غیرمنقول در حوزه آن واقع است؛ اگرچه خوانده در آن حوزه مقیم نباشد.'],
+].map(([lawTitle, articleNumber, body]) => ({
+  lawTitle, articleNumber, heading: 'حکم قانونی مرتبط با مال توقیف‌شده و صلاحیت محلی', body,
+  sourceName: 'متن قانون؛ مستند زمینه‌ای داخلی',
+})));
+
 const normalizeLegalDigits = (value) => String(value).replace(/[۰-۹]/g, (digit) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)));
 
 export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedContext = '') {
@@ -441,7 +451,7 @@ async function assistant(request, env) {
       legalBankUnavailable = true;
       console.error(JSON.stringify({ where: 'ai', stage: 'legal_bank_query', error: err?.name || 'Error' }));
     }
-    const curatedArticles = VEHICLE_DEFECT_TOPIC.test(legalSearchText) ? VEHICLE_DEFECT_ARTICLES : [];
+    const curatedArticles = [\n      ...(VEHICLE_DEFECT_TOPIC.test(legalSearchText) ? VEHICLE_DEFECT_ARTICLES : []),\n      ...(SEIZED_PROPERTY_TOPIC.test(legalSearchText) ? SEIZED_PROPERTY_ARTICLES : []),\n    ];
     const promptArticles = [...legalArticles, ...curatedArticles];
     const legalContext = promptArticles.length ? promptArticles.map((a) => `قانون: ${a.lawTitle}\nماده ${a.articleNumber}${a.heading ? ` ـ ${a.heading}` : ''}\n${a.body}\nمنبع ثبت‌شده: ${a.sourceName || 'ثبت نشده'}${a.sourceUrl ? ` (${a.sourceUrl})` : ''}`).join('\n\n---\n\n') : '';
     // جست‌وجوی وب فقط برای مشاورهٔ متنی، بدون پیوست و با پرس‌وجوی حقوقیِ whitelist انجام می‌شود.
