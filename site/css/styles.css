@@ -4141,3 +4141,28 @@ body.classroom-fullscreen-fallback { overflow:hidden; }
   .ai-chat-composer { padding: .75rem; }
   .ai-chat-input { min-height: 52px; }
 }
+
+.ai-search-sources {
+  margin: 12px 0 4px;
+  padding-inline-start: 22px;
+  font-size: .92em;
+}
+.ai-search-sources a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.ai-search-source-excerpt {
+  margin: 4px 0 10px;
+  color: var(--muted, #666);
+  font-size: .9em;
+}
+.ai-google-search-suggestions {
+  display: block;
+  width: 100%;
+  height: 76px;
+  margin: 12px 0 4px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  overflow: hidden;
+}
