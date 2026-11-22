@@ -148,7 +148,7 @@ const SUGGESTIONS = [
   ['draft', 'petition', 'دادخواست مطالبهٔ وجه چک برگشتی را پیش‌نویس کن.'],
   ['analyze', 'petition', 'نقاط قوت و ضعف این پرونده را تحلیل کن: ...'],
   ['review', 'petition', 'این متن لایحه را از نظر ساختار و استدلال بازبینی کن: ...'],
-  ['litigation', 'retrial', 'این پرونده را از دیدگاه وکیل طرف مقابل، وکیل موکل و قاضی بی‌طرف بررسی کن و استنادات را جداگانه راستی‌آزمایی کن.'],
+  ['litigation', 'retrial', 'این پرونده را تحلیل کن و هم‌زمان گزارش مستقلی از صحت، ارتباط و کفایت استنادات قانونی ارائه بده.'],
   ['research', 'other', 'درباره این مسئله تحقیق حقوقی انجام بده و برای هر ماده قانونی توضیح بده دقیقاً کدام گزاره را پشتیبانی می‌کند؛ موارد تأییدنشده را جدا کن.'],
   ['litigation', 'third_party', 'شرایط و جهات اعتراض ثالث را با توجه به رأی و اسناد پیوست بررسی کن.'],
   ['litigation', 'retrial', 'بررسی کن آیا وقایع و مدارک این پرونده با یکی از جهات قانونی اعاده دادرسی منطبق است یا خیر.'],
@@ -279,7 +279,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
   function syncWorkspaceIntro() {
     const copy = {
       consult: ['مشاوره حقوقی هوشمند', 'گفت‌وگوی تعاملی برای روشن‌کردن مسئله، تکمیل واقعیت‌های مؤثر و رسیدن به راهکار حقوقی.'],
-      litigation: ['میز محاکمه هوشمند', 'پرونده را از سه موضع مستقل می‌سنجد: وکیل طرف مقابل، وکیل موکل و قاضی بی‌طرف. خروجی، یک گزارش واحد از مواجهه استدلال‌ها و نقاط آسیب‌پذیر پرونده است.'],
+      litigation: ['میز محاکمه هوشمند', 'در کنار پاسخ مشاوره، استنادات، مبانی قانونی، خلأهای مستند و نقاط آسیب‌پذیر تحلیل را مستقلاً راستی‌آزمایی می‌کند. گزارش این بازبینی همراه همان پاسخ ارائه می‌شود.'],
       research: ['تحقیق و راستی‌آزمایی حقوقی', 'تمرکز بر شناسایی منابع، متن مقررات، اعتبار زمانی و انطباق هر استناد با گزاره حقوقی مورد ادعا.'],
       analyze: ['تحلیل حقوقی پرونده', 'استخراج وقایع، خواسته‌ها، ادله، مسائل حقوقی و خطرهای اصلی پرونده.'],
       review: ['بررسی و اصلاح متن حقوقی', 'بازبینی ساختار، نگارش، استدلال، ابهام‌ها و تعارض‌های متن ارائه‌شده.'],
@@ -382,17 +382,19 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
   if (voiceAllowed) history.push({ role: 'ai', text: 'سلام، خوش آمدید. من دستیار هوشمند آکادمی وکالت هستم. لطفاً موضوع یا مسئله‌ای را که می‌خواهید بررسی کنیم، به زبان خودتان توضیح دهید. اگر برای فهم دقیق‌تر موضوع به اطلاعات بیشتری نیاز داشته باشم، در همین گفت‌وگو از شما می‌پرسم.' });
   const pendingTitle = h('strong', { class: 'ai-pending-title', text: 'در حال آماده‌سازی پاسخ حقوقی…' });
   const pendingElapsed = h('span', { class: 'ai-progress-elapsed', text: 'زمان سپری‌شده: ۰:۰۰' });
-  const pendingRemaining = h('span', { class: 'ai-progress-remaining', text: 'زمان تخمینی باقی‌مانده: ۱:۰۵' });
-  const pendingTrack = h('div', { class: 'ai-progress-track', role: 'progressbar', 'aria-label': 'پیشرفت تخمینی پردازش', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' });
-  const pendingFill = h('span', { class: 'ai-progress-fill' });
-  pendingTrack.append(pendingFill);
-  const pending = h('li', { class: 'ai-msg ai-pending', role: 'status', 'aria-live': 'polite' }, [
+  const pendingRemaining = h('span', { class: 'ai-progress-remaining', text: 'زمان تخمینی باقی‌مانده: ۱:۳۰' });
+  const pendingTrack = h('div', { class: 'ai-progress-ring', role: 'progressbar', 'aria-label': 'درصد زمان سپری‌شده از برآورد پردازش', 'aria-valuemin': '0', 'aria-valuemax': '95', 'aria-valuenow': '0' });
+  const pendingPercent = h('span', { class: 'ai-progress-percent', text: '۰٪' });
+  pendingTrack.append(pendingPercent);
+  const pending = h('div', { class: 'ai-pending', role: 'status', 'aria-live': 'polite' }, [
     pendingTitle,
-    h('div', { class: 'ai-progress-meta' }, [pendingElapsed, pendingRemaining]),
-    pendingTrack,
+    h('div', { class: 'ai-progress-layout' }, [
+      pendingTrack,
+      h('div', { class: 'ai-progress-meta' }, [pendingElapsed, pendingRemaining]),
+    ]),
   ]);
   pending.hidden = true;
-  const ESTIMATED_TOTAL_MS = 65_000; // ۴۰ ثانیه برای مدل اصلی + حداکثر ۲۵ ثانیه برای fallback
+  const ESTIMATED_TOTAL_MS = 90_000; // برآورد تقریبی تولید پاسخ به‌علاوه بازبینی مستقل
   let progressStartedAt = 0;
   let progressTimer = null;
   function formatProgressTime(ms) {
@@ -416,7 +418,8 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
         ? 'در حال تکمیل پاسخ…'
         : 'پردازش بیشتر از برآورد زمان برده است.';
     const percent = Math.min(95, Math.floor((elapsed / ESTIMATED_TOTAL_MS) * 95));
-    pendingFill.style.width = `${percent}%`;
+    pendingTrack.style.background = `conic-gradient(var(--teal) ${percent}%, #e8e2d5 ${percent}% 100%)`;
+    pendingPercent.textContent = `${percent.toLocaleString('fa-IR')}٪`;
     pendingTrack.setAttribute('aria-valuenow', String(percent));
   }
   function startPendingProgress() {
@@ -1011,7 +1014,6 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     attachBtn.disabled = true;
     pending.hidden = false;
     startPendingProgress();
-    log.append(pending);
     emptyState.hidden = true;
     stream.scrollTop = stream.scrollHeight;
     status.textContent = '';
@@ -1035,7 +1037,6 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     sendBtn.disabled = false;
     attachBtn.disabled = false;
     pending.hidden = true;
-    pending.remove();
     if (!res.ok || !res.data?.ok) {
       const code = res.data?.error || (res.timeoutError ? 'AI_REQUEST_TIMEOUT' : res.networkError ? 'NETWORK' : 'AI_UNAVAILABLE');
       const which = res.data?.file ? ` (فایل: ${res.data.file})` : '';
@@ -1063,7 +1064,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     status.textContent = saved
       ? (mode === 'consult'
         ? (res.data.status === 'ready' ? 'اگر با جمع‌بندی مشاوره موافقید، نتیجه را تأیید کنید تا وارد مرحله تنظیم سند شوید.' : 'برای تکمیل مشاوره، به پرسش‌های دستیار پاسخ دهید.')
-        : (mode === 'litigation' ? 'گزارش میز محاکمه با سه موضع مستقل آماده شد؛ ایرادهای مهم و استنادات را پیش از تصمیم نهایی کنترل کنید.' : 'خروجی آماده است. آن را بررسی کنید؛ پیش از استفاده باید وکیل تطبیق دهد.'))
+        : (mode === 'litigation' ? 'پاسخ مشاوره و گزارش مستقل راستی‌آزمایی استنادات در همین پیام ارائه شد؛ پیش از اقدام، منابع رسمی را کنترل کنید.' : 'خروجی آماده است. آن را بررسی کنید؛ پیش از استفاده باید وکیل تطبیق دهد.'))
       : 'پاسخ نمایش داده شد، اما ذخیرهٔ آن در تاریخچه انجام نشد.';
   }
 
@@ -1108,6 +1109,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     acceptBtn, partyPanel, attachChip,
     composerText,
     h('div', { class: 'ai-composer-bar' }, [attachBtn, fileInput, counter, sendBtn]),
+    pending,
     voicePanel,
     status,
     h('p', { class: 'ai-history-link' }, [h('a', { href: '#/assistant/history', text: 'سوابق گفت‌وگوها ←' })]),

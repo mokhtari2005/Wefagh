@@ -12,11 +12,11 @@ import { generateTextWithFallback, stripResponseFormatting } from './fallback.js
 import { groqConfigured } from './groq.js';
 import { reviewWithWorkersAI, workersAiConfigured } from './cloudflare.js';
 import { clampReply } from './speech.js';
-import { reviewLegalDraft, groqReviewShortNote, groqReviewNotes } from './groq.js';
+import { reviewLegalDraft, groqReviewNotes } from './groq.js';
 import { AttachmentError, ATTACHMENT_LIMITS, processAttachments, buildUserParts, summarizeAttachments } from './attachments.js';
 import {
   LEGAL_DISCLAIMER, ASSISTANT_DOC_TYPES, ASSISTANT_MODES, ASSISTANT_SCHEMA, MOOT_EVAL_SCHEMA,
-  HEARING_ROLES, HEARING_STAGES, mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt, litigationRoleSystemPrompt,
+  HEARING_ROLES, HEARING_STAGES, mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt,
 } from './prompts.js';
 
 export const SPEAKERS = Object.freeze({ judge: 'قاضی', plaintiff: 'وکیل خواهان', defendant: 'وکیل خوانده', clerk: 'منشی دادگاه', user: 'شرکت‌کننده' });
@@ -396,101 +396,6 @@ async function readAssistantInput(request) {
   return { body, files };
 }
 
-async function runLitigationWorkbench(env, { contents, legalContext, attachments, docType }) {
-  const allowGroq = attachments.length === 0;
-  const hasAttachments = attachments.length > 0;
-  const runRole = (role, roleContents, maxOutputTokens) =>
-    generateTextWithFallback(env, {
-      system: litigationRoleSystemPrompt({ role, docType, legalContext, hasAttachments }),
-      contents: roleContents,
-      maxOutputTokens,
-      timeoutMs: 60_000,
-    }, { allowGroq });
-
-  const stageInput = (text) => [...contents, { role: 'user', parts: [{ text }] }];
-  const opening = [
-    'مرحله اول مناظره حقوقی ـ طرح موضع مستقل',
-    'بر پایه تمام اطلاعات پرونده، ابتدا موضوعات اختلافی، وقایع مؤثر، بار اثبات و مبانی قانونی را استخراج کن.',
-    'از طرف نقش خود، استدلال کامل و قابل دفاع ارائه کن. هر ادعا را با قاعده حقوقی، تطبیق با واقعیت پرونده و نتیجه پیوند بده.',
-    'مواد قانونی را با نام قانون و شماره ماده ذکر کن؛ در صورت دسترسی به متن ماده، مضمون دقیق آن و نسبتش با موضوع را توضیح بده. اگر متن یا اعتبار منبع در دسترس نیست، آن را صریحاً نیازمند بررسی اعلام کن.',
-    'از پاسخ چندخطی، کلی‌گویی، تکرار پرسش و نتیجه‌گیری بدون استدلال خودداری کن. این مرحله فقط موضع مستقل توست و هنوز پاسخ طرف دیگر را ندیده‌ای.',
-  ].join('\n');
-  const [opposing1, client1] = await Promise.all([
-    runRole('opposing', stageInput(opening), 2200),
-    runRole('client', stageInput(opening), 2200),
-  ]);
-
-  const firstJudgePrompt = [
-    'مرحله دوم ـ ارزیابی بی‌طرفانه دور نخست',
-    'دو استدلال زیر را بدون جانبداری بررسی کن. برای هر طرف، نقاط قوت، ضعف، خلأ ادله، ایرادهای شکلی و ماهوی و استنادات نیازمند راستی‌آزمایی را مشخص کن.',
-    'دقیقاً بگو هر طرف به کدام پرسش یا ایراد پاسخ نداده است و در دور دوم چه موضوعاتی باید پاسخ داده شود. هنوز رأی نهایی صادر نکن.',
-    'استدلال وکیل طرف مقابل:', opposing1.text,
-    'استدلال وکیل موکل:', client1.text,
-  ].join('\n\n');
-  const judge1 = await runRole('judge', stageInput(firstJudgePrompt), 1800);
-
-  const rebuttalBase = [
-    'مرحله سوم و چهارم ـ دور دوم مناظره و پاسخ متقابل',
-    'این بار موضع مستقل دور نخست خود را با توجه به استدلال طرف مقابل و نقد قاضی اصلاح و تکمیل کن.',
-    'به ایرادهای مشخص قاضی پاسخ بده؛ از تکرار متن دور نخست پرهیز کن؛ اگر استدلال قبلی تو نادرست یا ناقص بوده، صریحاً اصلاحش کن.',
-    'استدلال دور نخست وکیل طرف مقابل:', opposing1.text,
-    'استدلال دور نخست وکیل موکل:', client1.text,
-    'نقد و پرسش‌های قاضی در دور نخست:', judge1.text,
-  ].join('\n\n');
-  const [opposing2, client2] = await Promise.all([
-    runRole('opposing', stageInput(rebuttalBase + '\n\nاکنون فقط پاسخ تکمیلی وکیل طرف مقابل را ارائه کن.'), 2200),
-    runRole('client', stageInput(rebuttalBase + '\n\nاکنون فقط پاسخ تکمیلی وکیل موکل را ارائه کن.'), 2200),
-  ]);
-
-  const finalJudgePrompt = [
-    'مرحله پنجم و ششم ـ ارزیابی نهایی پس از مناظره دو دور',
-    'تمام مواضع دو طرف و نقد دور نخست را با هم بسنج. هر مسئله را جداگانه تعیین تکلیف کن و روشن ساز کدام استدلال از نظر حقوقی و اثباتی قوی‌تر است و چرا.',
-    'به‌طور مشخص: وقایع ثابت و مورد اختلاف؛ بار اثبات؛ قابلیت استماع و صلاحیت؛ ایرادهای شکلی و مواعد؛ مبانی ماهوی؛ ادله و ارزش اثباتی؛ تعارض یا جمع‌پذیری خواسته‌ها؛ دفاعیات محتمل؛ راهکارهای اصلی و علی‌البدل؛ و مدارک تکمیلی لازم را تحلیل کن.',
-    'بخش مستقل راستی‌آزمایی استنادات بساز. برای هر ماده یا رأی مطرح‌شده، نام منبع، شماره، گزاره‌ای که قرار است پشتیبانی کند، میزان انطباق و وضعیت تأیید را بیاور. میان متن منبع بازیابی‌شده از بانک داخلی، منبعی که متنش در دسترس نیست و تحلیل خودت تفکیک روشن بگذار. صرف ذکر شماره ماده را تأیید استناد تلقی نکن.',
-    'اگر بانک حقوقی مستند کافی ندارد، صریحاً خلأ را اعلام کن؛ به‌هیچ‌وجه وانمود نکن جست‌وجوی بیرونی انجام شده یا متن رسمی را دیده‌ای. هیچ ماده، رأی، تاریخ، مهلت یا نقل‌قولی نساز.',
-    'در پایان نتیجه مشروط و راهبرد پیشنهادی را با ترتیب خواسته اصلی و علی‌البدل ارائه کن. از پیش‌بینی قطعی رأی و درصدهای بی‌مبنا خودداری کن.',
-    'موضع مستقل دور نخست وکیل طرف مقابل:', opposing1.text,
-    'موضع مستقل دور نخست وکیل موکل:', client1.text,
-    'نقد قاضی در دور نخست:', judge1.text,
-    'پاسخ دور دوم وکیل طرف مقابل:', opposing2.text,
-    'پاسخ دور دوم وکیل موکل:', client2.text,
-  ].join('\n\n');
-  const judge2 = await runRole('judge', stageInput(finalJudgePrompt), 3000);
-
-  const scorecardPrompt = [
-    'مرحله هفتم ـ کارنامه نهایی مناظره',
-    'فقط یک کارنامه تحلیلی و مستند از مناظره تهیه کن؛ این کارنامه جایگزین تحلیل نهایی نیست.',
-    'برای هر طرف، کیفیت صورت‌بندی مسئله، صحت و انطباق استنادات، پاسخ به ایرادها، اتکای اثباتی، انسجام خواسته‌ها و رعایت تشریفات را با مقیاس توصیفی قوی/متوسط/ضعیف ارزیابی کن.',
-    'اگر امتیاز عددی می‌دهی، معیارها و وزن آن‌ها را شفاف کن و تأکید کن که امتیاز آموزشی است، نه احتمال پیروزی یا پیش‌بینی رأی. در صورت فقدان داده کافی، از عدددهی خودداری کن.',
-    'در پایان سه فهرست بده: مهم‌ترین امتیازهای موکل، مهم‌ترین خطرهای پرونده، و اقدام‌های ضروری پیش از طرح یا ادامه دعوا.',
-    'تحلیل نهایی قاضی:', judge2.text,
-    'پاسخ دور دوم طرف مقابل:', opposing2.text,
-    'پاسخ دور دوم موکل:', client2.text,
-  ].join('\n\n');
-  const scorecard = await runRole('judge', stageInput(scorecardPrompt), 1400);
-
-  const providers = [opposing1.provider, client1.provider, judge1.provider, opposing2.provider, client2.provider, judge2.provider, scorecard.provider];
-  return {
-    text: [
-      '## ۱. دور نخست ـ استدلال وکیل طرف مقابل',
-      opposing1.text,
-      '## ۲. دور نخست ـ استدلال وکیل موکل',
-      client1.text,
-      '## ۳. ارزیابی قاضی پس از دور نخست',
-      judge1.text,
-      '## ۴. دور دوم ـ پاسخ وکیل طرف مقابل',
-      opposing2.text,
-      '## ۵. دور دوم ـ پاسخ وکیل موکل',
-      client2.text,
-      '## ۶. ارزیابی نهایی قاضی و گزارش مستند',
-      judge2.text,
-      '## ۷. کارنامه تحلیلی مناظره',
-      scorecard.text,
-    ].join('\n\n'),
-    provider: providers.includes('groq') ? 'groq' : 'gemini',
-    stages: 7,
-  };
-}
 async function assistant(request, env) {
   const auth = await authorized(request, env);
   if (auth.error) return auth.error;
@@ -543,7 +448,7 @@ async function assistant(request, env) {
     // نام اشخاص، شرح وقایع، شماره پرونده و متن پیوست به موتور جست‌وجو ارسال نمی‌شود.
     let webResearch = null;
     let webResearchContext = '';
-    if (mode === 'consult' && attachments.length === 0 && env.GEMINI_SEARCH_GROUNDING_ENABLED === 'true') {
+    if ((mode === 'consult' || mode === 'litigation') && attachments.length === 0 && env.GEMINI_SEARCH_GROUNDING_ENABLED === 'true') {
       stage = 'legal_web_search';
       webResearch = await searchLegalAuthorities(env, legalSearchText);
       if (webResearch.status === 'searched') {
@@ -559,20 +464,17 @@ async function assistant(request, env) {
         ].join('\n');
       }
     }
-    stage = mode === 'litigation' ? 'litigation_role_debate' : 'gemini_generation';
+    stage = 'gemini_generation';
+    const generationMode = mode === 'litigation' ? 'consult' : mode;
     let data;
     let truncated = false;
     let provider = 'gemini';
-    if (mode === 'litigation') {
-      const report = await runLitigationWorkbench(env, { contents, legalContext, attachments, docType });
-      data = { status: 'ready', questions: [], text: report.text, notes: [] };
-      provider = report.provider;
-    } else {
+    {
       const generated = await generateTextWithFallback(env, {
-        system: [assistantSystemPrompt({ mode, docType, hasAttachments: attachments.length > 0, legalContext }), webResearchContext].filter(Boolean).join('\n\n'),
+        system: [assistantSystemPrompt({ mode: generationMode, docType, hasAttachments: attachments.length > 0, legalContext }), webResearchContext].filter(Boolean).join('\n\n'),
         contents,
         // توکن‌های «تفکر» مدل هم از این سقف کم می‌شوند؛ سقف پایین باعث قطع شدن پیش‌نویس‌های فارسی می‌شد.
-        maxOutputTokens: mode === 'consult' ? 5500 : 6000,
+        maxOutputTokens: generationMode === 'consult' ? 5500 : 6000,
         timeoutMs: 45_000,
         json: true,
         schema: ASSISTANT_SCHEMA,
@@ -629,8 +531,13 @@ async function assistant(request, env) {
         mode, docType, question: message, draft: text, legalArticles: reviewArticles,
       });
       if (reviewBankUnavailable) notes.push('جست‌وجوی تکمیلی بانک قوانین برای بازبین Groq انجام نشد؛ نتیجه بر اساس مواد بازیابی‌شده در مرحله نخست و سایر اطلاعات موجود است.');
-      notes.push(groqReviewShortNote(review));
-      if (mode === 'litigation') notes.push(...groqReviewNotes(review).slice(0, 8));
+      if (review.status === 'reviewed') {
+        const auditLines = groqReviewNotes(review);
+        text += '\n\n## گزارش بازبینی مستقل و تطبیق استنادات\n' + auditLines.map((line) => '• ' + line).join('\n');
+        notes.push('گزارش راستی‌آزمایی مستقل در ادامه همین پاسخ ارائه شده است. این گزارش بازبینی ماشینی است و جایگزین تطبیق نهایی با منابع رسمی نیست.');
+      } else {
+        notes.push(...groqReviewNotes(review).slice(0, 3));
+      }
       if (mode === 'draft' && workersAiConfigured(env)) {
         stage = 'cloudflare_workers_ai_review';
         const thirdReview = await reviewWithWorkersAI(env, { mode, docType, question: message, draft: text });

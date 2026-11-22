@@ -1307,13 +1307,16 @@ label.check-row { display: flex; align-items: center; gap: 10px; font-weight: 70
 label.check-row > input[type=checkbox] { width: 20px; height: 20px; margin: 0; flex: 0 0 auto; }
 label.check-row > span { min-width: 0; flex: 1 1 auto; word-break: keep-all; overflow-wrap: break-word; }
 
-/* نمایش زمان و پیشرفت تخمینی پردازش دستیار وکیل */
-.ai-pending { display: grid; gap: .65rem; }
-.ai-pending-title { color: var(--deep); font-size: .92rem; }
-.ai-progress-meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .35rem .8rem; color: var(--ink-soft); font-size: .78rem; font-variant-numeric: tabular-nums; }
-.ai-progress-track { height: 9px; overflow: hidden; border-radius: 999px; background: #e8e2d5; direction: ltr; }
-.ai-progress-fill { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--teal); transition: width .35s ease; }
-@media (prefers-reduced-motion: reduce) { .ai-progress-fill { transition: none; } }
+/* زمان پردازش در پایین دکمه ارسال؛ حلقه صرفاً برآورد زمانی است، نه درصد واقعی انجام کار. */
+.ai-pending { display: grid; gap: .55rem; padding: .65rem .75rem; border: 1px solid var(--sand-line); border-radius: 12px; background: var(--bone); }
+.ai-pending[hidden] { display: none; }
+.ai-pending-title { color: var(--deep); font-size: .88rem; }
+.ai-progress-layout { display: flex; align-items: center; gap: .8rem; }
+.ai-progress-meta { display: grid; gap: .25rem; color: var(--ink-soft); font-size: .78rem; font-variant-numeric: tabular-nums; min-width: 0; }
+.ai-progress-ring { width: 58px; height: 58px; flex: 0 0 58px; display: grid; place-items: center; border-radius: 50%; background: conic-gradient(var(--teal) 0%, #e8e2d5 0); position: relative; direction: ltr; }
+.ai-progress-ring::before { content: ''; position: absolute; inset: 6px; border-radius: 50%; background: var(--bone); }
+.ai-progress-percent { position: relative; z-index: 1; color: var(--deep); font-size: .76rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .ai-progress-ring { transition: none; } }
 
 /* =====================================================================
    سیستم طراحی: اندازه‌ها و فاصله‌های واحد برای صفحات داخلی
