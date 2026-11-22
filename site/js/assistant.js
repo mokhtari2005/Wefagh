@@ -987,6 +987,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
   const status = h('p', { class: 'muted ai-status', role: 'status', 'aria-live': 'polite' });
   let acceptedConclusion = '';
   let draftFormData = null;
+  let draftKnownFields = {};
   const acceptBtn = h('button', { class: 'btn ai-accept-consultation', type: 'button', text: 'نتیجه مشاوره را تأیید می‌کنم و می‌خواهم سند تنظیم شود', hidden: '' });
   const partyOneLabel = h('span', { text: 'خواهان ـ نام' });
   const partyTwoLabel = h('span', { text: 'خوانده ـ نام' });
@@ -1019,12 +1020,14 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     h('label', { class: 'ai-party-field' }, [partyTwoAddressLabel, partyTwoAddress]),
   ]);
   acceptBtn.addEventListener('click', () => {
-    const lastAnswer = [...history].reverse().find((item) => item.role === 'ai' && item.text)?.text || '';
+    const lastAssistant = [...history].reverse().find((item) => item.role === 'ai' && item.text);
+    const lastAnswer = lastAssistant?.text || '';
     if (!lastAnswer) { status.textContent = 'ابتدا گفت‌وگوی مشاوره را تکمیل کنید.'; return; }
     stopVoiceMode();
     voicePanel.hidden = true;
     acceptedConclusion = lastAnswer;
     draftFormData = null;
+    draftKnownFields = lastAssistant?.knownFields && typeof lastAssistant.knownFields === 'object' ? lastAssistant.knownFields : {};
     mode = 'draft';
     docSelect.value = 'petition';
     partyPanel.hidden = false;
@@ -1043,6 +1046,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       }
       partyPanel.replaceChildren(createDocumentWizard({
         docType: docSelect.value,
+        initialValues: draftKnownFields,
         onComplete: (values) => {
           draftFormData = values;
           status.textContent = 'اطلاعات تأیید شد؛ در حال تنظیم پیش‌نویس بر پایه نظر مشورتی پذیرفته‌شده هستیم.';
@@ -1053,6 +1057,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
           partyPanel.hidden = true;
           acceptedConclusion = '';
           draftFormData = null;
+          draftKnownFields = {};
           mode = 'consult';
           syncMode();
         },
@@ -1072,7 +1077,8 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       if (!acceptedConclusion) { status.textContent = 'تنظیم سند فقط پس از تأیید نتیجه مشاوره امکان‌پذیر است.'; return; }
       if (!draftFormData) { status.textContent = 'ابتدا اطلاعات مرحله‌ای سند را تکمیل و تأیید کنید.'; return; }
       const contractInfo = docSelect.value === 'contract' && contractLabel ? `\nنوع قرارداد: ${contractLabel}` : '';
-      const details = Object.entries(draftFormData).filter(([, value]) => String(value || '').trim()).map(([key, value]) => `${key}: ${String(value).trim()}`).join('\n');
+      const fieldLabels = { partyOneName: 'نام شخص اول', partyOneAddress: 'نشانی شخص اول', partyTwoName: 'نام شخص دوم', partyTwoAddress: 'نشانی شخص دوم', court: 'مرجع قضایی', caseNumber: 'شماره پرونده', caseStage: 'مرحله رسیدگی', additionalDetails: 'اطلاعات تکمیلی' };
+      const details = Object.entries(draftFormData).filter(([, value]) => String(value || '').trim()).map(([key, value]) => `${fieldLabels[key] || 'اطلاعات تکمیلی'}: ${String(value).trim()}`).join('\n');
       typed = [
         'نتیجه مشاوره که کاربر صریحاً تأیید کرده است:',
         'کاربر جمع‌بندی مشاوره را صریحاً پذیرفته است. تمام پیام‌های قبلی همین گفت‌وگو را برای استخراج وقایع، خواسته، ادله، مبانی قانونی و راهبرد به کار ببر.',
@@ -1137,7 +1143,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     history.push({ role: 'user', text: userText });
     const reply = summarizeReply(res.data);
     const responseNotes = [...(res.data.notes || [])];
-    history.push({ role: 'ai', text: reply, notes: responseNotes, reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null, reviewStatus: typeof res.data.reviewStatus === 'string' ? res.data.reviewStatus : null, questionOptions: Array.isArray(res.data.questionOptions) ? res.data.questionOptions : [], documentDraft: mode === 'draft', docType: mode === 'draft' ? docSelect.value : null });
+    history.push({ role: 'ai', text: reply, notes: responseNotes, reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null, reviewStatus: typeof res.data.reviewStatus === 'string' ? res.data.reviewStatus : null, questionOptions: Array.isArray(res.data.questionOptions) ? res.data.questionOptions : [], knownFields: res.data.knownFields && typeof res.data.knownFields === 'object' ? res.data.knownFields : {}, documentDraft: mode === 'draft', docType: mode === 'draft' ? docSelect.value : null });
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
     attachments = [];
@@ -1161,6 +1167,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     voicePanel.hidden = !voiceAllowed;
     acceptedConclusion = '';
     draftFormData = null;
+    draftKnownFields = {};
     acceptBtn.hidden = true;
     partyPanel.hidden = true;
     partyOneName.value = '';
