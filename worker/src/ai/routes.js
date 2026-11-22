@@ -599,7 +599,10 @@ async function assistant(request, env) {
       let reviewBankUnavailable = false;
       try {
         // جست‌وجوی دوم با متن پاسخ Gemini هم انجام می‌شود تا استنادهای تازه‌مطرح‌شده نیز تطبیق داده شوند.
-        const [matched, matchedAuthorities] = await Promise.all([\n          findVerifiedLegalArticles(env.DB, text),\n          findVerifiedJudicialAuthorities(env.DB, text),\n        ]);
+        const [matched, matchedAuthorities] = await Promise.all([
+          findVerifiedLegalArticles(env.DB, text),
+          findVerifiedJudicialAuthorities(env.DB, text),
+        ]);
         const seen = new Set(reviewArticles.map((a) => `${a.lawTitle}::${a.documentNumber || a.articleNumber}`));
         for (const article of [...matched, ...matchedAuthorities]) {
           const key = `${article.lawTitle}::${article.documentNumber || article.articleNumber}`;
