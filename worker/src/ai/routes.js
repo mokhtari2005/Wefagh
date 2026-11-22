@@ -523,11 +523,15 @@ async function assistant(request, env) {
     if (provider === 'groq') notes.push('به‌دلیل اختلال سرویس اصلی، دست‌کم یکی از مراحل تولید این گزارش از مسیر جایگزین تولید شد. مواد قانونیِ بازیابی‌شده از بانک آکادمی بدون تغییر در اختیار مدل قرار گرفتند؛ پاسخ همچنان نیازمند بررسی و راستی‌آزمایی حقوقی است.');
     if (legalBankUnavailable) notes.push('بانک قوانین در این درخواست پاسخ نداد؛ پاسخ بدون استناد به مواد ثبت‌شده در بانک تهیه شد و استنادها باید جداگانه بررسی شوند.');
     const rawText = typeof data.text === 'string' ? data.text : '';
-    const guardedText = guardUnverifiedLegalClaims(rawText, promptArticles, legalContext);
+    const webCitedArticles = webResearch?.status === 'searched' ? extractOfficialGroundedArticleReferences(webResearch.sources) : [];
+    const guardedText = guardUnverifiedLegalClaims(rawText, [...promptArticles, ...webCitedArticles], legalContext);
     let text = guardedText.text;
+    const searchSources = webResearch?.status === 'searched' ? webResearch.sources : [];
+    const hasSearchSuggestions = ['searched', 'suggestions_only'].includes(webResearch?.status) && Boolean(webResearch.searchSuggestionHtml);
     if (webResearch?.status === 'searched' && webResearch.sources.length) {
-      text += '\n\n## منابع وبی بازیابی‌شده برای پیگیری و راستی‌آزمایی\n' + webResearch.sources.map((source, index) => (index + 1) + '. [' + source.title + '](' + source.uri + ') — ' + source.domain).join('\n');
-      notes.push('جست‌وجوی وب با Google Search انجام شد. منابع زیر سرنخ تحقیق‌اند و به‌معنای تأیید رسمی متن قانون، اعتبار رأی یا جاری‌بودن مقرره نیستند.');
+      notes.push('جست‌وجوی وب با Google Search انجام شد. منابع و گزیده‌های مرتبط در پایین پاسخ نمایش داده شده‌اند؛ این منابع سرنخ تحقیق‌اند و به‌معنای تأیید رسمی متن قانون، اعتبار رأی یا جاری‌بودن مقرره نیستند.');
+    } else if (webResearch?.status === 'suggestions_only') {
+      notes.push('پیشنهاد جست‌وجوی Google نمایش داده شد، اما منبع قابل استناد مستقلی بازیابی نشد.');
     } else if (webResearch?.status === 'failed') {
       notes.push('جست‌وجوی وب حقوقی انجام نشد؛ پاسخ صرفاً بر منابع داخلی و دانش مدل متکی است.');
     } else if (webResearch?.status === 'no_sources' || webResearch?.status === 'no_legal_terms') {
@@ -597,6 +601,8 @@ async function assistant(request, env) {
       questions,
       text,
       notes,
+      searchSources,
+      searchSuggestionHtml: hasSearchSuggestions ? (webResearch.searchSuggestionHtml || '') : '',
       attachments: summarizeAttachments(attachments),
       disclaimer: LEGAL_DISCLAIMER,
     });
