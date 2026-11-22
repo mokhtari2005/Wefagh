@@ -683,7 +683,7 @@ async function assistant(request, env) {
         const matched = [...matchedArticles, ...matchedAuthorities];
         const seen = new Set(reviewArticles.map((a) => `${a.lawTitle}::${a.articleNumber}`));
         for (const article of matched) {
-          const key = `${article.lawTitle}::${article.articleNumber}`;
+          const key = `${article.lawType || 'law'}::${article.documentNumber || article.articleNumber || article.lawTitle}`;
           if (!seen.has(key)) {
             reviewArticles.push(article);
             seen.add(key);
