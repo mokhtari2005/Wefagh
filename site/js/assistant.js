@@ -489,7 +489,6 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       class: 'ai-notes',
       'aria-label': 'نکات تکمیلی',
     }, m.notes.map((note) => h('li', { text: note }))));
-    if (m.disclaimer) children.push(h('p', { class: 'ai-disclaimer muted', text: m.disclaimer }));
     if (m.text) children.push(actions);
     return h('li', { class: 'ai-msg ai-msg-ai' }, children);
   }
@@ -1086,7 +1085,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     history.push({ role: 'user', text: userText });
     const reply = summarizeReply(res.data);
     const responseNotes = [...(res.data.notes || [])];
-    history.push({ role: 'ai', text: reply, notes: responseNotes, disclaimer: res.data.status === 'ready' ? res.data.disclaimer : '', reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null, reviewStatus: typeof res.data.reviewStatus === 'string' ? res.data.reviewStatus : null });
+    history.push({ role: 'ai', text: reply, notes: responseNotes, reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null, reviewStatus: typeof res.data.reviewStatus === 'string' ? res.data.reviewStatus : null });
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
     attachments = [];
