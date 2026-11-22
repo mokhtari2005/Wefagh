@@ -22,7 +22,7 @@ test('فرم قرارداد پرسش‌های اختصاصی مرجع قضایی
   assert.ok(keys.includes('partyTwoName'));
 });
 
-test('فیلدهای اشخاص و اطلاعات تکمیلی قابل رد هستند تا اطلاعات گفته‌شده دوباره مطالبه نشود', () => {
+test('نام اشخاص الزامی و نشانی و جزئیات تکمیلی اختیاری هستند', () => {
   const fields = getDocumentFields('petition');
   assert.equal(fields.find((field) => field.key === 'partyOneName').required, true);
   assert.equal(fields.find((field) => field.key === 'partyTwoName').required, true);
