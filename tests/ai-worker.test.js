@@ -425,11 +425,13 @@ test('Groq بازبین مستقل فقط با Secret فعال می‌شود و 
   assert.equal(GROQ_REVIEW_MODEL, 'openai/gpt-oss-120b');
   assert.match(groqReviewNotes({ status: 'quota_exceeded' })[0], /بازبینی مستقل/);
   assert.match(groqReviewNotes({ status: 'not_configured' })[0], /بازبینی مستقل/);
-  const publicNotes = groqReviewNotes({ status: 'reviewed', model: 'openai/gpt-oss-120b', bankArticlesCount: 2, webSourcesCount: 1, review: { risk: 'low', summary: 'مستندات با متن تطبیق داده شدند.', issues: [], citations: [] } });
+  const publicNotes = groqReviewNotes({ status: 'reviewed', model: 'openai/gpt-oss-120b', bankArticlesCount: 2, webSourcesCount: 1, review: { risk: 'low', summary: 'مستندات با متن تطبیق داده شدند؛ مدل openai/gpt-oss-120b از Groq استفاده شد.', issues: [], citations: [] } });
   assert.ok(publicNotes.some((note) => note.includes('منبع اینترنتی')));
   assert.ok(!publicNotes.join(' ').includes('Groq'));
   assert.ok(!publicNotes.join(' ').includes('gpt-oss'));
   assert.ok(!publicNotes.join(' ').includes('openai'));
+  assert.ok(!publicNotes.join(' ').includes('مدل'));
+  assert.ok(!publicNotes.join(' ').includes('از  استفاده'));
   assert.ok(!publicNotes.join(' ').includes('gpt-oss'));
 });
 
