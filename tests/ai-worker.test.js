@@ -437,18 +437,10 @@ test('بازبین میز محاکمه نقش‌های طرف مقابل، وک�
     ],
     citations: [],
   };
+  let sentRequest = null;
   await withFetch(async (url, init) => {
     assert.equal(url, GROQ_API);
-    const sent = JSON.parse(init.body);
-    assert.match(sent.messages[0].content, /وکیل طرف مقابل/);
-    assert.match(sent.messages[0].content, /وکیل موکل/);
-    assert.match(sent.messages[0].content, /قاضی بی‌طرف/);
-    assert.match(sent.messages[0].content, /راستی‌آزمایی استنادات/);
-    assert.match(sent.messages[0].content, /کنترل خواسته‌ها/);
-    assert.match(sent.messages[0].content, /نقل‌قول ترکیبی/);
-    assert.match(sent.messages[1].content, /منابع وب و گزیده‌های بازیابی‌شده/);
-    assert.match(sent.messages[1].content, /qavanin\.ir/);
-    assert.match(sent.messages[1].content, /ماده ۵۶ قانون اجرای احکام مدنی/);
+    sentRequest = JSON.parse(init.body);
     return jsonRes(200, { choices: [{ message: { content: JSON.stringify(reviewJson) } }] });
   }, async () => {
     const result = await reviewLegalDraft({ GROQ_API_KEY: groqKey }, {
@@ -459,6 +451,15 @@ test('بازبین میز محاکمه نقش‌های طرف مقابل، وک�
     });
     assert.equal(result.status, 'reviewed');
     assert.deepEqual(result.review.issues.map((item) => item.category), ['وکیل طرف مقابل', 'وکیل موکل', 'قاضی بی‌طرف']);
+    assert.match(sentRequest.messages[0].content, /وکیل طرف مقابل/);
+    assert.match(sentRequest.messages[0].content, /وکیل موکل/);
+    assert.match(sentRequest.messages[0].content, /قاضی بی‌طرف/);
+    assert.match(sentRequest.messages[0].content, /راستی‌آزمایی استنادات/);
+    assert.match(sentRequest.messages[0].content, /کنترل خواسته‌ها/);
+    assert.match(sentRequest.messages[0].content, /نقل‌قول ترکیبی/);
+    assert.match(sentRequest.messages[1].content, /منابع وب و گزیده‌های بازیابی‌شده/);
+    assert.match(sentRequest.messages[1].content, /qavanin\.ir/);
+    assert.match(sentRequest.messages[1].content, /ماده ۵۶ قانون اجرای احکام مدنی/);
   });
 });
 
