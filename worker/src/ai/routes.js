@@ -412,6 +412,11 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
     changed = true;
     return '[مدت نیازمند تطبیق با منبع رسمی]';
   });
+  guarded = guarded
+    .replace(/ماده\\s*\\[شماره نیازمند تطبیق با متن رسمی\\]/gu, 'شماره ماده تأییدنشده')
+    .replace(/\\[شماره نیازمند تطبیق با متن رسمی\\]/gu, 'شماره ماده تأییدنشده')
+    .replace(/\\[مدت نیازمند تطبیق با منبع رسمی\\]/gu, 'مهلت قانونی تأییدنشده');
+  if (guarded !== text) changed = true;
   return { text: guarded, changed };
 }
 
@@ -688,7 +693,7 @@ async function ekhtebarAnswer(request, env) {
       source: a.sourceName || '', url: a.sourceUrl || '',
     }));
     const notes = [];
-    if (provider === 'groq') notes.push('به‌دلیل اختلال یا عدم دسترسی Gemini، پاسخ آموزشی با مدل جایگزین Groq تولید شد. مستندات بازیابی‌شده از بانک قوانین آکادمی حفظ شده‌اند؛ استنادها را پیش از استفاده با منبع رسمی تطبیق دهید.');
+    if (provider === 'groq') notes.push('به‌دلیل اختلال سرویس اصلی، پاسخ آموزشی با مسیر جایگزین تولید شد. مستندات بازیابی‌شده از بانک قوانین آکادمی حفظ شده‌اند؛ استنادها را پیش از استفاده با منبع رسمی تطبیق دهید.');
     if (legalBankUnavailable) notes.push('بانک قوانین در دسترس نبود؛ استنادهای پاسخ باید مستقلاً با متن رسمی قوانین تطبیق داده شوند.');
     if (!legalSources.length) notes.push('ماده قانونی تأییدشده‌ای از بانک قوانین بازیابی نشد؛ شماره مواد و مقررات ذکرشده در متن پاسخ را پیش از استفاده با منبع رسمی بررسی کنید.');
     if (truncated) notes.push('پاسخ به سقف طول رسید و ممکن است نیاز به درخواست ادامه داشته باشد.');
