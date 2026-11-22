@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { findVerifiedJudicialAuthorities } from '../worker/src/legal-bank.js';
+import { findVerifiedJudicialAuthorities, handleLegalBank } from '../worker/src/legal-bank.js';
 import { buildSafeLegalSearchQuery, retrieveOfficialPageText } from '../worker/src/ai/legal-search.js';
 import { reviewLegalDraft, GROQ_API } from '../worker/src/ai/groq.js';
 
@@ -112,4 +112,44 @@ test('بازبین مستقل متن کامل رأی تأییدشده و صفح�
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+
+test('نمایش متن کامل ماده فقط برای مدیر و با شناسه ماده در محدوده همان سند مجاز است', async () => {
+  const fullBody = 'متن کامل و محرمانه‌نبوده ماده برای بررسی مدیر';
+  const calls = [];
+  const db = {
+    prepare(sql) {
+      return { bind(...bindings) {
+        calls.push({ sql, bindings });
+        return {
+          first: async () => {
+            if (sql.includes('FROM sessions')) return { id: 9, email: 'admin@example.test', display_name: 'مدیر' };
+            if (sql.includes('SELECT membership_status FROM users')) return { membership_status: 'approved' };
+            if (sql.includes('SELECT membership_no, professional_title, position')) return {};
+            if (sql.includes('SELECT id,law_id AS lawId,article_number AS number')) return {
+              id: 7, lawId: 2, number: '۵۶', heading: 'نقل و انتقال مال توقیف‌شده', body: fullBody, status: 'needs_review',
+            };
+            return null;
+          },
+          all: async () => sql.includes('SELECT role FROM user_roles') ? { results: [{ role: 'admin' }] } : { results: [] },
+        };
+      } };
+    },
+  };
+  const request = new Request('https://mokhtari.ir/api/admin/legal-bank/articles?lawId=2&articleId=7', {
+    headers: { cookie: 'wefagh_session=valid-session-token' },
+  });
+  const response = await handleLegalBank(request, { DB: db }, '/api/admin/legal-bank/articles');
+  const data = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(data.item.body, fullBody);
+  assert.ok(calls.some((call) => call.sql.includes('WHERE law_id=?1 AND id=?2') && call.bindings[0] === 2 && call.bindings[1] === 7));
+
+  const anonymous = await handleLegalBank(
+    new Request('https://mokhtari.ir/api/admin/legal-bank/articles?lawId=2&articleId=7'),
+    { DB: db },
+    '/api/admin/legal-bank/articles',
+  );
+  assert.equal(anonymous.status, 401);
 });
