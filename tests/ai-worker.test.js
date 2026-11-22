@@ -401,6 +401,50 @@ test('بازبین میز محاکمه نقش‌های طرف مقابل، وک�
   });
 });
 
+
+test('بازبین مستقل متن کامل رأی تأییدشده و متن مستقیم منبع رسمی را دریافت می‌کند', async () => {
+  const groqKey = 'groq-test-key-0123456789';
+  const reviewJson = { risk: 'low', summary: 'منبع از حیث هویت و متن در زمینه موجود است؛ انطباق باید سنجیده شود.', issues: [], citations: [] };
+  await withFetch(async (url, init) => {
+    assert.equal(url, GROQ_API);
+    const sent = JSON.parse(init.body);
+    const context = sent.messages[1].content;
+    assert.match(context, /رأی وحدت رویه هیأت عمومی دیوان عالی کشور/);
+    assert.match(context, /شماره سند: ۸۵۸/);
+    assert.match(context, /متن کامل رأی نمونه/);
+    assert.match(context, /official_domain_page_text_retrieved/);
+    assert.match(context, /ماده ۵۶ در متن صفحه رسمی/);
+    return jsonRes(200, { choices: [{ message: { content: JSON.stringify(reviewJson) } }] });
+  }, async () => {
+    const result = await reviewLegalDraft({ GROQ_API_KEY: groqKey }, {
+      mode: 'consult',
+      docType: null,
+      question: 'رأی وحدت رویه مرتبط با توقیف مال چیست؟',
+      draft: 'پیش‌نویس پاسخ با استناد به رأی وحدت رویه شماره ۸۵۸.',
+      legalArticles: [{
+        lawTitle: 'رأی وحدت رویه هیأت عمومی دیوان عالی کشور',
+        lawType: 'supreme_court_unified_precedent',
+        documentNumber: '۸۵۸',
+        documentDate: '۱۴۰۳/۰۸/۱۵',
+        issuingAuthority: 'هیأت عمومی دیوان عالی کشور',
+        body: 'متن کامل رأی نمونه',
+        sourceName: 'منبع رسمی',
+        officialSourceUrl: 'https://example.gov.ir/judgment/858',
+      }],
+      webSources: [{
+        title: 'صفحه رسمی قانون',
+        uri: 'https://qavanin.ir/law/56',
+        domain: 'qavanin.ir',
+        pageTextStatus: 'official_domain_page_text_retrieved',
+        pageText: 'ماده ۵۶ در متن صفحه رسمی',
+      }],
+    });
+    assert.equal(result.status, 'reviewed');
+    assert.equal(result.bankArticlesCount, 1);
+    assert.equal(result.webSourcesCount, 1);
+  });
+});
+
 test('Groq پیش‌نویس را مستقل بررسی می‌کند و خروجی را فقط به‌صورت هشدار نمایش می‌دهد', async () => {
   const groqKey = 'groq-test-key-0123456789';
   const geminiJson = { status: 'ready', questions: [], text: 'پیش‌نویس لایحه با استناد به ماده ۱۲۳', notes: [] };
