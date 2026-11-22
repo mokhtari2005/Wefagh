@@ -379,7 +379,7 @@ function resolveKnownLegalPlaceholders(text, legalArticles = []) {
     const law = sentence.replace(/[يى]/g, 'ی').replace(/ك/g, 'ک');
     let candidate = null;
     if (law.includes('قانون اجرای احکام مدنی') && /نافذ/u.test(law) && /(?:قرارداد|تعهد|محکوم.?له)/u.test(law)) candidate = ['قانون اجرای احکام مدنی', '57', '۵۷'];
-    else if (law.includes('قانون اجرای احکام مدنی') && /(?:باطل|بلااثر)/u.test(law) && /(?:نقل.?انتقال|انتقال)/u.test(law)) candidate = ['قانون اجرای احکام مدنی', '56', '۵۶'];
+    else if (law.includes('قانون اجرای احکام مدنی') && /(?:باطل|بلااثر|بلااثری|بطلان)/u.test(law)) candidate = ['قانون اجرای احکام مدنی', '56', '۵۶'];
     else if (law.includes('قانون آیین دادرسی') && /(?:غیرمنقول|محل وقوع)/u.test(law)) candidate = ['قانون آیین دادرسی', '12', '۱۲'];
     if (!candidate) return placeholder;
     const lawEntry = [...available].some((entry) => entry.endsWith(`::${candidate[1]}`) && (candidate[0] === 'قانون اجرای احکام مدنی' ? entry.startsWith('قانون اجرای احکام مدنی::') : entry.startsWith('قانون آیین دادرسی')));
