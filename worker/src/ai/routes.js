@@ -655,7 +655,6 @@ async function assistant(request, env) {
       if (review.status === 'reviewed') {
         const auditLines = groqReviewNotes(review);
         if (auditLines.length) text += '\n\nیافته‌های بازبینی مستقل: ' + auditLines.join(' ');
-
       } else {
         notes.push(...groqReviewNotes(review).slice(0, 3));
       }
@@ -663,7 +662,7 @@ async function assistant(request, env) {
         stage = 'cloudflare_workers_ai_review';
         const thirdReview = await reviewWithWorkersAI(env, { mode, docType, question: message, draft: text });
         notes.push(thirdReview.status === 'reviewed'
-          ? 'بازبینی مستقل سوم با Cloudflare Workers AI انجام شد.'
+          ? 'بازبینی تکمیلی مستقل انجام شد.'
           : 'بازبینی مستقل سوم انجام نشد.');
       }
     }
