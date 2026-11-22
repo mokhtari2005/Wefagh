@@ -240,37 +240,41 @@ function reviewCategoryLabel(value) {
 export function groqReviewNotes(result) {
   if (!result || result.status !== 'reviewed') {
     const messages = {
-      not_configured: result?.keyState === 'too_short'
-        ? 'بازبینی مستقل فعال نشده است: مقدار GROQ_API_KEY در Worker ناقص یا اشتباه است.'
-        : 'بازبینی مستقل فعال نشده است: Worker مقدار GROQ_API_KEY را در زمان اجرا دریافت نمی‌کند. Secret باید در همین Worker تعریف و Worker دوباره Deploy شود (مدیر: بخش تشخیص هوش مصنوعی).',
-      invalid_input: 'بازبینی مستقل انجام نشد؛ متن پیش‌نویس برای بررسی کافی نبود.',
-      quota_exceeded: 'سهمیه رایگان بازبین مستقل Groq تمام شده است؛ این پیش‌نویس بازبینی مستقل نشده است.',
-      key_rejected: 'کلید Groq معتبر یا مجاز نیست؛ این پیش‌نویس بازبینی مستقل نشده است.',
-      timeout: 'بازبین مستقل Groq در زمان مقرر پاسخ نداد؛ این پیش‌نویس بازبینی مستقل نشده است.',
-      network_error: 'ارتباط با Groq برقرار نشد؛ این پیش‌نویس بازبینی مستقل نشده است.',
-      provider_error: 'سرویس Groq موقتاً در دسترس نیست؛ این پیش‌نویس بازبینی مستقل نشده است.',
-      request_rejected: 'Groq درخواست بازبینی را نپذیرفت؛ این پیش‌نویس بازبینی مستقل نشده است.',
-      invalid_response: 'پاسخ بازبین مستقل قابل پردازش نبود؛ این پیش‌نویس بازبینی مستقل نشده است.',
+      not_configured: 'بازبینی مستقل فعال نیست.',
+      invalid_input: 'متن کافی برای بازبینی وجود نداشت.',
+      quota_exceeded: 'بازبینی مستقل به‌دلیل محدودیت سهمیه انجام نشد.',
+      key_rejected: 'بازبینی مستقل به‌دلیل خطای دسترسی انجام نشد.',
+      timeout: 'بازبینی مستقل در مهلت مقرر پاسخ نداد.',
+      network_error: 'ارتباط برای بازبینی مستقل برقرار نشد.',
+      provider_error: 'بازبینی مستقل موقتاً در دسترس نیست.',
+      request_rejected: 'درخواست بازبینی پذیرفته نشد.',
+      invalid_response: 'نتیجه بازبینی قابل پردازش نبود.',
     };
-    return [messages[result?.status] || 'بازبینی مستقل انجام نشد؛ صحت حقوقی این پیش‌نویس تأیید نشده است.'];
+    return [messages[result?.status] || 'بازبینی مستقل انجام نشد.'];
   }
 
   const { review } = result;
-  const notes = [
-    `بازبینی مستقل انجام شد (سطح ریسک برآوردی: ${review.risk === 'high' ? 'زیاد' : review.risk === 'medium' ? 'متوسط' : 'کم'}). این بررسی به‌تنهایی تأیید نهایی صحت حقوقی یا جایگزین تطبیق با منبع رسمی نیست.`,
-  ];
-  notes.push(result.bankArticlesCount
-    ? `بازبین برای تطبیق، ${result.bankArticlesCount} مستند تأییدشده از بانک قوانین داخلی دریافت کرد؛ این تطبیق جای بررسی آخرین نسخه رسمی قانون را نمی‌گیرد.`
-    : 'هیچ ماده تأییدشده‌ای از بانک قوانین برای این درخواست بازیابی نشد؛ تطبیق با بانک ممکن نبود.');
-  if (review.summary) notes.push(`جمع‌بندی بازبین: ${review.summary}`);
-  for (const item of review.issues) {
-    const level = item.severity === 'high' ? 'مهم' : item.severity === 'medium' ? 'متوسط' : 'جزئی';
-    notes.push(`[${level}] ${item.category ? item.category + ' — ' : ''}${item.observation}${item.recommendation ? ' | پیشنهاد: ' + item.recommendation : ''}`);
+  const materialIssues = review.issues
+    .filter((item) => item.severity === 'high' || item.severity === 'medium')
+    .slice(0, 3);
+  if (!materialIssues.length && !review.citations.length) {
+    return review.risk === 'high'
+      ? ['ریسک کلی بالا ارزیابی شد؛ جزئیات نیازمند بررسی بیشتر است.']
+      : [];
   }
-  for (const item of review.citations) {
-    notes.push(`استناد نیازمند بررسی: ${item.citation}${item.concern ? ' — ' + item.concern : ''}`);
+
+  const notes = [];
+  if (review.summary && materialIssues.length === 0 && review.citations.length === 0) {
+    notes.push(clean(review.summary, 260));
   }
-  return notes.slice(0, 12);
+  for (const item of materialIssues) {
+    const category = reviewCategoryLabel(item.category);
+    notes.push(`${item.severity === 'high' ? 'ایراد مهم' : 'نکته قابل توجه'} — ${category}: ${clean(item.observation, 220)}${item.recommendation ? '؛ اقدام: ' + clean(item.recommendation, 160) : ''}`);
+  }
+  for (const item of review.citations.slice(0, 2)) {
+    notes.push(`استناد نیازمند تطبیق: ${clean(item.citation, 100)}${item.concern ? '؛ ' + clean(item.concern, 150) : ''}`);
+  }
+  return notes.slice(0, 4);
 }
 
 /** یادداشت کوتاه برای نمایش پیش‌فرض زیر متن؛ جزئیات در groqReviewNotes و فقط در بخش جمع‌شونده می‌آید. */
