@@ -15,17 +15,52 @@ function node(tag, className, text) {
 export function getDocumentFields(docType) {
   const contract = docType === 'contract';
   const criminal = docType === 'criminal_complaint';
-  const first = contract ? 'طرف اول' : criminal ? 'شاکی' : 'شخص اول';
-  const second = contract ? 'طرف دوم' : criminal ? 'مشتکی‌عنه' : 'شخص دوم';
+  const first = contract ? 'طرف اول' : criminal ? 'شاکی' : docType === 'appeal' ? 'تجدیدنظرخواه' : docType === 'retrial' ? 'درخواست‌کننده اعاده دادرسی' : docType === 'third_party' ? 'معترض ثالث' : 'شخص اول';
+  const second = contract ? 'طرف دوم' : criminal ? 'مشتکی‌عنه' : docType === 'appeal' ? 'تجدیدنظرخوانده' : docType === 'retrial' ? 'طرف مقابل' : docType === 'third_party' ? 'طرف یا طرفین دعوای اصلی' : 'شخص دوم';
   const fields = [
     { key: 'partyOneName', label: `نام و نام خانوادگی ${first}`, required: true, kind: 'text' },
     { key: 'partyOneAddress', label: `نشانی ${first}`, required: false, kind: 'textarea' },
     { key: 'partyTwoName', label: `نام و نام خانوادگی ${second}`, required: true, kind: 'text' },
     { key: 'partyTwoAddress', label: `نشانی ${second}`, required: false, kind: 'textarea' },
   ];
+  if (contract) {
+    fields.push(
+      { key: 'contractSubject', label: 'موضوع قرارداد، اگر در مشاوره روشن نشده است', required: false, kind: 'textarea' },
+      { key: 'contractAmount', label: 'مبلغ و شیوه پرداخت، در صورت توافق', required: false, kind: 'text' },
+      { key: 'contractDuration', label: 'مدت یا زمان اجرای قرارداد، در صورت توافق', required: false, kind: 'text' },
+    );
+  } else if (criminal) {
+    fields.push(
+      { key: 'incidentDate', label: 'تاریخ وقوع موضوع شکایت، در صورت اطلاع', required: false, kind: 'text' },
+      { key: 'incidentPlace', label: 'محل وقوع موضوع شکایت، در صورت اطلاع', required: false, kind: 'text' },
+      { key: 'evidenceSummary', label: 'دلایل و مدارک موجود، اگر در مشاوره بیان نشده است', required: false, kind: 'textarea' },
+    );
+  } else if (['appeal', 'cassation', 'retrial', 'opposition'].includes(docType)) {
+    fields.push(
+      { key: 'issuingCourt', label: 'مرجع صادرکننده رأی', required: false, kind: 'text' },
+      { key: 'judgmentNumber', label: 'شماره دادنامه', required: false, kind: 'text' },
+      { key: 'judgmentDate', label: 'تاریخ دادنامه', required: false, kind: 'text' },
+      { key: 'notificationDate', label: 'تاریخ ابلاغ رأی، در صورت اطلاع', required: false, kind: 'text' },
+    );
+  } else if (docType === 'third_party') {
+    fields.push(
+      { key: 'executionCaseNumber', label: 'شماره پرونده اجرایی یا کلاسه اجرا', required: false, kind: 'text' },
+      { key: 'enforcementStage', label: 'مرحله عملیات اجرایی و اقدام مورد اعتراض', required: false, kind: 'textarea' },
+    );
+  } else if (docType === 'execution_objection') {
+    fields.push(
+      { key: 'enforcementCaseNumber', label: 'شماره پرونده اجرایی', required: false, kind: 'text' },
+      { key: 'disputedAction', label: 'اقدام اجرایی مورد اعتراض', required: false, kind: 'textarea' },
+    );
+  } else if (docType === 'notice') {
+    fields.push(
+      { key: 'noticeSubject', label: 'موضوع و خواسته اظهارنامه', required: false, kind: 'textarea' },
+      { key: 'responseDeadline', label: 'مهلت مورد مطالبه، در صورت وجود مبنای توافقی یا قانونی', required: false, kind: 'text' },
+    );
+  }
   if (COURT_DOCS.has(docType)) {
     fields.push(
-      { key: 'court', label: 'نام مرجع قضایی یا شعبه، در صورت اطلاع', required: false, kind: 'text' },
+      { key: 'court', label: 'شعبه یا مرجع رسیدگی فعلی، در صورت اطلاع', required: false, kind: 'text' },
       { key: 'caseNumber', label: 'شماره پرونده یا بایگانی، در صورت وجود', required: false, kind: 'text' },
       { key: 'caseStage', label: 'مرحله فعلی رسیدگی، اگر در مشاوره روشن نشده است', required: false, kind: 'textarea' },
     );
