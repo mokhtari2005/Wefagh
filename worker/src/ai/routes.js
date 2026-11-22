@@ -574,7 +574,7 @@ async function assistant(request, env) {
     if (['consult', 'research', 'litigation', 'draft', 'analyze'].includes(mode) && attachments.length === 0 && env.GEMINI_SEARCH_GROUNDING_ENABLED === 'true') {
       stage = 'legal_web_search';
       webResearch = await searchLegalAuthorities(env, legalSearchText);
-      if (webResearch.status === 'searched') {
+      if (webResearch.status === 'searched' || webResearch.status === 'suggestions_only') {
         const webPayload = JSON.stringify({
           summary: webResearch.summary,
           sources: webResearch.sources.map((source) => ({
@@ -626,8 +626,11 @@ async function assistant(request, env) {
     const guardedText = guardUnverifiedLegalClaims(rawText, [...promptArticles, ...webCitedArticles], legalContext);
     let text = guardedText.text;
     const searchSources = webResearch?.status === 'searched' ? webResearch.sources : [];
+    const hasSearchSuggestions = ['searched', 'suggestions_only'].includes(webResearch?.status) && Boolean(webResearch.searchSuggestionHtml);
     if (webResearch?.status === 'searched' && webResearch.sources.length) {
       notes.push('جست‌وجوی وب با Google Search انجام شد. منابع و گزیده‌های مرتبط در پایین پاسخ نمایش داده شده‌اند؛ این منابع سرنخ تحقیق‌اند و به‌معنای تأیید رسمی متن قانون، اعتبار رأی یا جاری‌بودن مقرره نیستند.');
+    } else if (webResearch?.status === 'suggestions_only') {
+      notes.push('پیشنهاد جست‌وجوی Google نمایش داده شد، اما منبع قابل استناد مستقلی بازیابی نشد.');
     } else if (webResearch?.status === 'failed') {
       notes.push('جست‌وجوی وب حقوقی انجام نشد؛ پاسخ صرفاً بر منابع داخلی و دانش مدل متکی است.');
     } else if (webResearch?.status === 'no_sources' || webResearch?.status === 'no_legal_terms') {
@@ -693,7 +696,7 @@ async function assistant(request, env) {
       text,
       notes,
       searchSources,
-      searchSuggestionHtml: webResearch?.status === 'searched' ? (webResearch.searchSuggestionHtml || '') : '',
+      searchSuggestionHtml: hasSearchSuggestions ? (webResearch.searchSuggestionHtml || '') : '',
       attachments: summarizeAttachments(attachments),
       disclaimer: LEGAL_DISCLAIMER,
     });
