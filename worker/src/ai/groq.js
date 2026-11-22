@@ -272,13 +272,13 @@ export function groqReviewNotes(result) {
   const notes = [
     `سطح ریسک برآوردی: ${review.risk === 'high' ? 'زیاد' : review.risk === 'medium' ? 'متوسط' : 'کم'}.`,
   ];
-  if (review.summary) notes.push(`جمع‌بندی بازبین: ${review.summary}`);
+  if (review.summary) notes.push(`جمع‌بندی: ${reviewerText(review.summary, 700)}`);
   for (const item of review.issues) {
     const level = item.severity === 'high' ? 'مهم' : item.severity === 'medium' ? 'متوسط' : 'جزئی';
     notes.push(`[${level}] ${item.category ? item.category + ' — ' : ''}${item.observation}${item.recommendation ? ' | پیشنهاد: ' + item.recommendation : ''}`);
   }
   for (const item of review.citations) {
-    notes.push(`استناد نیازمند بررسی: ${item.citation}${item.concern ? ' — ' + item.concern : ''}`);
+    notes.push(`استناد نیازمند بررسی: ${reviewerText(item.citation, 180)}${item.concern ? ' — ' + reviewerText(item.concern, 300) : ''}`);
   }
   return notes.slice(0, 12);
 }
