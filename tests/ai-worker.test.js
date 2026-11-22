@@ -7,6 +7,7 @@ import { mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt } from '.
 import { groqConfigured, reviewLegalDraft, groqReviewNotes, GROQ_API, GROQ_REVIEW_MODEL } from '../worker/src/ai/groq.js';
 import batch01 from '../worker/src/moot/bank/batch-01.js';
 import { extractExplicitLegalReferences, findVerifiedLegalArticles, findVerifiedJudicialAuthorities } from '../worker/src/legal-bank.js';
+import { buildSafeLegalSearchQuery, searchLegalAuthorities } from '../worker/src/ai/legal-search.js';
 import { buildSafeLegalSearchQuery, retrieveOfficialPageText } from '../worker/src/ai/legal-search.js';
 
 // پروندهٔ نمونه از بانک (پیش‌نویس)؛ فقط برای آزمون ساخت دستور سیستمی از داده‌های پرونده.
@@ -157,6 +158,44 @@ test('بازیابی متن صفحه فقط از دامنه رسمی مجاز ا
     assert.match(result[0].pageText, /ماده ۵۶/);
     assert.equal(result[1].pageTextStatus, 'not_primary_source_domain');
     assert.equal(calls.length, 1);
+  });
+});
+
+test('buildSafeLegalSearchQuery includes criminal procedure statutes and judicial authorities without case facts', () => {
+  const query = buildSafeLegalSearchQuery('ماده ۳۳۶ قانون آیین دادرسی کیفری و مهلت تجدیدنظر');
+  assert.match(query, /قانون آیین دادرسی کیفری ماده 336/);
+  assert.match(query, /آرای وحدت رویه دیوان عالی کشور/);
+  assert.match(query, /نظریات مشورتی اداره کل حقوقی قوه قضاییه/);
+  assert.ok(!query.includes('شهرام'));
+});
+
+test('searchLegalAuthorities searches by default and retrieves text from an official legal domain', async () => {
+  await withFetch(async (url, init) => {
+    if (url.includes('generativelanguage.googleapis.com')) {
+      const body = JSON.parse(init.body);
+      assert.ok(body.tools?.some((tool) => tool.googleSearch));
+      return jsonRes(200, {
+        candidates: [{
+          content: { parts: [{ text: 'قانون مرتبط و رأی وحدت رویه یافت شد.' }] },
+          groundingMetadata: {
+            groundingChunks: [{ web: { title: 'قانون اجرای احکام مدنی', uri: 'https://qavanin.ir/law/1' } }],
+            groundingSupports: [{ segment: { text: 'ماده ۵۶ قانون اجرای احکام مدنی' }, groundingChunkIndices: [0] }],
+            webSearchQueries: ['قانون اجرای احکام مدنی'],
+          },
+        }],
+      });
+    }
+    if (url === 'https://qavanin.ir/law/1') {
+      return new Response('<html><body><h1>قانون اجرای احکام مدنی</h1><p>ماده ۵۶ هرگونه نقل و انتقال نسبت به مال توقیف‌شده باطل و بلااثر است.</p>' + 'متن رسمی قانون '.repeat(35) + '</body></html>', {
+        status: 200, headers: { 'content-type': 'text/html; charset=utf-8' },
+      });
+    }
+    throw new Error('نشانی پیش‌بینی‌نشده: ' + url);
+  }, async () => {
+    const result = await searchLegalAuthorities({ GEMINI_API_KEY: KEY }, 'ماده ۵۶ قانون اجرای احکام مدنی و انتقال مال توقیف‌شده');
+    assert.equal(result.status, 'searched');
+    assert.equal(result.sources[0].pageTextStatus, 'official_domain_page_text_retrieved');
+    assert.match(result.sources[0].pageText, /ماده ۵۶/);
   });
 });
 
