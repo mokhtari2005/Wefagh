@@ -622,11 +622,11 @@ async function assistant(request, env) {
     const legalContext = promptArticles.length
       ? promptArticles.map(formatLegalRecord).join('\n\n---\n\n')
       : '';
-    // جست‌وجوی وب فقط در مشاوره و میز محاکمه، بدون پیوست و با پرس‌وجوی حقوقیِ whitelist انجام می‌شود.
+    // جست‌وجوی وب در همه حالت‌های حقوقی انجام می‌شود؛ فقط واژگان حقوقیِ whitelist از متن پیام استخراج می‌شود و محتوای پیوست هرگز ارسال نمی‌شود.
     // نام اشخاص، شرح وقایع، شماره پرونده و متن پیوست به موتور جست‌وجو ارسال نمی‌شود.
     let webResearch = null;
     let webResearchContext = '';
-    if (attachments.length === 0 && env.GEMINI_SEARCH_GROUNDING_ENABLED !== 'false') {
+    if (env.GEMINI_SEARCH_GROUNDING_ENABLED !== 'false') {
       stage = 'legal_web_search';
       webResearch = await searchLegalAuthorities(env, legalSearchText);
       if (webResearch.status === 'searched' || webResearch.status === 'suggestions_only') {
