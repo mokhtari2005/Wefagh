@@ -672,7 +672,7 @@ async function assistant(request, env) {
       notes.push('چون پاسخ اصلی با همان ارائه‌دهنده تولید شده است، بازبینی مستقل جداگانه اجرا نشد تا تولید پاسخ و ارزیابی آن به یک سرویس واحد واگذار نشود.');
     } else {
       stage = 'groq_review';
-      let reviewArticles = [...promptArticles];
+      let reviewArticles = [...judicialAuthorities.slice(0, 3), ...legalArticles.slice(0, 5), ...judicialAuthorities.slice(3), ...curatedArticles];
       let reviewBankUnavailable = false;
       try {
         // جست‌وجوی دوم با متن پاسخ Gemini هم انجام می‌شود تا استنادهای تازه‌مطرح‌شده نیز تطبیق داده شوند.
