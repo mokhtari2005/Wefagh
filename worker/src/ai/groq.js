@@ -94,6 +94,7 @@ function guardUnsupportedReferences(value, sourceText) {
 
 const REVIEW_CATEGORY_LABELS = Object.freeze({
   missinglegalreference: 'استناد قانونی تأییدنشده',
+  missing_legal_reference: 'استناد قانونی تأییدنشده',
   missingcitation: 'استناد قانونی تأییدنشده',
   missing_reference: 'استناد قانونی تأییدنشده',
   missing_citation: 'استناد قانونی تأییدنشده',
@@ -101,6 +102,7 @@ const REVIEW_CATEGORY_LABELS = Object.freeze({
   inconsistent_legal_concept: 'خلط مفاهیم حقوقی',
   inconsistentcitation: 'ناهماهنگی استنادات',
   citationmismatch: 'ناهماهنگی استنادات',
+  citation_mismatch: 'ناهماهنگی استنادات',
   inconsistent_citation: 'ناهماهنگی استنادات',
   jurisdictionclarification: 'صلاحیت محلی',
   jurisdiction_clarification: 'صلاحیت محلی',
@@ -283,7 +285,7 @@ export function groqReviewNotes(result) {
 
 /** یادداشت کوتاه برای نمایش پیش‌فرض زیر متن؛ جزئیات در groqReviewNotes و فقط در بخش جمع‌شونده می‌آید. */
 export function groqReviewShortNote(result) {
-  return result?.status === 'reviewed' ? 'بازبینی ماشینی مستقل انجام شد.' : 'هشدار: بازبینی مستقل انجام نشد.';
+  return result?.status === 'reviewed' ? 'بازبینی مستقل انجام شد.' : 'بازبینی مستقل انجام نشد.';
 }
 
 
