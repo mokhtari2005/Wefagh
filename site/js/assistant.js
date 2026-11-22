@@ -489,7 +489,6 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       class: 'ai-notes',
       'aria-label': 'نکات تکمیلی',
     }, m.notes.map((note) => h('li', { text: note }))));
-    if (m.disclaimer) children.push(h('p', { class: 'ai-disclaimer muted', text: m.disclaimer }));
     if (m.text) children.push(actions);
     return h('li', { class: 'ai-msg ai-msg-ai' }, children);
   }
@@ -1086,7 +1085,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     history.push({ role: 'user', text: userText });
     const reply = summarizeReply(res.data);
     const responseNotes = [...(res.data.notes || [])];
-    history.push({ role: 'ai', text: reply, notes: responseNotes, disclaimer: res.data.status === 'ready' ? res.data.disclaimer : '', reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null, reviewStatus: typeof res.data.reviewStatus === 'string' ? res.data.reviewStatus : null });
+    history.push({ role: 'ai', text: reply, notes: responseNotes, reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null, reviewStatus: typeof res.data.reviewStatus === 'string' ? res.data.reviewStatus : null });
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
     attachments = [];
@@ -1099,7 +1098,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     status.textContent = saved
       ? (mode === 'consult'
         ? (res.data.status === 'ready' ? 'اگر با جمع‌بندی مشاوره موافقید، نتیجه را تأیید کنید تا وارد مرحله تنظیم سند شوید.' : 'برای تکمیل مشاوره، به پرسش‌های دستیار پاسخ دهید.')
-        : (mode === 'litigation' ? (res.data.reviewReport ? 'پاسخ آماده شد؛ برای مشاهده گزارش بازبینی مستقل، دکمه کنار کپی پاسخ را بزنید.' : 'پاسخ آماده شد؛ بازبینی مستقل در این نوبت قابل ارائه نبود. پیش از اقدام، منابع رسمی را کنترل کنید.') : 'خروجی آماده است. آن را بررسی کنید؛ پیش از استفاده باید وکیل تطبیق دهد.'))
+        : (mode === 'litigation' ? (res.data.reviewReport ? 'پاسخ آماده شد.' : 'پاسخ آماده شد؛ گزارش بازبینی مستقل در این نوبت ارائه نشد.') : 'خروجی آماده است.'))
       : 'پاسخ نمایش داده شد، اما ذخیرهٔ آن در تاریخچه انجام نشد.';
   }
 
