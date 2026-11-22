@@ -8,6 +8,7 @@ test('ساختار پاسخ مشاوره از پرسش‌های چندگزینه
   assert.equal(options.items.type, 'OBJECT');
   assert.ok(options.items.properties.options);
   assert.ok(options.items.properties.allowOther);
+  assert.ok(ASSISTANT_SCHEMA.properties.suggestedDocType);
 });
 
 test('دستور مشاوره گزینه‌های واقعی و امکان توضیح آزاد را پیش‌بینی می‌کند', () => {
@@ -17,4 +18,5 @@ test('دستور مشاوره گزینه‌های واقعی و امکان تو�
   assert.match(prompt, /گزینه‌های ساختگی نساز/u);
   assert.match(prompt, /knownFields/u);
   assert.match(prompt, /حدس نزن/u);
+  assert.match(prompt, /مناسب‌ترین نوع سند/u);
 });
