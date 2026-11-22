@@ -76,6 +76,23 @@ function cleanModelOutput(value) {
     .replace(/^\s*[-*+]\s+/gm, '• ')
     .replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim();
 }
+export function reviewUnavailableMessage(status, notes = []) {
+  const note = Array.isArray(notes) ? notes.find((item) => typeof item === 'string' && /بازبینی مستقل/u.test(item)) : '';
+  if (note) return note;
+  const messages = {
+    skipped_attachments: 'به‌دلیل وجود پیوست، برای رعایت محرمانگی محتوای پرونده به بازبین مستقل دیگری ارسال نشد.',
+    skipped_fallback: 'در این نوبت، پاسخ از مسیر جایگزین تولید شد و بازبینی مستقل جداگانه اجرا نشد.',
+    not_configured: 'سرویس بازبینی مستقل در دسترس نیست.',
+    timeout: 'بازبین مستقل در زمان مقرر پاسخ نداد؛ گزارشی تولید نشد.',
+    quota_exceeded: 'سهمیه سرویس بازبینی مستقل در دسترس نبود؛ گزارشی تولید نشد.',
+    provider_error: 'سرویس بازبینی مستقل موقتاً پاسخ‌گو نبود.',
+    invalid_response: 'پاسخ بازبین مستقل قابل پردازش نبود.',
+    network_error: 'ارتباط با بازبین مستقل برقرار نشد.',
+    not_run: 'بازبینی مستقل برای این پاسخ اجرا نشد.',
+  };
+  return messages[status] || 'گزارش بازبینی مستقل برای این پاسخ دریافت نشد؛ این وضعیت به‌معنای تأیید صحت پاسخ نیست.';
+}
+
 export function formatReviewerOutput(value) {
   let data;
   try { data = JSON.parse(value); } catch { return cleanModelOutput(value); }
@@ -445,16 +462,17 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     actions.append(copy);
     const reviewReport = m.reviewReport && typeof m.reviewReport === 'object' ? formatReviewerOutput(JSON.stringify(m.reviewReport)) : '';
     let reviewPanel = null;
-    if (reviewReport) {
-      const reviewButton = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'گزارش بازبینی مستقل', 'aria-expanded': 'false' });
+    const hasReviewState = Boolean(m.reviewStatus || reviewReport);
+    if (hasReviewState) {
+      const reviewButton = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'دیدن گزارش بازبینی مستقل', 'aria-expanded': 'false' });
       reviewPanel = h('section', { class: 'ai-review-panel', hidden: '' }, [
         h('strong', { class: 'ai-review-panel-title', text: 'گزارش بازبینی مستقل و تطبیق استنادات' }),
-        h('div', { class: 'ai-text pre-wrap', text: reviewReport }),
+        h('div', { class: 'ai-text pre-wrap', text: reviewReport || reviewUnavailableMessage(m.reviewStatus, m.notes) }),
       ]);
       reviewButton.addEventListener('click', () => {
         reviewPanel.hidden = !reviewPanel.hidden;
         reviewButton.setAttribute('aria-expanded', String(!reviewPanel.hidden));
-        reviewButton.textContent = reviewPanel.hidden ? 'گزارش بازبینی مستقل' : 'بستن گزارش بازبینی';
+        reviewButton.textContent = reviewPanel.hidden ? 'دیدن گزارش بازبینی مستقل' : 'بستن گزارش بازبینی';
       });
       actions.append(reviewButton);
     }
@@ -1068,7 +1086,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     history.push({ role: 'user', text: userText });
     const reply = summarizeReply(res.data);
     const responseNotes = [...(res.data.notes || [])];
-    history.push({ role: 'ai', text: reply, notes: responseNotes, disclaimer: res.data.status === 'ready' ? res.data.disclaimer : '', reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null });
+    history.push({ role: 'ai', text: reply, notes: responseNotes, disclaimer: res.data.status === 'ready' ? res.data.disclaimer : '', reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null, reviewStatus: typeof res.data.reviewStatus === 'string' ? res.data.reviewStatus : null });
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
     attachments = [];
