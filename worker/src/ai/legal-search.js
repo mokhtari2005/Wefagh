@@ -1,6 +1,7 @@
 // جست‌وجوی حقوقی برخط با حداقل‌سازی داده: فقط واژگان حقوقیِ ازپیش‌تعریف‌شده به موتور جست‌وجو می‌رسند.
 // متن پرونده، نام اشخاص، تاریخ‌ها، شماره پرونده و شرح وقایع هرگز در پرس‌وجوی وب قرار نمی‌گیرند.
 import { generateText } from './gemini.js';
+import { extractExplicitLegalReferences } from '../legal-bank.js';
 
 const LEGAL_TERMS = Object.freeze([
   'قانون مدنی', 'قانون اجرای احکام مدنی', 'قانون آیین دادرسی مدنی', 'قانون مجازات اسلامی',
@@ -19,7 +20,12 @@ export function buildSafeLegalSearchQuery(input) {
   const normalized = String(input || '').normalize('NFKC')
     .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک');
   const matches = LEGAL_TERMS.filter((term) => normalized.includes(term));
-  const unique = [...new Set(matches)].slice(0, 8);
+  const safeLawTitles = ['قانون اجرای احکام مدنی','قانون مدنی','قانون آیین دادرسی مدنی','قانون آیین دادرسی کیفری','قانون مجازات اسلامی','قانون تجارت','قانون مسئولیت مدنی','قانون ثبت','قانون کار','قانون صدور چک','قانون حمایت خانواده'];
+  const exactReferences = extractExplicitLegalReferences(normalized)
+    .filter((ref) => safeLawTitles.some((title) => normalized.includes(title) && ref.lawTitle.includes(title)))
+    .map((ref) => safeLawTitles.find((title) => normalized.includes(title) && ref.lawTitle.includes(title)) + ' ماده ' + ref.articleNumber);
+  const remainingMatches = matches.filter((term) => !exactReferences.some((ref) => ref.startsWith(term + ' ماده ')));
+  const unique = [...new Set([...exactReferences, ...remainingMatches])].slice(0, 8);
   return unique.length ? `${unique.join(' ')} حقوق ایران متن قانون رأی قضایی نظریه مشورتی` : '';
 }
 
@@ -33,13 +39,34 @@ function safeSources(grounding) {
     if (parsed.protocol !== 'https:' || seen.has(parsed.href)) continue;
     seen.add(parsed.href);
     sources.push({
-      title: String(item.title || parsed.hostname).replace(/[\\r\\n\\[\\]()]/g, ' ').slice(0, 180),
+      title: String(item.title || parsed.hostname).replace(/[\r\n\[\]()]/g, ' ').slice(0, 180),
       uri: parsed.href,
       domain: parsed.hostname,
+      citedText: typeof item.citedText === 'string' ? item.citedText.slice(0, 700) : '',
     });
     if (sources.length >= 8) break;
   }
   return sources;
+}
+
+// شماره ماده فقط وقتی از guard عبور می‌کند که همان گزاره در گزیده‌ای از دامنه رسمی آمده باشد.
+export function extractOfficialGroundedArticleReferences(sources) {
+  const officialDomains = new Set([
+    'qavanin.ir','rrk.ir','ara.jri.ac.ir','eadil.com','eadl.ir',
+    'edarehoquqy.eadl.ir','divan-edalat.ir','adliran.ir','rc.majlis.ir',
+  ]);
+  const refs = new Set();
+  for (const source of Array.isArray(sources) ? sources : []) {
+    if (typeof source?.uri !== 'string' || typeof source?.citedText !== 'string' || !source.citedText.trim()) continue;
+    let hostname = '';
+    try { hostname = new URL(source.uri).hostname.toLowerCase(); } catch { continue; }
+    if (![...officialDomains].some((domain) => hostname === domain || hostname.endsWith('.' + domain))) continue;
+    for (const match of source.citedText.matchAll(/(?:ماده|مواد)\s*([۰-۹0-9]+)/gu)) {
+      const number = match[1].replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+      refs.add(number);
+    }
+  }
+  return [...refs].map((articleNumber) => ({ articleNumber }));
 }
 
 /**
@@ -67,12 +94,13 @@ export async function searchLegalAuthorities(env, input) {
       useGoogleSearch: true,
     });
     const sources = safeSources(result.grounding);
-    if (!sources.length) return { status: 'no_sources', sources: [], summary: result.text || '' };
+    if (!sources.length) return { status: result.grounding?.searchSuggestionHtml ? 'suggestions_only' : 'no_sources', sources: [], summary: result.text || '', searchSuggestionHtml: result.grounding?.searchSuggestionHtml || '' };
     return {
       status: 'searched',
       summary: String(result.text || '').slice(0, 7000),
       sources,
       queries: Array.isArray(result.grounding?.queries) ? result.grounding.queries.slice(0, 5) : [],
+      searchSuggestionHtml: typeof result.grounding?.searchSuggestionHtml === 'string' ? result.grounding.searchSuggestionHtml : '',
     };
   } catch (error) {
     // خطا فقط به‌صورت کد امن گزارش می‌شود؛ متن درخواست و پیام خام خطا ثبت نمی‌شود.
