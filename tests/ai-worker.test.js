@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../worker/src/index.js';
 import { AiError, extractText, extractGrounding, generateText, synthesizeSpeech, aiConfigured, modelIds } from '../worker/src/ai/gemini.js';
-import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims } from '../worker/src/ai/routes.js';
+import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims, curatedLegalArticlesForQuery } from '../worker/src/ai/routes.js';
 import { mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt, LEGAL_DISCLAIMER } from '../worker/src/ai/prompts.js';
 import { groqConfigured, reviewLegalDraft, groqReviewNotes, GROQ_API, GROQ_REVIEW_MODEL } from '../worker/src/ai/groq.js';
 import batch01 from '../worker/src/moot/bank/batch-01.js';
@@ -54,6 +54,13 @@ function req(path, { method = 'POST', body, cookie = null, type = 'application/j
 }
 
 
+
+
+test('curated seizure statutes provide articles 56 and 57 with provenance labels', () => {
+  const articles = curatedLegalArticlesForQuery('انتقال مال توقیف‌شده و ملک توقیف‌شده');
+  assert.deepEqual(articles.map((item) => item.articleNumber), ['۵۶', '۵۷']);
+  assert.ok(articles.every((item) => item.sourceStatus === 'curated_reference'));
+});
 
 test('findVerifiedLegalArticles prioritizes exact law and article citations', async () => {
   const calls = [];
