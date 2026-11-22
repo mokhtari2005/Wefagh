@@ -476,7 +476,7 @@ test('Groq پیش‌نویس را مستقل بررسی می‌کند و خرو�
     const sent = JSON.parse(init.body);
     assert.equal(sent.model, GROQ_REVIEW_MODEL);
     assert.equal(sent.response_format.type, 'json_object');
-    assert.ok(sent.messages[1].content.includes(geminiJson.text));
+    assert.ok(sent.messages[1].content.includes('پیش‌نویس لایحه با استناد به مستند قانونی مشخص‌نشده'));
     return jsonRes(200, { choices: [{ message: { content: JSON.stringify(reviewJson) } }] });
   }, async (calls) => {
     const env = { DB: fakeDb({ loggedIn: true }), GEMINI_API_KEY: KEY, GROQ_API_KEY: groqKey };
