@@ -32,7 +32,7 @@ const LEGAL_DOCUMENT_LABELS = Object.freeze({
   judicial_circular: 'بخشنامه قضایی',
 });
 
-function formatLegalRecord(record) {
+export function formatLegalRecord(record) {
   const kind = LEGAL_DOCUMENT_LABELS[record.lawType] || 'قانون یا مقرره';
   const isJudicial = Boolean(LEGAL_DOCUMENT_LABELS[record.lawType]);
   const lines = [
@@ -54,7 +54,7 @@ function formatLegalRecord(record) {
     `متن بازیابی‌شده: ${record.body}`,
     `منبع: ${record.sourceName || 'ثبت نشده'}`,
     record.officialSourceUrl || record.sourceUrl ? `پیوند منبع: ${record.officialSourceUrl || record.sourceUrl}` : null,
-    `وضعیت منبع: ${'متن از رکوردهای تأییدشده بانک حقوقی بازیابی شد'}`,
+    `وضعیت منبع: ${record.sourceStatus === 'curated_reference' ? 'مرجع داخلی منتخب با پیوند رسمی؛ متن و اعتبار نیازمند مقابله است' : 'متن از رکوردهای تأییدشده بانک حقوقی بازیابی شد'}`,
     isJudicial && record.lawType.includes('advisory') ? 'اثر حقوقی: نظریه مشورتی ارشادی است و به‌خودی‌خود رأی لازم‌الاتباع محسوب نمی‌شود.' : null,
     isJudicial && record.lawType.includes('unified_precedent') ? 'اثر حقوقی: رأی وحدت رویه در حدود مقرر قانونی لازم‌الاتباع است.' : null,
   ];
