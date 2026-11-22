@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { findVerifiedJudicialAuthorities, handleLegalBank } from '../worker/src/legal-bank.js';
+import { findVerifiedJudicialAuthorities, findVerifiedLegalArticles, handleLegalBank } from '../worker/src/legal-bank.js';
 import { buildSafeLegalSearchQuery, retrieveOfficialPageText } from '../worker/src/ai/legal-search.js';
 import { reviewLegalDraft, GROQ_API } from '../worker/src/ai/groq.js';
 
@@ -152,4 +152,95 @@ test('نمایش متن کامل ماده فقط برای مدیر و با شن�
     '/api/admin/legal-bank/articles',
   );
   assert.equal(anonymous.status, 401);
+});
+
+
+test('بازیابی مواد قانونی، آرای قضایی را به‌اشتباه به‌عنوان متن قانون وارد نمی‌کند', async () => {
+  let captured;
+  const db = {
+    prepare(sql) {
+      return { bind(...bindings) {
+        return { all: async () => { captured = { sql, bindings }; return { results: [] }; } };
+      } };
+    },
+  };
+  await findVerifiedLegalArticles(db, 'ماده ۵۶ قانون اجرای احکام مدنی رأی وحدت رویه نظریه مشورتی');
+  assert.match(captured.sql, /l\.law_type IN/);
+  assert.ok(captured.bindings.includes('law'));
+  assert.ok(captured.bindings.includes('regulation'));
+  assert.ok(!captured.bindings.includes('judicial_advisory_opinion'));
+  assert.ok(!captured.bindings.includes('supreme_court_unified_precedent'));
+});
+
+test('ورود نظریه مشورتی، شماره و تاریخ و مرجع و موضوع و پیوند رسمی را در بانک ثبت می‌کند', async () => {
+  let inserted = null;
+  const db = {
+    prepare(sql) {
+      return { bind(...bindings) {
+        if (sql.includes('FROM sessions')) return { first: async () => ({ id: 9, email: 'admin@example.test', display_name: 'مدیر' }) };
+        if (sql.includes('SELECT membership_status FROM users')) return { first: async () => ({ membership_status: 'approved' }) };
+        if (sql.includes('SELECT membership_no, professional_title, position')) return { first: async () => ({}) };
+        if (sql.includes('SELECT role FROM user_roles')) return { all: async () => ({ results: [{ role: 'admin' }] }) };
+        if (sql.includes('INSERT INTO legal_laws')) return { first: async () => { inserted = { sql, bindings }; return { id: 44 }; } };
+        if (sql.includes('INSERT INTO legal_articles')) return { run: async () => ({ success: true }) };
+        return { first: async () => null, all: async () => ({ results: [] }), run: async () => ({ success: true }) };
+      } };
+    },
+    batch: async () => ({ success: true }),
+  };
+  const payload = {
+    slug: 'advisory-opinion-7-1403-32',
+    title: 'نظریه مشورتی اداره کل حقوقی قوه قضاییه',
+    lawType: 'judicial_advisory_opinion',
+    documentNumber: '۷/۱۴۰۳/۳۲',
+    documentDate: '۱۴۰۳/۰۳/۰۶',
+    issuingAuthority: 'اداره کل حقوقی قوه قضاییه',
+    subject: 'موضوع دقیق نظریه',
+    sourceName: 'پایگاه رسمی اداره کل حقوقی قوه قضاییه',
+    officialSourceUrl: 'https://edarehoquqy.eadl.ir/opinion/32',
+    discoverySourceUrl: 'https://eadil.com/',
+    articles: [{ number: 'متن کامل', heading: 'متن نظریه', body: 'متن کامل نظریه مشورتی برای ورود و بررسی مدیر' }],
+  };
+  const request = new Request('https://mokhtari.ir/api/admin/legal-bank/import', {
+    method: 'POST',
+    headers: { cookie: 'wefagh_session=valid-session-token', 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const response = await handleLegalBank(request, { DB: db }, '/api/admin/legal-bank/import');
+  const data = await response.json();
+  assert.equal(response.status, 201);
+  assert.equal(data.status, 'needs_review');
+  assert.ok(inserted.sql.includes('document_number,document_date,subject,official_source_url,discovery_source_url,content_sha256'));
+  assert.ok(inserted.bindings.includes('۷/۱۴۰۳/۳۲'));
+  assert.ok(inserted.bindings.includes('۱۴۰۳/۰۳/۰۶'));
+  assert.ok(inserted.bindings.includes('موضوع دقیق نظریه'));
+  assert.ok(inserted.bindings.includes('https://edarehoquqy.eadl.ir/opinion/32'));
+});
+
+test('ورود سند قضایی بدون فراداده هویتی یا پیوند رسمی رد می‌شود', async () => {
+  const db = {
+    prepare(sql) {
+      return { bind() {
+        if (sql.includes('FROM sessions')) return { first: async () => ({ id: 9, email: 'admin@example.test', display_name: 'مدیر' }) };
+        if (sql.includes('SELECT membership_status FROM users')) return { first: async () => ({ membership_status: 'approved' }) };
+        if (sql.includes('SELECT membership_no, professional_title, position')) return { first: async () => ({}) };
+        if (sql.includes('SELECT role FROM user_roles')) return { all: async () => ({ results: [{ role: 'admin' }] }) };
+        return { first: async () => null, all: async () => ({ results: [] }), run: async () => ({ success: true }) };
+      } };
+    },
+  };
+  const request = new Request('https://mokhtari.ir/api/admin/legal-bank/import', {
+    method: 'POST',
+    headers: { cookie: 'wefagh_session=valid-session-token', 'content-type': 'application/json' },
+    body: JSON.stringify({
+      slug: 'advisory-opinion-missing-source',
+      title: 'نظریه مشورتی',
+      lawType: 'judicial_advisory_opinion',
+      articles: [{ number: 'متن کامل', body: 'متن کامل نظریه برای بررسی' }],
+    }),
+  });
+  const response = await handleLegalBank(request, { DB: db }, '/api/admin/legal-bank/import');
+  const data = await response.json();
+  assert.equal(response.status, 422);
+  assert.equal(data.error, 'JUDICIAL_METADATA_REQUIRED');
 });
