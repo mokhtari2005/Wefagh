@@ -53,6 +53,31 @@ function req(path, { method = 'POST', body, cookie = null, type = 'application/j
   return new Request(BASE + path, { method, headers, body: body === undefined ? undefined : (typeof body === 'string' ? body : JSON.stringify(body)) });
 }
 
+
+test('extractGrounding keeps cited passages and Google search suggestions', () => {
+  const result = extractGrounding({
+    candidates: [{
+      content: { parts: [{ text: 'ماده ۵۶ قانون اجرای احکام مدنی' }] },
+      groundingMetadata: {
+        groundingChunks: [{ web: { title: 'سامانه ملی قوانین', uri: 'https://qavanin.ir/law/1' } }],
+        groundingSupports: [{ segment: { text: 'ماده ۵۶ قانون اجرای احکام مدنی' }, groundingChunkIndices: [0] }],
+        webSearchQueries: ['قانون اجرای احکام مدنی ماده ۵۶'],
+        searchEntryPoint: { renderedContent: '<div>Google Search</div>' },
+      },
+    }],
+  });
+  assert.equal(result.sources[0].citedText, 'ماده ۵۶ قانون اجرای احکام مدنی');
+  assert.equal(result.searchSuggestionHtml, '<div>Google Search</div>');
+});
+
+test('extractExplicitLegalReferences parses Persian article ranges', () => {
+  const refs = extractExplicitLegalReferences('مواد ۵۶ و ۵۷ قانون اجرای احکام مدنی باید بررسی شوند.');
+  assert.deepEqual(refs, [
+    { lawTitle: 'قانون اجرای احکام مدنی', articleNumber: '56' },
+    { lawTitle: 'قانون اجرای احکام مدنی', articleNumber: '57' },
+  ]);
+});
+
 test('کلید API فقط از Secret خوانده می‌شود و وضعیت آن هرگز کلید را نشان نمی‌دهد', async () => {
   assert.equal(aiConfigured({}), false);
   assert.equal(aiConfigured({ GEMINI_API_KEY: 'short' }), false);
