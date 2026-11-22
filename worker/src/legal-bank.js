@@ -60,11 +60,28 @@ export async function handleLegalBank(request, env, path) {
         }
         articleNumbers.add(number);
       }
+      const officialSourceUrl = clean(b.officialSourceUrl,1000);
+      const discoverySourceUrl = clean(b.discoverySourceUrl,1000);
+      const contentSha256 = clean(b.contentSha256,64).toLowerCase();
+      for (const candidate of [officialSourceUrl, discoverySourceUrl]) {
+        if (!candidate) continue;
+        try { if (new URL(candidate).protocol !== 'https:') throw new Error('protocol'); }
+        catch { return json({ok:false,error:'INVALID_SOURCE_URL'},422); }
+      }
+      if (contentSha256 && !/^[a-f0-9]{64}$/.test(contentSha256)) {
+        return json({ok:false,error:'INVALID_CONTENT_HASH'},422);
+      }
       try {
         const result = await env.DB.prepare(`INSERT INTO legal_laws
-          (slug,title,law_type,issuing_authority,approved_date,publication_date,effective_date,status,source_name,source_url,notes,created_by)
-          VALUES (?1,?2,?3,?4,?5,?6,?7,'needs_review',?8,?9,?10,?11) RETURNING id`)
-          .bind(slug,title,type,clean(b.issuingAuthority,200)||null,clean(b.approvedDate,30)||null,clean(b.publicationDate,30)||null,clean(b.effectiveDate,30)||null,clean(b.sourceName,200)||null,clean(b.sourceUrl,1000)||null,clean(b.notes,2000)||null,access.user.id).first();
+          (slug,title,law_type,issuing_authority,approved_date,publication_date,effective_date,
+           document_number,document_date,subject,official_source_url,discovery_source_url,content_sha256,source_checked_at,
+           status,source_name,source_url,notes,created_by)
+          VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,'needs_review',?15,?16,?17,?18) RETURNING id`)
+          .bind(slug,title,type,clean(b.issuingAuthority,200)||null,clean(b.approvedDate,30)||null,
+            clean(b.publicationDate,30)||null,clean(b.effectiveDate,30)||null,
+            clean(b.documentNumber,120)||null,clean(b.documentDate,40)||null,clean(b.subject,500)||null,
+            officialSourceUrl||null,discoverySourceUrl||null,contentSha256||null,clean(b.sourceCheckedAt,40)||null,
+            clean(b.sourceName,200)||null,clean(b.sourceUrl,1000)||null,clean(b.notes,2000)||null,access.user.id).first();
         const lawId = result.id;
         const statements = b.articles.map(a => env.DB.prepare(`INSERT INTO legal_articles (law_id,article_number,heading,body,status)
           VALUES (?1,?2,?3,?4,'needs_review')`).bind(lawId,clean(a.number,40),clean(a.heading,300)||null,a.body.trim()));
