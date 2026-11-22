@@ -60,7 +60,7 @@ function htmlToPlainText(html) {
  * فقط صفحات دامنه‌های رسمیِ ازپیش‌مجاز خوانده می‌شوند؛ تغییرمسیر دنبال نمی‌شود.
  * بازیابی متن صفحه، به‌تنهایی اثبات‌کننده جاری‌بودن قانون یا اعتبار حقوقی سند نیست.
  */
-export async function retrieveOfficialPageText(sources) {
+export export async function retrieveOfficialPageText(sources) {
   const output = [];
   let totalChars = 0;
   for (const source of (Array.isArray(sources) ? sources : []).slice(0, 8)) {
