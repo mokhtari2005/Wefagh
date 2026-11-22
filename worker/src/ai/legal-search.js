@@ -1,6 +1,7 @@
 // جست‌وجوی حقوقی برخط با حداقل‌سازی داده: فقط واژگان حقوقیِ ازپیش‌تعریف‌شده به موتور جست‌وجو می‌رسند.
 // متن پرونده، نام اشخاص، تاریخ‌ها، شماره پرونده و شرح وقایع هرگز در پرس‌وجوی وب قرار نمی‌گیرند.
 import { generateText } from './gemini.js';
+import { extractExplicitLegalReferences } from '../legal-bank.js';
 
 const LEGAL_TERMS = Object.freeze([
   'قانون مدنی', 'قانون اجرای احکام مدنی', 'قانون آیین دادرسی مدنی', 'قانون مجازات اسلامی',
@@ -19,7 +20,11 @@ export function buildSafeLegalSearchQuery(input) {
   const normalized = String(input || '').normalize('NFKC')
     .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک');
   const matches = LEGAL_TERMS.filter((term) => normalized.includes(term));
-  const unique = [...new Set(matches)].slice(0, 8);
+  const safeLawTitles = ['قانون اجرای احکام مدنی','قانون مدنی','قانون آیین دادرسی مدنی','قانون آیین دادرسی کیفری','قانون مجازات اسلامی','قانون تجارت','قانون مسئولیت مدنی','قانون ثبت','قانون کار','قانون صدور چک','قانون حمایت خانواده'];
+  const exactReferences = extractExplicitLegalReferences(normalized)
+    .filter((ref) => safeLawTitles.some((title) => normalized.includes(title) && ref.lawTitle.includes(title)))
+    .map((ref) => safeLawTitles.find((title) => normalized.includes(title) && ref.lawTitle.includes(title)) + ' ماده ' + ref.articleNumber);
+  const unique = [...new Set([...exactReferences, ...matches])].slice(0, 8);
   return unique.length ? `${unique.join(' ')} حقوق ایران متن قانون رأی قضایی نظریه مشورتی` : '';
 }
 
