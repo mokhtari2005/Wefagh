@@ -94,7 +94,7 @@ export async function searchLegalAuthorities(env, input) {
       useGoogleSearch: true,
     });
     const sources = safeSources(result.grounding);
-    if (!sources.length) return { status: 'no_sources', sources: [], summary: result.text || '' };
+    if (!sources.length) return { status: result.grounding?.searchSuggestionHtml ? 'suggestions_only' : 'no_sources', sources: [], summary: result.text || '', searchSuggestionHtml: result.grounding?.searchSuggestionHtml || '' };
     return {
       status: 'searched',
       summary: String(result.text || '').slice(0, 7000),
