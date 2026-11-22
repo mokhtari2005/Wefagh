@@ -516,7 +516,6 @@ async function assistant(request, env) {
     if (!attachments.length && provider !== 'groq') {
       stage = 'groq_review';
       let reviewArticles = [...promptArticles];
-      let reviewBankUnavailable = false;
       try {
         // جست‌وجوی دوم با متن پاسخ Gemini هم انجام می‌شود تا استنادهای تازه‌مطرح‌شده نیز تطبیق داده شوند.
         const matched = await findVerifiedLegalArticles(env.DB, text);
@@ -530,7 +529,6 @@ async function assistant(request, env) {
         }
         reviewArticles = reviewArticles.slice(0, 8);
       } catch (err) {
-        reviewBankUnavailable = true;
         console.error(JSON.stringify({ where: 'ai', stage: 'groq_legal_bank_query', error: err?.name || 'Error' }));
       }
       const review = await reviewLegalDraft(env, {
