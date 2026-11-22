@@ -573,6 +573,14 @@ test('Groq بازبین مستقل فقط با Secret فعال می‌شود و 
   assert.ok(!publicNotes.join(' ').includes('Groq'));
   assert.ok(!publicNotes.join(' ').includes('gpt-oss'));
   assert.ok(!publicNotes.join(' ').includes('openai'));
+  const noSourceNotes = groqReviewNotes({
+    status: 'reviewed',
+    bankArticlesCount: 0,
+    officialPageTextCount: 0,
+    review: { risk: 'low', summary: 'سطح ریسک کم است.', issues: [], citations: [] },
+  });
+  assert.ok(noSourceNotes.join(' ').includes('امکان‌پذیر نیست'));
+  assert.ok(!noSourceNotes.join(' ').includes('سطح ریسک کم است'));
   assert.ok(!publicNotes.join(' ').includes('gpt-oss'));
 });
 
