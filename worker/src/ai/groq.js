@@ -216,6 +216,27 @@ export async function reviewLegalDraft(env, { mode, docType, question, draft, le
 }
 
 /** یادداشت‌های فارسی برای رابط کاربری؛ هیچ خروجی مدل به‌عنوان تأیید رسمی نمایش داده نمی‌شود. */
+const REVIEW_CATEGORY_FA = Object.freeze({
+  missing_reference: 'استناد قانونی بازیابی‌نشده',
+  missinglegalreference: 'استناد قانونی بازیابی‌نشده',
+  missing_citation: 'استناد قانونی ناقص',
+  missingcitation: 'استناد قانونی ناقص',
+  inconsistent_claims: 'تعارض در مبانی یا خواسته‌ها',
+  inconsistentclaims: 'تعارض در مبانی یا خواسته‌ها',
+  inconsistent_legal_concept: 'خلط مفاهیم حقوقی',
+  inconsistentlegalconcept: 'خلط مفاهیم حقوقی',
+  citation_mismatch: 'عدم انطباق استناد با موضوع',
+  citationmismatch: 'عدم انطباق استناد با موضوع',
+  jurisdiction_clarification: 'ابهام در صلاحیت',
+  jurisdictionclarification: 'ابهام در صلاحیت',
+  procedural_detail: 'نقص در توضیحات شکلی',
+  unsupported_assertion: 'ادعای فاقد پشتوانه',
+});
+function reviewCategoryLabel(value) {
+  const key = String(value || '').replace(/[^a-zA-Z_]/g, '').toLowerCase();
+  return REVIEW_CATEGORY_FA[key] || (/^[a-z_]+$/i.test(value || '') ? 'ایراد حقوقی' : clean(value, 100));
+}
+
 export function groqReviewNotes(result) {
   if (!result || result.status !== 'reviewed') {
     const messages = {
