@@ -244,6 +244,14 @@ export async function reviewLegalDraft(env, { mode, docType, question, draft, le
   } : { status: 'invalid_response' };
 }
 
+function persianAuditText(value) {
+  return String(value || '')
+    .replace(/[A-Za-z][A-Za-z0-9._:/-]*/g, '')
+    .replace(/[|•\[\]{}]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 /** یادداشت‌های فارسی برای رابط کاربری؛ هیچ خروجی مدل به‌عنوان تأیید رسمی نمایش داده نمی‌شود. */
 export function groqReviewNotes(result) {
   if (!result || result.status !== 'reviewed') {
@@ -270,13 +278,13 @@ export function groqReviewNotes(result) {
     ? `بازبین برای تطبیق، ${result.bankArticlesCount} مستند از بانک قوانین داخلی دریافت کرد؛ وضعیت بانک به‌تنهایی جای بررسی آخرین نسخه رسمی قانون را نمی‌گیرد.`
     : 'هیچ ماده تأییدشده‌ای از بانک قوانین برای این درخواست بازیابی نشد؛ تطبیق با بانک ممکن نبود.');
   if (result.webSourcesCount) notes.push(`در بازبینی، ${result.webSourcesCount} منبع اینترنتی و گزیده‌های آن از حیث پشتیبانی ادعاها بررسی شد؛ این بررسی به‌معنای تأیید رسمی یا جاری‌بودن منبع نیست.`);
-  if (review.summary) notes.push(`جمع‌بندی بازبین: ${review.summary}`);
+  if (review.summary) notes.push(`جمع‌بندی بازبینی: ${persianAuditText(review.summary)}`);
   for (const item of review.issues) {
     const level = item.severity === 'high' ? 'مهم' : item.severity === 'medium' ? 'متوسط' : 'جزئی';
-    notes.push(`${level === 'مهم' ? 'ایراد مهم' : level === 'متوسط' ? 'نکته قابل توجه' : 'نکته جزئی'}${item.category ? ' در موضوع ' + item.category : ''}: ${item.observation}${item.recommendation ? ' برای رفع این ایراد، ' + item.recommendation : ''}`);
+    notes.push(`${level === 'مهم' ? 'ایراد مهم' : level === 'متوسط' ? 'نکته قابل توجه' : 'نکته جزئی'}${item.category ? ' در موضوع ' + persianAuditText(item.category) : ''}: ${persianAuditText(item.observation)}${item.recommendation ? ' برای رفع این ایراد، ' + persianAuditText(item.recommendation) : ''}`);
   }
   for (const item of review.citations) {
-    notes.push(`استناد نیازمند بررسی: ${item.citation}${item.concern ? ' — ' + item.concern : ''}`);
+    notes.push(`استناد نیازمند بررسی: ${persianAuditText(item.citation)}${item.concern ? '؛ ' + persianAuditText(item.concern) : ''}`);
   }
   return notes.slice(0, 10);
 }
