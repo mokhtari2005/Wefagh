@@ -346,7 +346,7 @@ export async function findVerifiedJudicialAuthorities(db, query) {
     .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')
     .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
   const terms = legalSearchTerms(text);
-  const numberMatches = [...text.matchAll(/(?:رأی\\s*وحدت\\s*رویه|نظریه\\s*مشورتی)\\s*(?:شماره\\s*)?([0-9]+(?:\\/[0-9]+)*)/gu)]
+  const numberMatches = [...text.matchAll(/(?:رأی\s*وحدت\s*رویه|نظریه\s*مشورتی)\s*(?:شماره\s*)?([0-9]+(?:\/[0-9]+)*)/gu)]
     .map((m) => m[1]).slice(0, 6);
   if (!terms.length && !numberMatches.length) return [];
 
