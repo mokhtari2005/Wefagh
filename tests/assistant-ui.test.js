@@ -15,7 +15,7 @@ test('پیام‌های قدیمی بدون پیشنهاد جست‌وجو بد�
 });
 
 test('پیوندهای منبع همراه با گزیده متن در تاریخچه حفظ می‌شوند', () => {
-  const sources = [{ title: 'قانون', uri: 'https://qavanin.ir/law/1', domain: 'qavanin.ir', citedText: 'ماده ۵۶' }];
+  const sources = [{ title: 'قانون', uri: 'https://qavanin.ir/law/1', domain: 'qavanin.ir', supportedClaim: 'ماده ۵۶' }];
   const packed = packStoredAiMessage('پاسخ', '', sources);
   assert.deepEqual(unpackStoredAiMessage(packed), { text: 'پاسخ', searchSuggestionHtml: '', searchSources: sources });
 });
