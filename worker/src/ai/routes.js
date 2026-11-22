@@ -15,7 +15,7 @@ import { clampReply } from './speech.js';
 import { reviewLegalDraft, groqReviewNotes } from './groq.js';
 import { AttachmentError, ATTACHMENT_LIMITS, processAttachments, buildUserParts, summarizeAttachments } from './attachments.js';
 import {
-  LEGAL_DISCLAIMER, ASSISTANT_DOC_TYPES, ASSISTANT_MODES, ASSISTANT_SCHEMA, MOOT_EVAL_SCHEMA,
+  ASSISTANT_DOC_TYPES, ASSISTANT_MODES, ASSISTANT_SCHEMA, MOOT_EVAL_SCHEMA,
   HEARING_ROLES, HEARING_STAGES, mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt, litigationRoleSystemPrompt,
 } from './prompts.js';
 
@@ -299,14 +299,6 @@ async function transcribe(request, env) {
 
 // پاسخ مدل ممکن است شماره ماده یا شمارهٔ رأی ذکر کند که در این سامانه تأیید نشده است؛
 // هشدار جداگانه اضافه می‌شود تا کاربر پیش از استفاده راستی‌آزمایی کند.
-const CITATION_PATTERNS = [/ماده\s*[۰-۹0-9]+/u, /(?:رأی|رای)\s*(?:شماره|ش\.?)\s*[۰-۹0-9]+/u, /شماره\s*(?:دادنامه|رأی|نظریه)\s*[۰-۹0-9]+/u];
-export const CITATION_WARNING = 'این متن به شماره ماده یا رأی اشاره دارد که در این سامانه تأیید نشده است. پیش از استفاده، متن رسمی آن را بررسی کنید.';
-
-export function citationWarnings(text) {
-  if (typeof text !== 'string' || !text) return [];
-  return CITATION_PATTERNS.some((re) => re.test(text)) ? [CITATION_WARNING] : [];
-}
-
 const SEIZED_PROPERTY_TOPIC = /مال\s+توقیف|ملک\s+توقیف|توقیف\s+ملک|بازداشت\s+ملک|انتقال\s+مال\s+توقیف/u;
 const SEIZED_PROPERTY_ARTICLES = Object.freeze([
   {
@@ -625,13 +617,12 @@ async function assistant(request, env) {
     } else if (webResearch?.status === 'suggestions_only') {
       notes.push('پیشنهادهایی برای جست‌وجوی تکمیلی نمایش داده شد، اما منبع قابل استناد مستقلی بازیابی نشد.');
     } else if (webResearch?.status === 'failed') {
-      notes.push('جست‌وجوی وب حقوقی انجام نشد؛ پاسخ صرفاً بر منابع داخلی و دانش مدل متکی است.');
+      notes.push('جست‌وجوی تکمیلی در منابع بیرونی انجام نشد؛ استنادهای خارج از بانک داخلی در این پاسخ مستقلاً تأیید نشده‌اند.');
     } else if (webResearch?.status === 'no_sources' || webResearch?.status === 'no_legal_terms') {
       notes.push('از جست‌وجوی وب، منبع قابل استنادی بازیابی نشد؛ استنادهای بیرونی تأییدشده تلقی نمی‌شوند.');
     }
     if (guardedText.changed) notes.push('شماره مواد یا مهلت‌های فاقد پشتوانه در منابع تأییدشده، برای جلوگیری از ارائه استناد نادرست با عبارت نیازمند بررسی جایگزین شدند.');
     if (truncated) notes.push('پاسخ به‌دلیل طول زیاد کامل نشد. برای ادامه بنویسید «ادامه بده».');
-    for (const warning of citationWarnings(guardedText.text)) if (!notes.includes(warning)) notes.push(warning);
     // برای حفظ محرمانگی، در صورت وجود پیوست، پیش‌نویس حاوی محتوای استخراج‌شده به ارائه‌دهندهٔ سوم ارسال نمی‌شود.
     if (attachments.length) {
       notes.push('هشدار: بازبینی مستقل انجام نشد.');
@@ -664,8 +655,7 @@ async function assistant(request, env) {
       if (review.status === 'reviewed') {
         const auditLines = groqReviewNotes(review);
         text += '\n\nگزارش بازبینی مستقل و تطبیق استنادات: ' + auditLines.join(' ');
-        notes.push('بازبینی ماشینی مستقل انجام شد.');
-        notes.push('گزارش تطبیق استنادات در ادامه پاسخ آمده و جایگزین بررسی نهایی منابع رسمی نیست.');
+
       } else {
         notes.push(...groqReviewNotes(review).slice(0, 3));
       }
@@ -697,7 +687,6 @@ async function assistant(request, env) {
       searchSources,
       searchSuggestionHtml: hasSearchSuggestions ? (webResearch.searchSuggestionHtml || '') : '',
       attachments: summarizeAttachments(attachments),
-      disclaimer: LEGAL_DISCLAIMER,
     });
   } catch (err) {
     return aiFailure(err, stage);
@@ -764,7 +753,7 @@ async function ekhtebarAnswer(request, env) {
     if (legalBankUnavailable) notes.push('بانک قوانین در دسترس نبود؛ استنادهای پاسخ باید مستقلاً با متن رسمی قوانین تطبیق داده شوند.');
     if (!legalSources.length) notes.push('ماده قانونی تأییدشده‌ای از بانک قوانین بازیابی نشد؛ شماره مواد و مقررات ذکرشده در متن پاسخ را پیش از استفاده با منبع رسمی بررسی کنید.');
     if (truncated) notes.push('پاسخ به سقف طول رسید و ممکن است نیاز به درخواست ادامه داشته باشد.');
-    return json({ ok: true, answer: stripResponseFormatting(answer), legalSources, notes, disclaimer: LEGAL_DISCLAIMER });
+    return json({ ok: true, answer: stripResponseFormatting(answer), legalSources, notes });
   } catch (err) {
     return aiFailure(err, 'ekhtebar_answer');
   }
