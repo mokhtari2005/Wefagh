@@ -762,7 +762,7 @@ async function assistant(request, env) {
       questions,
       text,
       notes,
-      searchSources,
+      searchSources: searchSources.map(({ title, uri, domain, supportedClaim, pageTextStatus }) => ({ title, uri, domain, supportedClaim, pageTextStatus })),
       searchSuggestionHtml: hasSearchSuggestions ? (webResearch.searchSuggestionHtml || '') : '',
       attachments: summarizeAttachments(attachments),
     });
