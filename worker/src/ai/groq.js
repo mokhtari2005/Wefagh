@@ -133,7 +133,7 @@ export async function reviewLegalDraft(env, { mode, docType, question, draft, le
   // فقط مواد تأییدشده‌ای که از findVerifiedLegalArticles آمده‌اند؛ حجم ارسالی محدود می‌ماند.
   let bankChars = 0;
   const bankItems = [];
-  for (const article of (Array.isArray(legalArticles) ? legalArticles : []).slice(0, 8)) {
+  for (const article of (Array.isArray(legalArticles) ? legalArticles : []).slice(0, 12)) {
     const lawTitle = clean(article?.lawTitle, 180);
     const articleNumber = clean(article?.articleNumber, 40) || clean(article?.documentNumber, 120);
     const body = clean(article?.body, 2_200);
