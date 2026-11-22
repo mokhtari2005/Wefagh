@@ -413,9 +413,9 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
     return '[مدت نیازمند تطبیق با منبع رسمی]';
   });
   guarded = guarded
-    .replace(/ماده\\s*\\[شماره نیازمند تطبیق با متن رسمی\\]/gu, 'شماره ماده تأییدنشده')
-    .replace(/\\[شماره نیازمند تطبیق با متن رسمی\\]/gu, 'شماره ماده تأییدنشده')
-    .replace(/\\[مدت نیازمند تطبیق با منبع رسمی\\]/gu, 'مهلت قانونی تأییدنشده');
+    .replace(/ماده\s*\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده تأییدنشده')
+    .replace(/\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده تأییدنشده')
+    .replace(/\[مدت نیازمند تطبیق با منبع رسمی\]/gu, 'مهلت قانونی تأییدنشده');
   if (guarded !== text) changed = true;
   return { text: guarded, changed };
 }
