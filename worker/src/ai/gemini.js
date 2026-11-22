@@ -85,16 +85,42 @@ async function post(env, op, model, url, payload, timeoutMs = AI_TIMEOUT_MS) {
 
 /** متن پاسخ مدل. اگر محتوا بلاک شده یا خالی باشد خطای مشخص برمی‌گرداند. */
 export function extractGrounding(data) {
-  const metadata = data?.candidates?.[0]?.groundingMetadata;
-  const chunks = Array.isArray(metadata?.groundingChunks) ? metadata.groundingChunks : [];
-  const sources = chunks
-    .map((chunk) => chunk?.web)
-    .filter((web) => web && typeof web.uri === 'string' && /^https:\/\//i.test(web.uri))
-    .map((web) => ({ title: String(web.title || '').slice(0, 180), uri: web.uri }));
-  const queries = Array.isArray(metadata?.webSearchQueries)
+  const candidate = data?.candidates?.[0];
+  const metadata = candidate?.groundingMetadata;
+  if (!metadata) return null;
+  const chunks = Array.isArray(metadata.groundingChunks) ? metadata.groundingChunks : [];
+  const candidateText = Array.isArray(candidate?.content?.parts)
+    ? candidate.content.parts.map((part) => typeof part?.text === 'string' ? part.text : '').join('')
+    : '';
+  const sources = chunks.map((chunk) => {
+    const web = chunk?.web;
+    if (!web || typeof web.uri !== 'string' || !/^https:\/\//i.test(web.uri)) return null;
+    return { title: String(web.title || '').slice(0, 180), uri: web.uri, citedText: '' };
+  });
+  for (const support of Array.isArray(metadata.groundingSupports) ? metadata.groundingSupports : []) {
+    const segment = support?.segment || {};
+    const start = Number.isInteger(segment.startIndex) ? segment.startIndex : null;
+    const end = Number.isInteger(segment.endIndex) ? segment.endIndex : null;
+    const citedText = typeof segment.text === 'string' ? segment.text
+      : start !== null && end !== null && start >= 0 && end >= start && end <= candidateText.length
+        ? candidateText.slice(start, end)
+        : '';
+    for (const index of Array.isArray(support.groundingChunkIndices) ? support.groundingChunkIndices : []) {
+      if (Number.isInteger(index) && sources[index] && citedText) {
+        sources[index].citedText = [sources[index].citedText, citedText].filter(Boolean).join('؛ ').slice(0, 700);
+      }
+    }
+  }
+  const validSources = sources.filter(Boolean);
+  const queries = Array.isArray(metadata.webSearchQueries)
     ? metadata.webSearchQueries.filter((q) => typeof q === 'string').slice(0, 5)
     : [];
-  return sources.length || queries.length ? { sources, queries } : null;
+  const searchSuggestionHtml = typeof metadata.searchEntryPoint?.renderedContent === 'string'
+    ? metadata.searchEntryPoint.renderedContent
+    : '';
+  return validSources.length || queries.length || searchSuggestionHtml
+    ? { sources: validSources, queries, searchSuggestionHtml }
+    : null;
 }
 
 export function extractText(data) {
