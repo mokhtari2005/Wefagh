@@ -29,6 +29,88 @@ export function buildSafeLegalSearchQuery(input) {
   return unique.length ? `${unique.join(' ')} حقوق ایران متن رسمی قانون و رأی قضایی «آرای وحدت رویه دیوان عالی کشور» «نظریات مشورتی اداره کل حقوقی قوه قضاییه»` : '';
 }
 
+const OFFICIAL_LEGAL_HOSTS = new Set([
+  'qavanin.ir', 'www.qavanin.ir', 'rrk.ir', 'www.rrk.ir',
+  'ara.jri.ac.ir', 'eadil.com', 'www.eadil.com',
+  'edarehoquqy.eadl.ir', 'divan-edalat.ir', 'www.divan-edalat.ir',
+]);
+
+function htmlToPlainText(html) {
+  return String(html || '')
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<(br|\/p|\/div|\/li|\/tr|\/h[1-6])\b[^>]*>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;|&#160;/gi, ' ')
+    .replace(/&quot;|&#34;/gi, '"')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&#(\d+);/g, (_, n) => {
+      const code = Number(n);
+      return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : ' ';
+    })
+    .replace(/[ \t\f\v]+/g, ' ')
+    .replace(/\n\s+/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
+ * فقط صفحات دامنه‌های رسمیِ ازپیش‌مجاز خوانده می‌شوند؛ تغییرمسیر دنبال نمی‌شود.
+ * بازیابی متن صفحه، به‌تنهایی اثبات‌کننده جاری‌بودن قانون یا اعتبار حقوقی سند نیست.
+ */
+async function retrieveOfficialPageText(sources) {
+  const output = [];
+  let totalChars = 0;
+  for (const source of (Array.isArray(sources) ? sources : []).slice(0, 8)) {
+    let parsed;
+    try { parsed = new URL(source.uri); } catch { output.push({ ...source, pageTextStatus: 'invalid_url' }); continue; }
+    if (parsed.protocol !== 'https:' || !OFFICIAL_LEGAL_HOSTS.has(parsed.hostname.toLowerCase())) {
+      output.push({ ...source, pageTextStatus: 'not_primary_source_domain' });
+      continue;
+    }
+    if (totalChars >= 14_000) {
+      output.push({ ...source, pageTextStatus: 'retrieval_limit_reached' });
+      continue;
+    }
+    try {
+      const response = await fetch(parsed.href, {
+        method: 'GET',
+        redirect: 'manual',
+        headers: { accept: 'text/html, text/plain;q=0.9' },
+        signal: AbortSignal.timeout(7000),
+      });
+      if (response.status >= 300 && response.status < 400) {
+        output.push({ ...source, pageTextStatus: 'redirect_not_followed' });
+        continue;
+      }
+      if (!response.ok) {
+        output.push({ ...source, pageTextStatus: 'http_' + response.status });
+        continue;
+      }
+      const contentType = (response.headers.get('content-type') || '').toLowerCase();
+      const length = Number(response.headers.get('content-length') || 0);
+      if (length > 1_500_000 || (!contentType.includes('text/html') && !contentType.includes('text/plain'))) {
+        output.push({ ...source, pageTextStatus: contentType.includes('pdf') ? 'pdf_text_extraction_unavailable' : 'unsupported_content_type' });
+        continue;
+      }
+      const raw = await response.text();
+      const plain = htmlToPlainText(raw.slice(0, 1_500_000));
+      if (plain.length < 250) {
+        output.push({ ...source, pageTextStatus: 'page_text_too_short' });
+        continue;
+      }
+      const pageText = plain.slice(0, Math.min(5_000, 14_000 - totalChars));
+      totalChars += pageText.length;
+      output.push({ ...source, pageText, pageTextStatus: 'official_domain_page_text_retrieved' });
+    } catch (error) {
+      output.push({ ...source, pageTextStatus: error?.name === 'TimeoutError' ? 'retrieval_timeout' : 'retrieval_failed' });
+    }
+  }
+  return output;
+}
+
 function safeSources(grounding) {
   const seen = new Set();
   const sources = [];
@@ -75,7 +157,8 @@ export async function searchLegalAuthorities(env, input) {
       timeoutMs: 35_000,
       useGoogleSearch: true,
     });
-    const sources = safeSources(result.grounding);
+    const discoveredSources = safeSources(result.grounding);
+    const sources = await retrieveOfficialPageText(discoveredSources);
     if (!sources.length) return { status: result.grounding?.searchSuggestionHtml ? 'suggestions_only' : 'no_sources', sources: [], summary: result.text || '', searchSuggestionHtml: result.grounding?.searchSuggestionHtml || '' };
     return {
       status: 'searched',
