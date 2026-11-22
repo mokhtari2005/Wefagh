@@ -95,19 +95,19 @@ export function extractGrounding(data) {
   const sources = chunks.map((chunk) => {
     const web = chunk?.web;
     if (!web || typeof web.uri !== 'string' || !/^https:\/\//i.test(web.uri)) return null;
-    return { title: String(web.title || '').slice(0, 180), uri: web.uri, citedText: '' };
+    return { title: String(web.title || '').slice(0, 180), uri: web.uri, supportedClaim: '' };
   });
   for (const support of Array.isArray(metadata.groundingSupports) ? metadata.groundingSupports : []) {
     const segment = support?.segment || {};
     const start = Number.isInteger(segment.startIndex) ? segment.startIndex : null;
     const end = Number.isInteger(segment.endIndex) ? segment.endIndex : null;
-    const citedText = typeof segment.text === 'string' ? segment.text
+    const supportedClaim = typeof segment.text === 'string' ? segment.text
       : start !== null && end !== null && start >= 0 && end >= start && end <= candidateText.length
         ? candidateText.slice(start, end)
         : '';
     for (const index of Array.isArray(support.groundingChunkIndices) ? support.groundingChunkIndices : []) {
-      if (Number.isInteger(index) && sources[index] && citedText) {
-        sources[index].citedText = [sources[index].citedText, citedText].filter(Boolean).join('؛ ').slice(0, 700);
+      if (Number.isInteger(index) && sources[index] && supportedClaim) {
+        sources[index].supportedClaim = [sources[index].supportedClaim, supportedClaim].filter(Boolean).join('؛ ').slice(0, 700);
       }
     }
   }
