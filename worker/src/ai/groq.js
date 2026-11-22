@@ -273,7 +273,7 @@ export function groqReviewNotes(result) {
   if (review.summary) notes.push(`جمع‌بندی بازبین: ${review.summary}`);
   for (const item of review.issues) {
     const level = item.severity === 'high' ? 'مهم' : item.severity === 'medium' ? 'متوسط' : 'جزئی';
-    notes.push(`[${level}] ${item.category ? item.category + ' — ' : ''}${item.observation}${item.recommendation ? ' | پیشنهاد: ' + item.recommendation : ''}`);
+    notes.push(`${level === 'مهم' ? 'ایراد مهم' : level === 'متوسط' ? 'نکته قابل توجه' : 'نکته جزئی'}${item.category ? ' در موضوع ' + item.category : ''}: ${item.observation}${item.recommendation ? ' برای رفع این ایراد، ' + item.recommendation : ''}`);
   }
   for (const item of review.citations) {
     notes.push(`استناد نیازمند بررسی: ${item.citation}${item.concern ? ' — ' + item.concern : ''}`);
