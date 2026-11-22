@@ -570,6 +570,19 @@ test('تایپ صوتی: خطای موقت Gemini یک بار تکرار می‌
 });
 
 
+test('گزارش تحقیق حقوقی میان پیچیدگی پاسخ و وضعیت واقعی منابع تفکیک می‌کند', () => {
+  const consult = assistantSystemPrompt({ mode: 'consult' });
+  const research = assistantSystemPrompt({ mode: 'research' });
+  for (const prompt of [consult, research]) {
+    assert.match(prompt, /الگوی گزارش تحقیق حقوقی/);
+    assert.match(prompt, /میزان قطعیت و مبنای آن/);
+    assert.match(prompt, /راستی‌آزمایی منبع دو مرحله دارد/);
+    assert.match(prompt, /صرفاً سرنخ جست‌وجو/);
+    assert.match(prompt, /عبارت مرتبط‌شده به نتیجه Google/);
+    assert.match(prompt, /منابع نیازمند بررسی/);
+  }
+});
+
 test('مواد ۵۶ و ۵۷ قانون اجرای احکام مدنی در انتقال مال توقیف‌شده جدا و بدون تلفیق تحلیل می‌شوند', () => {
   const prompt = assistantSystemPrompt({
     mode: 'consult',
