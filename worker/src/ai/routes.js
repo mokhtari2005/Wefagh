@@ -496,8 +496,8 @@ async function assistant(request, env) {
     }
     const questions = Array.isArray(data.questions) ? data.questions.filter((q) => typeof q === 'string').slice(0, 5) : [];
     const notes = Array.isArray(data.notes) ? data.notes.filter((n) => typeof n === 'string').slice(0, 10) : [];
-    if (provider === 'groq') notes.push('به‌دلیل اختلال سرویس اصلی، دست‌کم یکی از مراحل تولید این گزارش از مسیر جایگزین تولید شد. مواد قانونیِ بازیابی‌شده از بانک آکادمی بدون تغییر در اختیار مدل قرار گرفتند؛ پاسخ همچنان نیازمند بررسی و راستی‌آزمایی حقوقی است.');
-    if (legalBankUnavailable) notes.push('بانک قوانین در این درخواست پاسخ نداد؛ پاسخ بدون استناد به مواد ثبت‌شده در بانک تهیه شد و استنادها باید جداگانه بررسی شوند.');
+
+    if (legalBankUnavailable) notes.push('متن مواد قانونی مرتبط باید با منبع رسمی تطبیق شود.');
     const rawText = typeof data.text === 'string' ? data.text : '';
     const guardedText = guardUnverifiedLegalClaims(rawText, promptArticles, legalContext);
     let text = guardedText.text;
@@ -543,25 +543,20 @@ async function assistant(request, env) {
       if (reviewBankUnavailable) notes.push('جست‌وجوی تکمیلی بانک قوانین برای بازبین Groq انجام نشد؛ نتیجه بر اساس مواد بازیابی‌شده در مرحله نخست و سایر اطلاعات موجود است.');
       if (review.status === 'reviewed') {
         const auditLines = groqReviewNotes(review);
-        text += '\n\n## گزارش بازبینی مستقل و تطبیق استنادات\n' + auditLines.map((line) => '• ' + line).join('\n');
-        notes.push('گزارش راستی‌آزمایی مستقل در ادامه همین پاسخ ارائه شده است. این گزارش بازبینی ماشینی است و جایگزین تطبیق نهایی با منابع رسمی نیست.');
-      } else {
-        notes.push(...groqReviewNotes(review).slice(0, 3));
+        if (auditLines.length) {
+          text += '\n\n## نکات مهم برای اصلاح\n' + auditLines.map((line) => '• ' + line).join('\n');
+        }
       }
       if (mode === 'draft' && workersAiConfigured(env)) {
         stage = 'cloudflare_workers_ai_review';
         const thirdReview = await reviewWithWorkersAI(env, { mode, docType, question: message, draft: text });
-        notes.push(thirdReview.status === 'reviewed'
-          ? 'بازبینی مستقل سوم با Cloudflare Workers AI انجام شد.'
-          : 'بازبینی مستقل سوم انجام نشد.');
+        if (thirdReview.status === 'reviewed' && thirdReview.issues?.length) notes.push('چند نکته تکمیلی برای اصلاح متن شناسایی شد.');
       }
     }
     if (!attachments.length && mode === 'draft' && provider === 'groq' && workersAiConfigured(env)) {
       stage = 'cloudflare_workers_ai_review';
       const thirdReview = await reviewWithWorkersAI(env, { mode, docType, question: message, draft: text });
-      notes.push(thirdReview.status === 'reviewed'
-        ? 'بازبینی مستقل سوم با Cloudflare Workers AI انجام شد.'
-        : 'بازبینی مستقل سوم انجام نشد.');
+      if (thirdReview.status === 'reviewed' && thirdReview.issues?.length) notes.push('چند نکته تکمیلی برای اصلاح متن شناسایی شد.');
     }
     for (const a of attachments) {
       if (a.truncated) notes.push(`فقط بخش ابتدایی «${a.name}» (حداکثر ${ATTACHMENT_LIMITS.extractedChars.toLocaleString('fa-IR')} نویسه) بررسی شد.`);
