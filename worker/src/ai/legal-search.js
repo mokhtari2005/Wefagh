@@ -61,9 +61,10 @@ export function extractOfficialGroundedArticleReferences(sources) {
     let hostname = '';
     try { hostname = new URL(source.uri).hostname.toLowerCase(); } catch { continue; }
     if (![...officialDomains].some((domain) => hostname === domain || hostname.endsWith('.' + domain))) continue;
-    for (const match of source.citedText.matchAll(/(?:ماده|مواد)\s*([۰-۹0-9]+)/gu)) {
-      const number = match[1].replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
-      refs.add(number);
+    for (const match of source.citedText.matchAll(/(?:ماده|مواد)\s*([۰-۹0-9]+(?:\s*(?:،|,|و|تا|الی|[-–])\s*[۰-۹0-9]+)*)/gu)) {
+      for (const rawNumber of match[1].match(/[۰-۹0-9]+/g) || []) {
+        refs.add(rawNumber.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))));
+      }
     }
   }
   return [...refs].map((articleNumber) => ({ articleNumber }));
