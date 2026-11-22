@@ -236,7 +236,7 @@ export function groqReviewNotes(result) {
 
   const { review } = result;
   const notes = [
-    `بازبینی ماشینی مستقل با مدل ${result.model || GROQ_REVIEW_MODEL} از طریق Groq انجام شد (سطح ریسک برآوردی: ${review.risk === 'high' ? 'زیاد' : review.risk === 'medium' ? 'متوسط' : 'کم'}). متن درخواست و پیش‌نویس برای این بازبینی به سرویس Groq ارسال شده است؛ این نتیجه تأیید صحت حقوقی یا راستی‌آزمایی منبع رسمی نیست.`,
+    `بازبینی مستقل انجام شد (سطح ریسک برآوردی: ${review.risk === 'high' ? 'زیاد' : review.risk === 'medium' ? 'متوسط' : 'کم'}). این بررسی به‌تنهایی تأیید نهایی صحت حقوقی یا جایگزین تطبیق با منبع رسمی نیست.`,
   ];
   notes.push(result.bankArticlesCount
     ? `بازبین برای تطبیق، ${result.bankArticlesCount} مستند تأییدشده از بانک قوانین داخلی دریافت کرد؛ این تطبیق جای بررسی آخرین نسخه رسمی قانون را نمی‌گیرد.`
