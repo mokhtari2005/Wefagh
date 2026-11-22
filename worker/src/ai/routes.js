@@ -352,7 +352,7 @@ const SEIZED_PROPERTY_ARTICLES = Object.freeze([
   },
 ]);
 
-function curatedLegalArticlesForQuery(query) {
+export function curatedLegalArticlesForQuery(query) {
   return [
     ...(VEHICLE_DEFECT_TOPIC.test(query) ? VEHICLE_DEFECT_ARTICLES : []),
     ...(SEIZED_PROPERTY_TOPIC.test(query) ? SEIZED_PROPERTY_ARTICLES : []),
