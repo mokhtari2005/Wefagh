@@ -297,16 +297,6 @@ async function transcribe(request, env) {
   }
 }
 
-// پاسخ مدل ممکن است شماره ماده یا شمارهٔ رأی ذکر کند که در این سامانه تأیید نشده است؛
-// هشدار جداگانه اضافه می‌شود تا کاربر پیش از استفاده راستی‌آزمایی کند.
-const CITATION_PATTERNS = [/ماده\s*[۰-۹0-9]+/u, /(?:رأی|رای)\s*(?:شماره|ش\.?)\s*[۰-۹0-9]+/u, /شماره\s*(?:دادنامه|رأی|نظریه)\s*[۰-۹0-9]+/u];
-export const CITATION_WARNING = 'این متن به شماره ماده یا رأی اشاره دارد که در این سامانه تأیید نشده است. پیش از استفاده، متن رسمی آن را بررسی کنید.';
-
-export function citationWarnings(text) {
-  if (typeof text !== 'string' || !text) return [];
-  return CITATION_PATTERNS.some((re) => re.test(text)) ? [CITATION_WARNING] : [];
-}
-
 const VEHICLE_DEFECT_TOPIC = /خودرو|اتومبیل|ماشین|تصادف|خیار عیب|عیب پنهان|عیب مخفی/u;
 const VEHICLE_DEFECT_ARTICLES = Object.freeze([
   ['۴۲۲', 'انتخاب مشتری میان فسخ معامله و نگهداری مبیع معیوب با اخذ ارش.'],
@@ -585,8 +575,6 @@ async function assistant(request, env) {
     if (webResearch?.status === 'searched' && webResearch.sources.length) {
       text += '\n\n## منابع وبی بازیابی‌شده برای پیگیری و راستی‌آزمایی\n' + webResearch.sources.map((source, index) => (index + 1) + '. [' + source.title + '](' + source.uri + ') — ' + source.domain).join('\n');
       notes.push('جست‌وجوی وب با Google Search انجام شد. منابع زیر سرنخ تحقیق‌اند و به‌معنای تأیید رسمی متن قانون، اعتبار رأی یا جاری‌بودن مقرره نیستند.');
-    } else if (webResearch?.status === 'failed') {
-    } else if (webResearch?.status === 'no_sources' || webResearch?.status === 'no_legal_terms') {
     }
     if (guardedText.changed) notes.push('شماره مواد یا مهلت‌های فاقد پشتوانه در منابع تأییدشده، برای جلوگیری از ارائه استناد نادرست با عبارت نیازمند بررسی جایگزین شدند.');
     if (truncated) notes.push('پاسخ به‌دلیل طول زیاد کامل نشد. برای ادامه بنویسید «ادامه بده».');
