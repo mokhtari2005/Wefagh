@@ -258,7 +258,7 @@ function legalSearchTerms(query) {
     .toLowerCase();
   const counts = new Map();
   for (const token of normalized.split(/[^\p{L}\p{N}]+/u)) {
-    if (token.length < 3 || SEARCH_STOP_WORDS.has(token) || /^\\d+$/.test(token)) continue;
+    if (token.length < 3 || SEARCH_STOP_WORDS.has(token) || /^\d+$/.test(token)) continue;
     counts.set(token, (counts.get(token) || 0) + 1);
   }
   return [...counts.entries()]
