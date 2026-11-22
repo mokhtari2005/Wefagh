@@ -332,13 +332,67 @@ const VEHICLE_DEFECT_ARTICLES = Object.freeze([
   sourceName: 'قانون مدنی؛ متن رسمی قوانین و مقررات', sourceUrl: 'https://qavanin.ir/Law/PrintText/?IDS=12021850837713548188&font=',
 })));
 
+const EXECUTION_TRANSFER_TOPIC = /مال\s+توقیف[\u200c\s-]*شده|توقیف[\u200c\s-]*شده.{0,35}(?:معامله|انتقال)|نقل[\u200c\s-]*و[\u200c\s-]*انتقال.{0,60}توقیف/u;
+
+export const EXECUTION_TRANSFER_ARTICLES = Object.freeze([
+  {
+    lawTitle: 'قانون اجرای احکام مدنی',
+    articleNumber: '۵۶',
+    heading: 'بطلان نقل‌وانتقال مال توقیف‌شده',
+    body: 'هر گونه نقل و انتقال اعم از قطعی و شرطی و رهنی نسبت به مال توقیف شده باطل و بلااثر است.',
+    sourceName: 'قانون اجرای احکام مدنی',
+    sourceUrl: 'https://qavanin.ir/Law/PrintText/83430',
+  },
+  {
+    lawTitle: 'قانون اجرای احکام مدنی',
+    articleNumber: '۵۷',
+    heading: 'عدم نفوذ قرارداد یا تعهد زیان‌بار نسبت به مال توقیف‌شده',
+    body: 'هر گونه قرارداد یا تعهدی که نسبت به مال توقیف شده بعد از توقیف به ضرر محکوم‌له منعقد شود نافذ نخواهد بود مگر اینکه محکوم‌له کتباً رضایت دهد.',
+    sourceName: 'قانون اجرای احکام مدنی',
+    sourceUrl: 'https://qavanin.ir/Law/PrintText/83430',
+  },
+]);
+
+export const CIVIL_PROCEDURE_ARTICLES = Object.freeze([
+  {
+    lawTitle: 'قانون آیین دادرسی دادگاه‌های عمومی و انقلاب در امور مدنی',
+    articleNumber: '۱۲',
+    heading: 'صلاحیت محلی دعاوی مربوط به اموال غیرمنقول',
+    body: 'دعاوی مربوط به اموال غیرمنقول اعم از دعاوی مالکیت، مزاحمت، ممانعت از حق، تصرف عدوانی و سایر حقوق راجع به آن در دادگاهی اقامه می‌شود که مال غیرمنقول در حوزه آن واقع است، اگرچه خوانده در آن حوزه مقیم نباشد.',
+    sourceName: 'قانون آیین دادرسی دادگاه‌های عمومی و انقلاب در امور مدنی',
+    sourceUrl: 'https://qavanin.ir',
+  },
+]);
+
 const normalizeLegalDigits = (value) => String(value).replace(/[۰-۹]/g, (digit) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)));
+
+function resolveKnownLegalPlaceholders(text, legalArticles = []) {
+  if (typeof text !== 'string' || !text.includes('[شماره نیازمند تطبیق با متن رسمی]')) return text;
+  const available = new Set(legalArticles.map((item) =>
+    `${String(item.lawTitle || '').replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')}::${normalizeLegalDigits(item.articleNumber)}`));
+  return text.replace(/\[شماره نیازمند تطبیق با متن رسمی\]/gu, (placeholder, offset, whole) => {
+    const leftMarks = ['\n', '۔', '.', '؟'].map((mark) => whole.lastIndexOf(mark, offset - 1));
+    const left = Math.max(...leftMarks);
+    const rightMarks = ['\n', '۔', '.', '؟'].map((mark) => whole.indexOf(mark, offset)).filter((index) => index >= 0);
+    const right = rightMarks.length ? Math.min(...rightMarks) : Math.min(whole.length, offset + 260);
+    const sentence = whole.slice(left + 1, right + 1);
+    const law = sentence.replace(/[يى]/g, 'ی').replace(/ك/g, 'ک');
+    let candidate = null;
+    if (law.includes('قانون اجرای احکام مدنی') && /نافذ/u.test(law) && /(?:قرارداد|تعهد|محکوم.?له)/u.test(law)) candidate = ['قانون اجرای احکام مدنی', '57', '۵۷'];
+    else if (law.includes('قانون اجرای احکام مدنی') && /(?:باطل|بلااثر)/u.test(law) && /(?:نقل.?انتقال|انتقال)/u.test(law)) candidate = ['قانون اجرای احکام مدنی', '56', '۵۶'];
+    else if (law.includes('قانون آیین دادرسی') && /(?:غیرمنقول|محل وقوع)/u.test(law)) candidate = ['قانون آیین دادرسی', '12', '۱۲'];
+    if (!candidate) return placeholder;
+    const lawEntry = [...available].some((entry) => entry.endsWith(`::${candidate[1]}`) && (candidate[0] === 'قانون اجرای احکام مدنی' ? entry.startsWith('قانون اجرای احکام مدنی::') : entry.startsWith('قانون آیین دادرسی')));
+    return lawEntry ? `ماده ${candidate[2]}` : placeholder;
+  });
+}
 
 export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedContext = '') {
   if (typeof text !== 'string' || !text) return { text: text || '', changed: false };
+  const resolved = resolveKnownLegalPlaceholders(text, legalArticles);
   const allowed = new Set(legalArticles.map((item) => normalizeLegalDigits(item.articleNumber)));
-  let changed = false;
-  let guarded = text.replace(/(?:ماده|مواد)\s*([۰-۹0-9]+(?:(?:\s*(?:،|,|و|تا|الی|[-–])\s*)[۰-۹0-9]+)*)/gu, (match, sequence) => {
+  let changed = resolved !== text;
+  let guarded = resolved.replace(/(?:ماده|مواد)\s*([۰-۹0-9]+(?:(?:\s*(?:،|,|و|تا|الی|[-–])\s*)[۰-۹0-9]+)*)/gu, (match, sequence) => {
     const numbers = sequence.match(/[۰-۹0-9]+/g) || [];
     const range = /(?:تا|الی|[-–])/.test(sequence);
     const values = numbers.map(normalizeLegalDigits);
@@ -441,8 +495,15 @@ async function assistant(request, env) {
       legalBankUnavailable = true;
       console.error(JSON.stringify({ where: 'ai', stage: 'legal_bank_query', error: err?.name || 'Error' }));
     }
-    const curatedArticles = VEHICLE_DEFECT_TOPIC.test(legalSearchText) ? VEHICLE_DEFECT_ARTICLES : [];
-    const promptArticles = [...legalArticles, ...curatedArticles];
+    const executionTransferArticles = EXECUTION_TRANSFER_TOPIC.test(legalSearchText)
+      ? [...EXECUTION_TRANSFER_ARTICLES, ...CIVIL_PROCEDURE_ARTICLES]
+      : [];
+    const curatedArticles = [
+      ...(VEHICLE_DEFECT_TOPIC.test(legalSearchText) ? VEHICLE_DEFECT_ARTICLES : []),
+      ...executionTransferArticles,
+    ];
+    // مواد صریح و مرتبطِ ازپیش‌تطبیق‌شده باید در ابتدای زمینه باشند تا در سقف ورودی بازبین حذف نشوند.
+    const promptArticles = [...curatedArticles, ...legalArticles];
     const legalContext = promptArticles.length ? promptArticles.map((a) => `قانون: ${a.lawTitle}\nماده ${a.articleNumber}${a.heading ? ` ـ ${a.heading}` : ''}\n${a.body}\nمنبع ثبت‌شده: ${a.sourceName || 'ثبت نشده'}${a.sourceUrl ? ` (${a.sourceUrl})` : ''}`).join('\n\n---\n\n') : '';
     // جست‌وجوی وب فقط برای مشاورهٔ متنی، بدون پیوست و با پرس‌وجوی حقوقیِ whitelist انجام می‌شود.
     // نام اشخاص، شرح وقایع، شماره پرونده و متن پیوست به موتور جست‌وجو ارسال نمی‌شود.
@@ -509,7 +570,7 @@ async function assistant(request, env) {
       notes.push('چون پاسخ اصلی همین نوبت با Groq تولید شده، بازبینی مستقل جداگانه اجرا نشد تا یک سرویس هم‌زمان نقش تولیدکننده و بازبین را نداشته باشد.');
     } else {
       stage = 'groq_review';
-      let reviewArticles = [...promptArticles];
+      let reviewArticles = [...curatedArticles, ...legalArticles];
       let reviewBankUnavailable = false;
       try {
         // جست‌وجوی دوم با متن پاسخ Gemini هم انجام می‌شود تا استنادهای تازه‌مطرح‌شده نیز تطبیق داده شوند.
