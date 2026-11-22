@@ -372,11 +372,7 @@ export async function findVerifiedJudicialAuthorities(db, query) {
   const typePlaceholders = JUDICIAL_AUTHORITY_TYPES.map((_, i) => `?${bindings.length + i + 1}`).join(',');
   bindings.push(...JUDICIAL_AUTHORITY_TYPES);
 
-  const result = await db.prepare(`SELECT l.title AS lawTitle,l.law_type AS lawType,
-      l.document_number AS documentNumber,l.document_date AS documentDate,
-      l.issuing_authority AS issuingAuthority,l.subject,
-      l.official_source_url AS officialSourceUrl,l.source_name AS sourceName,
-      l.source_url AS sourceUrl,a.article_number AS articleNumber,a.heading,a.body
+  const result = await db.prepare(`SELECT l.id AS lawId,l.title AS lawTitle,l.law_type AS lawType,l.status AS lawStatus,l.document_number AS documentNumber,l.document_date AS documentDate,l.approved_date AS approvedDate,l.publication_date AS publicationDate,l.effective_date AS effectiveDate,l.issuing_authority AS issuingAuthority,l.subject,l.official_source_url AS officialSourceUrl,l.source_checked_at AS sourceCheckedAt,l.source_name AS sourceName,l.source_url AS sourceUrl,a.id AS articleId,a.article_number AS articleNumber,a.status AS articleStatus,a.status_note AS articleStatusNote,a.status_source_name AS articleStatusSourceName,a.status_source_url AS articleStatusSourceUrl,a.status_effective_date AS articleStatusEffectiveDate,a.heading,a.body
     FROM legal_articles a JOIN legal_laws l ON l.id=a.law_id
     WHERE l.status='verified' AND a.status='verified'
       AND l.law_type IN (${typePlaceholders})
