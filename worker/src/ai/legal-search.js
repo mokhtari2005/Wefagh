@@ -60,13 +60,13 @@ function htmlToPlainText(html) {
  * فقط صفحات دامنه‌های رسمیِ ازپیش‌مجاز خوانده می‌شوند؛ تغییرمسیر دنبال نمی‌شود.
  * بازیابی متن صفحه، به‌تنهایی اثبات‌کننده جاری‌بودن قانون یا اعتبار حقوقی سند نیست.
  */
-async function retrieveOfficialPageText(sources) {
+export async function retrieveOfficialPageText(sources) {
   const output = [];
   let totalChars = 0;
   for (const source of (Array.isArray(sources) ? sources : []).slice(0, 8)) {
     let parsed;
     try { parsed = new URL(source.uri); } catch { output.push({ ...source, pageTextStatus: 'invalid_url' }); continue; }
-    if (parsed.protocol !== 'https:' || !OFFICIAL_LEGAL_HOSTS.has(parsed.hostname.toLowerCase())) {
+    if (parsed.protocol !== 'https:' || (parsed.port && parsed.port !== '443') || parsed.username || parsed.password || !OFFICIAL_LEGAL_HOSTS.has(parsed.hostname.toLowerCase())) {
       output.push({ ...source, pageTextStatus: 'not_primary_source_domain' });
       continue;
     }
@@ -95,8 +95,32 @@ async function retrieveOfficialPageText(sources) {
         output.push({ ...source, pageTextStatus: contentType.includes('pdf') ? 'pdf_text_extraction_unavailable' : 'unsupported_content_type' });
         continue;
       }
-      const raw = await response.text();
-      const plain = htmlToPlainText(raw.slice(0, 1_500_000));
+      let raw = '';
+      if (response.body?.getReader) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let received = 0;
+        try {
+          while (received < 1_500_000) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const chunk = value instanceof Uint8Array ? value : new Uint8Array(value);
+            const allowed = chunk.subarray(0, Math.max(0, 1_500_000 - received));
+            raw += decoder.decode(allowed, { stream: true });
+            received += allowed.length;
+            if (allowed.length < chunk.length) {
+              await reader.cancel();
+              break;
+            }
+          }
+          raw += decoder.decode();
+        } finally {
+          try { reader.releaseLock(); } catch {}
+        }
+      } else {
+        raw = (await response.text()).slice(0, 1_500_000);
+      }
+      const plain = htmlToPlainText(raw);
       if (plain.length < 250) {
         output.push({ ...source, pageTextStatus: 'page_text_too_short' });
         continue;
