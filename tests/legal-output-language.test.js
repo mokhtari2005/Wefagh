@@ -11,3 +11,11 @@ test('قاعده زبان فارسی و منع کد و حروف لاتین در 
     assert.match(prompt, /شماره‌ها را با ارقام فارسی/u);
   }
 });
+
+test('یادداشت‌های عمومی حذف و استناد احرازنشده به‌صورت مشخص در متن تحلیل مدیریت می‌شود', () => {
+  const prompt = assistantSystemPrompt({ mode: 'consult', docType: 'petition' });
+  assert.match(prompt, /یادداشت‌های پاسخ فقط باید حاوی نکته عملیاتی یا حقوقی مشخص و ضروری باشند/u);
+  assert.match(prompt, /هشدار جداگانه و کلی نده/u);
+  assert.match(prompt, /نام قانون یا مرجع مورد بحث را حفظ کن/u);
+  assert.match(prompt, /پیش از اعلام فقدان منبع از آن استفاده کن/u);
+});
