@@ -356,7 +356,7 @@ const VEHICLE_DEFECT_ARTICLES = Object.freeze([
   ['۴۴۰', 'خیار تدلیس پس از علم به آن فوری است.'],
 ].map(([articleNumber, body]) => ({
   lawTitle: 'قانون مدنی', articleNumber, heading: 'خیار عیب و تدلیس', body,
-  sourceName: 'قانون مدنی؛ متن رسمی قوانین و مقررات', sourceUrl: 'https://qavanin.ir/Law/PrintText/?IDS=12021850837713548188&font=',
+  sourceName: 'قانون مدنی؛ متن رسمی قوانین و مقررات', sourceStatus: 'curated_reference', sourceUrl: 'https://qavanin.ir/Law/PrintText/?IDS=12021850837713548188&font=',
 })));
 
 const normalizeLegalDigits = (value) => String(value).replace(/[۰-۹]/g, (digit) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)));
