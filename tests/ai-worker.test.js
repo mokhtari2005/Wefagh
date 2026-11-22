@@ -484,7 +484,7 @@ test('Groq پیش‌نویس را مستقل بررسی می‌کند و خرو�
     assert.equal(groqRequest.headers.authorization, `Bearer ${groqKey}`);
     assert.equal(groqRequest.body.model, GROQ_REVIEW_MODEL);
     assert.equal(groqRequest.body.response_format.type, 'json_object');
-    assert.ok(groqRequest.body.messages[1].content.includes('پیش‌نویس لایحه با استناد به مستند قانونی مشخص‌نشده'));
+    assert.ok(groqRequest.body.messages[1].content.includes('پیش‌نویس لایحه با استناد به ماده [شماره نیازمند تطبیق با متن رسمی]'));
     assert.equal(data.outputs, undefined, 'reviewer output must not be returned as a second assistant answer');
     assert.ok(data.notes.includes('بازبینی ماشینی مستقل انجام شد.'), JSON.stringify(data.notes));
     assert.ok(!data.notes.some((note) => note.includes('مرجع صالح در متن روشن نیست')));
