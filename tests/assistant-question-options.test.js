@@ -9,6 +9,7 @@ test('ساختار پاسخ مشاوره از پرسش‌های چندگزینه
   assert.ok(options.items.properties.options);
   assert.ok(options.items.properties.allowOther);
   assert.ok(ASSISTANT_SCHEMA.properties.suggestedDocType);
+  assert.ok(ASSISTANT_SCHEMA.properties.knownFields);
 });
 
 test('دستور مشاوره گزینه‌های واقعی و امکان توضیح آزاد را پیش‌بینی می‌کند', () => {
