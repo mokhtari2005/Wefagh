@@ -298,7 +298,7 @@ export async function findVerifiedLegalArticles(db, query) {
       const n = bindings.length;
       clauses.push(`(l.title LIKE ?${n-2} AND a.article_number IN (?${n-1}, ?${n}))`);
     }
-    const result = await db.prepare(`SELECT l.title AS lawTitle,l.law_type AS lawType,l.document_number AS documentNumber,l.document_date AS documentDate,l.issuing_authority AS issuingAuthority,l.subject,l.official_source_url AS officialSourceUrl,l.source_name AS sourceName,l.source_url AS sourceUrl,a.article_number AS articleNumber,a.heading,a.body
+    const result = await db.prepare(`SELECT l.id AS lawId,l.title AS lawTitle,l.law_type AS lawType,l.status AS lawStatus,l.approved_date AS approvedDate,l.publication_date AS publicationDate,l.effective_date AS effectiveDate,l.document_number AS documentNumber,l.document_date AS documentDate,l.issuing_authority AS issuingAuthority,l.subject,l.official_source_url AS officialSourceUrl,l.source_checked_at AS sourceCheckedAt,l.source_name AS sourceName,l.source_url AS sourceUrl,a.id AS articleId,a.article_number AS articleNumber,a.status AS articleStatus,a.status_note AS articleStatusNote,a.status_source_name AS articleStatusSourceName,a.status_source_url AS articleStatusSourceUrl,a.status_effective_date AS articleStatusEffectiveDate,a.heading,a.body
       FROM legal_articles a JOIN legal_laws l ON l.id=a.law_id
       WHERE l.status='verified' AND a.status='verified' AND (${clauses.join(' OR ')})
       ORDER BY l.title,a.id LIMIT 12`).bind(...bindings).all();
@@ -312,7 +312,7 @@ export async function findVerifiedLegalArticles(db, query) {
     const bindings = terms.map((term)=>'%' + term + '%');
     const score = terms.map((_,i)=>`(CASE WHEN a.body LIKE ?${terms.length+i+1} OR l.title LIKE ?${terms.length*2+i+1} THEN 1 ELSE 0 END)`).join(' + ');
     const scoreBindings = [...terms,...terms].map((term)=>'%' + term + '%');
-    const result = await db.prepare(`SELECT l.title AS lawTitle,l.law_type AS lawType,l.document_number AS documentNumber,l.document_date AS documentDate,l.issuing_authority AS issuingAuthority,l.subject,l.official_source_url AS officialSourceUrl,l.source_name AS sourceName,l.source_url AS sourceUrl,a.article_number AS articleNumber,a.heading,a.body
+    const result = await db.prepare(`SELECT l.id AS lawId,l.title AS lawTitle,l.law_type AS lawType,l.status AS lawStatus,l.approved_date AS approvedDate,l.publication_date AS publicationDate,l.effective_date AS effectiveDate,l.document_number AS documentNumber,l.document_date AS documentDate,l.issuing_authority AS issuingAuthority,l.subject,l.official_source_url AS officialSourceUrl,l.source_checked_at AS sourceCheckedAt,l.source_name AS sourceName,l.source_url AS sourceUrl,a.id AS articleId,a.article_number AS articleNumber,a.status AS articleStatus,a.status_note AS articleStatusNote,a.status_source_name AS articleStatusSourceName,a.status_source_url AS articleStatusSourceUrl,a.status_effective_date AS articleStatusEffectiveDate,a.heading,a.body
       FROM legal_articles a JOIN legal_laws l ON l.id=a.law_id
       WHERE l.status='verified' AND a.status='verified' AND (${where})
       ORDER BY (${score}) DESC,l.title,a.id LIMIT 12`).bind(...bindings,...scoreBindings).all();
