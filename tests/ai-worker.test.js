@@ -540,7 +540,7 @@ test('مشاوره درباره تصادف پنهان خودرو، مواد مد
     assert.match(system, /ماده ۴۳۵/);
     assert.match(data.text, /شماره نیازمند تطبیق با متن رسمی/);
     assert.match(data.text, /مدت نیازمند تطبیق با منبع رسمی/);
-    assert.match(data.text, /ماده \\[شماره نیازمند تطبیق با متن رسمی\\] حق فسخ یا ارش/);
+    assert.match(data.text, /ماده \[شماره نیازمند تطبیق با متن رسمی\] حق فسخ یا ارش/);
     assert.ok(data.notes.some((note) => note.includes('فاقد پشتوانه')));
   });
 });
