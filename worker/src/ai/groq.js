@@ -167,7 +167,9 @@ export async function reviewLegalDraft(env, { mode, docType, question, draft, le
       `عنوان: ${title || 'بدون عنوان'}`,
       `دامنه: ${domain || 'نامشخص'}`,
       `نشانی: ${uri || 'ثبت نشده'}`,
-      `عبارت پاسخِ مرتبط با این منبع: ${supportedClaim || 'عبارت پاسخِ پیوندخورده در دسترس نیست'}`,
+      `وضعیت بازیابی متن صفحه: ${pageTextStatus || 'نامشخص'}`,
+      `متن مستقیم صفحه رسمی، در صورت بازیابی: ${pageText || 'در دسترس نیست'}`,
+      `عبارت مرتبط با پاسخ در نتایج جست‌وجو: ${supportedClaim || 'در دسترس نیست'}`,
     ].join('\n');
     if (webChars + entry.length > 6_000) break;
     webItems.push(entry);
