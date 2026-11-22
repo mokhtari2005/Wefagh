@@ -442,12 +442,16 @@ test('بازبین میز محاکمه نقش‌های طرف مقابل، وک�
     assert.match(sent.messages[0].content, /راستی‌آزمایی استنادات/);
     assert.match(sent.messages[0].content, /کنترل خواسته‌ها/);
     assert.match(sent.messages[0].content, /نقل‌قول ترکیبی/);
+    assert.match(sent.messages[1].content, /منابع وب و گزیده‌های بازیابی‌شده/);
+    assert.match(sent.messages[1].content, /qavanin\.ir/);
+    assert.match(sent.messages[1].content, /ماده ۵۶ قانون اجرای احکام مدنی/);
     return jsonRes(200, { choices: [{ message: { content: JSON.stringify(reviewJson) } }] });
   }, async () => {
     const result = await reviewLegalDraft({ GROQ_API_KEY: groqKey }, {
       mode: 'litigation', docType: 'retrial',
       question: 'اعتراض به رأی قطعی را بررسی کن.',
       draft: 'متن پیش‌نویس برای بررسی مستقل.',
+      webSources: [{ title: 'متن رسمی قانون', uri: 'https://qavanin.ir/law/1', domain: 'qavanin.ir', citedText: 'ماده ۵۶ قانون اجرای احکام مدنی نقل‌وانتقال مال توقیف‌شده را باطل و بلااثر می‌داند.' }],
     });
     assert.equal(result.status, 'reviewed');
     assert.deepEqual(result.review.issues.map((item) => item.category), ['وکیل طرف مقابل', 'وکیل موکل', 'قاضی بی‌طرف']);
@@ -608,7 +612,7 @@ test('میز محاکمه مناظره هفت‌مرحله‌ای را اجرا 
     const data = await res.json();
     assert.equal(res.status, 200);
     assert.equal(data.ok, true);
-    assert.equal(calls.length, 7);
+    assert.equal(calls.length, 4);
     assert.deepEqual(roleCalls.sort(), ['client', 'client', 'judge', 'judge', 'judge', 'opposing', 'opposing']);
     for (const heading of ['دور نخست ـ استدلال وکیل طرف مقابل', 'دور نخست ـ استدلال وکیل موکل', 'ارزیابی قاضی پس از دور نخست', 'دور دوم ـ پاسخ وکیل طرف مقابل', 'دور دوم ـ پاسخ وکیل موکل', 'ارزیابی نهایی قاضی و گزارش مستند', 'کارنامه تحلیلی مناظره']) {
       assert.ok(data.text.includes(heading), heading);
