@@ -515,7 +515,7 @@ async function assistant(request, env) {
     ];
     // مواد صریح و مرتبطِ ازپیش‌تطبیق‌شده باید در ابتدای زمینه باشند تا در سقف ورودی بازبین حذف نشوند.
     const promptArticles = [...curatedArticles, ...legalArticles];
-    const articleContext = promptArticles.map((a) => `قانون: ${a.lawTitle}\\nماده ${a.articleNumber}${a.heading ? ` ـ ${a.heading}` : ''}\\n${a.body}\\nمنبع ثبت‌شده: ${a.sourceName || 'ثبت نشده'}${a.sourceUrl ? ` (${a.sourceUrl})` : ''}`);
+    const articleContext = promptArticles.map((a) => `قانون: ${a.lawTitle}\nماده ${a.articleNumber}${a.heading ? ` ـ ${a.heading}` : ''}\n${a.body}\nمنبع ثبت‌شده: ${a.sourceName || 'ثبت نشده'}${a.sourceUrl ? ` (${a.sourceUrl})` : ''}`);
     const authorityContext = judicialAuthorities.map((a) => [
       `نوع سند قضایی: ${a.lawType}`,
       `عنوان: ${a.lawTitle}`,
@@ -526,8 +526,8 @@ async function assistant(request, env) {
       `متن کامل ثبت‌شده: ${a.body}`,
       `منبع ثبت‌شده: ${a.officialSourceUrl || a.sourceUrl || a.sourceName || 'ثبت نشده'}`,
       'وضعیت: رکورد سند و متن آن در بانک داخلی تأیید شده است؛ این وضعیت به‌تنهایی جایگزین بررسی اصلاحات بعدی یا ارتباط موضوعی نیست.',
-    ].filter(Boolean).join('\\n'));
-    const legalContext = [...articleContext, ...authorityContext].join('\\n\\n---\\n\\n');
+    ].filter(Boolean).join('\n'));
+    const legalContext = [...articleContext, ...authorityContext].join('\n\n---\n\n');
     // جست‌وجوی وب فقط برای مشاورهٔ متنی، بدون پیوست و با پرس‌وجوی حقوقیِ whitelist انجام می‌شود.
     // نام اشخاص، شرح وقایع، شماره پرونده و متن پیوست به موتور جست‌وجو ارسال نمی‌شود.
     let webResearch = null;
