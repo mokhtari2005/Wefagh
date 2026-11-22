@@ -14,7 +14,7 @@ test('پیام‌های قدیمی بدون پیشنهاد جست‌وجو بد�
   assert.deepEqual(unpackStoredAiMessage('پاسخ قدیمی'), { text: 'پاسخ قدیمی', searchSuggestionHtml: '', searchSources: [] });
 });
 
-test('پیوندهای منبع همراه با گزیده متن در تاریخچه حفظ می‌شوند', () => {
+test('پیوندهای منبع همراه با عبارت مرتبط در پاسخ در تاریخچه حفظ می‌شوند', () => {
   const sources = [{ title: 'قانون', uri: 'https://qavanin.ir/law/1', domain: 'qavanin.ir', supportedClaim: 'ماده ۵۶' }];
   const packed = packStoredAiMessage('پاسخ', '', sources);
   assert.deepEqual(unpackStoredAiMessage(packed), { text: 'پاسخ', searchSuggestionHtml: '', searchSources: sources });
