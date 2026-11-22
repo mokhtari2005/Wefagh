@@ -56,3 +56,12 @@ test('fileExt و formatSize', () => {
   assert.equal(formatSize(2048), `${(2).toLocaleString('fa-IR')} کیلوبایت`);
   assert.match(formatSize(3 * 1024 * 1024), /مگابایت/);
 });
+
+
+import { reviewUnavailableMessage } from '../site/js/assistant.js';
+
+test('گزارش بازبینی مستقل برای هر پاسخ دارای وضعیت، از دکمه جداگانه قابل دسترسی است', () => {
+  assert.match(reviewUnavailableMessage('skipped_attachments'), /محرمانگی/);
+  assert.match(reviewUnavailableMessage('timeout'), /پاسخ نداد/);
+  assert.match(reviewUnavailableMessage('reviewed', ['بازبینی مستقل انجام شد.']), /بازبینی مستقل انجام شد/);
+});

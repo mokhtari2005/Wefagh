@@ -595,10 +595,13 @@ async function assistant(request, env) {
     for (const warning of citationWarnings(guardedText.text)) if (!notes.includes(warning)) notes.push(warning);
     // گزارش مستقل جدا از متن پاسخ برگردانده می‌شود تا کاربر فقط در صورت نیاز آن را باز کند.
     let reviewReport = null;
+    let reviewStatus = 'not_run';
     // برای حفظ محرمانگی، در صورت وجود پیوست، پیش‌نویس حاوی محتوای استخراج‌شده به ارائه‌دهندهٔ سوم ارسال نمی‌شود.
     if (attachments.length) {
-      notes.push('هشدار: بازبینی مستقل انجام نشد.');
+      reviewStatus = 'skipped_attachments';
+      notes.push('هشدار: بازبینی مستقل به‌دلیل وجود پیوست اجرا نشد.');
     } else if (provider === 'groq') {
+      reviewStatus = 'skipped_fallback';
       notes.push('بازبینی مستقل به‌دلیل استفاده از مسیر جایگزین انجام نشد.');
     } else {
       stage = 'groq_review';
@@ -625,6 +628,7 @@ async function assistant(request, env) {
         mode, docType, question: message, draft: text, legalArticles: reviewArticles,
         webSources: webResearch?.sources || [],
       });
+      reviewStatus = review.status || 'provider_error';
       if (reviewBankUnavailable) notes.push('جست‌وجوی تکمیلی بانک قوانین برای بازبین مستقل انجام نشد؛ نتیجه بر اساس مواد بازیابی‌شده در مرحله نخست و سایر اطلاعات موجود است.');
       if (review.status === 'reviewed') {
         reviewReport = review.review;
@@ -658,6 +662,7 @@ async function assistant(request, env) {
       text,
       notes,
       ...(reviewReport ? { reviewReport } : {}),
+      reviewStatus,
       attachments: summarizeAttachments(attachments),
       disclaimer: LEGAL_DISCLAIMER,
     });
