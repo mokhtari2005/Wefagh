@@ -417,7 +417,7 @@ test('Groq بازبین مستقل فقط با Secret فعال می‌شود و 
   assert.equal(groqConfigured({ GROQ_API_KEY: 'groq-test-key-0123456789' }), true);
   assert.match(GROQ_API, /api\.groq\.com/);
   assert.equal(GROQ_REVIEW_MODEL, 'openai/gpt-oss-120b');
-  assert.match(groqReviewNotes({ status: 'quota_exceeded' })[0], /سهمیه رایگان/);
+  assert.match(groqReviewNotes({ status: 'quota_exceeded' })[0], /بازبینی مستقل/);
   assert.match(groqReviewNotes({ status: 'not_configured' })[0], /بازبینی مستقل/);
   const publicNotes = groqReviewNotes({ status: 'reviewed', model: 'openai/gpt-oss-120b', bankArticlesCount: 2, webSourcesCount: 1, review: { risk: 'low', summary: 'مستندات با متن تطبیق داده شدند.', issues: [], citations: [] } });
   assert.ok(publicNotes.some((note) => note.includes('منبع وب')));
@@ -495,7 +495,7 @@ test('Groq پیش‌نویس را مستقل بررسی می‌کند و خرو�
 test('بدون Secret کلید Groq، بازبینی مستقل فعال نمی‌شود', async () => {
   const result = await reviewLegalDraft({}, { mode: 'draft', docType: 'petition', question: 'سؤال', draft: 'پیش‌نویس' });
   assert.equal(result.status, 'not_configured');
-  assert.match(groqReviewNotes({ status: 'not_configured' })[0], /فعال نشده است/);
+  assert.match(groqReviewNotes({ status: 'not_configured' })[0], /بازبینی مستقل/);
 });
 
 test('تشخیص Groq: وضعیت کلید بدون افشا و بررسی رایگان فهرست مدل‌ها', async () => {
@@ -503,7 +503,7 @@ test('تشخیص Groq: وضعیت کلید بدون افشا و بررسی را�
   assert.equal(groqKeyState({}), 'missing');
   assert.equal(groqKeyState({ GROQ_API_KEY: 'gsk_short' }), 'too_short');
   assert.match(groqProbeHint(await probeGroq({})), /در زمان اجرا/);
-  assert.match(groqReviewNotes({ status: 'not_configured', keyState: 'missing' })[0], /در زمان اجرا/);
+  assert.match(groqReviewNotes({ status: 'not_configured', keyState: 'missing' })[0], /بازبینی مستقل/);
   const key = 'gsk_test_key_0123456789abcdef';
   await withFetch(async (url, init) => {
     assert.equal(url, 'https://api.groq.com/openai/v1/models');
