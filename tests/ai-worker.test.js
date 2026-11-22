@@ -426,8 +426,10 @@ test('Groq بازبین مستقل فقط با Secret فعال می‌شود و 
   assert.match(groqReviewNotes({ status: 'quota_exceeded' })[0], /بازبینی مستقل/);
   assert.match(groqReviewNotes({ status: 'not_configured' })[0], /بازبینی مستقل/);
   const publicNotes = groqReviewNotes({ status: 'reviewed', model: 'openai/gpt-oss-120b', bankArticlesCount: 2, webSourcesCount: 1, review: { risk: 'low', summary: 'مستندات با متن تطبیق داده شدند.', issues: [], citations: [] } });
-  assert.ok(publicNotes.some((note) => note.includes('منبع وب')));
+  assert.ok(publicNotes.some((note) => note.includes('منبع اینترنتی')));
   assert.ok(!publicNotes.join(' ').includes('Groq'));
+  assert.ok(!publicNotes.join(' ').includes('gpt-oss'));
+  assert.ok(!publicNotes.join(' ').includes('openai'));
   assert.ok(!publicNotes.join(' ').includes('gpt-oss'));
 });
 
@@ -574,8 +576,11 @@ test('گزارش تحقیق حقوقی میان پیچیدگی پاسخ و وض�
   const consult = assistantSystemPrompt({ mode: 'consult' });
   const research = assistantSystemPrompt({ mode: 'research' });
   for (const prompt of [consult, research]) {
-    assert.match(prompt, /الگوی پاسخ حقوقی در همه پرسش‌ها باید مستند و مستدل باشد/);
-    assert.match(prompt, /حتی در پرسش ظاهراً ساده/);
+    assert.match(prompt, /پاسخ حقوقی باید مانند گزارش تحقیقی و تحلیلی یک وکیل باتجربه نوشته شود/);
+    assert.match(prompt, /نثر حقوقی پیوسته و منسجم/);
+    assert.match(prompt, /از شماره‌گذاری پیاپی، فهرست‌سازی، جدول/);
+    assert.match(prompt, /تمام متن قابل مشاهده برای کاربر باید فارسی روان باشد/);
+    assert.match(prompt, /حتی پرسش ظاهراً ساده/);
     assert.match(prompt, /پاسخ مستدل و مستند به پرسش/);
     assert.match(prompt, /از پاسخ کوتاه، خلاصه‌سازی افراطی و حذف استدلال لازم/);
     assert.match(prompt, /میزان قطعیت و مبنای آن/);
