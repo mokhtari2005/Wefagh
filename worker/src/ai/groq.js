@@ -130,7 +130,7 @@ export async function reviewLegalDraft(env, { mode, docType, question, draft, le
   const draftText = clean(draft, 7_000);
   if (!draftText) return { status: 'invalid_input' };
 
-  // فقط مواد تأییدشده‌ای که از findVerifiedLegalArticles آمده‌اند؛ حجم ارسالی محدود می‌ماند.
+  // فقط اسناد تأییدشده بانک حقوقی، شامل مواد قانونی و مراجع قضایی؛ حجم ارسالی محدود می‌ماند.
   let bankChars = 0;
   const bankItems = [];
   for (const article of (Array.isArray(legalArticles) ? legalArticles : []).slice(0, 12)) {

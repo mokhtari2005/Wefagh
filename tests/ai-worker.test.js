@@ -2,12 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../worker/src/index.js';
 import { AiError, extractText, extractGrounding, generateText, synthesizeSpeech, aiConfigured, modelIds } from '../worker/src/ai/gemini.js';
-import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims, curatedLegalArticlesForQuery, extractOfficialPageArticleReferences } from '../worker/src/ai/routes.js';
+import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims, curatedLegalArticlesForQuery, extractOfficialPageArticleReferences, formatLegalRecord } from '../worker/src/ai/routes.js';
 import { mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt } from '../worker/src/ai/prompts.js';
 import { groqConfigured, reviewLegalDraft, groqReviewNotes, GROQ_API, GROQ_REVIEW_MODEL } from '../worker/src/ai/groq.js';
 import batch01 from '../worker/src/moot/bank/batch-01.js';
 import { extractExplicitLegalReferences, findVerifiedLegalArticles, findVerifiedJudicialAuthorities } from '../worker/src/legal-bank.js';
-import { buildSafeLegalSearchQuery, retrieveOfficialPageText, searchLegalAuthorities } from '../worker/src/ai/legal-search.js';
+import { buildSafeLegalSearchQuery, searchLegalAuthorities, retrieveOfficialPageText } from '../worker/src/ai/legal-search.js';
 
 // پروندهٔ نمونه از بانک (پیش‌نویس)؛ فقط برای آزمون ساخت دستور سیستمی از داده‌های پرونده.
 const SAMPLE_CASE = batch01[0];
@@ -104,6 +104,30 @@ test('extractOfficialPageArticleReferences accepts article numbers only from ret
   assert.deepEqual(refs.map((item) => item.articleNumber), ['56', '57']);
   assert.equal(refs[0].lawTitle, 'قانون اجرای احکام مدنی');
   assert.equal(refs[0].sourceStatus, 'official_page_text_retrieved');
+});
+
+test('قالب منبع، مرجع منتخب را به‌اشتباه تأییدشده معرفی نمی‌کند و نوع رأی و نظریه را تفکیک می‌کند', () => {
+  const curated = formatLegalRecord({
+    lawTitle: 'قانون اجرای احکام مدنی',
+    lawType: 'law',
+    articleNumber: '۵۶',
+    body: 'متن منتخب برای مقابله',
+    sourceStatus: 'curated_reference',
+    sourceName: 'مرجع رسمی',
+    officialSourceUrl: 'https://qavanin.ir/law/1',
+  });
+  assert.match(curated, /مرجع داخلی منتخب با پیوند رسمی/);
+  assert.doesNotMatch(curated, /متن از رکوردهای تأییدشده بانک حقوقی بازیابی شد/);
+  const advisory = formatLegalRecord({
+    lawTitle: 'نظریه مشورتی اداره کل حقوقی قوه قضاییه',
+    lawType: 'judicial_advisory_opinion',
+    documentNumber: '۷\/۹۸\/۴۲۵',
+    documentDate: '۱۳۹۸/۰۶/۲۴',
+    issuingAuthority: 'اداره کل حقوقی قوه قضاییه',
+    body: 'متن کامل نظریه',
+  });
+  assert.match(advisory, /شماره سند: ۷\/۹۸\/۴۲۵/);
+  assert.match(advisory, /نظریه مشورتی ارشادی است/);
 });
 
 test('findVerifiedJudicialAuthorities retrieves only verified precedents and advisory opinions with their metadata', async () => {
@@ -540,7 +564,7 @@ test('Groq بازبین مستقل فقط با Secret فعال می‌شود و 
   assert.match(groqReviewNotes({ status: 'quota_exceeded' })[0], /بازبینی مستقل/);
   assert.match(groqReviewNotes({ status: 'not_configured' })[0], /بازبینی مستقل/);
   const publicNotes = groqReviewNotes({ status: 'reviewed', model: 'openai/gpt-oss-120b', bankArticlesCount: 2, webSourcesCount: 1, review: { risk: 'low', summary: 'مستندات با متن تطبیق داده شدند؛ openai/gpt-oss-120b و Groq.', issues: [], citations: [] } });
-  assert.ok(publicNotes.some((note) => note.includes('منبع اینترنتی')));
+  assert.ok(!publicNotes.some((note) => note.includes('تعداد منابع اینترنتی')));
   assert.ok(!publicNotes.join(' ').includes('Groq'));
   assert.ok(!publicNotes.join(' ').includes('gpt-oss'));
   assert.ok(!publicNotes.join(' ').includes('openai'));
@@ -758,12 +782,12 @@ test('میز محاکمه سه نقش مستقل را اجرا و گزارش ن�
       answer = 'ارزیابی قاضی: نتیجه مشروط و خلأهای اثباتی.';
     } else {
       assert.match(system, /میز محاکمه هوشمند/);
-      assert.match(system, /جدول راستی‌آزمایی استنادات/);
+      assert.match(system, /شماره ماده و تبصره را در همان جمله یا بند/);
       return jsonRes(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(finalJson) }] }, finishReason: 'STOP' }] });
     }
     return jsonRes(200, { candidates: [{ content: { parts: [{ text: answer }] }, finishReason: 'STOP' }] });
   }, async (calls) => {
-    const env = { DB: fakeDb({ loggedIn: true }), GEMINI_API_KEY: KEY };
+    const env = { DB: fakeDb({ loggedIn: true }), GEMINI_API_KEY: KEY, GEMINI_SEARCH_GROUNDING_ENABLED: 'false' };
     const res = await worker.fetch(req('/api/ai/assistant', {
       body: {
         mode: 'litigation',
