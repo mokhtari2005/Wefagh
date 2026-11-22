@@ -275,7 +275,7 @@ export function groqReviewNotes(result) {
   if (review.summary) notes.push(`جمع‌بندی: ${reviewerText(review.summary, 700)}`);
   for (const item of review.issues) {
     const level = item.severity === 'high' ? 'مهم' : item.severity === 'medium' ? 'متوسط' : 'جزئی';
-    notes.push(`[${level}] ${item.category ? item.category + ' — ' : ''}${item.observation}${item.recommendation ? ' | پیشنهاد: ' + item.recommendation : ''}`);
+    notes.push(`[${level}] ${item.category ? reviewerCategory(item.category) + ' — ' : ''}${reviewerText(item.observation, 400)}${item.recommendation ? ' | پیشنهاد: ' + reviewerText(item.recommendation, 350) : ''}`);
   }
   for (const item of review.citations) {
     notes.push(`استناد نیازمند بررسی: ${reviewerText(item.citation, 180)}${item.concern ? ' — ' + reviewerText(item.concern, 300) : ''}`);
