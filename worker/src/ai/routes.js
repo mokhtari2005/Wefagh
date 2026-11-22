@@ -454,22 +454,28 @@ async function runLitigationPipeline(env, { contents, docType, legalContext, web
       'اکنون فقط ارزیابی بی‌طرفانه خود را ارائه کن؛ تعارض‌ها، استدلال‌های قوی‌تر، بار اثبات، ادله و مسائل حل‌نشده را مشخص کن.',
     ].join('\n\n') }] },
   ];
-  const judgeRun = await generateTextWithFallback(env, {
-    system: litigationRoleSystemPrompt({ ...roleOptions, role: 'judge' }),
-    contents: judgeContents,
-    maxOutputTokens: 1900,
-    timeoutMs: 45_000,
-  }, { allowGroq });
+  let judgeRun = null;
+  let judgeFailed = false;
+  try {
+    judgeRun = await generateTextWithFallback(env, {
+      system: litigationRoleSystemPrompt({ ...roleOptions, role: 'judge' }),
+      contents: judgeContents,
+      maxOutputTokens: 1900,
+      timeoutMs: 45_000,
+    }, { allowGroq });
+  } catch {
+    judgeFailed = true;
+  }
   const synthesisContents = [
     ...sharedContents,
     { role: 'user', parts: [{ text: [
-      'گزارش‌های زیر حاصل سه بررسی مستقل‌اند و صرفاً مواد تحلیلی برای تلفیق هستند؛ آن‌ها را منبع حقوقی یا واقعیت اثبات‌شده تلقی نکن.',
+      'گزارش‌ها و مراحل زیر مواد تحلیلی برای تلفیق‌اند؛ آن‌ها را منبع حقوقی یا واقعیت اثبات‌شده تلقی نکن. اگر مرحله‌ای تولید نشده، جای خالی آن را با حدس پر نکن.',
       '۱) بازسازی موضع طرف مقابل:',
       opposing?.text || 'این مرحله تولید نشد.',
       '۲) دفاع از موضع موکل و شناسایی نقاط ضعف آن:',
       client?.text || 'این مرحله تولید نشد.',
       '۳) ارزیابی بی‌طرفانه:',
-      judgeRun.text || 'این مرحله تولید نشد.',
+      judgeRun?.text || 'ارزیابی مستقل قاضی به علت خطای فنی تولید نشد.',
       'بر پایه پرونده و منابعی که در همین درخواست واقعاً ارائه شده، گزارش نهایی را تهیه کن. خطاها یا استنادهای ناموجه تحلیل‌های قبلی را تکرار نکن؛ اختلاف آن‌ها را حل کن و موارد حل‌نشده را صریحاً مشخص کن.',
     ].join('\n\n') }] },
   ];
@@ -489,6 +495,7 @@ async function runLitigationPipeline(env, { contents, docType, legalContext, web
   const anyGroq = [opposing, client, judgeRun, finalRun].some((item) => item?.provider === 'groq');
   const notes = [];
   if (!opposing || !client) notes.push('یکی از دو بررسی مستقلِ موضع طرفین به علت خطای فنی انجام نشد؛ گزارش نهایی بر پایه مراحل در دسترس تهیه شده است.');
+  if (judgeFailed) notes.push('ارزیابی مستقل بی‌طرفانه به علت خطای فنی انجام نشد؛ این محدودیت در گزارش نهایی لحاظ شده است.');
   return {
     data: finalRun.data,
     provider: anyGroq ? 'groq' : 'gemini',
