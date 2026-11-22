@@ -7,8 +7,7 @@ import { mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt } from '.
 import { groqConfigured, reviewLegalDraft, groqReviewNotes, GROQ_API, GROQ_REVIEW_MODEL } from '../worker/src/ai/groq.js';
 import batch01 from '../worker/src/moot/bank/batch-01.js';
 import { extractExplicitLegalReferences, findVerifiedLegalArticles, findVerifiedJudicialAuthorities } from '../worker/src/legal-bank.js';
-import { buildSafeLegalSearchQuery, searchLegalAuthorities } from '../worker/src/ai/legal-search.js';
-import { buildSafeLegalSearchQuery, retrieveOfficialPageText } from '../worker/src/ai/legal-search.js';
+import { buildSafeLegalSearchQuery, retrieveOfficialPageText, searchLegalAuthorities } from '../worker/src/ai/legal-search.js';
 
 // پروندهٔ نمونه از بانک (پیش‌نویس)؛ فقط برای آزمون ساخت دستور سیستمی از داده‌های پرونده.
 const SAMPLE_CASE = batch01[0];
