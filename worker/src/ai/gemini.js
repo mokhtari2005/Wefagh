@@ -101,6 +101,7 @@ export function extractGrounding(data) {
     const segment = support?.segment || {};
     const start = Number.isInteger(segment.startIndex) ? segment.startIndex : null;
     const end = Number.isInteger(segment.endIndex) ? segment.endIndex : null;
+    // groundingSupports.segment.text is a passage from the model response, not text fetched from the linked web page.
     const supportedClaim = typeof segment.text === 'string' ? segment.text
       : start !== null && end !== null && start >= 0 && end >= start && end <= candidateText.length
         ? candidateText.slice(start, end)
