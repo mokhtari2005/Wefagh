@@ -467,16 +467,12 @@ test('Groq پیش‌نویس را مستقل بررسی می‌کند و خرو�
   const groqKey = 'groq-test-key-0123456789';
   const geminiJson = { status: 'ready', questions: [], text: 'پیش‌نویس لایحه با استناد به ماده ۱۲۳', notes: [] };
   const reviewJson = { risk: 'high', summary: 'صلاحیت مرجع باید بررسی شود.', issues: [{ severity: 'high', category: 'صلاحیت', observation: 'مرجع صالح در متن روشن نیست.', recommendation: 'مرجع رسیدگی و مبنای صلاحیت را مشخص کنید.' }], citations: [{ citation: 'ماده ۱۲۳', concern: 'وضعیت اعتبار و انطباق آن با موضوع باید از منبع رسمی بررسی شود.' }] };
+  let groqRequest = null;
   await withFetch(async (url, init) => {
     if (url.includes('generativelanguage.googleapis.com')) {
       return jsonRes(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(geminiJson) }] } }] });
     }
-    assert.equal(url, GROQ_API);
-    assert.equal(init.headers.authorization, `Bearer ${groqKey}`);
-    const sent = JSON.parse(init.body);
-    assert.equal(sent.model, GROQ_REVIEW_MODEL);
-    assert.equal(sent.response_format.type, 'json_object');
-    assert.ok(sent.messages[1].content.includes('پیش‌نویس لایحه با استناد به مستند قانونی مشخص‌نشده'));
+    groqRequest = { url, headers: init.headers, body: JSON.parse(init.body) };
     return jsonRes(200, { choices: [{ message: { content: JSON.stringify(reviewJson) } }] });
   }, async (calls) => {
     const env = { DB: fakeDb({ loggedIn: true }), GEMINI_API_KEY: KEY, GROQ_API_KEY: groqKey };
@@ -484,6 +480,11 @@ test('Groq پیش‌نویس را مستقل بررسی می‌کند و خرو�
     const data = await res.json();
     assert.equal(res.status, 200);
     assert.equal(data.ok, true);
+    assert.equal(groqRequest.url, GROQ_API);
+    assert.equal(groqRequest.headers.authorization, `Bearer ${groqKey}`);
+    assert.equal(groqRequest.body.model, GROQ_REVIEW_MODEL);
+    assert.equal(groqRequest.body.response_format.type, 'json_object');
+    assert.ok(groqRequest.body.messages[1].content.includes('پیش‌نویس لایحه با استناد به مستند قانونی مشخص‌نشده'));
     assert.equal(data.outputs, undefined, 'reviewer output must not be returned as a second assistant answer');
     assert.ok(data.notes.includes('بازبینی ماشینی مستقل انجام شد.'), JSON.stringify(data.notes));
     assert.ok(!data.notes.some((note) => note.includes('مرجع صالح در متن روشن نیست')));
