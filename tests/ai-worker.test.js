@@ -574,7 +574,10 @@ test('گزارش تحقیق حقوقی میان پیچیدگی پاسخ و وض�
   const consult = assistantSystemPrompt({ mode: 'consult' });
   const research = assistantSystemPrompt({ mode: 'research' });
   for (const prompt of [consult, research]) {
-    assert.match(prompt, /الگوی گزارش تحقیق حقوقی/);
+    assert.match(prompt, /الگوی پاسخ حقوقی در همه پرسش‌ها باید مستند و مستدل باشد/);
+    assert.match(prompt, /حتی در پرسش ظاهراً ساده/);
+    assert.match(prompt, /پاسخ مستدل و مستند به پرسش/);
+    assert.match(prompt, /از پاسخ کوتاه، خلاصه‌سازی افراطی و حذف استدلال لازم/);
     assert.match(prompt, /میزان قطعیت و مبنای آن/);
     assert.match(prompt, /راستی‌آزمایی منبع دو مرحله دارد/);
     assert.match(prompt, /صرفاً سرنخ جست‌وجو/);
