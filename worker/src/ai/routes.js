@@ -543,7 +543,7 @@ async function assistant(request, env) {
     // نام اشخاص، شرح وقایع، شماره پرونده و متن پیوست به موتور جست‌وجو ارسال نمی‌شود.
     let webResearch = null;
     let webResearchContext = '';
-    if (mode === 'consult' && attachments.length === 0 && env.GEMINI_SEARCH_GROUNDING_ENABLED === 'true') {
+    if ((mode === 'consult' || mode === 'litigation') && attachments.length === 0 && env.GEMINI_SEARCH_GROUNDING_ENABLED === 'true') {
       stage = 'legal_web_search';
       webResearch = await searchLegalAuthorities(env, legalSearchText);
       if (webResearch.status === 'searched') {
@@ -559,17 +559,14 @@ async function assistant(request, env) {
         ].join('\n');
       }
     }
-    stage = mode === 'litigation' ? 'litigation_role_debate' : 'gemini_generation';
+    stage = 'gemini_generation';
+    const generationMode = mode === 'litigation' ? 'consult' : mode;
     let data;
     let truncated = false;
     let provider = 'gemini';
-    if (mode === 'litigation') {
-      const report = await runLitigationWorkbench(env, { contents, legalContext, attachments, docType });
-      data = { status: 'ready', questions: [], text: report.text, notes: [] };
-      provider = report.provider;
-    } else {
+    {
       const generated = await generateTextWithFallback(env, {
-        system: [assistantSystemPrompt({ mode, docType, hasAttachments: attachments.length > 0, legalContext }), webResearchContext].filter(Boolean).join('\n\n'),
+        system: [assistantSystemPrompt({ mode: generationMode, docType, hasAttachments: attachments.length > 0, legalContext }), webResearchContext].filter(Boolean).join('\n\n'),
         contents,
         // توکن‌های «تفکر» مدل هم از این سقف کم می‌شوند؛ سقف پایین باعث قطع شدن پیش‌نویس‌های فارسی می‌شد.
         maxOutputTokens: mode === 'consult' ? 5500 : 6000,
@@ -629,8 +626,13 @@ async function assistant(request, env) {
         mode, docType, question: message, draft: text, legalArticles: reviewArticles,
       });
       if (reviewBankUnavailable) notes.push('جست‌وجوی تکمیلی بانک قوانین برای بازبین Groq انجام نشد؛ نتیجه بر اساس مواد بازیابی‌شده در مرحله نخست و سایر اطلاعات موجود است.');
-      notes.push(groqReviewShortNote(review));
-      if (mode === 'litigation') notes.push(...groqReviewNotes(review).slice(0, 8));
+      if (review.status === 'reviewed') {
+        const auditLines = groqReviewNotes(review);
+        text += '\n\n## گزارش مستقل راستی‌آزمایی حقوقی\n' + auditLines.map((line) => '• ' + line).join('\n');
+        notes.push('گزارش راستی‌آزمایی مستقل در ادامه همین پاسخ ارائه شده است. این گزارش بازبینی ماشینی است و جایگزین تطبیق نهایی با منابع رسمی نیست.');
+      } else {
+        notes.push(...groqReviewNotes(review).slice(0, 3));
+      }
       if (mode === 'draft' && workersAiConfigured(env)) {
         stage = 'cloudflare_workers_ai_review';
         const thirdReview = await reviewWithWorkersAI(env, { mode, docType, question: message, draft: text });
