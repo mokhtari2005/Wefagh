@@ -237,6 +237,47 @@ export async function findVerifiedLegalArticles(db, query) {
 }
 
 
+export function extractExplicitLegalReferences(query) {
+  const text = String(query || '');
+  const refs = [];
+  const re = /(?:ماده|مواد)\s*([۰-۹0-9]+(?:\s*(?:،|,|و|تا|الی|[-–])\s*[۰-۹0-9]+)*)\s*(?:از\s*)?(قانون\s+[^،؛\n.]{3,100})/gu;
+  for (const match of text.matchAll(re)) {
+    const numbers = (match[1].match(/[۰-۹0-9]+/g) || []).map((n) =>
+      n.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))));
+    const lawTitle = match[2].split(/\s+(?:باید|است|می|مورد|برای|که|را|در|با|به|درباره|راجع|خریدار|فروشنده|خواهان|خوانده|موکل|پرونده|موضوع)(?:\s|$)/u)[0].trim().replace(/\s+/g, ' ');
+    for (const articleNumber of numbers) refs.push({ lawTitle, articleNumber });
+  }
+  const seen = new Set();
+  return refs.filter((ref) => {
+    const key = ref.lawTitle + '::' + ref.articleNumber;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 12);
+}
+
+const SEARCH_STOP_WORDS = new Set([
+  'از','به','در','با','برای','و','یا','که','را','این','آن','یک','های','ها','می','شود','است','هست',
+  'آیا','اگر','اما','باید','باشد','شده','کرده','کرد','نسبت','مورد','موارد','مطابق','طبق','قانون',
+  'ماده','مواد','قانونی','حقوقی','حقوق','دعوا','پرونده','خواسته','پاسخ','بررسی','تحلیل','مطرح',
+  'کن','کنید','همچنین','مربوط','مرتبط','شخص','طرف','طرفین','دادگاه','دادخواست','فروشنده','خریدار',
+]);
+
+function legalSearchTerms(query) {
+  const normalized = String(query || '').normalize('NFKC')
+    .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .toLowerCase();
+  const counts = new Map();
+  for (const token of normalized.split(/[^\p{L}\p{N}]+/u)) {
+    if (token.length < 3 || SEARCH_STOP_WORDS.has(token) || /^\d+$/.test(token)) continue;
+    counts.set(token, (counts.get(token) || 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((a,b) => b[1]-a[1] || b[0].length-a[0].length)
+    .slice(0, 12).map(([token]) => token);
+}
+
 const JUDICIAL_AUTHORITY_TYPES = Object.freeze([
   'unified_precedent',
   'supreme_court_unified_precedent',
