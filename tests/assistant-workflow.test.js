@@ -29,3 +29,21 @@ test('فیلدهای اشخاص و اطلاعات تکمیلی قابل رد ه�
   assert.equal(fields.find((field) => field.key === 'partyOneAddress').required, false);
   assert.equal(fields.find((field) => field.key === 'additionalDetails').required, false);
 });
+
+test('فرم دادخواست تجدیدنظر اطلاعات رأی و ابلاغ را جداگانه دریافت می‌کند', () => {
+  const keys = getDocumentFields('appeal').map((field) => field.key);
+  assert.ok(keys.includes('issuingCourt'));
+  assert.ok(keys.includes('judgmentNumber'));
+  assert.ok(keys.includes('judgmentDate'));
+  assert.ok(keys.includes('notificationDate'));
+});
+
+test('فرم شکواییه و اظهارنامه فیلدهای متناسب با موضوع خود را دارند', () => {
+  const criminal = getDocumentFields('criminal_complaint').map((field) => field.key);
+  const notice = getDocumentFields('notice').map((field) => field.key);
+  assert.ok(criminal.includes('incidentDate'));
+  assert.ok(criminal.includes('incidentPlace'));
+  assert.ok(criminal.includes('evidenceSummary'));
+  assert.ok(notice.includes('noticeSubject'));
+  assert.ok(notice.includes('responseDeadline'));
+});
