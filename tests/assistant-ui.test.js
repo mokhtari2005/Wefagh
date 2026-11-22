@@ -22,7 +22,7 @@ test('پیوندهای منبع همراه با گزیده متن در تاری�
 
 test('پیوندهای ذخیره‌شده با قالب قدیمی citedText نیز بدون از دست رفتن متن بازیابی می‌شوند', () => {
   const legacy = JSON.stringify({ sources: [{ title: 'قانون', uri: 'https://qavanin.ir/law/1', domain: 'qavanin.ir', citedText: 'ماده ۵۶' }] });
-  const packed = 'پاسخ' + '<!--AI_SEARCH_SUGGESTION:' + encodeURIComponent(legacy) + '-->';
+  const packed = 'پاسخ' + '\n<!--GOOGLE_SEARCH_SUGGESTION:' + encodeURIComponent(legacy) + '-->';
   assert.deepEqual(unpackStoredAiMessage(packed), {
     text: 'پاسخ',
     searchSuggestionHtml: '',
