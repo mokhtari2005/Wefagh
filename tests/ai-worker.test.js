@@ -2,11 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../worker/src/index.js';
 import { AiError, extractText, extractGrounding, generateText, synthesizeSpeech, aiConfigured, modelIds } from '../worker/src/ai/gemini.js';
-import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims, curatedLegalArticlesForQuery } from '../worker/src/ai/routes.js';
-import { mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt, LEGAL_DISCLAIMER } from '../worker/src/ai/prompts.js';
+import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims, curatedLegalArticlesForQuery, extractOfficialPageArticleReferences } from '../worker/src/ai/routes.js';
+import { mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt } from '../worker/src/ai/prompts.js';
 import { groqConfigured, reviewLegalDraft, groqReviewNotes, GROQ_API, GROQ_REVIEW_MODEL } from '../worker/src/ai/groq.js';
 import batch01 from '../worker/src/moot/bank/batch-01.js';
-import { extractExplicitLegalReferences, findVerifiedLegalArticles } from '../worker/src/legal-bank.js';
+import { extractExplicitLegalReferences, findVerifiedLegalArticles, findVerifiedJudicialAuthorities } from '../worker/src/legal-bank.js';
+import { buildSafeLegalSearchQuery, searchLegalAuthorities } from '../worker/src/ai/legal-search.js';
+import { buildSafeLegalSearchQuery, retrieveOfficialPageText } from '../worker/src/ai/legal-search.js';
 
 // پروندهٔ نمونه از بانک (پیش‌نویس)؛ فقط برای آزمون ساخت دستور سیستمی از داده‌های پرونده.
 const SAMPLE_CASE = batch01[0];
@@ -81,6 +83,120 @@ test('findVerifiedLegalArticles prioritizes exact law and article citations', as
   assert.ok(calls[0].sql.includes("l.status='verified' AND a.status='verified'"));
   assert.ok(calls[0].sql.includes('a.article_number IN (?2, ?3)'));
   assert.ok(calls[0].bindings.includes('%قانون اجرای احکام مدنی%'));
+});
+
+test('extractOfficialPageArticleReferences accepts article numbers only from retrieved official legal pages', () => {
+  const refs = extractOfficialPageArticleReferences([
+    {
+      title: 'قانون اجرای احکام مدنی',
+      uri: 'https://qavanin.ir/law/1',
+      domain: 'qavanin.ir',
+      pageTextStatus: 'official_domain_page_text_retrieved',
+      pageText: 'ماده ۵۶ هرگونه نقل و انتقال نسبت به مال توقیف‌شده باطل است. ماده ۵۷ قرارداد بعد از توقیف...',
+    },
+    {
+      title: 'قانون مدنی',
+      uri: 'https://example.com/law',
+      domain: 'example.com',
+      pageTextStatus: 'not_primary_source_domain',
+      pageText: 'ماده ۴۲۲ ...',
+    },
+  ]);
+  assert.deepEqual(refs.map((item) => item.articleNumber), ['56', '57']);
+  assert.equal(refs[0].lawTitle, 'قانون اجرای احکام مدنی');
+  assert.equal(refs[0].sourceStatus, 'official_page_text_retrieved');
+});
+
+test('findVerifiedJudicialAuthorities retrieves only verified precedents and advisory opinions with their metadata', async () => {
+  let captured = null;
+  const db = {
+    prepare(sql) {
+      return { bind(...bindings) {
+        return { all: async () => {
+          captured = { sql, bindings };
+          return { results: [{
+            lawTitle: 'رأی وحدت رویه هیأت عمومی دیوان عالی کشور',
+            lawType: 'supreme_court_unified_precedent',
+            documentNumber: '۸۵۸',
+            documentDate: '۱۴۰۳/۰۸/۱۵',
+            issuingAuthority: 'هیأت عمومی دیوان عالی کشور',
+            subject: 'موضوع نمونه',
+            articleNumber: 'متن کامل',
+            body: 'متن کامل رأی',
+          }] };
+        } };
+      } };
+    },
+  };
+  const found = await findVerifiedJudicialAuthorities(db, 'رأی وحدت رویه شماره ۸۵۸ درباره توقیف مال');
+  assert.equal(found[0].documentNumber, '۸۵۸');
+  assert.equal(found[0].lawType, 'supreme_court_unified_precedent');
+  assert.ok(captured.sql.includes("l.status='verified' AND a.status='verified'"));
+  assert.ok(captured.sql.includes('l.law_type IN'));
+  assert.ok(captured.sql.includes('l.document_number LIKE'));
+});
+
+test('جست‌وجوی حقوقی فقط از واژگان حقوقی عمومی استفاده می‌کند و رأی وحدت رویه و نظریه مشورتی را نیز می‌جوید', () => {
+  const query = buildSafeLegalSearchQuery('در دعوای انتقال مال توقیف‌شده، رأی وحدت رویه و نظریه مشورتی مرتبط چیست؟');
+  assert.match(query, /آرای وحدت رویه دیوان عالی کشور/);
+  assert.match(query, /نظریات مشورتی اداره کل حقوقی قوه قضاییه/);
+  assert.doesNotMatch(query, /نام شخص|شماره پرونده|خواهان واقعی/);
+});
+
+test('بازیابی متن صفحه فقط از دامنه رسمی مجاز انجام می‌شود و نتیجه جست‌وجو را متن رسمی جا نمی‌زند', async () => {
+  await withFetch(async (url) => {
+    assert.equal(url, 'https://qavanin.ir/law/1');
+    return new Response('<html><body><h1>قانون اجرای احکام مدنی</h1><p>' + 'متن قانون '.repeat(50) + 'ماده ۵۶ هرگونه نقل و انتقال نسبت به مال توقیف‌شده باطل است.</p></body></html>', {
+      status: 200, headers: { 'content-type': 'text/html; charset=utf-8' },
+    });
+  }, async (calls) => {
+    const result = await retrieveOfficialPageText([
+      { title: 'قانون اجرای احکام مدنی', uri: 'https://qavanin.ir/law/1', domain: 'qavanin.ir' },
+      { title: 'قانون مدنی', uri: 'https://example.com/law', domain: 'example.com' },
+    ]);
+    assert.equal(result[0].pageTextStatus, 'official_domain_page_text_retrieved');
+    assert.match(result[0].pageText, /ماده ۵۶/);
+    assert.equal(result[1].pageTextStatus, 'not_primary_source_domain');
+    assert.equal(calls.length, 1);
+  });
+});
+
+test('buildSafeLegalSearchQuery includes criminal procedure statutes and judicial authorities without case facts', () => {
+  const query = buildSafeLegalSearchQuery('ماده ۳۳۶ قانون آیین دادرسی کیفری و مهلت تجدیدنظر');
+  assert.match(query, /قانون آیین دادرسی کیفری ماده 336/);
+  assert.match(query, /آرای وحدت رویه دیوان عالی کشور/);
+  assert.match(query, /نظریات مشورتی اداره کل حقوقی قوه قضاییه/);
+  assert.ok(!query.includes('شهرام'));
+});
+
+test('searchLegalAuthorities searches by default and retrieves text from an official legal domain', async () => {
+  await withFetch(async (url, init) => {
+    if (url.includes('generativelanguage.googleapis.com')) {
+      const body = JSON.parse(init.body);
+      assert.ok(body.tools?.some((tool) => tool.googleSearch));
+      return jsonRes(200, {
+        candidates: [{
+          content: { parts: [{ text: 'قانون مرتبط و رأی وحدت رویه یافت شد.' }] },
+          groundingMetadata: {
+            groundingChunks: [{ web: { title: 'قانون اجرای احکام مدنی', uri: 'https://qavanin.ir/law/1' } }],
+            groundingSupports: [{ segment: { text: 'ماده ۵۶ قانون اجرای احکام مدنی' }, groundingChunkIndices: [0] }],
+            webSearchQueries: ['قانون اجرای احکام مدنی'],
+          },
+        }],
+      });
+    }
+    if (url === 'https://qavanin.ir/law/1') {
+      return new Response('<html><body><h1>قانون اجرای احکام مدنی</h1><p>ماده ۵۶ هرگونه نقل و انتقال نسبت به مال توقیف‌شده باطل و بلااثر است.</p>' + 'متن رسمی قانون '.repeat(35) + '</body></html>', {
+        status: 200, headers: { 'content-type': 'text/html; charset=utf-8' },
+      });
+    }
+    throw new Error('نشانی پیش‌بینی‌نشده: ' + url);
+  }, async () => {
+    const result = await searchLegalAuthorities({ GEMINI_API_KEY: KEY }, 'ماده ۵۶ قانون اجرای احکام مدنی و انتقال مال توقیف‌شده');
+    assert.equal(result.status, 'searched');
+    assert.equal(result.sources[0].pageTextStatus, 'official_domain_page_text_retrieved');
+    assert.match(result.sources[0].pageText, /ماده ۵۶/);
+  });
 });
 
 test('extractGrounding keeps answer passages linked to Google search results', () => {
@@ -225,7 +341,6 @@ test('پرونده و دستور سیستمی روی سرور است و پیام
   const asst = assistantSystemPrompt({ mode: 'draft', docType: 'petition' });
   assert.ok(asst.includes('دادخواست'));
   assert.ok(asst.includes('[جای خالی'));
-  assert.ok(LEGAL_DISCLAIMER.includes('جایگزین بررسی حرفه‌ای وکیل نیست'));
 });
 
 test('پیوند Google به دامنه رسمی به‌تنهایی شماره ماده را تأیید نمی‌کند', () => {
@@ -265,7 +380,7 @@ test('مسیر دستیار از ورود تا پاسخ ساخت‌یافته (�
     assert.equal(data.ok, true);
     assert.equal(data.status, 'ready');
     assert.match(data.text, /جای خالی/);
-    assert.equal(data.disclaimer, LEGAL_DISCLAIMER);
+    assert.equal(data.disclaimer, undefined, 'repetitive legal disclaimer must not occupy space under every answer');
     assert.ok(!JSON.stringify(data).includes(KEY));
   });
 });
@@ -425,9 +540,11 @@ test('Groq بازبین مستقل فقط با Secret فعال می‌شود و 
   assert.equal(GROQ_REVIEW_MODEL, 'openai/gpt-oss-120b');
   assert.match(groqReviewNotes({ status: 'quota_exceeded' })[0], /بازبینی مستقل/);
   assert.match(groqReviewNotes({ status: 'not_configured' })[0], /بازبینی مستقل/);
-  const publicNotes = groqReviewNotes({ status: 'reviewed', model: 'openai/gpt-oss-120b', bankArticlesCount: 2, webSourcesCount: 1, review: { risk: 'low', summary: 'مستندات با متن تطبیق داده شدند.', issues: [], citations: [] } });
-  assert.ok(publicNotes.some((note) => note.includes('منبع وب')));
+  const publicNotes = groqReviewNotes({ status: 'reviewed', model: 'openai/gpt-oss-120b', bankArticlesCount: 2, webSourcesCount: 1, review: { risk: 'low', summary: 'مستندات با متن تطبیق داده شدند؛ openai/gpt-oss-120b و Groq.', issues: [], citations: [] } });
+  assert.ok(publicNotes.some((note) => note.includes('منبع اینترنتی')));
   assert.ok(!publicNotes.join(' ').includes('Groq'));
+  assert.ok(!publicNotes.join(' ').includes('gpt-oss'));
+  assert.ok(!publicNotes.join(' ').includes('openai'));
   assert.ok(!publicNotes.join(' ').includes('gpt-oss'));
 });
 
@@ -492,7 +609,8 @@ test('Groq پیش‌نویس را مستقل بررسی می‌کند و خرو�
     assert.equal(groqRequest.body.response_format.type, 'json_object');
     assert.ok(groqRequest.body.messages[1].content.includes('پیش‌نویس لایحه با استناد به ماده [شماره نیازمند تطبیق با متن رسمی]'));
     assert.equal(data.outputs, undefined, 'reviewer output must not be returned as a second assistant answer');
-    assert.ok(data.notes.includes('بازبینی ماشینی مستقل انجام شد.'), JSON.stringify(data.notes));
+    assert.ok(!data.notes.some((note) => note.includes('بازبینی ماشینی مستقل انجام شد.')), JSON.stringify(data.notes));
+    assert.match(data.text, /یافته‌های بازبینی مستقل/);
     assert.ok(!data.notes.some((note) => note.includes('مرجع صالح در متن روشن نیست')));
     assert.equal(data.reviewDetails, undefined, 'private reviewer diagnostics must not be returned to the user');
     assert.equal(calls.length, 2);
@@ -574,8 +692,11 @@ test('گزارش تحقیق حقوقی میان پیچیدگی پاسخ و وض�
   const consult = assistantSystemPrompt({ mode: 'consult' });
   const research = assistantSystemPrompt({ mode: 'research' });
   for (const prompt of [consult, research]) {
-    assert.match(prompt, /الگوی پاسخ حقوقی در همه پرسش‌ها باید مستند و مستدل باشد/);
-    assert.match(prompt, /حتی در پرسش ظاهراً ساده/);
+    assert.match(prompt, /پاسخ حقوقی باید مانند گزارش تحقیقی و تحلیلی یک وکیل باتجربه نوشته شود/);
+    assert.match(prompt, /نثر حقوقی پیوسته و منسجم/);
+    assert.match(prompt, /از شماره‌گذاری پیاپی، فهرست‌سازی، جدول/);
+    assert.match(prompt, /تمام متن قابل مشاهده برای کاربر باید فارسی روان باشد/);
+    assert.match(prompt, /حتی پرسش ظاهراً ساده/);
     assert.match(prompt, /پاسخ مستدل و مستند به پرسش/);
     assert.match(prompt, /از پاسخ کوتاه، خلاصه‌سازی افراطی و حذف استدلال لازم/);
     assert.match(prompt, /میزان قطعیت و مبنای آن/);
@@ -583,6 +704,11 @@ test('گزارش تحقیق حقوقی میان پیچیدگی پاسخ و وض�
     assert.match(prompt, /صرفاً سرنخ جست‌وجو/);
     assert.match(prompt, /عبارت مرتبط‌شده به نتیجه Google/);
     assert.match(prompt, /منابع نیازمند بررسی/);
+    assert.match(prompt, /رأی وحدت رویه دیوان عالی کشور/);
+    assert.match(prompt, /نظریات مشورتی اداره کل حقوقی قوه قضاییه/);
+    assert.match(prompt, /نظریه مشورتی را نظر ارشادی و غیرلازم‌الاتباع/);
+    assert.match(prompt, /شماره ماده و تبصره را در همان جمله یا بند/);
+    assert.match(prompt, /مشخصات هر منبعِ واقعاً استفاده‌شده/);
   }
 });
 
