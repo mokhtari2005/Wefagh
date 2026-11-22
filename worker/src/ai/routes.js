@@ -654,7 +654,7 @@ async function assistant(request, env) {
       if (reviewBankUnavailable) notes.push('جست‌وجوی تکمیلی در بانک قوانین برای بازبینی انجام نشد؛ نتیجه بر اساس مواد بازیابی‌شده در مرحله نخست و سایر اطلاعات موجود است.');
       if (review.status === 'reviewed') {
         const auditLines = groqReviewNotes(review);
-        text += '\n\nگزارش بازبینی مستقل و تطبیق استنادات: ' + auditLines.join(' ');
+        if (auditLines.length) text += '\n\nیافته‌های بازبینی مستقل: ' + auditLines.join(' ');
 
       } else {
         notes.push(...groqReviewNotes(review).slice(0, 3));
