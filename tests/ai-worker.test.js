@@ -7,6 +7,7 @@ import { mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt } from '.
 import { groqConfigured, reviewLegalDraft, groqReviewNotes, GROQ_API, GROQ_REVIEW_MODEL } from '../worker/src/ai/groq.js';
 import batch01 from '../worker/src/moot/bank/batch-01.js';
 import { extractExplicitLegalReferences, findVerifiedLegalArticles, findVerifiedJudicialAuthorities } from '../worker/src/legal-bank.js';
+import { buildSafeLegalSearchQuery, retrieveOfficialPageText } from '../worker/src/ai/legal-search.js';
 
 // پروندهٔ نمونه از بانک (پیش‌نویس)؛ فقط برای آزمون ساخت دستور سیستمی از داده‌های پرونده.
 const SAMPLE_CASE = batch01[0];
@@ -132,6 +133,31 @@ test('findVerifiedJudicialAuthorities retrieves only verified precedents and adv
   assert.ok(captured.sql.includes("l.status='verified' AND a.status='verified'"));
   assert.ok(captured.sql.includes('l.law_type IN'));
   assert.ok(captured.sql.includes('l.document_number LIKE'));
+});
+
+test('جست‌وجوی حقوقی فقط از واژگان حقوقی عمومی استفاده می‌کند و رأی وحدت رویه و نظریه مشورتی را نیز می‌جوید', () => {
+  const query = buildSafeLegalSearchQuery('در دعوای انتقال مال توقیف‌شده، رأی وحدت رویه و نظریه مشورتی مرتبط چیست؟');
+  assert.match(query, /آرای وحدت رویه دیوان عالی کشور/);
+  assert.match(query, /نظریات مشورتی اداره کل حقوقی قوه قضاییه/);
+  assert.doesNotMatch(query, /نام شخص|شماره پرونده|خواهان واقعی/);
+});
+
+test('بازیابی متن صفحه فقط از دامنه رسمی مجاز انجام می‌شود و نتیجه جست‌وجو را متن رسمی جا نمی‌زند', async () => {
+  await withFetch(async (url) => {
+    assert.equal(url, 'https://qavanin.ir/law/1');
+    return new Response('<html><body><h1>قانون اجرای احکام مدنی</h1><p>' + 'متن قانون '.repeat(50) + 'ماده ۵۶ هرگونه نقل و انتقال نسبت به مال توقیف‌شده باطل است.</p></body></html>', {
+      status: 200, headers: { 'content-type': 'text/html; charset=utf-8' },
+    });
+  }, async (calls) => {
+    const result = await retrieveOfficialPageText([
+      { title: 'قانون اجرای احکام مدنی', uri: 'https://qavanin.ir/law/1', domain: 'qavanin.ir' },
+      { title: 'قانون مدنی', uri: 'https://example.com/law', domain: 'example.com' },
+    ]);
+    assert.equal(result[0].pageTextStatus, 'official_domain_page_text_retrieved');
+    assert.match(result[0].pageText, /ماده ۵۶/);
+    assert.equal(result[1].pageTextStatus, 'not_primary_source_domain');
+    assert.equal(calls.length, 1);
+  });
 });
 
 test('extractGrounding keeps answer passages linked to Google search results', () => {
