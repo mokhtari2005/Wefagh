@@ -403,8 +403,8 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
     return '[مدت نیازمند تطبیق با منبع رسمی]';
   });
   guarded = guarded
-    .replace(/ماده\s*\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده در منبع تأییدشده احراز نشد')
-    .replace(/\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده در منبع تأییدشده احراز نشد')
+    .replace(/ماده\s*\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'ماده‌ای که شماره آن احراز نشده از')
+    .replace(/\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'ماده‌ای که شماره آن احراز نشده از')
     .replace(/\[مدت نیازمند تطبیق با منبع رسمی\]/gu, 'مهلت قانونی در منبع تأییدشده احراز نشد');
   if (guarded !== text) changed = true;
   return { text: guarded, changed };
