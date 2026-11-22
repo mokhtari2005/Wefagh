@@ -49,7 +49,7 @@ function safeSources(grounding) {
   return sources;
 }
 
-// شماره ماده فقط وقتی از guard عبور می‌کند که همان گزاره در عبارت پاسخِ پیوندخورده به نتیجه‌ای از دامنه رسمی آمده باشد.
+// شماره ماده فقط وقتی از guard عبور می‌کند که عبارت پاسخِ حاوی شماره ماده به یک نتیجه جست‌وجو از دامنه رسمی پیوند خورده باشد؛ این پیوند به‌تنهایی متن قانون را احراز نمی‌کند.
 export function extractOfficialGroundedArticleReferences(sources) {
   const officialDomains = new Set([
     'qavanin.ir','rrk.ir','ara.jri.ac.ir','eadil.com','eadl.ir',
