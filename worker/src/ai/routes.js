@@ -495,7 +495,7 @@ async function assistant(request, env) {
       provider = generated.provider;
     }
     const questions = Array.isArray(data.questions) ? data.questions.filter((q) => typeof q === 'string').slice(0, 5) : [];
-    const notes = Array.isArray(data.notes) ? data.notes.filter((n) => typeof n === 'string').slice(0, 10) : [];
+    const notes = Array.isArray(data.notes) ? data.notes.filter((n) => typeof n === 'string').slice(0, 4) : [];
 
     if (legalBankUnavailable) notes.push('متن مواد قانونی مرتبط باید با منبع رسمی تطبیق شود.');
     const rawText = typeof data.text === 'string' ? data.text : '';
