@@ -307,7 +307,7 @@ export function citationWarnings(text) {
   return CITATION_PATTERNS.some((re) => re.test(text)) ? [CITATION_WARNING] : [];
 }
 
-const SEIZED_PROPERTY_TOPIC = /مال\\s+توقیف|ملک\\s+توقیف|توقیف\\s+ملک|بازداشت\\s+ملک|انتقال\\s+مال\\s+توقیف/u;
+const SEIZED_PROPERTY_TOPIC = /مال\s+توقیف|ملک\s+توقیف|توقیف\s+ملک|بازداشت\s+ملک|انتقال\s+مال\s+توقیف/u;
 const SEIZED_PROPERTY_ARTICLES = Object.freeze([
   {
     lawTitle: 'قانون اجرای احکام مدنی', articleNumber: '۵۶',
