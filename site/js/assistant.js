@@ -185,7 +185,7 @@ export function unpackStoredAiMessage(content) {
   const raw = typeof content === 'string' ? content : '';
   const markerIndex = raw.lastIndexOf(SEARCH_SUGGESTION_MARKER);
   if (markerIndex < 0) return { text: raw, searchSuggestionHtml: '', searchSources: [] };
-  const encoded = raw.slice(markerIndex + SEARCH_SUGGESTION_MARKER.length).replace(/-->\\s*$/, '');
+  const encoded = raw.slice(markerIndex + SEARCH_SUGGESTION_MARKER.length).replace(/-->\s*$/, '');
   try {
     const decoded = decodeURIComponent(encoded);
     let payload;
