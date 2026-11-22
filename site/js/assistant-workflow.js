@@ -38,9 +38,10 @@ export function getDocumentFields(docType) {
  * Each step asks for one field. Optional fields can be skipped. Previously discussed
  * case facts are deliberately not requested again; only identity/filing metadata is collected.
  */
-export function createDocumentWizard({ docType, onComplete, onCancel }) {
+export function createDocumentWizard({ docType, initialValues = {}, onComplete, onCancel }) {
   const fields = getDocumentFields(docType);
-  const values = {};
+  const values = { ...initialValues };
+  const steps = fields.filter((field) => !String(values[field.key] || '').trim());
   let index = 0;
   const root = node('section', 'ai-document-wizard ai-party-panel');
   const heading = node('h3', '', 'تکمیل مرحله‌ای اطلاعات سند');
@@ -62,8 +63,8 @@ export function createDocumentWizard({ docType, onComplete, onCancel }) {
     actions.replaceChildren(back, next, cancel);
     back.hidden = false;
     next.hidden = false;
-    const field = fields[index];
-    progress.textContent = `مرحله ${(index + 1).toLocaleString('fa-IR')} از ${fields.length.toLocaleString('fa-IR')}`;
+    const field = steps[index];
+    progress.textContent = `مرحله ${(index + 1).toLocaleString('fa-IR')} از ${steps.length.toLocaleString('fa-IR')}`;
     label.textContent = field.label + (field.required ? ' ـ الزامی' : ' ـ اختیاری');
     controlWrap.replaceChildren();
     const input = node(field.kind === 'textarea' ? 'textarea' : 'input', 'ai-party-input');
@@ -75,7 +76,7 @@ export function createDocumentWizard({ docType, onComplete, onCancel }) {
     input.setAttribute('aria-label', field.label);
     controlWrap.append(input);
     back.disabled = index === 0;
-    next.textContent = index === fields.length - 1 ? 'بازبینی اطلاعات' : 'مرحله بعد';
+    next.textContent = index === steps.length - 1 ? 'بازبینی اطلاعات' : 'مرحله بعد';
     input.focus();
     next.onclick = () => {
       const value = input.value.trim();
@@ -87,7 +88,7 @@ export function createDocumentWizard({ docType, onComplete, onCancel }) {
         return;
       }
       values[field.key] = value;
-      if (index < fields.length - 1) {
+      if (index < steps.length - 1) {
         index += 1;
         render();
         return;
@@ -123,7 +124,8 @@ export function createDocumentWizard({ docType, onComplete, onCancel }) {
     if (index > 0) { index -= 1; render(); }
   });
   cancel.addEventListener('click', onCancel);
-  render();
+  if (steps.length) render();
+  else renderReview();
   return root;
 }
 
