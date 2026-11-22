@@ -382,8 +382,8 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
   if (voiceAllowed) history.push({ role: 'ai', text: 'سلام، خوش آمدید. من دستیار هوشمند آکادمی وکالت هستم. لطفاً موضوع یا مسئله‌ای را که می‌خواهید بررسی کنیم، به زبان خودتان توضیح دهید. اگر برای فهم دقیق‌تر موضوع به اطلاعات بیشتری نیاز داشته باشم، در همین گفت‌وگو از شما می‌پرسم.' });
   const pendingTitle = h('strong', { class: 'ai-pending-title', text: 'در حال آماده‌سازی پاسخ حقوقی…' });
   const pendingElapsed = h('span', { class: 'ai-progress-elapsed', text: 'زمان سپری‌شده: ۰:۰۰' });
-  const pendingRemaining = h('span', { class: 'ai-progress-remaining', text: 'زمان تخمینی باقی‌مانده: ۱:۰۵' });
-  const pendingTrack = h('div', { class: 'ai-progress-ring', role: 'progressbar', 'aria-label': 'زمان تخمینی پردازش', 'aria-valuemin': '0', 'aria-valuemax': '95', 'aria-valuenow': '0' });
+  const pendingRemaining = h('span', { class: 'ai-progress-remaining', text: 'زمان تخمینی باقی‌مانده: ۱:۳۰' });
+  const pendingTrack = h('div', { class: 'ai-progress-ring', role: 'progressbar', 'aria-label': 'درصد زمان سپری‌شده از برآورد پردازش', 'aria-valuemin': '0', 'aria-valuemax': '95', 'aria-valuenow': '0' });
   const pendingPercent = h('span', { class: 'ai-progress-percent', text: '۰٪' });
   pendingTrack.append(pendingPercent);
   const pending = h('div', { class: 'ai-pending', role: 'status', 'aria-live': 'polite' }, [
@@ -394,7 +394,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     ]),
   ]);
   pending.hidden = true;
-  const ESTIMATED_TOTAL_MS = 65_000; // ۴۰ ثانیه برای مدل اصلی + حداکثر ۲۵ ثانیه برای fallback
+  const ESTIMATED_TOTAL_MS = 90_000; // برآورد تقریبی تولید پاسخ به‌علاوه بازبینی مستقل
   let progressStartedAt = 0;
   let progressTimer = null;
   function formatProgressTime(ms) {
