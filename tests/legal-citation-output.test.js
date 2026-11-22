@@ -31,7 +31,8 @@ test('استناد عددی فاقد پشتوانه همچنان علامت‌گ
     'مطابق ماده ۹۹ قانون اجرای احکام مدنی، حکم فرضی اجرا می‌شود.',
     [...EXECUTION_TRANSFER_ARTICLES, ...CIVIL_PROCEDURE_ARTICLES],
   );
-  assert.match(result.text, /ماده \[شماره نیازمند تطبیق با متن رسمی\]/u);
+  assert.match(result.text, /شماره ماده تأییدنشده/u);
+  assert.doesNotMatch(result.text, /شماره نیازمند تطبیق/u);
   assert.equal(result.changed, true);
 });
 
