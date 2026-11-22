@@ -24,8 +24,14 @@ export function buildSafeLegalSearchQuery(input) {
   const exactReferences = extractExplicitLegalReferences(normalized)
     .filter((ref) => safeLawTitles.some((title) => normalized.includes(title) && ref.lawTitle.includes(title)))
     .map((ref) => safeLawTitles.find((title) => normalized.includes(title) && ref.lawTitle.includes(title)) + ' ماده ' + ref.articleNumber);
+  // پرسش‌های مربوط به چک معمولاً نام قانون را ذکر نمی‌کنند؛ موضوع را به محورهای
+  // قانونی لازم برای تحقیق گسترش بده، بی‌آنکه شرح پرونده یا داده شخصی ارسال شود.
+  const chequeTopic = /چک|گواهی\s*عدم\s*پرداخت|برگشت\s*چک|صیاد/u.test(normalized);
+  const chequeResearchTerms = chequeTopic
+    ? ['قانون صدور چک', 'مهلت مراجعه به بانک', 'مهلت شکایت کیفری', 'موارد عدم تعقیب کیفری', 'اجرائیه قضایی چک', 'اجرای ثبت چک', 'خسارت تأخیر تأدیه چک']
+    : [];
   const remainingMatches = matches.filter((term) => !exactReferences.some((ref) => ref.startsWith(term + ' ماده ')));
-  const unique = [...new Set([...exactReferences, ...remainingMatches])].slice(0, 8);
+  const unique = [...new Set([...exactReferences, ...chequeResearchTerms, ...remainingMatches])].slice(0, 12);
   return unique.length ? `${unique.join(' ')} حقوق ایران متن رسمی قانون و رأی قضایی «آرای وحدت رویه دیوان عالی کشور» «نظریات مشورتی اداره کل حقوقی قوه قضاییه»` : '';
 }
 
