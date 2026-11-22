@@ -135,10 +135,9 @@ export async function reviewLegalDraft(env, { mode, docType, question, draft, le
   const bankItems = [];
   for (const article of (Array.isArray(legalArticles) ? legalArticles : []).slice(0, 8)) {
     const lawTitle = clean(article?.lawTitle, 180);
-    const articleNumber = clean(article?.articleNumber, 40);
+    const articleNumber = clean(article?.articleNumber, 40) || clean(article?.documentNumber, 120);
     const body = clean(article?.body, 2_200);
-    if (!lawTitle || !articleNumber || !body || bankChars >= 12_000) continue;
-    const lawType = clean(article?.lawType, 80);
+    if (!lawTitle || (!articleNumber && !article?.documentNumber) || !body || bankChars >= 12_000) continue;
     const lawType = clean(article?.lawType, 80);
     const entry = [
       `نوع سند: ${lawType || 'قانون یا مقرره'}`,
@@ -149,7 +148,7 @@ export async function reviewLegalDraft(env, { mode, docType, question, draft, le
       clean(article?.subject, 240) ? `موضوع: ${clean(article.subject, 240)}` : null,
       body.slice(0, Math.max(0, 10_000 - bankChars)),
       `منبع ثبت‌شده: ${clean(article?.sourceName, 160) || 'ثبت نشده'}${clean(article?.officialSourceUrl, 500) || clean(article?.sourceUrl, 500) ? ` (${clean(article?.officialSourceUrl, 500) || clean(article?.sourceUrl, 500)})` : ''}`,
-    ].filter(Boolean).join('\\n');
+    ].filter(Boolean).join('\n');
     bankItems.push(entry);
     bankChars += entry.length;
   }
