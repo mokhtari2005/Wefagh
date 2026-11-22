@@ -49,27 +49,7 @@ function safeSources(grounding) {
   return sources;
 }
 
-// شماره ماده فقط وقتی از guard عبور می‌کند که عبارت پاسخِ حاوی شماره ماده به یک نتیجه جست‌وجو از دامنه رسمی پیوند خورده باشد؛ این پیوند به‌تنهایی متن قانون را احراز نمی‌کند.
-export function extractOfficialGroundedArticleReferences(sources) {
-  const officialDomains = new Set([
-    'qavanin.ir','rrk.ir','ara.jri.ac.ir','eadil.com','eadl.ir',
-    'edarehoquqy.eadl.ir','divan-edalat.ir','adliran.ir','rc.majlis.ir',
-  ]);
-  const refs = new Set();
-  for (const source of Array.isArray(sources) ? sources : []) {
-    if (typeof source?.uri !== 'string' || typeof source?.supportedClaim !== 'string' || !source.supportedClaim.trim()) continue;
-    let hostname = '';
-    try { hostname = new URL(source.uri).hostname.toLowerCase(); } catch { continue; }
-    if (![...officialDomains].some((domain) => hostname === domain || hostname.endsWith('.' + domain))) continue;
-    for (const match of source.supportedClaim.matchAll(/(?:ماده|مواد)\s*([۰-۹0-9]+(?:\s*(?:،|,|و|تا|الی|[-–])\s*[۰-۹0-9]+)*)/gu)) {
-      for (const rawNumber of match[1].match(/[۰-۹0-9]+/g) || []) {
-        refs.add(rawNumber.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))));
-      }
-    }
-  }
-  return [...refs].map((articleNumber) => ({ articleNumber }));
-}
-
+// Google grounding فقط ارتباط یک بخش از پاسخ با نتیجه جست‌وجو را گزارش می‌کند؛ متن صفحه منبع را برنمی‌گرداند.
 /**
  * جست‌وجوی برخط اختیاری. باید با GEMINI_SEARCH_GROUNDING_ENABLED=true فعال شود.
  * این تابع فقط query ساخته‌شده از واژگان حقوقی whitelist را به Google Search می‌دهد.
