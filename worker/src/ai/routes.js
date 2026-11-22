@@ -495,32 +495,27 @@ async function assistant(request, env) {
       provider = generated.provider;
     }
     const questions = Array.isArray(data.questions) ? data.questions.filter((q) => typeof q === 'string').slice(0, 5) : [];
-    const notes = Array.isArray(data.notes) ? data.notes.filter((n) => typeof n === 'string').slice(0, 10) : [];
-    if (provider === 'groq') notes.push('به‌دلیل اختلال سرویس اصلی، دست‌کم یکی از مراحل تولید این گزارش از مسیر جایگزین تولید شد. مواد قانونیِ بازیابی‌شده از بانک آکادمی بدون تغییر در اختیار مدل قرار گرفتند؛ پاسخ همچنان نیازمند بررسی و راستی‌آزمایی حقوقی است.');
-    if (legalBankUnavailable) notes.push('بانک قوانین در این درخواست پاسخ نداد؛ پاسخ بدون استناد به مواد ثبت‌شده در بانک تهیه شد و استنادها باید جداگانه بررسی شوند.');
+    const notes = Array.isArray(data.notes) ? data.notes.filter((n) => typeof n === 'string').slice(0, 4) : [];
+
+    if (legalBankUnavailable) notes.push('متن مواد قانونی مرتبط باید با منبع رسمی تطبیق شود.');
     const rawText = typeof data.text === 'string' ? data.text : '';
     const guardedText = guardUnverifiedLegalClaims(rawText, promptArticles, legalContext);
     let text = guardedText.text;
     if (webResearch?.status === 'searched' && webResearch.sources.length) {
       text += '\n\n## منابع وبی بازیابی‌شده برای پیگیری و راستی‌آزمایی\n' + webResearch.sources.map((source, index) => (index + 1) + '. [' + source.title + '](' + source.uri + ') — ' + source.domain).join('\n');
-      notes.push('جست‌وجوی وب با Google Search انجام شد. منابع زیر سرنخ تحقیق‌اند و به‌معنای تأیید رسمی متن قانون، اعتبار رأی یا جاری‌بودن مقرره نیستند.');
+
     } else if (webResearch?.status === 'failed') {
-      notes.push('جست‌وجوی وب حقوقی انجام نشد؛ پاسخ صرفاً بر منابع داخلی و دانش مدل متکی است.');
+
     } else if (webResearch?.status === 'no_sources' || webResearch?.status === 'no_legal_terms') {
-      notes.push('از جست‌وجوی وب، منبع قابل استنادی بازیابی نشد؛ استنادهای بیرونی تأییدشده تلقی نمی‌شوند.');
+
     }
-    if (guardedText.changed) notes.push('شماره مواد یا مهلت‌های فاقد پشتوانه در منابع تأییدشده، برای جلوگیری از ارائه استناد نادرست با عبارت نیازمند بررسی جایگزین شدند.');
+    if (guardedText.changed) notes.push('برخی استنادها در منابع موجود تأیید نشدند؛ پیش از استفاده، متن رسمی آن‌ها بررسی شود.');
     if (truncated) notes.push('پاسخ به‌دلیل طول زیاد کامل نشد. برای ادامه بنویسید «ادامه بده».');
     for (const warning of citationWarnings(guardedText.text)) if (!notes.includes(warning)) notes.push(warning);
     // برای حفظ محرمانگی، در صورت وجود پیوست، پیش‌نویس حاوی محتوای استخراج‌شده به ارائه‌دهندهٔ سوم ارسال نمی‌شود.
-    if (attachments.length) {
-      notes.push('هشدار: بازبینی مستقل انجام نشد.');
-    } else if (provider === 'groq') {
-      notes.push('چون پاسخ اصلی همین نوبت با Groq تولید شده، بازبینی مستقل جداگانه اجرا نشد تا یک سرویس هم‌زمان نقش تولیدکننده و بازبین را نداشته باشد.');
-    } else {
+    if (!attachments.length && provider !== 'groq') {
       stage = 'groq_review';
       let reviewArticles = [...promptArticles];
-      let reviewBankUnavailable = false;
       try {
         // جست‌وجوی دوم با متن پاسخ Gemini هم انجام می‌شود تا استنادهای تازه‌مطرح‌شده نیز تطبیق داده شوند.
         const matched = await findVerifiedLegalArticles(env.DB, text);
@@ -534,34 +529,28 @@ async function assistant(request, env) {
         }
         reviewArticles = reviewArticles.slice(0, 8);
       } catch (err) {
-        reviewBankUnavailable = true;
         console.error(JSON.stringify({ where: 'ai', stage: 'groq_legal_bank_query', error: err?.name || 'Error' }));
       }
       const review = await reviewLegalDraft(env, {
         mode, docType, question: message, draft: text, legalArticles: reviewArticles,
       });
-      if (reviewBankUnavailable) notes.push('جست‌وجوی تکمیلی بانک قوانین برای بازبین Groq انجام نشد؛ نتیجه بر اساس مواد بازیابی‌شده در مرحله نخست و سایر اطلاعات موجود است.');
+
       if (review.status === 'reviewed') {
         const auditLines = groqReviewNotes(review);
-        text += '\n\n## گزارش بازبینی مستقل و تطبیق استنادات\n' + auditLines.map((line) => '• ' + line).join('\n');
-        notes.push('گزارش راستی‌آزمایی مستقل در ادامه همین پاسخ ارائه شده است. این گزارش بازبینی ماشینی است و جایگزین تطبیق نهایی با منابع رسمی نیست.');
-      } else {
-        notes.push(...groqReviewNotes(review).slice(0, 3));
+        if (auditLines.length) {
+          text += '\n\n## نکات مهم برای اصلاح\n' + auditLines.map((line) => '• ' + line).join('\n');
+        }
       }
       if (mode === 'draft' && workersAiConfigured(env)) {
         stage = 'cloudflare_workers_ai_review';
         const thirdReview = await reviewWithWorkersAI(env, { mode, docType, question: message, draft: text });
-        notes.push(thirdReview.status === 'reviewed'
-          ? 'بازبینی مستقل سوم با Cloudflare Workers AI انجام شد.'
-          : 'بازبینی مستقل سوم انجام نشد.');
+
       }
     }
     if (!attachments.length && mode === 'draft' && provider === 'groq' && workersAiConfigured(env)) {
       stage = 'cloudflare_workers_ai_review';
       const thirdReview = await reviewWithWorkersAI(env, { mode, docType, question: message, draft: text });
-      notes.push(thirdReview.status === 'reviewed'
-        ? 'بازبینی مستقل سوم با Cloudflare Workers AI انجام شد.'
-        : 'بازبینی مستقل سوم انجام نشد.');
+
     }
     for (const a of attachments) {
       if (a.truncated) notes.push(`فقط بخش ابتدایی «${a.name}» (حداکثر ${ATTACHMENT_LIMITS.extractedChars.toLocaleString('fa-IR')} نویسه) بررسی شد.`);
