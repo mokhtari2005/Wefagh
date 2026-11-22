@@ -332,7 +332,7 @@ const VEHICLE_DEFECT_ARTICLES = Object.freeze([
   sourceName: 'قانون مدنی؛ متن رسمی قوانین و مقررات', sourceUrl: 'https://qavanin.ir/Law/PrintText/?IDS=12021850837713548188&font=',
 })));
 
-const SEIZED_PROPERTY_TOPIC = /مال\\s+توقیف|ملک\\s+توقیف|توقیف\\s+ملک|بازداشت\\s+ملک|انتقال\\s+مال\\s+توقیف/u;
+const SEIZED_PROPERTY_TOPIC = /مال\s+توقیف|ملک\s+توقیف|توقیف\s+ملک|بازداشت\s+ملک|انتقال\s+مال\s+توقیف/u;
 const SEIZED_PROPERTY_ARTICLES = Object.freeze([
   {
     lawTitle: 'قانون اجرای احکام مدنی', articleNumber: '۵۶',
