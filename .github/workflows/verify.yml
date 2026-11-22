@@ -20,8 +20,10 @@ jobs:
         run: python -m pip install requests
       - name: Verify legal importer syntax and focused tests
         run: |
-          python -m py_compile scripts/import_ekhtebar_corpus.py
+          python -m py_compile scripts/import_ekhtebar_corpus.py scripts/crawl_national_judgments.py scripts/parse_national_judgment.py
           python -m unittest discover -s tests -p 'test_legal_corpus_importer.py'
+          python -m unittest discover -s tests -p 'test_national_judgment_crawler.py'
+          python -m unittest discover -s tests -p 'test_national_judgment_parser.py'
           node --test tests/legal-source-registry.test.js
   judicial-authorities:
     runs-on: ubuntu-latest
