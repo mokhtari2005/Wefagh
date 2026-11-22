@@ -9,6 +9,16 @@ test('legal web query contains only whitelisted legal terms', () => {
   assert.equal(query.includes('۱۲۳۴'), false);
 });
 
+test('پرسش مطالبه وجه چک به محورهای قانونی کیفری و اجرایی گسترش می‌یابد', () => {
+  const query = buildSafeLegalSearchQuery('برای مطالبه وجه چک برگشتی چه راهی مناسب است؟');
+  assert.match(query, /قانون صدور چک/);
+  assert.match(query, /مهلت شکایت کیفری/);
+  assert.match(query, /موارد عدم تعقیب کیفری/);
+  assert.match(query, /اجرائیه قضایی چک/);
+  assert.match(query, /اجرای ثبت چک/);
+  assert.equal(query.includes('مطالبه وجه چک برگشتی چه راهی مناسب است'), false);
+});
+
 test('legal web query is empty when no whitelisted legal term exists', () => {
   assert.equal(buildSafeLegalSearchQuery('سلام، درباره موضوعی شخصی سؤال دارم'), '');
 });
