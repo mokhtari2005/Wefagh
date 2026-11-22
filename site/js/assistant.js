@@ -168,6 +168,50 @@ export function summarizeReply(data) {
   return data.text || '';
 }
 
+const SEARCH_SUGGESTION_MARKER = '\n<!--GOOGLE_SEARCH_SUGGESTION:';
+export function packStoredAiMessage(text, suggestionHtml = '', searchSources = []) {
+  const html = typeof suggestionHtml === 'string' && suggestionHtml.length <= 5000 ? suggestionHtml : '';
+  const sources = (Array.isArray(searchSources) ? searchSources : []).slice(0, 12).flatMap((source) => {
+    if (typeof source?.title !== 'string' || typeof source?.uri !== 'string') return [];
+    try { if (new URL(source.uri).protocol !== 'https:') return []; } catch { return []; }
+    return [{ title: source.title.slice(0, 180), uri: source.uri, domain: typeof source.domain === 'string' ? source.domain.slice(0, 120) : '', supportedClaim: typeof source.supportedClaim === 'string' ? source.supportedClaim.slice(0, 360) : typeof source.citedText === 'string' ? source.citedText.slice(0, 360) : '' }];
+  });
+  if (!html && !sources.length) return text;
+  const encoded = encodeURIComponent(JSON.stringify({ html, sources }));
+  const packed = text + SEARCH_SUGGESTION_MARKER + encoded + '-->';
+  return packed.length <= 23800 ? packed : text;
+}
+export function unpackStoredAiMessage(content) {
+  const raw = typeof content === 'string' ? content : '';
+  const markerIndex = raw.lastIndexOf(SEARCH_SUGGESTION_MARKER);
+  if (markerIndex < 0) return { text: raw, searchSuggestionHtml: '', searchSources: [] };
+  const encoded = raw.slice(markerIndex + SEARCH_SUGGESTION_MARKER.length).replace(/-->\s*$/, '');
+  try {
+    const decoded = decodeURIComponent(encoded);
+    let payload;
+    try { payload = JSON.parse(decoded); } catch { payload = { html: decoded, sources: [] }; }
+    const searchSources = (Array.isArray(payload?.sources) ? payload.sources : []).slice(0, 12).flatMap((source) => {
+      if (typeof source?.title !== 'string' || typeof source?.uri !== 'string') return [];
+      try { if (new URL(source.uri).protocol !== 'https:') return []; } catch { return []; }
+      return [{
+        title: source.title.slice(0, 180),
+        uri: source.uri,
+        domain: typeof source.domain === 'string' ? source.domain.slice(0, 120) : '',
+        supportedClaim: typeof source.supportedClaim === 'string'
+          ? source.supportedClaim.slice(0, 360)
+          : typeof source.citedText === 'string' ? source.citedText.slice(0, 360) : '',
+      }];
+    });
+    return {
+      text: raw.slice(0, markerIndex),
+      searchSuggestionHtml: typeof payload?.html === 'string' ? payload.html : '',
+      searchSources,
+    };
+  } catch {
+    return { text: raw, searchSuggestionHtml: '', searchSources: [] };
+  }
+}
+
 export function assistantPage(params = {}) {
   const wrap = h('div', { class: 'assistant' }, [
     h('h1', { text: 'دستیار هوشمند وکیل' }),
@@ -251,14 +295,17 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     const res = await getJson(`/api/ai/threads/${encodeURIComponent(id)}/messages`);
     if (!res.ok) { status.textContent = 'بازیابی گفت‌وگو انجام نشد.'; return; }
     history.length = 0;
-    for (const m of res.data?.messages || []) history.push({ role: m.role === 'ai' ? 'ai' : 'user', text: m.content });
+    for (const m of res.data?.messages || []) {
+      if (m.role === 'ai') history.push({ role: 'ai', ...unpackStoredAiMessage(m.content) });
+      else history.push({ role: 'user', text: m.content });
+    }
     threadId = Number(id);
     renderLog();
     acceptBtn.hidden = true;
     status.textContent = 'گفت‌وگو بازیابی شد. برای تأیید نتیجه، ابتدا از دستیار بخواهید جمع‌بندی نهایی مشاوره را ارائه کند.';
   }
 
-  async function persistTurn(userText, aiText) {
+  async function persistTurn(userText, aiText, searchSuggestionHtml = '', searchSources = []) {
     if (guestMode) return true; // تاریخچهٔ مهمان فقط در حافظهٔ همین صفحه می‌ماند.
     if (!threadId) {
       const created = await postJson('/api/ai/threads', { title: userText.slice(0, 60) });
@@ -266,7 +313,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       threadId = created.data.thread.id;
     }
     const a = await postJson(`/api/ai/threads/${threadId}/messages`, { role: 'user', content: userText });
-    const b = await postJson(`/api/ai/threads/${threadId}/messages`, { role: 'ai', content: aiText });
+    const b = await postJson(`/api/ai/threads/${threadId}/messages`, { role: 'ai', content: packStoredAiMessage(aiText, searchSuggestionHtml, searchSources) });
     return a.ok && b.ok;
   }
 
@@ -439,17 +486,37 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     const actions = h('div', { class: 'ai-msg-actions' });
     const copy = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'کپی پاسخ' });
     copy.addEventListener('click', async () => {
-      try { await copyAssistantText(m.text); status.textContent = 'پاسخ دستیار کپی شد.'; }
+      try { await copyAssistantText([m.text, ...(m.searchSources?.length ? ['منابع بازیابی‌شده:', ...m.searchSources.map((source) => source.title + ' — ' + source.uri)] : [])].join('\n\n')); status.textContent = 'پاسخ دستیار کپی شد.'; }
       catch { status.textContent = 'کپی انجام نشد؛ متن را دستی انتخاب کنید.'; }
     });
     const dl = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'دریافت فایل متنی' });
-    dl.addEventListener('click', () => downloadText(m.text, 'پاسخ-دستیار-آکادمی.txt'));
+    dl.addEventListener('click', () => downloadText([m.text, ...(m.searchSources?.length ? ['منابع بازیابی‌شده:', ...m.searchSources.map((source) => source.title + ' — ' + source.uri)] : [])].join('\n\n'), 'پاسخ-دستیار-آکادمی.txt'));
     actions.append(copy, dl);
 
     const children = [
       h('span', { class: 'ai-role', text: 'دستیار' }),
       h('div', { class: 'ai-text pre-wrap', text: m.text }),
     ];
+    if (m.searchSources?.length) children.push(h('ul', {
+      class: 'ai-search-sources',
+      'aria-label': 'منابع حقوقی بازیابی‌شده',
+    }, m.searchSources.map((source) => {
+      let href = '';
+      try { if (new URL(source.uri).protocol === 'https:') href = source.uri; } catch {}
+      if (!href) return null;
+      return h('li', {}, [
+        h('a', { href, target: '_blank', rel: 'noopener noreferrer', text: source.title || source.domain || 'مشاهده منبع' }),
+        source.supportedClaim ? h('p', { class: 'ai-search-source-excerpt', text: 'عبارت مرتبط در پاسخ: ' + source.supportedClaim }) : null,
+      ].filter(Boolean));
+    }).filter(Boolean)));
+    if (m.searchSuggestionHtml) children.push(h('iframe', {
+      class: 'ai-google-search-suggestions',
+      title: 'پیشنهادهای جست‌وجوی Google',
+      sandbox: 'allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation',
+      referrerpolicy: 'no-referrer',
+      loading: 'lazy',
+      srcdoc: m.searchSuggestionHtml,
+    }));
     if (m.notes?.length) children.push(h('ul', {
       class: 'ai-notes',
       'aria-label': 'نکات تکمیلی',
@@ -1051,13 +1118,13 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     history.push({ role: 'user', text: userText });
     const reply = summarizeReply(res.data);
     const responseNotes = [...(res.data.notes || [])];
-    history.push({ role: 'ai', text: reply, notes: responseNotes, disclaimer: res.data.status === 'ready' ? res.data.disclaimer : '' });
+    history.push({ role: 'ai', text: reply, notes: responseNotes, searchSuggestionHtml: res.data.searchSuggestionHtml || '', searchSources: res.data.searchSources || [], disclaimer: res.data.status === 'ready' ? res.data.disclaimer : '' });
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
     attachments = [];
     renderAttachments();
     renderLog();
-    const saved = await persistTurn(userText, reply).catch(() => false);
+    const saved = await persistTurn(userText, reply, res.data.searchSuggestionHtml || '', res.data.searchSources || []).catch(() => false);
     if (mode === 'consult' && voiceMode) speakReply(reply);
     // گزینه ورود به تنظیم سند فقط با اعلام آمادگی صریح سرور، بدون سؤال باز و با جمع‌بندی واقعی ظاهر می‌شود.
     if (mode === 'consult' && res.data.status === 'ready' && !(res.data.questions || []).length && reply.trim().length >= 120) acceptBtn.hidden = false;

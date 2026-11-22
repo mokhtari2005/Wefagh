@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../worker/src/index.js';
-import { AiError, extractText, generateText, synthesizeSpeech, aiConfigured, modelIds } from '../worker/src/ai/gemini.js';
-import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims } from '../worker/src/ai/routes.js';
+import { AiError, extractText, extractGrounding, generateText, synthesizeSpeech, aiConfigured, modelIds } from '../worker/src/ai/gemini.js';
+import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims, curatedLegalArticlesForQuery } from '../worker/src/ai/routes.js';
 import { mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt, LEGAL_DISCLAIMER } from '../worker/src/ai/prompts.js';
 import { groqConfigured, reviewLegalDraft, groqReviewNotes, GROQ_API, GROQ_REVIEW_MODEL } from '../worker/src/ai/groq.js';
 import batch01 from '../worker/src/moot/bank/batch-01.js';
+import { extractExplicitLegalReferences, findVerifiedLegalArticles } from '../worker/src/legal-bank.js';
 
 // پروندهٔ نمونه از بانک (پیش‌نویس)؛ فقط برای آزمون ساخت دستور سیستمی از داده‌های پرونده.
 const SAMPLE_CASE = batch01[0];
@@ -51,6 +52,60 @@ function req(path, { method = 'POST', body, cookie = null, type = 'application/j
   if (cookie) headers.cookie = `wefagh_session=${cookie}`;
   return new Request(BASE + path, { method, headers, body: body === undefined ? undefined : (typeof body === 'string' ? body : JSON.stringify(body)) });
 }
+
+
+
+
+test('curated seizure statutes provide articles 56 and 57 with provenance labels', () => {
+  const articles = curatedLegalArticlesForQuery('انتقال مال توقیف‌شده و ملک توقیف‌شده');
+  assert.deepEqual(articles.map((item) => item.articleNumber), ['۵۶', '۵۷']);
+  assert.ok(articles.every((item) => item.sourceStatus === 'curated_reference'));
+});
+
+test('findVerifiedLegalArticles prioritizes exact law and article citations', async () => {
+  const calls = [];
+  const db = {
+    prepare(sql) {
+      return { bind(...bindings) {
+        return { all: async () => {
+          calls.push({ sql, bindings });
+          return { results: sql.includes('a.article_number IN')
+            ? [{ lawTitle: 'قانون اجرای احکام مدنی', articleNumber: '۵۶', body: 'متن ماده' }]
+            : [] };
+        } };
+      } };
+    },
+  };
+  const found = await findVerifiedLegalArticles(db, 'مواد ۵۶ و ۵۷ قانون اجرای احکام مدنی');
+  assert.equal(found[0].articleNumber, '۵۶');
+  assert.ok(calls[0].sql.includes("l.status='verified' AND a.status='verified'"));
+  assert.ok(calls[0].sql.includes('a.article_number IN (?2, ?3)'));
+  assert.ok(calls[0].bindings.includes('%قانون اجرای احکام مدنی%'));
+});
+
+test('extractGrounding keeps answer passages linked to Google search results', () => {
+  const result = extractGrounding({
+    candidates: [{
+      content: { parts: [{ text: 'ماده ۵۶ قانون اجرای احکام مدنی' }] },
+      groundingMetadata: {
+        groundingChunks: [{ web: { title: 'سامانه ملی قوانین', uri: 'https://qavanin.ir/law/1' } }],
+        groundingSupports: [{ segment: { text: 'ماده ۵۶ قانون اجرای احکام مدنی' }, groundingChunkIndices: [0] }],
+        webSearchQueries: ['قانون اجرای احکام مدنی ماده ۵۶'],
+        searchEntryPoint: { renderedContent: '<div>Google Search</div>' },
+      },
+    }],
+  });
+  assert.equal(result.sources[0].supportedClaim, 'ماده ۵۶ قانون اجرای احکام مدنی');
+  assert.equal(result.searchSuggestionHtml, '<div>Google Search</div>');
+});
+
+test('extractExplicitLegalReferences parses Persian article ranges', () => {
+  const refs = extractExplicitLegalReferences('مواد ۵۶ و ۵۷ قانون اجرای احکام مدنی باید بررسی شوند.');
+  assert.deepEqual(refs, [
+    { lawTitle: 'قانون اجرای احکام مدنی', articleNumber: '56' },
+    { lawTitle: 'قانون اجرای احکام مدنی', articleNumber: '57' },
+  ]);
+});
 
 test('کلید API فقط از Secret خوانده می‌شود و وضعیت آن هرگز کلید را نشان نمی‌دهد', async () => {
   assert.equal(aiConfigured({}), false);
@@ -173,6 +228,12 @@ test('پرونده و دستور سیستمی روی سرور است و پیام
   assert.ok(LEGAL_DISCLAIMER.includes('جایگزین بررسی حرفه‌ای وکیل نیست'));
 });
 
+test('پیوند Google به دامنه رسمی به‌تنهایی شماره ماده را تأیید نمی‌کند', () => {
+  const guarded = guardUnverifiedLegalClaims('مطابق ماده ۵۶ قانون اجرای احکام مدنی، معامله باطل است.', [], '');
+  assert.equal(guarded.changed, true);
+  assert.match(guarded.text, /شماره نیازمند تطبیق با متن رسمی/);
+});
+
 test('کنترل سمت سرور، شماره ماده و مهلت فاقد پشتوانه را پیش از نمایش خنثی می‌کند', () => {
   const guarded = guardUnverifiedLegalClaims(
     'طبق ماده ۱۷۹ و ماده ۱۸۳ باید ظرف ۳۰ روز اقدام کنید؛ همچنین ماده ۴۲۲ قابل اعمال است.',
@@ -228,7 +289,7 @@ test('میز محاکمه هوشمند: حالت مستقل، پرامپت چن�
     const data = await res.json();
     assert.equal(res.status, 200);
     assert.equal(data.ok, true);
-    assert.equal(calls.length, 7);
+    assert.equal(calls.length, 4);
     assert.ok(systems.every((system) => system.includes('میز محاکمه هوشمند')));
     assert.ok(systems.some((system) => system.includes('قوی‌ترین دفاع‌ها، ایرادهای شکلی و ماهوی')));
     assert.ok(systems.some((system) => system.includes('نقش تو وکیل موکل/کاربر است')));
@@ -362,8 +423,12 @@ test('Groq بازبین مستقل فقط با Secret فعال می‌شود و 
   assert.equal(groqConfigured({ GROQ_API_KEY: 'groq-test-key-0123456789' }), true);
   assert.match(GROQ_API, /api\.groq\.com/);
   assert.equal(GROQ_REVIEW_MODEL, 'openai/gpt-oss-120b');
-  assert.match(groqReviewNotes({ status: 'quota_exceeded' })[0], /سهمیه رایگان/);
-  assert.match(groqReviewNotes({ status: 'not_configured' })[0], /GROQ_API_KEY/);
+  assert.match(groqReviewNotes({ status: 'quota_exceeded' })[0], /بازبینی مستقل/);
+  assert.match(groqReviewNotes({ status: 'not_configured' })[0], /بازبینی مستقل/);
+  const publicNotes = groqReviewNotes({ status: 'reviewed', model: 'openai/gpt-oss-120b', bankArticlesCount: 2, webSourcesCount: 1, review: { risk: 'low', summary: 'مستندات با متن تطبیق داده شدند.', issues: [], citations: [] } });
+  assert.ok(publicNotes.some((note) => note.includes('منبع وب')));
+  assert.ok(!publicNotes.join(' ').includes('Groq'));
+  assert.ok(!publicNotes.join(' ').includes('gpt-oss'));
 });
 
 test('بازبین میز محاکمه نقش‌های طرف مقابل، وکیل موکل و قاضی را جداگانه بررسی می‌کند', async () => {
@@ -378,24 +443,29 @@ test('بازبین میز محاکمه نقش‌های طرف مقابل، وک�
     ],
     citations: [],
   };
+  let sentRequest = null;
   await withFetch(async (url, init) => {
     assert.equal(url, GROQ_API);
-    const sent = JSON.parse(init.body);
-    assert.match(sent.messages[0].content, /وکیل طرف مقابل/);
-    assert.match(sent.messages[0].content, /وکیل موکل/);
-    assert.match(sent.messages[0].content, /قاضی بی‌طرف/);
-    assert.match(sent.messages[0].content, /راستی‌آزمایی استنادات/);
-    assert.match(sent.messages[0].content, /کنترل خواسته‌ها/);
-    assert.match(sent.messages[0].content, /نقل‌قول ترکیبی/);
+    sentRequest = JSON.parse(init.body);
     return jsonRes(200, { choices: [{ message: { content: JSON.stringify(reviewJson) } }] });
   }, async () => {
     const result = await reviewLegalDraft({ GROQ_API_KEY: groqKey }, {
       mode: 'litigation', docType: 'retrial',
       question: 'اعتراض به رأی قطعی را بررسی کن.',
       draft: 'متن پیش‌نویس برای بررسی مستقل.',
+      webSources: [{ title: 'متن رسمی قانون', uri: 'https://qavanin.ir/law/1', domain: 'qavanin.ir', supportedClaim: 'ماده ۵۶ قانون اجرای احکام مدنی نقل‌وانتقال مال توقیف‌شده را باطل و بلااثر می‌داند.' }],
     });
     assert.equal(result.status, 'reviewed');
     assert.deepEqual(result.review.issues.map((item) => item.category), ['وکیل طرف مقابل', 'وکیل موکل', 'قاضی بی‌طرف']);
+    assert.match(sentRequest.messages[0].content, /وکیل طرف مقابل/);
+    assert.match(sentRequest.messages[0].content, /وکیل موکل/);
+    assert.match(sentRequest.messages[0].content, /قاضی بی‌طرف/);
+    assert.match(sentRequest.messages[0].content, /راستی‌آزمایی استنادات/);
+    assert.match(sentRequest.messages[0].content, /کنترل خواسته‌ها/);
+    assert.match(sentRequest.messages[0].content, /نقل‌قول ترکیبی/);
+    assert.match(sentRequest.messages[1].content, /منابع وب و عبارت‌های پاسخِ پیوندخورده به منابع/);
+    assert.match(sentRequest.messages[1].content, /qavanin\.ir/);
+    assert.match(sentRequest.messages[1].content, /ماده ۵۶ قانون اجرای احکام مدنی/);
   });
 });
 
@@ -403,16 +473,12 @@ test('Groq پیش‌نویس را مستقل بررسی می‌کند و خرو�
   const groqKey = 'groq-test-key-0123456789';
   const geminiJson = { status: 'ready', questions: [], text: 'پیش‌نویس لایحه با استناد به ماده ۱۲۳', notes: [] };
   const reviewJson = { risk: 'high', summary: 'صلاحیت مرجع باید بررسی شود.', issues: [{ severity: 'high', category: 'صلاحیت', observation: 'مرجع صالح در متن روشن نیست.', recommendation: 'مرجع رسیدگی و مبنای صلاحیت را مشخص کنید.' }], citations: [{ citation: 'ماده ۱۲۳', concern: 'وضعیت اعتبار و انطباق آن با موضوع باید از منبع رسمی بررسی شود.' }] };
+  let groqRequest = null;
   await withFetch(async (url, init) => {
     if (url.includes('generativelanguage.googleapis.com')) {
       return jsonRes(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(geminiJson) }] } }] });
     }
-    assert.equal(url, GROQ_API);
-    assert.equal(init.headers.authorization, `Bearer ${groqKey}`);
-    const sent = JSON.parse(init.body);
-    assert.equal(sent.model, GROQ_REVIEW_MODEL);
-    assert.equal(sent.response_format.type, 'json_object');
-    assert.ok(sent.messages[1].content.includes(geminiJson.text));
+    groqRequest = { url, headers: init.headers, body: JSON.parse(init.body) };
     return jsonRes(200, { choices: [{ message: { content: JSON.stringify(reviewJson) } }] });
   }, async (calls) => {
     const env = { DB: fakeDb({ loggedIn: true }), GEMINI_API_KEY: KEY, GROQ_API_KEY: groqKey };
@@ -420,8 +486,13 @@ test('Groq پیش‌نویس را مستقل بررسی می‌کند و خرو�
     const data = await res.json();
     assert.equal(res.status, 200);
     assert.equal(data.ok, true);
+    assert.equal(groqRequest.url, GROQ_API);
+    assert.equal(groqRequest.headers.authorization, `Bearer ${groqKey}`);
+    assert.equal(groqRequest.body.model, GROQ_REVIEW_MODEL);
+    assert.equal(groqRequest.body.response_format.type, 'json_object');
+    assert.ok(groqRequest.body.messages[1].content.includes('پیش‌نویس لایحه با استناد به ماده [شماره نیازمند تطبیق با متن رسمی]'));
     assert.equal(data.outputs, undefined, 'reviewer output must not be returned as a second assistant answer');
-    assert.ok(data.notes.includes('بازبینی ماشینی مستقل انجام شد.'));
+    assert.ok(data.notes.includes('بازبینی ماشینی مستقل انجام شد.'), JSON.stringify(data.notes));
     assert.ok(!data.notes.some((note) => note.includes('مرجع صالح در متن روشن نیست')));
     assert.equal(data.reviewDetails, undefined, 'private reviewer diagnostics must not be returned to the user');
     assert.equal(calls.length, 2);
@@ -432,7 +503,7 @@ test('Groq پیش‌نویس را مستقل بررسی می‌کند و خرو�
 test('بدون Secret کلید Groq، بازبینی مستقل فعال نمی‌شود', async () => {
   const result = await reviewLegalDraft({}, { mode: 'draft', docType: 'petition', question: 'سؤال', draft: 'پیش‌نویس' });
   assert.equal(result.status, 'not_configured');
-  assert.match(groqReviewNotes({ status: 'not_configured' })[0], /فعال نشده است/);
+  assert.match(groqReviewNotes({ status: 'not_configured' })[0], /بازبینی مستقل/);
 });
 
 test('تشخیص Groq: وضعیت کلید بدون افشا و بررسی رایگان فهرست مدل‌ها', async () => {
@@ -440,7 +511,7 @@ test('تشخیص Groq: وضعیت کلید بدون افشا و بررسی را�
   assert.equal(groqKeyState({}), 'missing');
   assert.equal(groqKeyState({ GROQ_API_KEY: 'gsk_short' }), 'too_short');
   assert.match(groqProbeHint(await probeGroq({})), /در زمان اجرا/);
-  assert.match(groqReviewNotes({ status: 'not_configured', keyState: 'missing' })[0], /در زمان اجرا/);
+  assert.match(groqReviewNotes({ status: 'not_configured', keyState: 'missing' })[0], /بازبینی مستقل/);
   const key = 'gsk_test_key_0123456789abcdef';
   await withFetch(async (url, init) => {
     assert.equal(url, 'https://api.groq.com/openai/v1/models');
@@ -512,31 +583,42 @@ test('مواد ۵۶ و ۵۷ قانون اجرای احکام مدنی در ان�
 });
 
 
-test('میز محاکمه مناظره هفت‌مرحله‌ای را اجرا می‌کند و گزارش واحد مستند می‌سازد', async () => {
+test('میز محاکمه سه نقش مستقل را اجرا و گزارش نهایی را تلفیق می‌کند', async () => {
   const roleCalls = [];
+  const finalJson = {
+    status: 'ready', questions: [],
+    text: 'گزارش نهایی تلفیقی: تحلیل نهایی قاضی با نتیجه مشروط و مستند پرونده.',
+    notes: [],
+  };
   await withFetch(async (url, init) => {
     assert.ok(url.includes('generativelanguage.googleapis.com'));
     const sent = JSON.parse(init.body);
     const system = sent.systemInstruction.parts[0].text;
     const contents = sent.contents || [];
     assert.match(JSON.stringify(contents), /فروشنده در قرارداد آزادی ملک را تضمین کرده است/);
-    assert.match(system, /حافظه استدلال پرونده/);
-    assert.match(system, /کنترل خواسته‌ها/);
     const latest = (contents.at(-1)?.parts || []).map((part) => part.text || '').join(' ');
     let answer;
     if (system.includes('قوی‌ترین دفاع‌ها، ایرادهای شکلی و ماهوی')) {
       roleCalls.push('opposing');
-      answer = latest.includes('مرحله اول') ? 'دفاع فروشنده دور نخست: تعارض خواسته‌ها.' : 'پاسخ تکمیلی فروشنده دور دوم: ایراد بار اثبات.';
+      assert.match(system, /حافظه استدلال پرونده/);
+      assert.match(system, /کنترل خواسته‌ها/);
+      answer = 'دفاع فروشنده: تعارض خواسته‌ها و ایراد بار اثبات.';
     } else if (system.includes('ابتدا همه ایرادهای مطرح‌شده')) {
       roleCalls.push('client');
-      answer = latest.includes('مرحله اول') ? 'پاسخ خریدار دور نخست: اظهار خلاف واقع و جهل.' : 'پاسخ تکمیلی خریدار دور دوم: ادله و آثار تدلیس.';
+      assert.match(system, /حافظه استدلال پرونده/);
+      assert.match(system, /کنترل خواسته‌ها/);
+      answer = 'پاسخ خریدار: اظهار خلاف واقع، جهل و ادله تدلیس.';
     } else if (system.includes('قاضی بی‌طرف و ارزیاب')) {
       roleCalls.push('judge');
-      if (latest.includes('مرحله دوم')) answer = 'نقد قاضی دور نخست: ادله و تعارض خواسته‌ها باید روشن شود.';
-      else if (latest.includes('مرحله هفتم')) answer = 'کارنامه تحلیلی: قوت استنادها و خلأ اثباتی.';
-      else answer = 'تحلیل نهایی قاضی: نتیجه مشروط و مستند پرونده.';
+      assert.match(system, /حافظه استدلال پرونده/);
+      assert.match(system, /کنترل خواسته‌ها/);
+      assert.match(latest, /تحلیل از موضع طرف مقابل/);
+      assert.match(latest, /تحلیل از موضع وکیل موکل/);
+      answer = 'ارزیابی قاضی: نتیجه مشروط و خلأهای اثباتی.';
     } else {
-      throw new Error('نقش ناشناخته در میز محاکمه');
+      assert.match(system, /میز محاکمه هوشمند/);
+      assert.match(system, /جدول راستی‌آزمایی استنادات/);
+      return jsonRes(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(finalJson) }] }, finishReason: 'STOP' }] });
     }
     return jsonRes(200, { candidates: [{ content: { parts: [{ text: answer }] }, finishReason: 'STOP' }] });
   }, async (calls) => {
@@ -553,11 +635,9 @@ test('میز محاکمه مناظره هفت‌مرحله‌ای را اجرا 
     const data = await res.json();
     assert.equal(res.status, 200);
     assert.equal(data.ok, true);
-    assert.equal(calls.length, 7);
-    assert.deepEqual(roleCalls.sort(), ['client', 'client', 'judge', 'judge', 'judge', 'opposing', 'opposing']);
-    for (const heading of ['دور نخست ـ استدلال وکیل طرف مقابل', 'دور نخست ـ استدلال وکیل موکل', 'ارزیابی قاضی پس از دور نخست', 'دور دوم ـ پاسخ وکیل طرف مقابل', 'دور دوم ـ پاسخ وکیل موکل', 'ارزیابی نهایی قاضی و گزارش مستند', 'کارنامه تحلیلی مناظره']) {
-      assert.ok(data.text.includes(heading), heading);
-    }
+    assert.equal(calls.length, 4);
+    assert.deepEqual(roleCalls.sort(), ['client', 'judge', 'opposing']);
+    assert.match(data.text, /گزارش نهایی تلفیقی/);
     assert.match(data.text, /تحلیل نهایی قاضی/);
   });
-});
+});;

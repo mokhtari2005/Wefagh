@@ -1,6 +1,7 @@
 // جست‌وجوی حقوقی برخط با حداقل‌سازی داده: فقط واژگان حقوقیِ ازپیش‌تعریف‌شده به موتور جست‌وجو می‌رسند.
 // متن پرونده، نام اشخاص، تاریخ‌ها، شماره پرونده و شرح وقایع هرگز در پرس‌وجوی وب قرار نمی‌گیرند.
 import { generateText } from './gemini.js';
+import { extractExplicitLegalReferences } from '../legal-bank.js';
 
 const LEGAL_TERMS = Object.freeze([
   'قانون مدنی', 'قانون اجرای احکام مدنی', 'قانون آیین دادرسی مدنی', 'قانون مجازات اسلامی',
@@ -19,7 +20,12 @@ export function buildSafeLegalSearchQuery(input) {
   const normalized = String(input || '').normalize('NFKC')
     .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک');
   const matches = LEGAL_TERMS.filter((term) => normalized.includes(term));
-  const unique = [...new Set(matches)].slice(0, 8);
+  const safeLawTitles = ['قانون اجرای احکام مدنی','قانون مدنی','قانون آیین دادرسی مدنی','قانون آیین دادرسی کیفری','قانون مجازات اسلامی','قانون تجارت','قانون مسئولیت مدنی','قانون ثبت','قانون کار','قانون صدور چک','قانون حمایت خانواده'];
+  const exactReferences = extractExplicitLegalReferences(normalized)
+    .filter((ref) => safeLawTitles.some((title) => normalized.includes(title) && ref.lawTitle.includes(title)))
+    .map((ref) => safeLawTitles.find((title) => normalized.includes(title) && ref.lawTitle.includes(title)) + ' ماده ' + ref.articleNumber);
+  const remainingMatches = matches.filter((term) => !exactReferences.some((ref) => ref.startsWith(term + ' ماده ')));
+  const unique = [...new Set([...exactReferences, ...remainingMatches])].slice(0, 8);
   return unique.length ? `${unique.join(' ')} حقوق ایران متن قانون رأی قضایی نظریه مشورتی` : '';
 }
 
@@ -33,15 +39,17 @@ function safeSources(grounding) {
     if (parsed.protocol !== 'https:' || seen.has(parsed.href)) continue;
     seen.add(parsed.href);
     sources.push({
-      title: String(item.title || parsed.hostname).replace(/[\\r\\n\\[\\]()]/g, ' ').slice(0, 180),
+      title: String(item.title || parsed.hostname).replace(/[\r\n\[\]()]/g, ' ').slice(0, 180),
       uri: parsed.href,
       domain: parsed.hostname,
+      supportedClaim: typeof item.supportedClaim === 'string' ? item.supportedClaim.slice(0, 700) : '',
     });
     if (sources.length >= 8) break;
   }
   return sources;
 }
 
+// Google grounding فقط ارتباط یک بخش از پاسخ با نتیجه جست‌وجو را گزارش می‌کند؛ متن صفحه منبع را برنمی‌گرداند.
 /**
  * جست‌وجوی برخط اختیاری. باید با GEMINI_SEARCH_GROUNDING_ENABLED=true فعال شود.
  * این تابع فقط query ساخته‌شده از واژگان حقوقی whitelist را به Google Search می‌دهد.
@@ -67,12 +75,13 @@ export async function searchLegalAuthorities(env, input) {
       useGoogleSearch: true,
     });
     const sources = safeSources(result.grounding);
-    if (!sources.length) return { status: 'no_sources', sources: [], summary: result.text || '' };
+    if (!sources.length) return { status: result.grounding?.searchSuggestionHtml ? 'suggestions_only' : 'no_sources', sources: [], summary: result.text || '', searchSuggestionHtml: result.grounding?.searchSuggestionHtml || '' };
     return {
       status: 'searched',
       summary: String(result.text || '').slice(0, 7000),
       sources,
       queries: Array.isArray(result.grounding?.queries) ? result.grounding.queries.slice(0, 5) : [],
+      searchSuggestionHtml: typeof result.grounding?.searchSuggestionHtml === 'string' ? result.grounding.searchSuggestionHtml : '',
     };
   } catch (error) {
     // خطا فقط به‌صورت کد امن گزارش می‌شود؛ متن درخواست و پیام خام خطا ثبت نمی‌شود.
