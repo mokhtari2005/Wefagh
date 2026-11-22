@@ -442,6 +442,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       try { await copyAssistantText(m.text); status.textContent = 'پاسخ دستیار کپی شد.'; }
       catch { status.textContent = 'کپی انجام نشد؛ متن را دستی انتخاب کنید.'; }
     });
+    actions.append(copy);
     const reviewReport = m.reviewReport && typeof m.reviewReport === 'object' ? formatReviewerOutput(JSON.stringify(m.reviewReport)) : '';
     let reviewPanel = null;
     if (reviewReport) {
@@ -459,7 +460,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     }
     const dl = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'دریافت فایل متنی' });
     dl.addEventListener('click', () => downloadText(m.text, 'پاسخ-دستیار-آکادمی.txt'));
-    actions.append(copy, dl);
+    actions.append(dl);
 
     const children = [
       h('span', { class: 'ai-role', text: 'دستیار' }),
