@@ -192,7 +192,7 @@ def make_statements(record):
     law_sql = """INSERT OR IGNORE INTO legal_laws
       (slug,title,law_type,issuing_authority,approved_date,status,source_name,source_url,notes,
        document_number,document_date,subject,official_source_url,discovery_source_url,content_sha256,source_checked_at)
-      VALUES (?1,?2,?3,?4,NULL,'needs_review',?5,?6,?7,?8,?9,?10,?11,?12,?13,strftime('%Y-%m-%dT%H:%M:%fZ','now'));"""
+      VALUES (?1,?2,?3,?4,NULL,'needs_review',?5,?6,?7,?8,?9,?10,?11,?12,?13,NULL);"""
     law_params = [slug, title, document_type, authority, meta["source"], source_url, notes,
                   number, date, meta.get("summary"), source_url, source_url, digest]
     article_payload = json.dumps([{"number": "متن کامل", "heading": title, "body": body}], ensure_ascii=False, separators=(",", ":"))

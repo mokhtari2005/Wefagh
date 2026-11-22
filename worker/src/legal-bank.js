@@ -14,6 +14,13 @@ const TYPES = new Set([
   'treaty', 'guardian_council_opinion', 'parliamentary_research', 'judicial_decision'
 ]);
 
+const JUDICIAL_TYPES = new Set([
+  'unified_precedent', 'supreme_court_unified_precedent', 'supreme_court_insistence_precedent',
+  'administrative_court_unified_precedent', 'administrative_court_general_board',
+  'administrative_court_specialized_board', 'advisory_opinion', 'judicial_advisory_opinion',
+  'judicial_circular',
+]);
+
 async function readLargeJson(request, maxBytes = 4 * 1024 * 1024) {
   if (!(request.headers.get('content-type') || '').toLowerCase().includes('application/json')) return { error: json({ ok:false, error:'UNSUPPORTED_MEDIA_TYPE' },415) };
   const declared = Number(request.headers.get('content-length') || 0);
@@ -48,6 +55,24 @@ export async function handleLegalBank(request, env, path) {
       if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || !title || !TYPES.has(type) || !Array.isArray(b.articles) || !b.articles.length || b.articles.length > 2500) {
         return json({ok:false,error:'VALIDATION_FAILED',message:'شناسه، عنوان، نوع سند یا فهرست مواد معتبر نیست؛ سقف هر سند ۲۵۰۰ ماده است.'},422);
       }
+      const documentNumber = clean(b.documentNumber,120);
+      const documentDate = clean(b.documentDate,40);
+      const subject = clean(b.subject,500);
+      const sourceUrlInput = clean(b.sourceUrl,1200);
+      const officialSourceUrl = clean(b.officialSourceUrl,1200) || sourceUrlInput;
+      const sourceUrl = sourceUrlInput || officialSourceUrl;
+      const discoverySourceUrl = clean(b.discoverySourceUrl,1200);
+      const contentSha256 = clean(b.contentSha256,64).toLowerCase();
+      const issuingAuthority = clean(b.issuingAuthority,240);
+      if ((sourceUrl && !sourceUrl.toLowerCase().startsWith('https://')) ||
+          (officialSourceUrl && !officialSourceUrl.toLowerCase().startsWith('https://')) ||
+          (discoverySourceUrl && !discoverySourceUrl.toLowerCase().startsWith('https://')) ||
+          (contentSha256 && !/^[a-f0-9]{64}$/.test(contentSha256))) {
+        return json({ok:false,error:'INVALID_SOURCE_METADATA',message:'نشانی منبع باید HTTPS و هش محتوا باید SHA-256 معتبر باشد.'},422);
+      }
+      if (JUDICIAL_TYPES.has(type) && (!documentNumber || !documentDate || !issuingAuthority || !subject || !officialSourceUrl)) {
+        return json({ok:false,error:'JUDICIAL_METADATA_REQUIRED',message:'برای سند قضایی، شماره، تاریخ، مرجع صادرکننده، موضوع و پیوند رسمی الزامی است.'},422);
+      }
       const articleNumbers = new Set();
       for (const article of b.articles) {
         const number = clean(article?.number,40);
@@ -62,9 +87,9 @@ export async function handleLegalBank(request, env, path) {
       }
       try {
         const result = await env.DB.prepare(`INSERT INTO legal_laws
-          (slug,title,law_type,issuing_authority,approved_date,publication_date,effective_date,status,source_name,source_url,notes,created_by)
-          VALUES (?1,?2,?3,?4,?5,?6,?7,'needs_review',?8,?9,?10,?11) RETURNING id`)
-          .bind(slug,title,type,clean(b.issuingAuthority,200)||null,clean(b.approvedDate,30)||null,clean(b.publicationDate,30)||null,clean(b.effectiveDate,30)||null,clean(b.sourceName,200)||null,clean(b.sourceUrl,1000)||null,clean(b.notes,2000)||null,access.user.id).first();
+          (slug,title,law_type,issuing_authority,approved_date,publication_date,effective_date,status,source_name,source_url,notes,created_by,document_number,document_date,subject,official_source_url,discovery_source_url,content_sha256)
+          VALUES (?1,?2,?3,?4,?5,?6,?7,'needs_review',?8,?9,?10,?11,?12,?13,?14,?15,?16,?17) RETURNING id`)
+          .bind(slug,title,type,issuingAuthority||null,clean(b.approvedDate,30)||null,clean(b.publicationDate,30)||null,clean(b.effectiveDate,30)||null,clean(b.sourceName,200)||null,sourceUrl||null,clean(b.notes,2000)||null,access.user.id,documentNumber||null,documentDate||null,subject||null,officialSourceUrl||null,discoverySourceUrl||null,contentSha256||null).first();
         const lawId = result.id;
         const statements = b.articles.map(a => env.DB.prepare(`INSERT INTO legal_articles (law_id,article_number,heading,body,status)
           VALUES (?1,?2,?3,?4,'needs_review')`).bind(lawId,clean(a.number,40),clean(a.heading,300)||null,a.body.trim()));
@@ -84,7 +109,7 @@ export async function handleLegalBank(request, env, path) {
     if (!Number.isInteger(id) || id < 1 || !STATUSES.has(status)) return json({ok:false,error:'VALIDATION_FAILED'},422);
     const exists = await env.DB.prepare('SELECT id FROM legal_laws WHERE id=?1').bind(id).first();
     if (!exists) return json({ok:false,error:'NOT_FOUND'},404);
-    await env.DB.prepare("UPDATE legal_laws SET status=?1, updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?2").bind(status,id).run();
+    await env.DB.prepare("UPDATE legal_laws SET status=?1, source_checked_at=CASE WHEN ?1='needs_review' THEN NULL ELSE strftime('%Y-%m-%dT%H:%M:%fZ','now') END, updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?2").bind(status,id).run();
     return json({ok:true,lawId:id,status,articlesUnchanged:true});
   }
 
@@ -238,10 +263,12 @@ export async function findVerifiedLegalArticles(db, query) {
   const terms = [...new Set(String(query||'').split(/[\s،؛,.()]+/).map(x=>x.trim()).filter(x=>x.length>=2))].slice(0,6);
   if (!terms.length) return [];
   const where = terms.map((_,i)=>`(a.body LIKE ?${i+1} OR a.article_number LIKE ?${i+1} OR l.title LIKE ?${i+1})`).join(' OR ');
-  const bindings = terms.map(t=>`%${t}%`);
+  const legalTypes = ['law','regulation','bylaw','circular','executive_circular','executive_regulation','treaty'];
+  const typePlaceholders = legalTypes.map((_,i)=>`?${terms.length+i+1}`).join(',');
+  const bindings = [...terms.map(t=>`%${t}%`), ...legalTypes];
   const result = await db.prepare(`SELECT l.title AS lawTitle,l.source_name AS sourceName,l.source_url AS sourceUrl,a.article_number AS articleNumber,a.heading,a.body
     FROM legal_articles a JOIN legal_laws l ON l.id=a.law_id
-    WHERE l.status='verified' AND a.status='verified' AND (${where}) LIMIT 6`).bind(...bindings).all();
+    WHERE l.status='verified' AND a.status='verified' AND l.law_type IN (${typePlaceholders}) AND (${where}) LIMIT 6`).bind(...bindings).all();
   return result.results || [];
 }
 
@@ -293,6 +320,8 @@ const JUDICIAL_AUTHORITY_TYPES = Object.freeze([
   'administrative_court_unified_precedent',
   'administrative_court_general_board',
   'administrative_court_specialized_board',
+  'supreme_court_insistence_precedent',
+  'judicial_circular',
   'advisory_opinion',
   'judicial_advisory_opinion',
 ]);
@@ -332,7 +361,18 @@ export async function findVerifiedJudicialAuthorities(db, query) {
   const typePlaceholders = JUDICIAL_AUTHORITY_TYPES.map((_, i) => `?${bindings.length + i + 1}`).join(',');
   bindings.push(...JUDICIAL_AUTHORITY_TYPES);
 
-  const result = await db.prepare(`SELECT l.id AS lawId,l.title AS lawTitle,l.law_type AS lawType,l.status AS lawStatus,l.document_number AS documentNumber,l.document_date AS documentDate,l.approved_date AS approvedDate,l.publication_date AS publicationDate,l.effective_date AS effectiveDate,l.issuing_authority AS issuingAuthority,l.subject,l.official_source_url AS officialSourceUrl,l.source_checked_at AS sourceCheckedAt,l.source_name AS sourceName,l.source_url AS sourceUrl,a.id AS articleId,a.article_number AS articleNumber,a.status AS articleStatus,a.status_note AS articleStatusNote,a.status_source_name AS articleStatusSourceName,a.status_source_url AS articleStatusSourceUrl,a.status_effective_date AS articleStatusEffectiveDate,a.heading,a.body
+  const result = await db.prepare(`SELECT l.id AS lawId,l.title AS lawTitle,l.law_type AS lawType,CASE l.law_type
+      WHEN 'supreme_court_unified_precedent' THEN 'رأی وحدت رویه هیأت عمومی دیوان عالی کشور'
+      WHEN 'supreme_court_insistence_precedent' THEN 'رأی اصراری هیأت عمومی دیوان عالی کشور'
+      WHEN 'administrative_court_unified_precedent' THEN 'رأی وحدت رویه هیأت عمومی دیوان عدالت اداری'
+      WHEN 'administrative_court_general_board' THEN 'رأی هیأت عمومی دیوان عدالت اداری'
+      WHEN 'administrative_court_specialized_board' THEN 'رأی هیأت تخصصی دیوان عدالت اداری'
+      WHEN 'judicial_advisory_opinion' THEN 'نظریه مشورتی اداره کل حقوقی قوه قضاییه'
+      WHEN 'advisory_opinion' THEN 'نظریه مشورتی'
+      WHEN 'judicial_circular' THEN 'بخشنامه قضایی'
+      WHEN 'unified_precedent' THEN 'رأی وحدت رویه؛ مرجع باید از متن سند احراز شود'
+      ELSE 'سند قضایی'
+    END AS lawTypeLabel,l.status AS lawStatus,l.document_number AS documentNumber,l.document_date AS documentDate,l.approved_date AS approvedDate,l.publication_date AS publicationDate,l.effective_date AS effectiveDate,l.issuing_authority AS issuingAuthority,l.subject,l.official_source_url AS officialSourceUrl,l.source_checked_at AS sourceCheckedAt,l.source_name AS sourceName,l.source_url AS sourceUrl,a.id AS articleId,a.article_number AS articleNumber,a.status AS articleStatus,a.status_note AS articleStatusNote,a.status_source_name AS articleStatusSourceName,a.status_source_url AS articleStatusSourceUrl,a.status_effective_date AS articleStatusEffectiveDate,a.heading,a.body
     FROM legal_articles a JOIN legal_laws l ON l.id=a.law_id
     WHERE l.status='verified' AND a.status='verified'
       AND l.law_type IN (${typePlaceholders})

@@ -517,10 +517,11 @@ async function assistant(request, env) {
     const promptArticles = [...curatedArticles, ...legalArticles];
     const statuteContext = promptArticles.length ? promptArticles.map((a) => `قانون: ${a.lawTitle}\nماده ${a.articleNumber}${a.heading ? ` ـ ${a.heading}` : ''}\n${a.body}\nمنبع ثبت‌شده: ${a.sourceName || 'ثبت نشده'}${a.sourceUrl ? ` (${a.sourceUrl})` : ''}`).join('\n\n---\n\n') : '';
     const judicialContext = judicialAuthorities.slice(0, 5).map((a) => [
-      `نوع سند: ${a.lawType || 'سند قضایی'}`,
+      `نوع سند: ${a.lawTypeLabel || a.lawType || 'سند قضایی'}`,
       `عنوان: ${a.lawTitle}`,
       a.documentNumber ? `شماره: ${a.documentNumber}` : null,
       a.documentDate || a.approvedDate ? `تاریخ: ${a.documentDate || a.approvedDate}` : null,
+      a.sourceCheckedAt ? `تاریخ آخرین بررسی منبع: ${a.sourceCheckedAt}` : null,
       a.issuingAuthority ? `مرجع صادرکننده: ${a.issuingAuthority}` : null,
       a.subject ? `موضوع: ${a.subject}` : null,
       a.body ? `متن کامل ثبت‌شده: ${a.body.slice(0, 3000)}` : null,

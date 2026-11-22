@@ -1331,12 +1331,12 @@ export async function adminPage() {
     const r = await postJson('/api/admin/legal-bank/import', payload);
     legalBankSubmit.disabled = false;
     legalBankNotice.className = `form-status${r.ok ? '' : ' err'}`;
-    legalBankNotice.textContent = r.ok ? `قانون با ${r.data.articles} ماده در وضعیت نیازمند بررسی ثبت شد.` : errorText(r.data, r.status);
+    legalBankNotice.textContent = r.ok ? `سند با ${r.data.articles} بخش/ماده در وضعیت نیازمند بررسی ثبت شد.` : errorText(r.data, r.status);
     if (r.ok) { legalBankJson.querySelector('textarea').value = ''; await refreshLegalBank(); }
   });
   const legalBankView = el('section', { class: 'admin-view card', 'data-admin-view': 'legal-bank', hidden: 'hidden' }, [
-    el('h2', { text: 'بانک قوانین و مقررات' }),
-    el('p', { class: 'muted', text: 'ورود متن کامل قوانین، ثبت منبع و مدیریت وضعیت اعتبار. فقط قوانین و موادی که تأیید شده‌اند در پاسخ‌های دستیار بازیابی می‌شوند.' }),
+    el('h2', { text: 'بانک حقوقی و اسناد قضایی' }),
+    el('p', { class: 'muted', text: 'ورود متن کامل قوانین، آرای قضایی و نظریات مشورتی؛ ثبت شماره، تاریخ، مرجع و پیوند رسمی. هیچ سند یا ماده‌ای پیش از بررسی مدیر در پاسخ مستند دستیار استفاده نمی‌شود.' }),
     legalBankNotice, legalBankForm,
     el('h3', { text: 'اسناد ثبت‌شده' }), legalBankList,
   ]);
