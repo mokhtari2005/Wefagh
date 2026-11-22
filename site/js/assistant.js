@@ -174,7 +174,7 @@ export function packStoredAiMessage(text, suggestionHtml = '', searchSources = [
   const sources = (Array.isArray(searchSources) ? searchSources : []).slice(0, 12).flatMap((source) => {
     if (typeof source?.title !== 'string' || typeof source?.uri !== 'string') return [];
     try { if (new URL(source.uri).protocol !== 'https:') return []; } catch { return []; }
-    return [{ title: source.title.slice(0, 180), uri: source.uri, domain: typeof source.domain === 'string' ? source.domain.slice(0, 120) : '', citedText: typeof source.citedText === 'string' ? source.citedText.slice(0, 360) : '' }];
+    return [{ title: source.title.slice(0, 180), uri: source.uri, domain: typeof source.domain === 'string' ? source.domain.slice(0, 120) : '', supportedClaim: typeof source.supportedClaim === 'string' ? source.supportedClaim.slice(0, 360) : '' }];
   });
   if (!html && !sources.length) return text;
   const encoded = encodeURIComponent(JSON.stringify({ html, sources }));
@@ -494,7 +494,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       if (!href) return null;
       return h('li', {}, [
         h('a', { href, target: '_blank', rel: 'noopener noreferrer', text: source.title || source.domain || 'مشاهده منبع' }),
-        source.citedText ? h('p', { class: 'ai-search-source-excerpt', text: source.citedText }) : null,
+        source.supportedClaim ? h('p', { class: 'ai-search-source-excerpt', text: 'عبارت مرتبط در پاسخ: ' + source.supportedClaim }) : null,
       ].filter(Boolean));
     }).filter(Boolean)));
     if (m.searchSuggestionHtml) children.push(h('iframe', {
