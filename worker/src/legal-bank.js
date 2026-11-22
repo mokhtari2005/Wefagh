@@ -260,7 +260,7 @@ export async function handleLegalBank(request, env, path) {
 
 // برای تزریق به زمینهٔ مدل فقط مواد تأییدشده برگردانده می‌شوند.
 export async function findVerifiedLegalArticles(db, query) {
-  const terms = [...new Set(String(query||'').split(/[\\s،؛,.()]+/).map(x=>x.trim()).filter(x=>x.length>=2))].slice(0,6);
+  const terms = [...new Set(String(query||'').split(/[\s،؛,.()]+/).map(x=>x.trim()).filter(x=>x.length>=2))].slice(0,6);
   if (!terms.length) return [];
   const where = terms.map((_,i)=>`(a.body LIKE ?${i+1} OR a.article_number LIKE ?${i+1} OR l.title LIKE ?${i+1})`).join(' OR ');
   const legalTypes = ['law','regulation','bylaw','circular','executive_circular','executive_regulation','treaty'];
