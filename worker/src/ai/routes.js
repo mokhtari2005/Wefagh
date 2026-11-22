@@ -621,9 +621,9 @@ async function assistant(request, env) {
     const searchSources = webResearch?.status === 'searched' ? webResearch.sources : [];
     const hasSearchSuggestions = ['searched', 'suggestions_only'].includes(webResearch?.status) && Boolean(webResearch.searchSuggestionHtml);
     if (webResearch?.status === 'searched' && webResearch.sources.length) {
-      notes.push('جست‌وجوی وب با Google Search انجام شد. پیوند منابع و عبارت‌های پاسخِ مرتبط با هر پیوند در پایین پاسخ نمایش داده شده‌اند؛ این اطلاعات فقط سرنخ تحقیق‌اند و به‌معنای تأیید رسمی متن قانون، اعتبار رأی یا جاری‌بودن مقرره نیستند.');
+      notes.push('جست‌وجوی تکمیلی در منابع اینترنتی انجام شد. پیوند منابع و عبارت‌های مرتبط با پاسخ در پایین آن نمایش داده شده‌اند؛ این اطلاعات سرنخ تحقیق‌اند و به‌معنای تأیید رسمی متن قانون، اعتبار رأی یا جاری‌بودن مقرره نیستند.');
     } else if (webResearch?.status === 'suggestions_only') {
-      notes.push('پیشنهاد جست‌وجوی Google نمایش داده شد، اما منبع قابل استناد مستقلی بازیابی نشد.');
+      notes.push('پیشنهادهایی برای جست‌وجوی تکمیلی نمایش داده شد، اما منبع قابل استناد مستقلی بازیابی نشد.');
     } else if (webResearch?.status === 'failed') {
       notes.push('جست‌وجوی وب حقوقی انجام نشد؛ پاسخ صرفاً بر منابع داخلی و دانش مدل متکی است.');
     } else if (webResearch?.status === 'no_sources' || webResearch?.status === 'no_legal_terms') {
@@ -636,7 +636,7 @@ async function assistant(request, env) {
     if (attachments.length) {
       notes.push('هشدار: بازبینی مستقل انجام نشد.');
     } else if (provider === 'groq') {
-      notes.push('چون پاسخ اصلی همین نوبت با Groq تولید شده، بازبینی مستقل جداگانه اجرا نشد تا یک سرویس هم‌زمان نقش تولیدکننده و بازبین را نداشته باشد.');
+      notes.push('چون پاسخ اصلی با همان ارائه‌دهنده تولید شده است، بازبینی مستقل جداگانه اجرا نشد تا تولید پاسخ و ارزیابی آن به یک سرویس واحد واگذار نشود.');
     } else {
       stage = 'groq_review';
       let reviewArticles = [...promptArticles];
@@ -660,10 +660,10 @@ async function assistant(request, env) {
       const review = await reviewLegalDraft(env, {
         mode, docType, question: message, draft: text, legalArticles: reviewArticles, webSources: searchSources,
       });
-      if (reviewBankUnavailable) notes.push('جست‌وجوی تکمیلی بانک قوانین برای بازبین Groq انجام نشد؛ نتیجه بر اساس مواد بازیابی‌شده در مرحله نخست و سایر اطلاعات موجود است.');
+      if (reviewBankUnavailable) notes.push('جست‌وجوی تکمیلی در بانک قوانین برای بازبینی انجام نشد؛ نتیجه بر اساس مواد بازیابی‌شده در مرحله نخست و سایر اطلاعات موجود است.');
       if (review.status === 'reviewed') {
         const auditLines = groqReviewNotes(review);
-        text += '\n\n## گزارش بازبینی مستقل و تطبیق استنادات\n' + auditLines.map((line) => '• ' + line).join('\n');
+        text += '\n\nگزارش بازبینی مستقل و تطبیق استنادات: ' + auditLines.join(' ');
         notes.push('بازبینی ماشینی مستقل انجام شد.');
         notes.push('گزارش تطبیق استنادات در ادامه پاسخ آمده و جایگزین بررسی نهایی منابع رسمی نیست.');
       } else {
@@ -760,7 +760,7 @@ async function ekhtebarAnswer(request, env) {
       source: a.sourceName || '', url: a.sourceUrl || '',
     }));
     const notes = [];
-    if (provider === 'groq') notes.push('به‌دلیل اختلال یا عدم دسترسی Gemini، پاسخ آموزشی با مدل جایگزین Groq تولید شد. مستندات بازیابی‌شده از بانک قوانین آکادمی حفظ شده‌اند؛ استنادها را پیش از استفاده با منبع رسمی تطبیق دهید.');
+    if (provider === 'groq') notes.push('به‌دلیل اختلال یا عدم دسترسی سرویس اصلی، پاسخ آموزشی با سرویس جایگزین تولید شد. مستندات بازیابی‌شده از بانک قوانین حفظ شده‌اند؛ استنادها را پیش از استفاده با منبع رسمی تطبیق دهید.');
     if (legalBankUnavailable) notes.push('بانک قوانین در دسترس نبود؛ استنادهای پاسخ باید مستقلاً با متن رسمی قوانین تطبیق داده شوند.');
     if (!legalSources.length) notes.push('ماده قانونی تأییدشده‌ای از بانک قوانین بازیابی نشد؛ شماره مواد و مقررات ذکرشده در متن پاسخ را پیش از استفاده با منبع رسمی بررسی کنید.');
     if (truncated) notes.push('پاسخ به سقف طول رسید و ممکن است نیاز به درخواست ادامه داشته باشد.');
