@@ -701,7 +701,9 @@ async function assistant(request, env) {
     // Google grounding links answer segments to result URLs; it does not provide source-page text.
     // Therefore, a URL association alone must never authorize an otherwise unverified article number.
     const officialPageArticles = extractOfficialPageArticleReferences(webResearch?.sources || []);
-    const verifiedSourceText = [...promptArticles.filter((item) => item.lawStatus === 'verified' && item.articleStatus === 'verified'), ...officialPageArticles]\n      .map((item) => `${item.lawTitle || ''} ماده ${item.articleNumber || ''} ${item.body || ''}`).join('\\n');\n    const guardedText = guardUnverifiedLegalClaims(rawText, [...promptArticles, ...officialPageArticles], verifiedSourceText);
+    const verifiedSourceText = [...promptArticles.filter((item) => item.lawStatus === 'verified' && item.articleStatus === 'verified'), ...officialPageArticles]
+      .map((item) => `${item.lawTitle || ''} ماده ${item.articleNumber || ''} ${item.body || ''}`).join('\\n');
+    const guardedText = guardUnverifiedLegalClaims(rawText, [...promptArticles, ...officialPageArticles], verifiedSourceText);
     let text = guardedText.text;
     const searchSources = webResearch?.status === 'searched' ? webResearch.sources : [];
     const hasSearchSuggestions = ['searched', 'suggestions_only'].includes(webResearch?.status) && Boolean(webResearch.searchSuggestionHtml);
