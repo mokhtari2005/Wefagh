@@ -235,3 +235,92 @@ export async function findVerifiedLegalArticles(db, query) {
     WHERE l.status='verified' AND a.status='verified' AND (${where}) LIMIT 6`).bind(...bindings).all();
   return result.results || [];
 }
+
+
+const JUDICIAL_AUTHORITY_TYPES = Object.freeze([
+  'unified_precedent',
+  'supreme_court_unified_precedent',
+  'administrative_court_unified_precedent',
+  'administrative_court_general_board',
+  'administrative_court_specialized_board',
+  'advisory_opinion',
+  'judicial_advisory_opinion',
+]);
+
+/**
+ * فقط متن کاملِ ثبت‌شده در legal_articles و رکوردهایی که مدیر هر دو سطح سند و متن را
+ * verified کرده است بازیابی می‌شود. legal_document_index عمداً در این جست‌وجو نیست:
+ * آن جدول فقط فراداده/پیوند دارد و وضعیت آن همیشه needs_review است.
+ */
+export async function findVerifiedJudicialAuthorities(db, query) {
+  const text = String(query || '').normalize('NFKC')
+    .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+  const terms = legalSearchTerms(text);
+  const numbers = [...text.matchAll(/(?:رأی\s*وحدت\s*رویه|نظریه\s*مشورتی)\s*(?:شماره\s*)?([0-9]+(?:\/[0-9]+)*)/gu)]
+    .map((match) => match[1]).slice(0, 6);
+  if (!terms.length && !numbers.length) return [];
+
+  const conditions = [];
+  const bindings = [];
+  for (const number of numbers) {
+    const persian = number.replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
+    bindings.push(number, persian);
+    const n = bindings.length;
+    conditions.push(`(l.document_number = ?${n - 1} OR l.document_number = ?${n})`);
+  }
+  if (terms.length) {
+    const termConditions = terms.map((_, index) => {
+      const n = bindings.length + index + 1;
+      return `(l.title LIKE ?${n} OR l.subject LIKE ?${n} OR a.body LIKE ?${n})`;
+    });
+    conditions.push(`(${termConditions.join(' OR ')})`);
+    bindings.push(...terms.map((term) => '%' + term + '%'));
+  }
+  const scoreStart = bindings.length;
+  const score = terms.length
+    ? terms.map((_, index) => {
+      const n = scoreStart + index + 1;
+      return `(CASE WHEN l.title LIKE ?${n} OR l.subject LIKE ?${n} OR a.body LIKE ?${n} THEN 1 ELSE 0 END)`;
+    }).join(' + ')
+    : '0';
+  if (terms.length) bindings.push(...terms.map((term) => '%' + term + '%'));
+  const typeStart = bindings.length;
+  const typePlaceholders = JUDICIAL_AUTHORITY_TYPES.map((_, index) => `?${typeStart + index + 1}`).join(',');
+  bindings.push(...JUDICIAL_AUTHORITY_TYPES);
+
+  const result = await db.prepare(`SELECT
+      l.id AS lawId,
+      l.title AS lawTitle,
+      l.law_type AS lawType,
+      l.status AS lawStatus,
+      l.document_number AS documentNumber,
+      l.document_date AS documentDate,
+      l.approved_date AS approvedDate,
+      l.publication_date AS publicationDate,
+      l.effective_date AS effectiveDate,
+      l.issuing_authority AS issuingAuthority,
+      l.subject,
+      l.official_source_url AS officialSourceUrl,
+      l.source_checked_at AS sourceCheckedAt,
+      l.source_name AS sourceName,
+      l.source_url AS sourceUrl,
+      a.id AS articleId,
+      a.article_number AS articleNumber,
+      a.status AS articleStatus,
+      a.status_note AS articleStatusNote,
+      a.status_source_name AS articleStatusSourceName,
+      a.status_source_url AS articleStatusSourceUrl,
+      a.status_effective_date AS articleStatusEffectiveDate,
+      a.heading,
+      a.body
+    FROM legal_articles a
+    JOIN legal_laws l ON l.id = a.law_id
+    WHERE l.status = 'verified'
+      AND a.status = 'verified'
+      AND l.law_type IN (${typePlaceholders})
+      AND (${conditions.join(' OR ')})
+    ORDER BY (${score}) DESC, l.document_date DESC, l.title, a.id
+    LIMIT 8`).bind(...bindings).all();
+  return result.results || [];
+}
