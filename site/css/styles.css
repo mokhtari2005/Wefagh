@@ -4144,3 +4144,9 @@ body.classroom-fullscreen-fallback { overflow:hidden; }
   .ai-chat-composer { padding: .75rem; }
   .ai-chat-input { min-height: 52px; }
 }
+
+
+/* گزارش بازبینی مستقل؛ جدا از پاسخ اصلی و فقط با درخواست کاربر باز می‌شود. */
+.ai-review-panel { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--sand-line); border-radius: 12px; background: var(--bone); }
+.ai-review-panel[hidden] { display: none; }
+.ai-review-panel-title { display: block; margin-bottom: 8px; color: var(--assistant-navy); font-size: .92rem; }

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { historyForApi, validAnswer, ANSWER_MAX, hearingScript, stepStates, SPEAKER_LABEL, VOICE_FOR, GROUP_LABELS } from '../site/js/moot-ai.js';
-import { trimHistory, summarizeReply, ASSISTANT_NOTICE } from '../site/js/assistant.js';
+import { trimHistory, summarizeReply, ASSISTANT_NOTICE, formatReviewerOutput } from '../site/js/assistant.js';
 import { silentWavBlob, AI_ERROR_TEXT, errorText, baseMime } from '../site/js/ai-client.js';
 
 test('تاریخچهٔ ارسالی به سرور از انتها و با سقف ۳۰ مورد انتخاب می‌شود', () => {
@@ -76,4 +76,17 @@ test('WAV بی‌صدای ساخته‌شده ساختار RIFF درست دار�
   assert.equal(String.fromCharCode(...bytes.slice(0, 4)), 'RIFF');
   assert.equal(String.fromCharCode(...bytes.slice(8, 12)), 'WAVE');
   assert.equal(bytes.length, 44 + 1600);
+});
+
+
+test('گزارش بازبینی مستقل به متن قابل‌خواندن فارسی تبدیل می‌شود و ریسک و ایرادها را حفظ می‌کند', () => {
+  const report = formatReviewerOutput(JSON.stringify({
+    risk: 'high',
+    summary: 'پاسخ در تعیین مرجع توقف عملیات اجرایی دچار خطاست.',
+    issues: [{ severity: 'high', category: 'jurisdiction_clarification', observation: 'مرجع رسیدگی‌کننده به دعوای ماهوی باید قرار توقف را صادر کند.', recommendation: 'مرجع صالح را مطابق نظریه مشورتی تطبیق دهید.' }],
+    citations: [{ citation: 'ماده ۲۳ قانون صدور چک', concern: 'شرایط توقف نادرست بیان شده است.' }],
+  }));
+  assert.match(report, /ریسک زیاد/);
+  assert.match(report, /مرجع رسیدگی‌کننده به دعوای ماهوی/);
+  assert.match(report, /ماده ۲۳ قانون صدور چک/);
 });

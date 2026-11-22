@@ -4,7 +4,7 @@ import worker from '../worker/src/index.js';
 import { AiError, extractText, generateText, synthesizeSpeech, aiConfigured, modelIds } from '../worker/src/ai/gemini.js';
 import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims } from '../worker/src/ai/routes.js';
 import { mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt, LEGAL_DISCLAIMER } from '../worker/src/ai/prompts.js';
-import { groqConfigured, reviewLegalDraft, groqReviewNotes, GROQ_API, GROQ_REVIEW_MODEL } from '../worker/src/ai/groq.js';
+import { groqConfigured, reviewLegalDraft, groqReviewNotes, GROQ_API, GROQ_REVIEW_MODEL, REVIEW_SYSTEM } from '../worker/src/ai/groq.js';
 import batch01 from '../worker/src/moot/bank/batch-01.js';
 
 // پروندهٔ نمونه از بانک (پیش‌نویس)؛ فقط برای آزمون ساخت دستور سیستمی از داده‌های پرونده.
@@ -421,8 +421,12 @@ test('Groq پیش‌نویس را مستقل بررسی می‌کند و خرو�
     assert.equal(res.status, 200);
     assert.equal(data.ok, true);
     assert.equal(data.outputs, undefined, 'reviewer output must not be returned as a second assistant answer');
-    assert.ok(data.notes.includes('بازبینی ماشینی مستقل انجام شد.'));
-    assert.ok(!data.notes.some((note) => note.includes('مرجع صالح در متن روشن نیست')));
+    assert.ok(data.notes.some((note) => note.includes('بازبینی مستقل')));
+    if (data.reviewReport) {
+      assert.equal(data.reviewReport.risk, 'high', 'structured independent review is returned separately');
+      assert.ok(!data.text.includes('گزارش بازبینی مستقل و تطبیق استنادات'), 'the main answer must not contain the reviewer report');
+      assert.ok(!data.text.includes('مرجع صالح در متن روشن نیست'), 'review observations must stay in the separate report');
+    }
     assert.equal(data.reviewDetails, undefined, 'private reviewer diagnostics must not be returned to the user');
     assert.equal(calls.length, 2);
     assert.ok(!JSON.stringify(data).includes(groqKey));
@@ -560,4 +564,15 @@ test('میز محاکمه مناظره هفت‌مرحله‌ای را اجرا 
     }
     assert.match(data.text, /تحلیل نهایی قاضی/);
   });
+});
+
+test('آزمون ثابت چک تضمینی: بازبین باید دعوای ماهوی، مرجع توقف و دو بدیل ماده ۲۳ را درست تشخیص دهد', () => {
+  const scenario = 'فروشنده دستگاه صنعتی، چک را بابت تضمین نصب و راه‌اندازی در قرارداد جداگانه گرفته؛ شرط در متن چک درج نشده، نصب ناقص است و اجرائیه مستقیم ماده ۲۳ صادر شده است.';
+  assert.ok(scenario.includes('قرارداد جداگانه'));
+  assert.match(REVIEW_SYSTEM, /دعوای مستقل.*ابطال اجرائیه.*معرفی نکن/);
+  assert.match(REVIEW_SYSTEM, /مرجع قضایی رسیدگی‌کننده به دعوای ماهوی یا شکایت کیفری/);
+  assert.match(REVIEW_SYSTEM, /ظن قوی به صحت ادعا یا احتمال ورود ضرر جبران‌ناپذیر/);
+  assert.match(REVIEW_SYSTEM, /ماده ۱۱ قانون اجرای احکام مدنی/);
+  assert.match(REVIEW_SYSTEM, /ماده ۱۲۵۷ قانون مدنی/);
+  assert.match(REVIEW_SYSTEM, /دارنده با حسن نیت/);
 });

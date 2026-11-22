@@ -568,6 +568,8 @@ async function assistant(request, env) {
     if (guardedText.changed) notes.push('شماره مواد یا مهلت‌های فاقد پشتوانه در منابع تأییدشده، برای جلوگیری از ارائه استناد نادرست با عبارت نیازمند بررسی جایگزین شدند.');
     if (truncated) notes.push('پاسخ به‌دلیل طول زیاد کامل نشد. برای ادامه بنویسید «ادامه بده».');
     for (const warning of citationWarnings(guardedText.text)) if (!notes.includes(warning)) notes.push(warning);
+    // گزارش مستقل جدا از متن پاسخ برگردانده می‌شود تا کاربر فقط در صورت نیاز آن را باز کند.
+    let reviewReport = null;
     // برای حفظ محرمانگی، در صورت وجود پیوست، پیش‌نویس حاوی محتوای استخراج‌شده به ارائه‌دهندهٔ سوم ارسال نمی‌شود.
     if (attachments.length) {
       notes.push('هشدار: بازبینی مستقل انجام نشد.');
@@ -598,9 +600,8 @@ async function assistant(request, env) {
       });
       if (reviewBankUnavailable) notes.push('جست‌وجوی تکمیلی بانک قوانین برای بازبین مستقل انجام نشد؛ نتیجه بر اساس مواد بازیابی‌شده در مرحله نخست و سایر اطلاعات موجود است.');
       if (review.status === 'reviewed') {
-        const auditLines = groqReviewNotes(review);
-        text += '\n\n## گزارش بازبینی مستقل و تطبیق استنادات\n' + auditLines.map((line) => '• ' + line).join('\n');
-        notes.push('گزارش راستی‌آزمایی مستقل در ادامه همین پاسخ ارائه شده است. این گزارش بازبینی ماشینی است و جایگزین تطبیق نهایی با منابع رسمی نیست.');
+        reviewReport = review.review;
+        notes.push('گزارش بازبینی مستقل آماده است و از دکمه کنار کپی پاسخ قابل مشاهده است. این گزارش ماشینی است و جایگزین تطبیق نهایی با منابع رسمی نیست.');
       } else {
         notes.push(...groqReviewNotes(review).slice(0, 3));
       }
@@ -629,6 +630,7 @@ async function assistant(request, env) {
       questions,
       text,
       notes,
+      ...(reviewReport ? { reviewReport } : {}),
       attachments: summarizeAttachments(attachments),
       disclaimer: LEGAL_DISCLAIMER,
     });

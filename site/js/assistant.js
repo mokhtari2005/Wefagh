@@ -76,7 +76,7 @@ function cleanModelOutput(value) {
     .replace(/^\s*[-*+]\s+/gm, '• ')
     .replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim();
 }
-function formatReviewerOutput(value) {
+export function formatReviewerOutput(value) {
   let data;
   try { data = JSON.parse(value); } catch { return cleanModelOutput(value); }
   if (!data || typeof data !== 'object' || !('risk' in data)) return cleanModelOutput(value);
@@ -442,14 +442,31 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       try { await copyAssistantText(m.text); status.textContent = 'پاسخ دستیار کپی شد.'; }
       catch { status.textContent = 'کپی انجام نشد؛ متن را دستی انتخاب کنید.'; }
     });
+    actions.append(copy);
+    const reviewReport = m.reviewReport && typeof m.reviewReport === 'object' ? formatReviewerOutput(JSON.stringify(m.reviewReport)) : '';
+    let reviewPanel = null;
+    if (reviewReport) {
+      const reviewButton = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'گزارش بازبینی مستقل', 'aria-expanded': 'false' });
+      reviewPanel = h('section', { class: 'ai-review-panel', hidden: '' }, [
+        h('strong', { class: 'ai-review-panel-title', text: 'گزارش بازبینی مستقل و تطبیق استنادات' }),
+        h('div', { class: 'ai-text pre-wrap', text: reviewReport }),
+      ]);
+      reviewButton.addEventListener('click', () => {
+        reviewPanel.hidden = !reviewPanel.hidden;
+        reviewButton.setAttribute('aria-expanded', String(!reviewPanel.hidden));
+        reviewButton.textContent = reviewPanel.hidden ? 'گزارش بازبینی مستقل' : 'بستن گزارش بازبینی';
+      });
+      actions.append(reviewButton);
+    }
     const dl = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'دریافت فایل متنی' });
     dl.addEventListener('click', () => downloadText(m.text, 'پاسخ-دستیار-آکادمی.txt'));
-    actions.append(copy, dl);
+    actions.append(dl);
 
     const children = [
       h('span', { class: 'ai-role', text: 'دستیار' }),
       h('div', { class: 'ai-text pre-wrap', text: m.text }),
     ];
+    if (reviewPanel) children.push(reviewPanel);
     if (m.notes?.length) children.push(h('ul', {
       class: 'ai-notes',
       'aria-label': 'نکات تکمیلی',
@@ -1051,7 +1068,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     history.push({ role: 'user', text: userText });
     const reply = summarizeReply(res.data);
     const responseNotes = [...(res.data.notes || [])];
-    history.push({ role: 'ai', text: reply, notes: responseNotes, disclaimer: res.data.status === 'ready' ? res.data.disclaimer : '' });
+    history.push({ role: 'ai', text: reply, notes: responseNotes, disclaimer: res.data.status === 'ready' ? res.data.disclaimer : '', reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null });
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
     attachments = [];
@@ -1064,7 +1081,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     status.textContent = saved
       ? (mode === 'consult'
         ? (res.data.status === 'ready' ? 'اگر با جمع‌بندی مشاوره موافقید، نتیجه را تأیید کنید تا وارد مرحله تنظیم سند شوید.' : 'برای تکمیل مشاوره، به پرسش‌های دستیار پاسخ دهید.')
-        : (mode === 'litigation' ? 'پاسخ مشاوره و گزارش مستقل راستی‌آزمایی استنادات در همین پیام ارائه شد؛ پیش از اقدام، منابع رسمی را کنترل کنید.' : 'خروجی آماده است. آن را بررسی کنید؛ پیش از استفاده باید وکیل تطبیق دهد.'))
+        : (mode === 'litigation' ? (res.data.reviewReport ? 'پاسخ آماده شد؛ برای مشاهده گزارش بازبینی مستقل، دکمه کنار کپی پاسخ را بزنید.' : 'پاسخ آماده شد؛ بازبینی مستقل در این نوبت قابل ارائه نبود. پیش از اقدام، منابع رسمی را کنترل کنید.') : 'خروجی آماده است. آن را بررسی کنید؛ پیش از استفاده باید وکیل تطبیق دهد.'))
       : 'پاسخ نمایش داده شد، اما ذخیرهٔ آن در تاریخچه انجام نشد.';
   }
 
