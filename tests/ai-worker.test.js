@@ -228,6 +228,12 @@ test('پرونده و دستور سیستمی روی سرور است و پیام
   assert.ok(LEGAL_DISCLAIMER.includes('جایگزین بررسی حرفه‌ای وکیل نیست'));
 });
 
+test('پیوند Google به دامنه رسمی به‌تنهایی شماره ماده را تأیید نمی‌کند', () => {
+  const guarded = guardUnverifiedLegalClaims('مطابق ماده ۵۶ قانون اجرای احکام مدنی، معامله باطل است.', [], '');
+  assert.equal(guarded.changed, true);
+  assert.match(guarded.text, /شماره نیازمند تطبیق با متن رسمی/);
+});
+
 test('کنترل سمت سرور، شماره ماده و مهلت فاقد پشتوانه را پیش از نمایش خنثی می‌کند', () => {
   const guarded = guardUnverifiedLegalClaims(
     'طبق ماده ۱۷۹ و ماده ۱۸۳ باید ظرف ۳۰ روز اقدام کنید؛ همچنین ماده ۴۲۲ قابل اعمال است.',
