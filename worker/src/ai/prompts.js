@@ -124,7 +124,7 @@ export const ASSISTANT_SCHEMA = Object.freeze({
     status: { type: 'STRING', enum: ['need_info', 'ready'] },
     questions: { type: 'ARRAY', items: { type: 'STRING' } },
     questionOptions: { type: 'ARRAY', items: { type: 'OBJECT', properties: { question: { type: 'STRING' }, options: { type: 'ARRAY', items: { type: 'STRING' } }, allowOther: { type: 'BOOLEAN' } }, required: ['question', 'options', 'allowOther'] } },
-    knownFields: { type: 'OBJECT', properties: { partyOneName: { type: 'STRING' }, partyOneAddress: { type: 'STRING' }, partyTwoName: { type: 'STRING' }, partyTwoAddress: { type: 'STRING' }, court: { type: 'STRING' }, caseNumber: { type: 'STRING' }, caseStage: { type: 'STRING' }, additionalDetails: { type: 'STRING' } } },
+    knownFields: { type: 'OBJECT', properties: { partyOneName: { type: 'STRING' }, partyOneAddress: { type: 'STRING' }, partyTwoName: { type: 'STRING' }, partyTwoAddress: { type: 'STRING' }, court: { type: 'STRING' }, caseNumber: { type: 'STRING' }, caseStage: { type: 'STRING' }, additionalDetails: { type: 'STRING' }, contractSubject: { type: 'STRING' }, contractAmount: { type: 'STRING' }, contractDuration: { type: 'STRING' }, incidentDate: { type: 'STRING' }, incidentPlace: { type: 'STRING' }, evidenceSummary: { type: 'STRING' }, issuingCourt: { type: 'STRING' }, judgmentNumber: { type: 'STRING' }, judgmentDate: { type: 'STRING' }, notificationDate: { type: 'STRING' }, executionCaseNumber: { type: 'STRING' }, enforcementStage: { type: 'STRING' }, enforcementCaseNumber: { type: 'STRING' }, disputedAction: { type: 'STRING' }, noticeSubject: { type: 'STRING' }, responseDeadline: { type: 'STRING' } } },
     text: { type: 'STRING' },
     notes: { type: 'ARRAY', items: { type: 'STRING' } },
   },
