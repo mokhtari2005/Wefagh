@@ -649,6 +649,7 @@ async function assistant(request, env) {
       status: data.status === 'need_info' ? 'need_info' : 'ready',
       questions,
       questionOptions,
+      suggestedDocType: mode === 'consult' && typeof data.suggestedDocType === 'string' && Object.hasOwn(ASSISTANT_DOC_TYPES, data.suggestedDocType) && !['analyze','review','research','other'].includes(data.suggestedDocType) ? data.suggestedDocType : '',
       knownFields,
       text,
       notes,
