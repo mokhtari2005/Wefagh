@@ -702,7 +702,7 @@ async function assistant(request, env) {
     // Therefore, a URL association alone must never authorize an otherwise unverified article number.
     const officialPageArticles = extractOfficialPageArticleReferences(webResearch?.sources || []);
     const verifiedSourceText = [...promptArticles.filter((item) => item.lawStatus === 'verified' && item.articleStatus === 'verified'), ...officialPageArticles]
-      .map((item) => `${item.lawTitle || ''} ماده ${item.articleNumber || ''} ${item.body || ''}`).join('\\n');
+      .map((item) => `${item.lawTitle || ''} ماده ${item.articleNumber || ''} ${item.body || ''}`).join('\n');
     const guardedText = guardUnverifiedLegalClaims(rawText, [...promptArticles, ...officialPageArticles], verifiedSourceText);
     let text = guardedText.text;
     const searchSources = webResearch?.status === 'searched' ? webResearch.sources : [];
