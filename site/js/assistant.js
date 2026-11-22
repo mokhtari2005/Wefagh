@@ -1029,7 +1029,8 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     draftFormData = null;
     draftKnownFields = lastAssistant?.knownFields && typeof lastAssistant.knownFields === 'object' ? lastAssistant.knownFields : {};
     mode = 'draft';
-    docSelect.value = 'petition';
+    const recommendedType = lastAssistant?.suggestedDocType;
+    docSelect.value = DOC_TYPES.some(([value]) => value === recommendedType && value !== 'other') ? recommendedType : 'petition';
     partyPanel.hidden = false;
     acceptBtn.hidden = true;
     syncMode();
@@ -1143,7 +1144,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     history.push({ role: 'user', text: userText });
     const reply = summarizeReply(res.data);
     const responseNotes = [...(res.data.notes || [])];
-    history.push({ role: 'ai', text: reply, notes: responseNotes, reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null, reviewStatus: typeof res.data.reviewStatus === 'string' ? res.data.reviewStatus : null, questionOptions: Array.isArray(res.data.questionOptions) ? res.data.questionOptions : [], knownFields: res.data.knownFields && typeof res.data.knownFields === 'object' ? res.data.knownFields : {}, documentDraft: mode === 'draft', docType: mode === 'draft' ? docSelect.value : null });
+    history.push({ role: 'ai', text: reply, notes: responseNotes, reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null, reviewStatus: typeof res.data.reviewStatus === 'string' ? res.data.reviewStatus : null, questionOptions: Array.isArray(res.data.questionOptions) ? res.data.questionOptions : [], suggestedDocType: typeof res.data.suggestedDocType === 'string' ? res.data.suggestedDocType : '', knownFields: res.data.knownFields && typeof res.data.knownFields === 'object' ? res.data.knownFields : {}, documentDraft: mode === 'draft', docType: mode === 'draft' ? docSelect.value : null });
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
     attachments = [];
