@@ -251,6 +251,7 @@ export async function reviewLegalDraft(env, { mode, docType, question, draft, le
     model: selectedModel,
     bankArticlesCount: bankItems.length,
     webSourcesCount: webItems.length,
+    officialPageTextCount: webItems.filter((item) => item.includes('official_domain_page_text_retrieved')).length,
   } : { status: 'invalid_response' };
 }
 
@@ -281,7 +282,12 @@ export function groqReviewNotes(result) {
 
   const { review } = result;
   const notes = [];
-  if (review.summary) notes.push(`جمع‌بندی بازبینی: ${persianAuditText(review.summary)}`);
+  const hasComparableSources = (result.bankArticlesCount || 0) > 0 || (result.officialPageTextCount || 0) > 0;
+  if (!hasComparableSources) {
+    notes.push('متن مستند قانونیِ قابل تطبیق در اختیار بازبین نبود؛ بنابراین ارزیابی کم‌خطر بودن پاسخ یا تأیید استنادات امکان‌پذیر نیست.');
+  } else if (review.summary) {
+    notes.push(`جمع‌بندی بازبینی: ${persianAuditText(review.summary)}`);
+  }
   for (const item of review.issues) {
     const level = item.severity === 'high' ? 'ایراد مهم' : item.severity === 'medium' ? 'نکته قابل توجه' : 'نکته جزئی';
     notes.push(`${level}${item.category ? ' در موضوع ' + persianAuditText(item.category) : ''}: ${persianAuditText(item.observation)}${item.recommendation ? ' راهکار: ' + persianAuditText(item.recommendation) : ''}`);
