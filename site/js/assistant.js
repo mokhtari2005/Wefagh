@@ -500,12 +500,12 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
         choices.append(h('strong', { text: item.question }));
         for (const option of item.options.filter((value) => typeof value === 'string').slice(0, 8)) {
           const choice = h('button', { class: 'btn secondary ai-mini', type: 'button', text: option });
-          choice.addEventListener('click', () => { composerText.value = `${item.question}\\nپاسخ انتخاب‌شده: ${option}`; counter.textContent = `${composerText.value.length} / ${MESSAGE_LIMIT}`; send(); });
+          choice.addEventListener('click', () => { composerText.value = `${item.question}\nپاسخ انتخاب‌شده: ${option}`; counter.textContent = `${composerText.value.length} / ${MESSAGE_LIMIT}`; send(); });
           choices.append(choice);
         }
         if (item.allowOther !== false) {
           const other = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'هیچ‌کدام؛ توضیح می‌دهم' });
-          other.addEventListener('click', () => { composerText.value = `${item.question}\\nتوضیح من: `; composerText.focus(); });
+          other.addEventListener('click', () => { composerText.value = `${item.question}\nتوضیح من: `; composerText.focus(); });
           choices.append(other);
         }
       });
@@ -1071,8 +1071,8 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     if (mode === 'draft') {
       if (!acceptedConclusion) { status.textContent = 'تنظیم سند فقط پس از تأیید نتیجه مشاوره امکان‌پذیر است.'; return; }
       if (!draftFormData) { status.textContent = 'ابتدا اطلاعات مرحله‌ای سند را تکمیل و تأیید کنید.'; return; }
-      const contractInfo = docSelect.value === 'contract' && contractLabel ? `\\nنوع قرارداد: ${contractLabel}` : '';
-      const details = Object.entries(draftFormData).filter(([, value]) => String(value || '').trim()).map(([key, value]) => `${key}: ${String(value).trim()}`).join('\\n');
+      const contractInfo = docSelect.value === 'contract' && contractLabel ? `\nنوع قرارداد: ${contractLabel}` : '';
+      const details = Object.entries(draftFormData).filter(([, value]) => String(value || '').trim()).map(([key, value]) => `${key}: ${String(value).trim()}`).join('\n');
       typed = [
         'نتیجه مشاوره که کاربر صریحاً تأیید کرده است:',
         'کاربر جمع‌بندی مشاوره را صریحاً پذیرفته است. تمام پیام‌های قبلی همین گفت‌وگو را برای استخراج وقایع، خواسته، ادله، مبانی قانونی و راهبرد به کار ببر.',
@@ -1081,7 +1081,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
         'اطلاعات تکمیلی واردشده در مراحل فرم:',
         details,
         rawTyped ? `توضیح تکمیلی کاربر: ${rawTyped}` : '',
-      ].filter(Boolean).join('\\n\\n');
+      ].filter(Boolean).join('\n\n');
     }
     if (mode !== 'consult' && docSelect.value === 'contract' && !contractLabel) {
       status.textContent = 'ابتدا نوع قرارداد را از فهرست انتخاب کنید.';
