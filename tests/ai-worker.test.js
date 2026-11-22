@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import worker from '../worker/src/index.js';
 import { AiError, extractText, extractGrounding, generateText, synthesizeSpeech, aiConfigured, modelIds } from '../worker/src/ai/gemini.js';
 import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims, curatedLegalArticlesForQuery } from '../worker/src/ai/routes.js';
-import { mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt, LEGAL_DISCLAIMER } from '../worker/src/ai/prompts.js';
+import { mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt } from '../worker/src/ai/prompts.js';
 import { groqConfigured, reviewLegalDraft, groqReviewNotes, GROQ_API, GROQ_REVIEW_MODEL } from '../worker/src/ai/groq.js';
 import batch01 from '../worker/src/moot/bank/batch-01.js';
 import { extractExplicitLegalReferences, findVerifiedLegalArticles } from '../worker/src/legal-bank.js';
@@ -225,7 +225,6 @@ test('پرونده و دستور سیستمی روی سرور است و پیام
   const asst = assistantSystemPrompt({ mode: 'draft', docType: 'petition' });
   assert.ok(asst.includes('دادخواست'));
   assert.ok(asst.includes('[جای خالی'));
-  assert.ok(LEGAL_DISCLAIMER.includes('جایگزین بررسی حرفه‌ای وکیل نیست'));
 });
 
 test('پیوند Google به دامنه رسمی به‌تنهایی شماره ماده را تأیید نمی‌کند', () => {
@@ -265,7 +264,7 @@ test('مسیر دستیار از ورود تا پاسخ ساخت‌یافته (�
     assert.equal(data.ok, true);
     assert.equal(data.status, 'ready');
     assert.match(data.text, /جای خالی/);
-    assert.equal(data.disclaimer, LEGAL_DISCLAIMER);
+    assert.equal(data.disclaimer, undefined, 'repetitive legal disclaimer must not occupy space under every answer');
     assert.ok(!JSON.stringify(data).includes(KEY));
   });
 });
@@ -494,7 +493,8 @@ test('Groq پیش‌نویس را مستقل بررسی می‌کند و خرو�
     assert.equal(groqRequest.body.response_format.type, 'json_object');
     assert.ok(groqRequest.body.messages[1].content.includes('پیش‌نویس لایحه با استناد به ماده [شماره نیازمند تطبیق با متن رسمی]'));
     assert.equal(data.outputs, undefined, 'reviewer output must not be returned as a second assistant answer');
-    assert.ok(data.notes.includes('بازبینی ماشینی مستقل انجام شد.'), JSON.stringify(data.notes));
+    assert.ok(!data.notes.some((note) => note.includes('بازبینی ماشینی مستقل انجام شد.')), JSON.stringify(data.notes));
+    assert.match(data.text, /گزارش بازبینی مستقل و تطبیق استنادات/);
     assert.ok(!data.notes.some((note) => note.includes('مرجع صالح در متن روشن نیست')));
     assert.equal(data.reviewDetails, undefined, 'private reviewer diagnostics must not be returned to the user');
     assert.equal(calls.length, 2);
