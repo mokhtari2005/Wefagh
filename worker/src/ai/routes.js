@@ -581,10 +581,10 @@ async function assistant(request, env) {
     }
     const curatedArticles = curatedLegalArticlesForQuery(legalSearchText);
     const promptArticles = [...legalArticles, ...judicialAuthorities, ...curatedArticles]
-      .filter((item, index, all) => all.findIndex((other) => `${other.lawTitle}::${other.articleNumber}` === `${item.lawTitle}::${item.articleNumber}`) === index)
+      .filter((item, index, all) => all.findIndex((other) => `${other.lawType || 'law'}::${other.documentNumber || other.articleNumber || other.lawTitle}` === `${item.lawType || 'law'}::${item.documentNumber || item.articleNumber || item.lawTitle}`) === index)
       .slice(0, 20);
     const legalContext = promptArticles.length
-      ? promptArticles.map(formatLegalRecord).join('\\n\\n---\\n\\n')
+      ? promptArticles.map(formatLegalRecord).join('\n\n---\n\n')
       : '';
     // جست‌وجوی وب فقط در مشاوره و میز محاکمه، بدون پیوست و با پرس‌وجوی حقوقیِ whitelist انجام می‌شود.
     // نام اشخاص، شرح وقایع، شماره پرونده و متن پیوست به موتور جست‌وجو ارسال نمی‌شود.
