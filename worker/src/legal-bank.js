@@ -281,7 +281,7 @@ export async function findVerifiedLegalArticles(db, query) {
       const n = bindings.length;
       clauses.push(`(l.title LIKE ?${n-2} AND a.article_number IN (?${n-1}, ?${n}))`);
     }
-    const result = await db.prepare(`SELECT l.title AS lawTitle,l.source_name AS sourceName,l.source_url AS sourceUrl,a.article_number AS articleNumber,a.heading,a.body
+    const result = await db.prepare(`SELECT l.title AS lawTitle,l.law_type AS lawType,l.document_number AS documentNumber,l.document_date AS documentDate,l.issuing_authority AS issuingAuthority,l.subject,l.official_source_url AS officialSourceUrl,l.source_name AS sourceName,l.source_url AS sourceUrl,a.article_number AS articleNumber,a.heading,a.body
       FROM legal_articles a JOIN legal_laws l ON l.id=a.law_id
       WHERE l.status='verified' AND a.status='verified' AND (${clauses.join(' OR ')})
       ORDER BY l.title,a.id LIMIT 12`).bind(...bindings).all();
@@ -309,3 +309,62 @@ export async function findVerifiedLegalArticles(db, query) {
     return true;
   }).slice(0, 12);
 }
+
+const JUDICIAL_AUTHORITY_TYPES = Object.freeze([
+  'unified_precedent',
+  'supreme_court_unified_precedent',
+  'administrative_court_unified_precedent',
+  'administrative_court_general_board',
+  'administrative_court_specialized_board',
+  'advisory_opinion',
+  'judicial_advisory_opinion',
+]);
+
+/**
+ * بازیابی مستقل آرای وحدت رویه و نظریات مشورتی از متن کامل اسناد تأییدشده بانک.
+ * رکوردهای صرفاً نمایه‌ای و اسناد نیازمند بررسی عمداً وارد نتایج مستند نمی‌شوند.
+ */
+export async function findVerifiedJudicialAuthorities(db, query) {
+  const text = String(query || '').normalize('NFKC')
+    .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+  const terms = legalSearchTerms(text);
+  const numberMatches = [...text.matchAll(/(?:رأی\\s*وحدت\\s*رویه|نظریه\\s*مشورتی)\\s*(?:شماره\\s*)?([0-9]+(?:\\/[0-9]+)*)/gu)]
+    .map((m) => m[1]).slice(0, 6);
+  if (!terms.length && !numberMatches.length) return [];
+
+  const conditions = [];
+  const bindings = [];
+  for (const number of numberMatches) {
+    const persian = number.replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
+    bindings.push('%' + number + '%', '%' + persian + '%');
+    const n = bindings.length;
+    conditions.push(`l.document_number LIKE ?${n-1} OR l.document_number LIKE ?${n}`);
+  }
+  if (terms.length) {
+    const termConditions = terms.map((_, i) =>
+      `(l.title LIKE ?${bindings.length + i + 1} OR l.subject LIKE ?${bindings.length + i + 1} OR a.body LIKE ?${bindings.length + i + 1})`);
+    conditions.push(termConditions.join(' OR '));
+    bindings.push(...terms.map((term) => '%' + term + '%'));
+  }
+  const scoreStart = bindings.length;
+  const score = terms.length
+    ? terms.map((_, i) => `(CASE WHEN l.title LIKE ?${scoreStart + i + 1} OR l.subject LIKE ?${scoreStart + i + 1} OR a.body LIKE ?${scoreStart + i + 1} THEN 1 ELSE 0 END)`).join(' + ')
+    : '0';
+  if (terms.length) bindings.push(...terms.map((term) => '%' + term + '%'));
+  const typePlaceholders = JUDICIAL_AUTHORITY_TYPES.map((_, i) => `?${bindings.length + i + 1}`).join(',');
+  bindings.push(...JUDICIAL_AUTHORITY_TYPES);
+
+  const result = await db.prepare(`SELECT l.title AS lawTitle,l.law_type AS lawType,
+      l.document_number AS documentNumber,l.document_date AS documentDate,
+      l.issuing_authority AS issuingAuthority,l.subject,
+      l.official_source_url AS officialSourceUrl,l.source_name AS sourceName,
+      l.source_url AS sourceUrl,a.article_number AS articleNumber,a.heading,a.body
+    FROM legal_articles a JOIN legal_laws l ON l.id=a.law_id
+    WHERE l.status='verified' AND a.status='verified'
+      AND l.law_type IN (${typePlaceholders})
+      AND (${conditions.map((condition) => `(${condition})`).join(' OR ')})
+    ORDER BY (${score}) DESC,l.document_date DESC,l.title,a.id LIMIT 8`).bind(...bindings).all();
+  return result.results || [];
+}
+
