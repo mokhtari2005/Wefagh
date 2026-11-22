@@ -60,11 +60,28 @@ export async function handleLegalBank(request, env, path) {
         }
         articleNumbers.add(number);
       }
+      const officialSourceUrl = clean(b.officialSourceUrl,1000);
+      const discoverySourceUrl = clean(b.discoverySourceUrl,1000);
+      const contentSha256 = clean(b.contentSha256,64).toLowerCase();
+      for (const candidate of [officialSourceUrl, discoverySourceUrl]) {
+        if (!candidate) continue;
+        try { if (new URL(candidate).protocol !== 'https:') throw new Error('protocol'); }
+        catch { return json({ok:false,error:'INVALID_SOURCE_URL'},422); }
+      }
+      if (contentSha256 && !/^[a-f0-9]{64}$/.test(contentSha256)) {
+        return json({ok:false,error:'INVALID_CONTENT_HASH'},422);
+      }
       try {
         const result = await env.DB.prepare(`INSERT INTO legal_laws
-          (slug,title,law_type,issuing_authority,approved_date,publication_date,effective_date,status,source_name,source_url,notes,created_by)
-          VALUES (?1,?2,?3,?4,?5,?6,?7,'needs_review',?8,?9,?10,?11) RETURNING id`)
-          .bind(slug,title,type,clean(b.issuingAuthority,200)||null,clean(b.approvedDate,30)||null,clean(b.publicationDate,30)||null,clean(b.effectiveDate,30)||null,clean(b.sourceName,200)||null,clean(b.sourceUrl,1000)||null,clean(b.notes,2000)||null,access.user.id).first();
+          (slug,title,law_type,issuing_authority,approved_date,publication_date,effective_date,
+           document_number,document_date,subject,official_source_url,discovery_source_url,content_sha256,source_checked_at,
+           status,source_name,source_url,notes,created_by)
+          VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,'needs_review',?15,?16,?17,?18) RETURNING id`)
+          .bind(slug,title,type,clean(b.issuingAuthority,200)||null,clean(b.approvedDate,30)||null,
+            clean(b.publicationDate,30)||null,clean(b.effectiveDate,30)||null,
+            clean(b.documentNumber,120)||null,clean(b.documentDate,40)||null,clean(b.subject,500)||null,
+            officialSourceUrl||null,discoverySourceUrl||null,contentSha256||null,clean(b.sourceCheckedAt,40)||null,
+            clean(b.sourceName,200)||null,clean(b.sourceUrl,1000)||null,clean(b.notes,2000)||null,access.user.id).first();
         const lawId = result.id;
         const statements = b.articles.map(a => env.DB.prepare(`INSERT INTO legal_articles (law_id,article_number,heading,body,status)
           VALUES (?1,?2,?3,?4,'needs_review')`).bind(lawId,clean(a.number,40),clean(a.heading,300)||null,a.body.trim()));
@@ -281,7 +298,7 @@ export async function findVerifiedLegalArticles(db, query) {
       const n = bindings.length;
       clauses.push(`(l.title LIKE ?${n-2} AND a.article_number IN (?${n-1}, ?${n}))`);
     }
-    const result = await db.prepare(`SELECT l.title AS lawTitle,l.source_name AS sourceName,l.source_url AS sourceUrl,a.article_number AS articleNumber,a.heading,a.body
+    const result = await db.prepare(`SELECT l.id AS lawId,l.title AS lawTitle,l.law_type AS lawType,l.status AS lawStatus,l.approved_date AS approvedDate,l.publication_date AS publicationDate,l.effective_date AS effectiveDate,l.document_number AS documentNumber,l.document_date AS documentDate,l.issuing_authority AS issuingAuthority,l.subject,l.official_source_url AS officialSourceUrl,l.source_checked_at AS sourceCheckedAt,l.source_name AS sourceName,l.source_url AS sourceUrl,a.id AS articleId,a.article_number AS articleNumber,a.status AS articleStatus,a.status_note AS articleStatusNote,a.status_source_name AS articleStatusSourceName,a.status_source_url AS articleStatusSourceUrl,a.status_effective_date AS articleStatusEffectiveDate,a.heading,a.body
       FROM legal_articles a JOIN legal_laws l ON l.id=a.law_id
       WHERE l.status='verified' AND a.status='verified' AND (${clauses.join(' OR ')})
       ORDER BY l.title,a.id LIMIT 12`).bind(...bindings).all();
@@ -295,7 +312,7 @@ export async function findVerifiedLegalArticles(db, query) {
     const bindings = terms.map((term)=>'%' + term + '%');
     const score = terms.map((_,i)=>`(CASE WHEN a.body LIKE ?${terms.length+i+1} OR l.title LIKE ?${terms.length*2+i+1} THEN 1 ELSE 0 END)`).join(' + ');
     const scoreBindings = [...terms,...terms].map((term)=>'%' + term + '%');
-    const result = await db.prepare(`SELECT l.title AS lawTitle,l.source_name AS sourceName,l.source_url AS sourceUrl,a.article_number AS articleNumber,a.heading,a.body
+    const result = await db.prepare(`SELECT l.id AS lawId,l.title AS lawTitle,l.law_type AS lawType,l.status AS lawStatus,l.approved_date AS approvedDate,l.publication_date AS publicationDate,l.effective_date AS effectiveDate,l.document_number AS documentNumber,l.document_date AS documentDate,l.issuing_authority AS issuingAuthority,l.subject,l.official_source_url AS officialSourceUrl,l.source_checked_at AS sourceCheckedAt,l.source_name AS sourceName,l.source_url AS sourceUrl,a.id AS articleId,a.article_number AS articleNumber,a.status AS articleStatus,a.status_note AS articleStatusNote,a.status_source_name AS articleStatusSourceName,a.status_source_url AS articleStatusSourceUrl,a.status_effective_date AS articleStatusEffectiveDate,a.heading,a.body
       FROM legal_articles a JOIN legal_laws l ON l.id=a.law_id
       WHERE l.status='verified' AND a.status='verified' AND (${where})
       ORDER BY (${score}) DESC,l.title,a.id LIMIT 12`).bind(...bindings,...scoreBindings).all();
@@ -309,3 +326,58 @@ export async function findVerifiedLegalArticles(db, query) {
     return true;
   }).slice(0, 12);
 }
+
+const JUDICIAL_AUTHORITY_TYPES = Object.freeze([
+  'unified_precedent',
+  'supreme_court_unified_precedent',
+  'administrative_court_unified_precedent',
+  'administrative_court_general_board',
+  'administrative_court_specialized_board',
+  'advisory_opinion',
+  'judicial_advisory_opinion',
+]);
+
+/**
+ * بازیابی مستقل آرای وحدت رویه و نظریات مشورتی از متن کامل اسناد تأییدشده بانک.
+ * رکوردهای صرفاً نمایه‌ای و اسناد نیازمند بررسی عمداً وارد نتایج مستند نمی‌شوند.
+ */
+export async function findVerifiedJudicialAuthorities(db, query) {
+  const text = String(query || '').normalize('NFKC')
+    .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+  const terms = legalSearchTerms(text);
+  const numberMatches = [...text.matchAll(/(?:رأی\s*وحدت\s*رویه|نظریه\s*مشورتی)\s*(?:شماره\s*)?([0-9]+(?:\/[0-9]+)*)/gu)]
+    .map((m) => m[1]).slice(0, 6);
+  if (!terms.length && !numberMatches.length) return [];
+
+  const conditions = [];
+  const bindings = [];
+  for (const number of numberMatches) {
+    const persian = number.replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
+    bindings.push('%' + number + '%', '%' + persian + '%');
+    const n = bindings.length;
+    conditions.push(`l.document_number LIKE ?${n-1} OR l.document_number LIKE ?${n}`);
+  }
+  if (terms.length) {
+    const termConditions = terms.map((_, i) =>
+      `(l.title LIKE ?${bindings.length + i + 1} OR l.subject LIKE ?${bindings.length + i + 1} OR a.body LIKE ?${bindings.length + i + 1})`);
+    conditions.push(termConditions.join(' OR '));
+    bindings.push(...terms.map((term) => '%' + term + '%'));
+  }
+  const scoreStart = bindings.length;
+  const score = terms.length
+    ? terms.map((_, i) => `(CASE WHEN l.title LIKE ?${scoreStart + i + 1} OR l.subject LIKE ?${scoreStart + i + 1} OR a.body LIKE ?${scoreStart + i + 1} THEN 1 ELSE 0 END)`).join(' + ')
+    : '0';
+  if (terms.length) bindings.push(...terms.map((term) => '%' + term + '%'));
+  const typePlaceholders = JUDICIAL_AUTHORITY_TYPES.map((_, i) => `?${bindings.length + i + 1}`).join(',');
+  bindings.push(...JUDICIAL_AUTHORITY_TYPES);
+
+  const result = await db.prepare(`SELECT l.id AS lawId,l.title AS lawTitle,l.law_type AS lawType,l.status AS lawStatus,l.document_number AS documentNumber,l.document_date AS documentDate,l.approved_date AS approvedDate,l.publication_date AS publicationDate,l.effective_date AS effectiveDate,l.issuing_authority AS issuingAuthority,l.subject,l.official_source_url AS officialSourceUrl,l.source_checked_at AS sourceCheckedAt,l.source_name AS sourceName,l.source_url AS sourceUrl,a.id AS articleId,a.article_number AS articleNumber,a.status AS articleStatus,a.status_note AS articleStatusNote,a.status_source_name AS articleStatusSourceName,a.status_source_url AS articleStatusSourceUrl,a.status_effective_date AS articleStatusEffectiveDate,a.heading,a.body
+    FROM legal_articles a JOIN legal_laws l ON l.id=a.law_id
+    WHERE l.status='verified' AND a.status='verified'
+      AND l.law_type IN (${typePlaceholders})
+      AND (${conditions.map((condition) => `(${condition})`).join(' OR ')})
+    ORDER BY (${score}) DESC,l.document_date DESC,l.title,a.id LIMIT 8`).bind(...bindings).all();
+  return result.results || [];
+}
+
