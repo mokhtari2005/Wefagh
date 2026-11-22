@@ -128,7 +128,7 @@ test('کنترل استناد، ماده تأییدنشده را علامت می
   const unknown = guardUnverifiedLegalClaims('بر اساس ماده ۱۲۳ قانون مدنی باید اقدام کرد.', [], '');
   assert.equal(unknown.changed, true);
   assert.match(unknown.text, /شماره نیازمند تطبیق با متن رسمی/);
-  const verified = guardUnverifiedLegalClaims('بر اساس ماده ۴۲۲ قانون مدنی باید اقدام کرد.', [{ articleNumber: '۴۲۲' }], 'ماده ۴۲۲');
+  const verified = guardUnverifiedLegalClaims('بر اساس ماده ۴۲۲ قانون مدنی باید اقدام کرد.', [{ lawTitle: 'قانون مدنی', articleNumber: '۴۲۲', lawStatus: 'verified', articleStatus: 'verified' }], 'ماده ۴۲۲ قانون مدنی');
   assert.equal(verified.changed, false);
   assert.match(verified.text, /ماده ۴۲۲/);
 });
