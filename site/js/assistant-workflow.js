@@ -12,15 +12,15 @@ function node(tag, className, text) {
   return el;
 }
 
-function fieldsFor(docType) {
+export function getDocumentFields(docType) {
   const contract = docType === 'contract';
   const criminal = docType === 'criminal_complaint';
   const first = contract ? 'طرف اول' : criminal ? 'شاکی' : 'شخص اول';
   const second = contract ? 'طرف دوم' : criminal ? 'مشتکی‌عنه' : 'شخص دوم';
   const fields = [
-    { key: 'partyOneName', label: `نام و نام خانوادگی ${first}`, required: true, kind: 'text' },
+    { key: 'partyOneName', label: `نام و نام خانوادگی ${first}`, required: false, kind: 'text' },
     { key: 'partyOneAddress', label: `نشانی ${first}`, required: false, kind: 'textarea' },
-    { key: 'partyTwoName', label: `نام و نام خانوادگی ${second}`, required: true, kind: 'text' },
+    { key: 'partyTwoName', label: `نام و نام خانوادگی ${second}`, required: false, kind: 'text' },
     { key: 'partyTwoAddress', label: `نشانی ${second}`, required: false, kind: 'textarea' },
   ];
   if (COURT_DOCS.has(docType)) {
@@ -39,7 +39,7 @@ function fieldsFor(docType) {
  * case facts are deliberately not requested again; only identity/filing metadata is collected.
  */
 export function createDocumentWizard({ docType, onComplete, onCancel }) {
-  const fields = fieldsFor(docType);
+  const fields = getDocumentFields(docType);
   const values = {};
   let index = 0;
   const root = node('section', 'ai-document-wizard ai-party-panel');
@@ -59,6 +59,9 @@ export function createDocumentWizard({ docType, onComplete, onCancel }) {
   root.append(heading, intro, progress, label, controlWrap, actions);
 
   function render() {
+    actions.replaceChildren(back, next, cancel);
+    back.hidden = false;
+    next.hidden = false;
     const field = fields[index];
     progress.textContent = `مرحله ${(index + 1).toLocaleString('fa-IR')} از ${fields.length.toLocaleString('fa-IR')}`;
     label.textContent = field.label + (field.required ? ' ـ الزامی' : ' ـ اختیاری');
@@ -76,6 +79,7 @@ export function createDocumentWizard({ docType, onComplete, onCancel }) {
     input.focus();
     next.onclick = () => {
       const value = input.value.trim();
+      input.setCustomValidity('');
       if (field.required && !value) {
         input.setCustomValidity('تکمیل این مورد ضروری است.');
         input.reportValidity();
