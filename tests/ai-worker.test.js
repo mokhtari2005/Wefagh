@@ -540,7 +540,7 @@ test('Groq بازبین مستقل فقط با Secret فعال می‌شود و 
   assert.match(groqReviewNotes({ status: 'quota_exceeded' })[0], /بازبینی مستقل/);
   assert.match(groqReviewNotes({ status: 'not_configured' })[0], /بازبینی مستقل/);
   const publicNotes = groqReviewNotes({ status: 'reviewed', model: 'openai/gpt-oss-120b', bankArticlesCount: 2, webSourcesCount: 1, review: { risk: 'low', summary: 'مستندات با متن تطبیق داده شدند؛ openai/gpt-oss-120b و Groq.', issues: [], citations: [] } });
-  assert.ok(publicNotes.some((note) => note.includes('منبع اینترنتی')));
+  assert.ok(!publicNotes.some((note) => note.includes('تعداد منابع اینترنتی')));
   assert.ok(!publicNotes.join(' ').includes('Groq'));
   assert.ok(!publicNotes.join(' ').includes('gpt-oss'));
   assert.ok(!publicNotes.join(' ').includes('openai'));
@@ -763,7 +763,7 @@ test('میز محاکمه سه نقش مستقل را اجرا و گزارش ن�
     }
     return jsonRes(200, { candidates: [{ content: { parts: [{ text: answer }] }, finishReason: 'STOP' }] });
   }, async (calls) => {
-    const env = { DB: fakeDb({ loggedIn: true }), GEMINI_API_KEY: KEY };
+    const env = { DB: fakeDb({ loggedIn: true }), GEMINI_API_KEY: KEY, GEMINI_SEARCH_GROUNDING_ENABLED: 'false' };
     const res = await worker.fetch(req('/api/ai/assistant', {
       body: {
         mode: 'litigation',
