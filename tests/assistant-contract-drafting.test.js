@@ -20,5 +20,5 @@ test('contract drafting prompt includes tailored legal and factual safeguards', 
   assert.match(prompt, /اهلیت و سمت طرفین/);
   assert.match(prompt, /مقررات اختصاصی/);
   assert.match(prompt, /\[جای خالی:/);
-  assert.match(prompt, /حداکثر ۵ پرسش/);
+  assert.match(prompt, /حداکثر در ۳ پرسش/);
 });
