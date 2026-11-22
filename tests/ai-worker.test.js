@@ -6,7 +6,7 @@ import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, gu
 import { mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt } from '../worker/src/ai/prompts.js';
 import { groqConfigured, reviewLegalDraft, groqReviewNotes, GROQ_API, GROQ_REVIEW_MODEL } from '../worker/src/ai/groq.js';
 import batch01 from '../worker/src/moot/bank/batch-01.js';
-import { extractExplicitLegalReferences, findVerifiedLegalArticles } from '../worker/src/legal-bank.js';
+import { extractExplicitLegalReferences, findVerifiedLegalArticles, findVerifiedJudicialAuthorities } from '../worker/src/legal-bank.js';
 
 // پروندهٔ نمونه از بانک (پیش‌نویس)؛ فقط برای آزمون ساخت دستور سیستمی از داده‌های پرونده.
 const SAMPLE_CASE = batch01[0];
@@ -81,6 +81,35 @@ test('findVerifiedLegalArticles prioritizes exact law and article citations', as
   assert.ok(calls[0].sql.includes("l.status='verified' AND a.status='verified'"));
   assert.ok(calls[0].sql.includes('a.article_number IN (?2, ?3)'));
   assert.ok(calls[0].bindings.includes('%قانون اجرای احکام مدنی%'));
+});
+
+test('findVerifiedJudicialAuthorities retrieves only verified precedents and advisory opinions with their metadata', async () => {
+  let captured = null;
+  const db = {
+    prepare(sql) {
+      return { bind(...bindings) {
+        return { all: async () => {
+          captured = { sql, bindings };
+          return { results: [{
+            lawTitle: 'رأی وحدت رویه هیأت عمومی دیوان عالی کشور',
+            lawType: 'supreme_court_unified_precedent',
+            documentNumber: '۸۵۸',
+            documentDate: '۱۴۰۳/۰۸/۱۵',
+            issuingAuthority: 'هیأت عمومی دیوان عالی کشور',
+            subject: 'موضوع نمونه',
+            articleNumber: 'متن کامل',
+            body: 'متن کامل رأی',
+          }] };
+        } };
+      } };
+    },
+  };
+  const found = await findVerifiedJudicialAuthorities(db, 'رأی وحدت رویه شماره ۸۵۸ درباره توقیف مال');
+  assert.equal(found[0].documentNumber, '۸۵۸');
+  assert.equal(found[0].lawType, 'supreme_court_unified_precedent');
+  assert.ok(captured.sql.includes("l.status='verified' AND a.status='verified'"));
+  assert.ok(captured.sql.includes('l.law_type IN'));
+  assert.ok(captured.sql.includes('l.document_number LIKE'));
 });
 
 test('extractGrounding keeps answer passages linked to Google search results', () => {
@@ -588,9 +617,12 @@ test('گزارش تحقیق حقوقی میان پیچیدگی پاسخ و وض�
     assert.match(prompt, /صرفاً سرنخ جست‌وجو/);
     assert.match(prompt, /عبارت مرتبط‌شده به نتیجه Google/);
     assert.match(prompt, /منابع نیازمند بررسی/);
-  }
+    assert.match(prompt, /رأی وحدت رویه دیوان عالی کشور/);
+    assert.match(prompt, /نظریات مشورتی اداره کل حقوقی قوه قضاییه/);
+    assert.match(prompt, /نظریه مشورتی را نظر ارشادی و غیرلازم‌الاتباع/);
     assert.match(prompt, /شماره ماده و تبصره را در همان جمله یا بند/);
     assert.match(prompt, /مشخصات هر منبعِ واقعاً استفاده‌شده/);
+  }
 });
 
 test('مواد ۵۶ و ۵۷ قانون اجرای احکام مدنی در انتقال مال توقیف‌شده جدا و بدون تلفیق تحلیل می‌شوند', () => {
