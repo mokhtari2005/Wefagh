@@ -15,4 +15,6 @@ test('دستور مشاوره گزینه‌های واقعی و امکان تو�
   assert.match(prompt, /questionOptions/u);
   assert.match(prompt, /گزینه «سایر موارد یا توضیح بیشتر»/u);
   assert.match(prompt, /گزینه‌های ساختگی نساز/u);
+  assert.match(prompt, /knownFields/u);
+  assert.match(prompt, /حدس نزن/u);
 });
