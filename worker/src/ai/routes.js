@@ -566,6 +566,12 @@ async function assistant(request, env) {
       provider = generated.provider;
     }
     const questions = Array.isArray(data.questions) ? data.questions.filter((q) => typeof q === 'string').slice(0, 5) : [];
+    const questionOptions = mode === 'consult' && Array.isArray(data.questionOptions) ? data.questionOptions.filter((item) => item && typeof item.question === 'string' && Array.isArray(item.options)).slice(0, 3).map((item) => ({ question: item.question.slice(0, 500), options: item.options.filter((option) => typeof option === 'string').slice(0, 8).map((option) => option.slice(0, 180)), allowOther: item.allowOther !== false })).filter((item) => item.options.length > 0) : [];
+    const allowedDraftFields = ["partyOneName","partyOneAddress","partyTwoName","partyTwoAddress","court","caseNumber","caseStage","additionalDetails","contractSubject","contractAmount","contractDuration","incidentDate","incidentPlace","evidenceSummary","issuingCourt","judgmentNumber","judgmentDate","notificationDate","executionCaseNumber","enforcementStage","enforcementCaseNumber","disputedAction","noticeSubject","responseDeadline"];
+    const knownFields = {};
+    if (mode === 'consult' && data.knownFields && typeof data.knownFields === 'object') {
+      for (const key of allowedDraftFields) if (typeof data.knownFields[key] === 'string') knownFields[key] = data.knownFields[key].trim().slice(0, 1200);
+    }
     const notes = Array.isArray(data.notes) ? data.notes.filter((n) => typeof n === 'string').slice(0, 10) : [];
     if (provider === 'groq') notes.push('به‌دلیل اختلال سرویس اصلی، پاسخ با مسیر جایگزین تولید شد.');
     if (legalBankUnavailable) notes.push('بانک قوانین در این درخواست پاسخ نداد؛ پاسخ بدون استناد به مواد ثبت‌شده در بانک تهیه شد و استنادها باید جداگانه بررسی شوند.');
@@ -642,6 +648,9 @@ async function assistant(request, env) {
       ok: true,
       status: data.status === 'need_info' ? 'need_info' : 'ready',
       questions,
+      questionOptions,
+      suggestedDocType: mode === 'consult' && typeof data.suggestedDocType === 'string' && Object.hasOwn(ASSISTANT_DOC_TYPES, data.suggestedDocType) && !['analyze','review','research','other'].includes(data.suggestedDocType) ? data.suggestedDocType : '',
+      knownFields,
       text,
       notes,
       ...(reviewReport ? { reviewReport } : {}),

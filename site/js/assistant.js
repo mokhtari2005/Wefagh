@@ -6,6 +6,7 @@ import { getJson, postJson, postForm, sendJson } from './api.js';
 import { aiStatus, errorText, blobToBase64, pickRecordingMime, baseMime } from './ai-client.js';
 import { formatShamsi } from './shamsi.js';
 import { VOICE_GREETING_TEXT, VOICE_GREETING_AUDIO_SRC } from './voice-greeting.js';
+import { createDocumentWizard, downloadWordDocument, printDocumentPdf } from './assistant-workflow.js';
 
 export const DOC_TYPES = [
   ['petition', 'پیش‌نویس دادخواست'], ['defense', 'پیش‌نویس لایحه دفاعیه'], ['appeal', 'لایحه تجدیدنظرخواهی'],
@@ -180,7 +181,9 @@ export function trimHistory(history) {
 /** متن پاسخ دستیار برای تاریخچه: پرسش‌های تکمیلی یا متن پیش‌نویس. */
 export function summarizeReply(data) {
   if (data.status === 'need_info') {
-    return ['برای ادامه این اطلاعات لازم است:', ...(data.questions || []).map((q) => `- ${q}`)].join('\n');
+    const optionQuestions = new Set((Array.isArray(data.questionOptions) ? data.questionOptions : []).map((item) => item?.question).filter(Boolean));
+    const freeQuestions = (data.questions || []).filter((question) => !optionQuestions.has(question));
+    return [freeQuestions.length ? 'برای ادامه این اطلاعات لازم است:' : '', ...freeQuestions.map((question) => `- ${question}`)].filter(Boolean).join('\n') || data.text || '';
   }
   return data.text || '';
 }
@@ -479,12 +482,37 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     const dl = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'دریافت فایل متنی' });
     dl.addEventListener('click', () => downloadText(m.text, 'پاسخ-دستیار-آکادمی.txt'));
     actions.append(dl);
+    if (m.documentDraft) {
+      const word = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'دریافت فایل ورد' });
+      word.addEventListener('click', () => downloadWordDocument(m.text, DOC_TYPES.find(([value]) => value === m.docType)?.[1] || 'سند حقوقی'));
+      const pdf = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'چاپ یا دریافت پی‌دی‌اف' });
+      pdf.addEventListener('click', () => { if (!printDocumentPdf(m.text, DOC_TYPES.find(([value]) => value === m.docType)?.[1] || 'سند حقوقی')) status.textContent = 'پنجره چاپ باز نشد؛ اجازه بازشدن پنجره را در مرورگر فعال کنید.'; });
+      actions.append(word, pdf);
+    }
 
     const children = [
       h('span', { class: 'ai-role', text: 'دستیار' }),
       h('div', { class: 'ai-text pre-wrap', text: m.text }),
     ];
     if (reviewPanel) children.push(reviewPanel);
+    if (Array.isArray(m.questionOptions) && m.questionOptions.length) {
+      const choices = h('div', { class: 'ai-question-options', 'aria-label': 'گزینه‌های پاسخ' });
+      m.questionOptions.forEach((item) => {
+        if (!item || typeof item.question !== 'string' || !Array.isArray(item.options)) return;
+        choices.append(h('strong', { text: item.question }));
+        for (const option of item.options.filter((value) => typeof value === 'string').slice(0, 8)) {
+          const choice = h('button', { class: 'btn secondary ai-mini', type: 'button', text: option });
+          choice.addEventListener('click', () => { composerText.value = `${item.question}\nپاسخ انتخاب‌شده: ${option}`; counter.textContent = `${composerText.value.length} / ${MESSAGE_LIMIT}`; send(); });
+          choices.append(choice);
+        }
+        if (item.allowOther !== false) {
+          const other = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'هیچ‌کدام؛ توضیح می‌دهم' });
+          other.addEventListener('click', () => { composerText.value = `${item.question}\nتوضیح من: `; composerText.focus(); });
+          choices.append(other);
+        }
+      });
+      if (choices.childElementCount) children.push(choices);
+    }
     if (m.notes?.length) children.push(h('ul', {
       class: 'ai-notes',
       'aria-label': 'نکات تکمیلی',
@@ -960,6 +988,8 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
   const newBtn = h('button', { class: 'btn secondary', type: 'button', text: 'گفت‌وگوی تازه' });
   const status = h('p', { class: 'muted ai-status', role: 'status', 'aria-live': 'polite' });
   let acceptedConclusion = '';
+  let draftFormData = null;
+  let draftKnownFields = {};
   const acceptBtn = h('button', { class: 'btn ai-accept-consultation', type: 'button', text: 'نتیجه مشاوره را تأیید می‌کنم و می‌خواهم سند تنظیم شود', hidden: '' });
   const partyOneLabel = h('span', { text: 'خواهان ـ نام' });
   const partyTwoLabel = h('span', { text: 'خوانده ـ نام' });
@@ -992,18 +1022,52 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     h('label', { class: 'ai-party-field' }, [partyTwoAddressLabel, partyTwoAddress]),
   ]);
   acceptBtn.addEventListener('click', () => {
-    const lastAnswer = [...history].reverse().find((item) => item.role === 'ai' && item.text)?.text || '';
+    const lastAssistant = [...history].reverse().find((item) => item.role === 'ai' && item.text);
+    const lastAnswer = lastAssistant?.text || '';
     if (!lastAnswer) { status.textContent = 'ابتدا گفت‌وگوی مشاوره را تکمیل کنید.'; return; }
     stopVoiceMode();
     voicePanel.hidden = true;
     acceptedConclusion = lastAnswer;
+    draftFormData = null;
+    draftKnownFields = lastAssistant?.knownFields && typeof lastAssistant.knownFields === 'object' ? lastAssistant.knownFields : {};
     mode = 'draft';
-    docSelect.value = 'petition';
+    const recommendedType = lastAssistant?.suggestedDocType;
+    docSelect.value = DOC_TYPES.some(([value]) => value === recommendedType && value !== 'other') ? recommendedType : 'petition';
     partyPanel.hidden = false;
     acceptBtn.hidden = true;
     syncMode();
-    syncPartyLabels();
-    status.textContent = 'نتیجه مشاوره تأیید شد. نوع سند و مشخصات اشخاص را تکمیل کنید.';
+    partyPanel.replaceChildren(
+      h('h3', { text: 'انتخاب نوع سند قضایی یا حقوقی' }),
+      h('p', { class: 'muted', text: 'نوع سند پیشنهادی را انتخاب یا اصلاح کنید. سپس اطلاعات لازم، یک مورد در هر مرحله، دریافت می‌شود. شرح وقایع و استدلال‌های مطرح‌شده در مشاوره دوباره پرسیده نخواهد شد.' }),
+    );
+    const startWizard = h('button', { class: 'btn', type: 'button', text: 'تأیید نوع سند و ادامه' });
+    startWizard.addEventListener('click', () => {
+      if (docSelect.value === 'contract' && !contractSelect.value) {
+        status.textContent = 'ابتدا نوع قرارداد را انتخاب کنید.';
+        contractSelect.focus();
+        return;
+      }
+      partyPanel.replaceChildren(createDocumentWizard({
+        docType: docSelect.value,
+        initialValues: draftKnownFields,
+        onComplete: (values) => {
+          draftFormData = values;
+          status.textContent = 'اطلاعات تأیید شد؛ در حال تنظیم پیش‌نویس بر پایه نظر مشورتی پذیرفته‌شده هستیم.';
+          composerText.value = '';
+          send();
+        },
+        onCancel: () => {
+          partyPanel.hidden = true;
+          acceptedConclusion = '';
+          draftFormData = null;
+          draftKnownFields = {};
+          mode = 'consult';
+          syncMode();
+        },
+      }));
+    });
+    partyPanel.append(startWizard);
+    status.textContent = 'نظر مشورتی پذیرفته شد. نوع سند را انتخاب کنید تا تکمیل مرحله‌ای آغاز شود.';
     docSelect.focus();
   });
 
@@ -1014,20 +1078,17 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     let typed = rawTyped;
     if (mode === 'draft') {
       if (!acceptedConclusion) { status.textContent = 'تنظیم سند فقط پس از تأیید نتیجه مشاوره امکان‌پذیر است.'; return; }
-      if (!partyOneName.value.trim() || !partyOneAddress.value.trim() || !partyTwoName.value.trim() || !partyTwoAddress.value.trim()) {
-        status.textContent = 'نام و نشانی هر دو شخص را تکمیل کنید.';
-        (!partyOneName.value.trim() ? partyOneName : !partyOneAddress.value.trim() ? partyOneAddress : !partyTwoName.value.trim() ? partyTwoName : partyTwoAddress).focus();
-        return;
-      }
-      const partyLabel = docSelect.value === 'contract' ? 'طرف اول و طرف دوم قرارداد' : 'خواهان/شاکی و خوانده';
+      if (!draftFormData) { status.textContent = 'ابتدا اطلاعات مرحله‌ای سند را تکمیل و تأیید کنید.'; return; }
       const contractInfo = docSelect.value === 'contract' && contractLabel ? `\nنوع قرارداد: ${contractLabel}` : '';
+      const fieldLabels = { partyOneName: 'نام شخص اول', partyOneAddress: 'نشانی شخص اول', partyTwoName: 'نام شخص دوم', partyTwoAddress: 'نشانی شخص دوم', court: 'مرجع قضایی', caseNumber: 'شماره پرونده', caseStage: 'مرحله رسیدگی', additionalDetails: 'اطلاعات تکمیلی', contractSubject: 'موضوع قرارداد', contractAmount: 'مبلغ و شیوه پرداخت', contractDuration: 'مدت قرارداد', incidentDate: 'تاریخ وقوع', incidentPlace: 'محل وقوع', evidenceSummary: 'دلایل و مدارک', issuingCourt: 'مرجع صادرکننده رأی', judgmentNumber: 'شماره دادنامه', judgmentDate: 'تاریخ دادنامه', notificationDate: 'تاریخ ابلاغ رأی', executionCaseNumber: 'شماره پرونده اجرایی', enforcementStage: 'مرحله عملیات اجرایی', enforcementCaseNumber: 'شماره پرونده اجرایی', disputedAction: 'اقدام اجرایی مورد اعتراض', noticeSubject: 'موضوع اظهارنامه', responseDeadline: 'مهلت مورد مطالبه' };
+      const details = Object.entries(draftFormData).filter(([, value]) => String(value || '').trim()).map(([key, value]) => `${fieldLabels[key] || 'اطلاعات تکمیلی'}: ${String(value).trim()}`).join('\n');
       typed = [
         'نتیجه مشاوره که کاربر صریحاً تأیید کرده است:',
-        'کاربر جمع‌بندی آخر مشاوره را صریحاً تأیید کرده است. تمام پیام‌های قبلی همین گفت‌وگو را برای استخراج مبانی و جزئیات به کار ببر.',
-        `مشخصات ${partyLabel}:`,
-        `شخص اول ـ نام: ${partyOneName.value.trim()}\nنشانی: ${partyOneAddress.value.trim()}`,
-        `شخص دوم ـ نام: ${partyTwoName.value.trim()}\nنشانی: ${partyTwoAddress.value.trim()}`,
+        'کاربر جمع‌بندی مشاوره را صریحاً پذیرفته است. تمام پیام‌های قبلی همین گفت‌وگو را برای استخراج وقایع، خواسته، ادله، مبانی قانونی و راهبرد به کار ببر.',
+        `نوع سند انتخاب‌شده: ${DOC_TYPES.find(([value]) => value === docSelect.value)?.[1] || docSelect.value}`,
         contractInfo,
+        'اطلاعات تکمیلی واردشده در مراحل فرم:',
+        details,
         rawTyped ? `توضیح تکمیلی کاربر: ${rawTyped}` : '',
       ].filter(Boolean).join('\n\n');
     }
@@ -1085,7 +1146,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     history.push({ role: 'user', text: userText });
     const reply = summarizeReply(res.data);
     const responseNotes = [...(res.data.notes || [])];
-    history.push({ role: 'ai', text: reply, notes: responseNotes, reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null, reviewStatus: typeof res.data.reviewStatus === 'string' ? res.data.reviewStatus : null });
+    history.push({ role: 'ai', text: reply, notes: responseNotes, reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null, reviewStatus: typeof res.data.reviewStatus === 'string' ? res.data.reviewStatus : null, questionOptions: Array.isArray(res.data.questionOptions) ? res.data.questionOptions : [], suggestedDocType: typeof res.data.suggestedDocType === 'string' ? res.data.suggestedDocType : '', knownFields: res.data.knownFields && typeof res.data.knownFields === 'object' ? res.data.knownFields : {}, documentDraft: mode === 'draft' && res.data.status === 'ready' && !(res.data.questions || []).length, docType: mode === 'draft' ? docSelect.value : null });
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
     attachments = [];
@@ -1098,7 +1159,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     status.textContent = saved
       ? (mode === 'consult'
         ? (res.data.status === 'ready' ? 'اگر با جمع‌بندی مشاوره موافقید، نتیجه را تأیید کنید تا وارد مرحله تنظیم سند شوید.' : 'برای تکمیل مشاوره، به پرسش‌های دستیار پاسخ دهید.')
-        : (mode === 'litigation' ? (res.data.reviewReport ? 'پاسخ آماده شد.' : 'پاسخ آماده شد؛ گزارش بازبینی مستقل در این نوبت ارائه نشد.') : 'خروجی آماده است.'))
+        : (mode === 'litigation' ? (res.data.reviewReport ? 'پاسخ آماده شد.' : 'پاسخ آماده شد؛ گزارش بازبینی مستقل در این نوبت ارائه نشد.') : mode === 'draft' && (res.data.status === 'need_info' || (res.data.questions || []).length) ? 'برای تکمیل پیش‌نویس، به پرسش‌های دستیار پاسخ دهید.' : 'خروجی آماده است.'))
       : 'پاسخ نمایش داده شد، اما ذخیرهٔ آن در تاریخچه انجام نشد.';
   }
 
@@ -1108,6 +1169,8 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     stopVoiceMode();
     voicePanel.hidden = !voiceAllowed;
     acceptedConclusion = '';
+    draftFormData = null;
+    draftKnownFields = {};
     acceptBtn.hidden = true;
     partyPanel.hidden = true;
     partyOneName.value = '';
