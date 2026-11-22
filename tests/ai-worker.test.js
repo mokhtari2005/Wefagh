@@ -95,7 +95,7 @@ test('extractGrounding keeps cited passages and Google search suggestions', () =
       },
     }],
   });
-  assert.equal(result.sources[0].citedText, 'ماده ۵۶ قانون اجرای احکام مدنی');
+  assert.equal(result.sources[0].supportedClaim, 'ماده ۵۶ قانون اجرای احکام مدنی');
   assert.equal(result.searchSuggestionHtml, '<div>Google Search</div>');
 });
 
@@ -447,7 +447,7 @@ test('بازبین میز محاکمه نقش‌های طرف مقابل، وک�
       mode: 'litigation', docType: 'retrial',
       question: 'اعتراض به رأی قطعی را بررسی کن.',
       draft: 'متن پیش‌نویس برای بررسی مستقل.',
-      webSources: [{ title: 'متن رسمی قانون', uri: 'https://qavanin.ir/law/1', domain: 'qavanin.ir', citedText: 'ماده ۵۶ قانون اجرای احکام مدنی نقل‌وانتقال مال توقیف‌شده را باطل و بلااثر می‌داند.' }],
+      webSources: [{ title: 'متن رسمی قانون', uri: 'https://qavanin.ir/law/1', domain: 'qavanin.ir', supportedClaim: 'ماده ۵۶ قانون اجرای احکام مدنی نقل‌وانتقال مال توقیف‌شده را باطل و بلااثر می‌داند.' }],
     });
     assert.equal(result.status, 'reviewed');
     assert.deepEqual(result.review.issues.map((item) => item.category), ['وکیل طرف مقابل', 'وکیل موکل', 'قاضی بی‌طرف']);
@@ -457,7 +457,7 @@ test('بازبین میز محاکمه نقش‌های طرف مقابل، وک�
     assert.match(sentRequest.messages[0].content, /راستی‌آزمایی استنادات/);
     assert.match(sentRequest.messages[0].content, /کنترل خواسته‌ها/);
     assert.match(sentRequest.messages[0].content, /نقل‌قول ترکیبی/);
-    assert.match(sentRequest.messages[1].content, /منابع وب و گزیده‌های بازیابی‌شده/);
+    assert.match(sentRequest.messages[1].content, /منابع وب و عبارت‌های پاسخِ پیوندخورده به منابع/);
     assert.match(sentRequest.messages[1].content, /qavanin\.ir/);
     assert.match(sentRequest.messages[1].content, /ماده ۵۶ قانون اجرای احکام مدنی/);
   });
