@@ -137,12 +137,17 @@ export async function reviewLegalDraft(env, { mode, docType, question, draft, le
     const articleNumber = clean(article?.articleNumber, 40);
     const body = clean(article?.body, 2_200);
     if (!lawTitle || !articleNumber || !body || bankChars >= 10_000) continue;
+    const lawType = clean(article?.lawType, 80);
     const entry = [
-      `قانون: ${lawTitle}`,
-      `ماده ${articleNumber}${clean(article?.heading, 180) ? ` ـ ${clean(article.heading, 180)}` : ''}`,
+      `نوع سند: ${lawType || 'قانون یا مقرره'}`,
+      `عنوان: ${lawTitle}`,
+      lawType && lawType.includes('advisory') ? `شماره نظریه: ${clean(article?.documentNumber, 120) || articleNumber}` : lawType && lawType.includes('precedent') ? `شماره رأی: ${clean(article?.documentNumber, 120) || articleNumber}` : `ماده ${articleNumber}`,
+      clean(article?.documentDate, 40) ? `تاریخ: ${clean(article.documentDate, 40)}` : null,
+      clean(article?.issuingAuthority, 180) ? `مرجع صادرکننده: ${clean(article.issuingAuthority, 180)}` : null,
+      clean(article?.subject, 240) ? `موضوع: ${clean(article.subject, 240)}` : null,
       body.slice(0, Math.max(0, 10_000 - bankChars)),
-      `منبع ثبت‌شده: ${clean(article?.sourceName, 160) || 'ثبت نشده'}${clean(article?.sourceUrl, 500) ? ` (${clean(article.sourceUrl, 500)})` : ''}`,
-    ].join('\n');
+      `منبع ثبت‌شده: ${clean(article?.sourceName, 160) || 'ثبت نشده'}${clean(article?.officialSourceUrl, 500) || clean(article?.sourceUrl, 500) ? ` (${clean(article?.officialSourceUrl, 500) || clean(article?.sourceUrl, 500)})` : ''}`,
+    ].filter(Boolean).join('\\n');
     bankItems.push(entry);
     bankChars += entry.length;
   }
