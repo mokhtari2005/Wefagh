@@ -33,7 +33,7 @@ function safeSources(grounding) {
     if (parsed.protocol !== 'https:' || seen.has(parsed.href)) continue;
     seen.add(parsed.href);
     sources.push({
-      title: String(item.title || parsed.hostname).replace(/[\\r\\n\\[\\]()]/g, ' ').slice(0, 180),
+      title: String(item.title || parsed.hostname).replace(/[\r\n\[\]()]/g, ' ').slice(0, 180),
       uri: parsed.href,
       domain: parsed.hostname,
       citedText: typeof item.citedText === 'string' ? item.citedText.slice(0, 700) : '',
