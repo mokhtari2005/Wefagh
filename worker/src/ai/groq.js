@@ -139,6 +139,7 @@ export async function reviewLegalDraft(env, { mode, docType, question, draft, le
     const body = clean(article?.body, 2_200);
     if (!lawTitle || !articleNumber || !body || bankChars >= 12_000) continue;
     const lawType = clean(article?.lawType, 80);
+    const lawType = clean(article?.lawType, 80);
     const entry = [
       `نوع سند: ${lawType || 'قانون یا مقرره'}`,
       `عنوان: ${lawTitle}`,
@@ -146,7 +147,7 @@ export async function reviewLegalDraft(env, { mode, docType, question, draft, le
       clean(article?.documentDate, 40) ? `تاریخ: ${clean(article.documentDate, 40)}` : null,
       clean(article?.issuingAuthority, 180) ? `مرجع صادرکننده: ${clean(article.issuingAuthority, 180)}` : null,
       clean(article?.subject, 240) ? `موضوع: ${clean(article.subject, 240)}` : null,
-      body.slice(0, Math.max(0, 12_000 - bankChars)),
+      body.slice(0, Math.max(0, 10_000 - bankChars)),
       `منبع ثبت‌شده: ${clean(article?.sourceName, 160) || 'ثبت نشده'}${clean(article?.officialSourceUrl, 500) || clean(article?.sourceUrl, 500) ? ` (${clean(article?.officialSourceUrl, 500) || clean(article?.sourceUrl, 500)})` : ''}`,
     ].filter(Boolean).join('\\n');
     bankItems.push(entry);
