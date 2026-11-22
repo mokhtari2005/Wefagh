@@ -471,7 +471,7 @@ async function assistant(request, env) {
     const curatedArticles = curatedLegalArticlesForQuery(legalSearchText);
     const promptArticles = [...legalArticles, ...curatedArticles];
     const legalContext = promptArticles.length ? promptArticles.map((a) => `قانون: ${a.lawTitle}\nماده ${a.articleNumber}${a.heading ? ` ـ ${a.heading}` : ''}\n${a.body}\nمنبع: ${a.sourceName || 'ثبت نشده'}${a.sourceUrl ? ` (${a.sourceUrl})` : ''}\nوضعیت منبع: ${a.sourceStatus === 'curated_reference' ? 'مرجع داخلی با پیوند رسمی؛ تطبیق نهایی متن و اعتبار لازم است' : 'بازیابی‌شده از مواد تأییدشده بانک داخلی'}`).join('\n\n---\n\n') : '';
-    // جست‌وجوی وب فقط برای مشاورهٔ متنی، بدون پیوست و با پرس‌وجوی حقوقیِ whitelist انجام می‌شود.
+    // جست‌وجوی وب فقط در مشاوره و میز محاکمه، بدون پیوست و با پرس‌وجوی حقوقیِ whitelist انجام می‌شود.
     // نام اشخاص، شرح وقایع، شماره پرونده و متن پیوست به موتور جست‌وجو ارسال نمی‌شود.
     let webResearch = null;
     let webResearchContext = '';
