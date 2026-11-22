@@ -563,7 +563,7 @@ async function assistant(request, env) {
         const webPayload = JSON.stringify({
           summary: webResearch.summary,
           sources: webResearch.sources.map((source) => ({
-            title: source.title, uri: source.uri, domain: source.domain, citedText: source.citedText || '',
+            title: source.title, uri: source.uri, domain: source.domain, supportedClaim: source.supportedClaim || '',
           })),
         }).replace(/[<>&]/g, (char) => char === '<' ? '\\u003c' : char === '>' ? '\\u003e' : '\\u0026');
         webResearchContext = [
@@ -620,7 +620,7 @@ async function assistant(request, env) {
     const searchSources = webResearch?.status === 'searched' ? webResearch.sources : [];
     const hasSearchSuggestions = ['searched', 'suggestions_only'].includes(webResearch?.status) && Boolean(webResearch.searchSuggestionHtml);
     if (webResearch?.status === 'searched' && webResearch.sources.length) {
-      notes.push('جست‌وجوی وب با Google Search انجام شد. منابع و گزیده‌های مرتبط در پایین پاسخ نمایش داده شده‌اند؛ این منابع سرنخ تحقیق‌اند و به‌معنای تأیید رسمی متن قانون، اعتبار رأی یا جاری‌بودن مقرره نیستند.');
+      notes.push('جست‌وجوی وب با Google Search انجام شد. منابع و عبارت‌های پاسخِ مرتبط با منابع در پایین پاسخ نمایش داده شده‌اند؛ این منابع سرنخ تحقیق‌اند و به‌معنای تأیید رسمی متن قانون، اعتبار رأی یا جاری‌بودن مقرره نیستند.');
     } else if (webResearch?.status === 'suggestions_only') {
       notes.push('پیشنهاد جست‌وجوی Google نمایش داده شد، اما منبع قابل استناد مستقلی بازیابی نشد.');
     } else if (webResearch?.status === 'failed') {
