@@ -2,7 +2,7 @@
 // همه مسیرها (به‌جز وضعیت) نیاز به ورود دارند. کلید API هرگز در پاسخ یا لاگ نمی‌آید.
 import { getPublishedCase, SLUG_RE } from '../moot/caseStore.js';
 import { findVerifiedLegalArticles } from '../legal-bank.js';
-import { searchLegalAuthorities, extractOfficialGroundedArticleReferences } from './legal-search.js';
+import { searchLegalAuthorities } from './legal-search.js';
 import { json, readJsonBody } from '../http.js';
 import { currentUser } from '../auth/routes.js';
 import { registrationRequired } from '../access.js';
@@ -614,13 +614,14 @@ async function assistant(request, env) {
     if (provider === 'groq') notes.push('به‌دلیل اختلال سرویس اصلی، دست‌کم یکی از مراحل تولید این گزارش از مسیر جایگزین تولید شد. مواد قانونیِ بازیابی‌شده از بانک آکادمی بدون تغییر در اختیار مدل قرار گرفتند؛ پاسخ همچنان نیازمند بررسی و راستی‌آزمایی حقوقی است.');
     if (legalBankUnavailable) notes.push('بانک قوانین در این درخواست پاسخ نداد؛ پاسخ بدون استناد به مواد ثبت‌شده در بانک تهیه شد و استنادها باید جداگانه بررسی شوند.');
     const rawText = typeof data.text === 'string' ? data.text : '';
-    const webCitedArticles = webResearch?.status === 'searched' ? extractOfficialGroundedArticleReferences(webResearch.sources) : [];
-    const guardedText = guardUnverifiedLegalClaims(rawText, [...promptArticles, ...webCitedArticles], legalContext);
+    // Google grounding links answer segments to result URLs; it does not provide source-page text.
+    // Therefore, a URL association alone must never authorize an otherwise unverified article number.
+    const guardedText = guardUnverifiedLegalClaims(rawText, promptArticles, legalContext);
     let text = guardedText.text;
     const searchSources = webResearch?.status === 'searched' ? webResearch.sources : [];
     const hasSearchSuggestions = ['searched', 'suggestions_only'].includes(webResearch?.status) && Boolean(webResearch.searchSuggestionHtml);
     if (webResearch?.status === 'searched' && webResearch.sources.length) {
-      notes.push('جست‌وجوی وب با Google Search انجام شد. منابع و عبارت‌های پاسخِ مرتبط با منابع در پایین پاسخ نمایش داده شده‌اند؛ این منابع سرنخ تحقیق‌اند و به‌معنای تأیید رسمی متن قانون، اعتبار رأی یا جاری‌بودن مقرره نیستند.');
+      notes.push('جست‌وجوی وب با Google Search انجام شد. پیوند منابع و عبارت‌های پاسخِ مرتبط با هر پیوند در پایین پاسخ نمایش داده شده‌اند؛ این اطلاعات فقط سرنخ تحقیق‌اند و به‌معنای تأیید رسمی متن قانون، اعتبار رأی یا جاری‌بودن مقرره نیستند.');
     } else if (webResearch?.status === 'suggestions_only') {
       notes.push('پیشنهاد جست‌وجوی Google نمایش داده شد، اما منبع قابل استناد مستقلی بازیابی نشد.');
     } else if (webResearch?.status === 'failed') {
