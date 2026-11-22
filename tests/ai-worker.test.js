@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../worker/src/index.js';
 import { AiError, extractText, generateText, synthesizeSpeech, aiConfigured, modelIds } from '../worker/src/ai/gemini.js';
-import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims } from '../worker/src/ai/routes.js';
+import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims } from '../worker/src/ai/routes.js';\nimport { findVerifiedJudicialAuthorities } from '../worker/src/legal-bank.js';
 import { mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt, LEGAL_DISCLAIMER } from '../worker/src/ai/prompts.js';
 import { groqConfigured, reviewLegalDraft, groqReviewNotes, GROQ_API, GROQ_REVIEW_MODEL, REVIEW_SYSTEM } from '../worker/src/ai/groq.js';
 import batch01 from '../worker/src/moot/bank/batch-01.js';
@@ -575,4 +575,41 @@ test('آزمون ثابت چک تضمینی: بازبین باید دعوای م
   assert.match(REVIEW_SYSTEM, /ماده ۱۱ قانون اجرای احکام مدنی/);
   assert.match(REVIEW_SYSTEM, /ماده ۱۲۵۷ قانون مدنی/);
   assert.match(REVIEW_SYSTEM, /دارنده با حسن نیت/);
+});
+
+
+test('بازیابی آرای وحدت رویه و نظریات مشورتی فقط متن کامل و رکوردهای تأییدشده را برمی‌گرداند', async () => {
+  let sqlSeen = '';
+  let bindingsSeen = [];
+  const db = {
+    prepare(sql) {
+      sqlSeen = sql;
+      return { bind(...values) {
+        bindingsSeen = values;
+        return { all: async () => ({ results: [{
+          lawId: 41, lawTitle: 'رأی وحدت رویه نمونه', lawType: 'supreme_court_unified_precedent',
+          lawStatus: 'verified', documentNumber: '۸۱۰', documentDate: '۱۴۰۰/۰۴/۰۱',
+          issuingAuthority: 'هیأت عمومی دیوان عالی کشور', articleNumber: 'متن کامل',
+          articleStatus: 'verified', body: 'متن کامل رأی وحدت رویه برای آزمون بازیابی.',
+        }] }) };
+      } };
+    },
+  };
+  const result = await findVerifiedJudicialAuthorities(db, 'رأی وحدت رویه شماره ۸۱۰ درباره چک و تعهد');
+  assert.equal(result.length, 1);
+  assert.equal(result[0].documentNumber, '۸۱۰');
+  assert.match(sqlSeen, /l\.status = 'verified'/);
+  assert.match(sqlSeen, /a\.status = 'verified'/);
+  assert.match(sqlSeen, /l\.law_type IN/);
+  assert.match(sqlSeen, /a\.body/);
+  assert.ok(bindingsSeen.includes('supreme_court_unified_precedent'));
+  assert.ok(bindingsSeen.includes('judicial_advisory_opinion'));
+});
+
+test('اگر سؤال فاقد کلیدواژه یا شماره سند قضایی باشد، جست‌وجوی قضایی بی‌جهت اجرا نمی‌شود', async () => {
+  let called = false;
+  const db = { prepare() { called = true; throw new Error('should not query'); } };
+  const result = await findVerifiedJudicialAuthorities(db, 'سلام وقت بخیر');
+  assert.deepEqual(result, []);
+  assert.equal(called, false);
 });
