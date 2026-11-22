@@ -15,7 +15,7 @@ import { clampReply } from './speech.js';
 import { reviewLegalDraft, groqReviewNotes } from './groq.js';
 import { AttachmentError, ATTACHMENT_LIMITS, processAttachments, buildUserParts, summarizeAttachments } from './attachments.js';
 import {
-  LEGAL_DISCLAIMER, ASSISTANT_DOC_TYPES, ASSISTANT_MODES, ASSISTANT_SCHEMA, MOOT_EVAL_SCHEMA,
+  ASSISTANT_DOC_TYPES, ASSISTANT_MODES, ASSISTANT_SCHEMA, MOOT_EVAL_SCHEMA,
   HEARING_ROLES, HEARING_STAGES, mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt,
 } from './prompts.js';
 
@@ -586,13 +586,10 @@ async function assistant(request, env) {
       text += '\n\n## منابع وبی بازیابی‌شده برای پیگیری و راستی‌آزمایی\n' + webResearch.sources.map((source, index) => (index + 1) + '. [' + source.title + '](' + source.uri + ') — ' + source.domain).join('\n');
       notes.push('جست‌وجوی وب با Google Search انجام شد. منابع زیر سرنخ تحقیق‌اند و به‌معنای تأیید رسمی متن قانون، اعتبار رأی یا جاری‌بودن مقرره نیستند.');
     } else if (webResearch?.status === 'failed') {
-      notes.push('جست‌وجوی وب حقوقی انجام نشد؛ پاسخ صرفاً بر منابع داخلی و دانش مدل متکی است.');
     } else if (webResearch?.status === 'no_sources' || webResearch?.status === 'no_legal_terms') {
-      notes.push('از جست‌وجوی وب، منبع قابل استنادی بازیابی نشد؛ استنادهای بیرونی تأییدشده تلقی نمی‌شوند.');
     }
     if (guardedText.changed) notes.push('شماره مواد یا مهلت‌های فاقد پشتوانه در منابع تأییدشده، برای جلوگیری از ارائه استناد نادرست با عبارت نیازمند بررسی جایگزین شدند.');
     if (truncated) notes.push('پاسخ به‌دلیل طول زیاد کامل نشد. برای ادامه بنویسید «ادامه بده».');
-    for (const warning of citationWarnings(guardedText.text)) if (!notes.includes(warning)) notes.push(warning);
     // گزارش مستقل جدا از متن پاسخ برگردانده می‌شود تا کاربر فقط در صورت نیاز آن را باز کند.
     let reviewReport = null;
     let reviewStatus = 'not_run';
@@ -632,7 +629,6 @@ async function assistant(request, env) {
       if (reviewBankUnavailable) notes.push('جست‌وجوی تکمیلی بانک قوانین برای بازبین مستقل انجام نشد؛ نتیجه بر اساس مواد بازیابی‌شده در مرحله نخست و سایر اطلاعات موجود است.');
       if (review.status === 'reviewed') {
         reviewReport = review.review;
-        notes.push('گزارش بازبینی مستقل آماده است و از دکمه کنار کپی پاسخ قابل مشاهده است. این گزارش ماشینی است و جایگزین تطبیق نهایی با منابع رسمی نیست.');
       } else {
         notes.push(...groqReviewNotes(review).slice(0, 3));
       }
@@ -664,7 +660,6 @@ async function assistant(request, env) {
       ...(reviewReport ? { reviewReport } : {}),
       reviewStatus,
       attachments: summarizeAttachments(attachments),
-      disclaimer: LEGAL_DISCLAIMER,
     });
   } catch (err) {
     return aiFailure(err, stage);
@@ -731,7 +726,7 @@ async function ekhtebarAnswer(request, env) {
     if (legalBankUnavailable) notes.push('بانک قوانین در دسترس نبود؛ استنادهای پاسخ باید مستقلاً با متن رسمی قوانین تطبیق داده شوند.');
     if (!legalSources.length) notes.push('ماده قانونی تأییدشده‌ای از بانک قوانین بازیابی نشد؛ شماره مواد و مقررات ذکرشده در متن پاسخ را پیش از استفاده با منبع رسمی بررسی کنید.');
     if (truncated) notes.push('پاسخ به سقف طول رسید و ممکن است نیاز به درخواست ادامه داشته باشد.');
-    return json({ ok: true, answer: stripResponseFormatting(answer), legalSources, notes, disclaimer: LEGAL_DISCLAIMER });
+    return json({ ok: true, answer: stripResponseFormatting(answer), legalSources, notes });
   } catch (err) {
     return aiFailure(err, 'ekhtebar_answer');
   }
