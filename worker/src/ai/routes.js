@@ -403,9 +403,9 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
     return '[مدت نیازمند تطبیق با منبع رسمی]';
   });
   guarded = guarded
-    .replace(/ماده\s*\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده تأییدنشده')
+    .replace(/ماده\s*\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده در منبع تأییدشده احراز نشد')
     .replace(/\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده تأییدنشده')
-    .replace(/\[مدت نیازمند تطبیق با منبع رسمی\]/gu, 'مهلت قانونی تأییدنشده');
+    .replace(/\[مدت نیازمند تطبیق با منبع رسمی\]/gu, 'مهلت قانونی در منبع تأییدشده احراز نشد');
   if (guarded !== text) changed = true;
   return { text: guarded, changed };
 }
@@ -576,7 +576,6 @@ async function assistant(request, env) {
       text += '\n\n## منابع وبی بازیابی‌شده برای پیگیری و راستی‌آزمایی\n' + webResearch.sources.map((source, index) => (index + 1) + '. [' + source.title + '](' + source.uri + ') — ' + source.domain).join('\n');
       notes.push('جست‌وجوی وب با Google Search انجام شد. منابع زیر سرنخ تحقیق‌اند و به‌معنای تأیید رسمی متن قانون، اعتبار رأی یا جاری‌بودن مقرره نیستند.');
     }
-    if (guardedText.changed) notes.push('شماره مواد یا مهلت‌های فاقد پشتوانه در منابع تأییدشده، برای جلوگیری از ارائه استناد نادرست با عبارت نیازمند بررسی جایگزین شدند.');
     if (truncated) notes.push('پاسخ به‌دلیل طول زیاد کامل نشد. برای ادامه بنویسید «ادامه بده».');
     // گزارش مستقل جدا از متن پاسخ برگردانده می‌شود تا کاربر فقط در صورت نیاز آن را باز کند.
     let reviewReport = null;
