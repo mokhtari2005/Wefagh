@@ -598,10 +598,11 @@ async function assistant(request, env) {
           summary: webResearch.summary,
           sources: webResearch.sources.map((source) => ({
             title: source.title, uri: source.uri, domain: source.domain, supportedClaim: source.supportedClaim || '',
+            pageTextStatus: source.pageTextStatus || 'not_retrieved', pageText: source.pageText || '',
           })),
         }).replace(/[<>&]/g, (char) => char === '<' ? '\\u003c' : char === '>' ? '\\u003e' : '\\u0026');
         webResearchContext = [
-          'نتایج جست‌وجوی وب (خلاصهٔ تولیدشده از نتایج جست‌وجو؛ نه متن رسمی احرازشده و نه بخشی از بانک قوانین تأییدشده):',
+          'نتایج جست‌وجوی وب و متن صفحات بازیابی‌شده. فقط مواردی که وضعیت بازیابی متن صفحه رسمی دارند، متن مستقیم صفحه محسوب می‌شوند؛ این بازیابی به‌تنهایی جاری‌بودن مقرره یا اعتبار حقوقی سند را ثابت نمی‌کند:',
           '<web_search_results>',
           webPayload,
           '</web_search_results>',
@@ -655,7 +656,10 @@ async function assistant(request, env) {
     const searchSources = webResearch?.status === 'searched' ? webResearch.sources : [];
     const hasSearchSuggestions = ['searched', 'suggestions_only'].includes(webResearch?.status) && Boolean(webResearch.searchSuggestionHtml);
     if (webResearch?.status === 'searched' && webResearch.sources.length) {
-      notes.push('جست‌وجوی تکمیلی در منابع اینترنتی انجام شد. پیوند منابع و عبارت‌های مرتبط با پاسخ در پایین آن نمایش داده شده‌اند؛ این اطلاعات سرنخ تحقیق‌اند و به‌معنای تأیید رسمی متن قانون، اعتبار رأی یا جاری‌بودن مقرره نیستند.');
+      const officialPageCount = webResearch.sources.filter((source) => source.pageTextStatus === 'official_domain_page_text_retrieved').length;
+      notes.push(officialPageCount
+        ? `متن مستقیم ${officialPageCount} صفحه از دامنه‌های رسمی بازیابی شد و برای مقابله محتوایی در اختیار دستیار و بازبین قرار گرفت؛ احراز جاری‌بودن مقرره و نسخ یا اصلاحات بعدی همچنان باید بر اساس سوابق رسمی بررسی شود.`
+        : 'نتایج جست‌وجوی بیرونی فقط سرنخ تحقیق و پیوند منابع را فراهم کردند؛ متن مستقیم صفحات رسمی بازیابی نشد و این نتایج به‌تنهایی مستند تأییدشده محسوب نمی‌شوند.');
     } else if (webResearch?.status === 'suggestions_only') {
       notes.push('پیشنهادهایی برای جست‌وجوی تکمیلی نمایش داده شد، اما منبع قابل استناد مستقلی بازیابی نشد.');
     } else if (webResearch?.status === 'failed') {
