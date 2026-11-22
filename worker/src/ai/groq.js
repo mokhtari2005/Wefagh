@@ -168,7 +168,6 @@ export async function reviewLegalDraft(env, { mode, docType, question, draft, le
     : 'در این درخواست منبع وب قابل ارزیابی به بازبین ارائه نشده است.';
   // منابع وب فقط برای سنجش میزان پشتیبانی گزاره‌ها از گزیده بازیابی‌شده‌اند؛ وجود لینک، تأیید متن جاری یا اصالت سند نیست.
   const reviewerSystem = REVIEW_SYSTEM;
-  const reviewerSystem = REVIEW_SYSTEM;
 
   let response;
   let selectedModel = GROQ_REVIEW_MODEL;
