@@ -618,7 +618,7 @@ async function assistant(request, env) {
     // نام اشخاص، شرح وقایع، شماره پرونده و متن پیوست به موتور جست‌وجو ارسال نمی‌شود.
     let webResearch = null;
     let webResearchContext = '';
-    if ((mode === 'consult' || mode === 'research' || mode === 'litigation') && attachments.length === 0 && env.GEMINI_SEARCH_GROUNDING_ENABLED === 'true') {
+    if ((mode === 'consult' || mode === 'research' || mode === 'litigation') && attachments.length === 0 && env.GEMINI_SEARCH_GROUNDING_ENABLED !== 'false') {
       stage = 'legal_web_search';
       webResearch = await searchLegalAuthorities(env, legalSearchText);
       if (webResearch.status === 'searched' || webResearch.status === 'suggestions_only') {
