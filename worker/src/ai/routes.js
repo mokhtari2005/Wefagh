@@ -514,14 +514,14 @@ async function assistant(request, env) {
     // مواد صریح و مرتبطِ ازپیش‌تطبیق‌شده باید در ابتدای زمینه باشند تا در سقف ورودی بازبین حذف نشوند.
     const promptArticles = [...curatedArticles, ...legalArticles];
     const statuteContext = promptArticles.length ? promptArticles.map((a) => `قانون: ${a.lawTitle}\nماده ${a.articleNumber}${a.heading ? ` ـ ${a.heading}` : ''}\n${a.body}\nمنبع ثبت‌شده: ${a.sourceName || 'ثبت نشده'}${a.sourceUrl ? ` (${a.sourceUrl})` : ''}`).join('\n\n---\n\n') : '';
-    const judicialContext = judicialAuthorities.map((a) => [
+    const judicialContext = judicialAuthorities.slice(0, 5).map((a) => [
       `نوع سند: ${a.lawType || 'سند قضایی'}`,
       `عنوان: ${a.lawTitle}`,
       a.documentNumber ? `شماره: ${a.documentNumber}` : null,
       a.documentDate || a.approvedDate ? `تاریخ: ${a.documentDate || a.approvedDate}` : null,
       a.issuingAuthority ? `مرجع صادرکننده: ${a.issuingAuthority}` : null,
       a.subject ? `موضوع: ${a.subject}` : null,
-      a.body ? `متن کامل ثبت‌شده: ${a.body}` : null,
+      a.body ? `متن کامل ثبت‌شده: ${a.body.slice(0, 3000)}` : null,
       `منبع: ${a.sourceName || 'ثبت نشده'}${a.officialSourceUrl || a.sourceUrl ? ` (${a.officialSourceUrl || a.sourceUrl})` : ''}`,
       'وضعیت بانک: تأییدشده؛ انطباق موضوعی و اعتبار زمانی باید جداگانه سنجیده شود.',
     ].filter(Boolean).join('\n')).join('\n\n---\n\n');
