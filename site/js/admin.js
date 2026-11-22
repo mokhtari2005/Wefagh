@@ -1236,6 +1236,26 @@ export async function adminPage() {
           const relationSummary = articleRelations.map((r) => `ماده ${r.authorityArticleNumber} ${relationLabels[r.relationType]} ماده ${r.affectedArticleNumber}${r.effectiveDate ? ' از ' + r.effectiveDate : ''}${r.sourceNote ? ' — ' + r.sourceNote : ''}`);
 
           const heading = el('h4', { text: `ماده ${article.number} · شناسه ${article.id}${article.heading ? ' ـ ' + article.heading : ''}` });
+          const fullTextButton = el('button', { class: 'btn secondary', type: 'button', text: 'مشاهده متن کامل' });
+          const fullTextPanel = el('pre', { class: 'admin-ai-compare-output', hidden: 'hidden' });
+          fullTextButton.addEventListener('click', async () => {
+            if (!fullTextPanel.hidden) {
+              fullTextPanel.hidden = true;
+              fullTextButton.textContent = 'مشاهده متن کامل';
+              return;
+            }
+            fullTextButton.disabled = true;
+            const full = await getJson(`/api/admin/legal-bank/articles?lawId=${item.id}&articleId=${article.id}`);
+            fullTextButton.disabled = false;
+            if (!full.ok) {
+              legalBankNotice.className = 'form-status err';
+              legalBankNotice.textContent = errorText(full.data, full.status);
+              return;
+            }
+            fullTextPanel.textContent = full.data.item?.body || 'متن کامل برای این ماده ثبت نشده است.';
+            fullTextPanel.hidden = false;
+            fullTextButton.textContent = 'بستن متن کامل';
+          });
           const statusSelect = el('select', { 'aria-label': `وضعیت ماده ${article.number}` }, [
             el('option', { value: 'needs_review', text: 'نیازمند بررسی' }),
             el('option', { value: 'verified', text: 'تأییدشده' }),
@@ -1286,7 +1306,7 @@ export async function adminPage() {
             legalBankNotice.textContent = saved.ok ? 'رابطه حقوقی ثبت شد.' : errorText(saved.data, saved.status);
           });
           articlePanel.append(el('article', { class: 'admin-content-row card' }, [
-            heading, el('p', { class: 'muted', text: article.bodyPreview || '' }),
+            heading, fullTextButton, fullTextPanel, el('p', { class: 'muted', text: article.bodyPreview || '' }),
             ...(relationSummary.length ? [el('p', { class: 'muted', text: relationSummary.join(' | ') })] : []),
             statusSelect, note, sourceName, sourceUrl, effectiveDate, save, relationTitle, targetId, relationType, relationNote, relationDate, relationSave,
           ]));
