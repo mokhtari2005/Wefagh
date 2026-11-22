@@ -4150,3 +4150,17 @@ body.classroom-fullscreen-fallback { overflow:hidden; }
 .ai-review-panel { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--sand-line); border-radius: 12px; background: var(--bone); }
 .ai-review-panel[hidden] { display: none; }
 .ai-review-panel-title { display: block; margin-bottom: 8px; color: var(--assistant-navy); font-size: .92rem; }
+
+
+/* گردش کار مرحله‌ای تنظیم سند حقوقی */
+.ai-document-wizard{display:grid;gap:12px;margin-top:14px}
+.ai-wizard-progress{font-weight:700}
+.ai-wizard-control{display:grid;gap:10px}
+.ai-wizard-actions{display:flex;flex-wrap:wrap;gap:8px}
+.ai-document-review-list{display:grid;grid-template-columns:minmax(130px,1fr) 2fr;gap:8px 14px;margin:12px 0}
+.ai-document-review-list dt{font-weight:700}
+.ai-document-review-list dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.ai-question-options{display:grid;gap:9px;margin:14px 0;padding:12px;border:1px solid var(--border,#d8d2c7);border-radius:12px}
+.ai-question-options>strong{line-height:1.9}
+.ai-question-options button{justify-self:start;max-width:100%;white-space:normal;text-align:right}
+@media(max-width:600px){.ai-document-review-list{grid-template-columns:1fr;gap:3px}.ai-document-review-list dd{margin-bottom:8px}.ai-wizard-actions>*{flex:1 1 auto}}
