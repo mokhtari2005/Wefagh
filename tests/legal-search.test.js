@@ -20,9 +20,9 @@ test('legal term normalization accepts Arabic Yeh and Kaf variants', () => {
 
 test('only article numbers cited by official source excerpts pass the citation guard', () => {
   const refs = extractOfficialGroundedArticleReferences([
-    { uri: 'https://qavanin.ir/law/1', citedText: 'مواد ۵۶ و ۵۷ قانون اجرای احکام مدنی' },
-    { uri: 'https://example.com/law/2', citedText: 'ماده ۹۹ قانون دیگر' },
-    { uri: 'https://rrk.ir/law/3', citedText: 'این گزیده شماره ماده ندارد' },
+    { uri: 'https://qavanin.ir/law/1', supportedClaim: 'مواد ۵۶ و ۵۷ قانون اجرای احکام مدنی' },
+    { uri: 'https://example.com/law/2', supportedClaim: 'ماده ۹۹ قانون دیگر' },
+    { uri: 'https://rrk.ir/law/3', supportedClaim: 'این گزیده شماره ماده ندارد' },
   ]);
   assert.deepEqual(refs, [{ articleNumber: '56' }, { articleNumber: '57' }]);
 });
