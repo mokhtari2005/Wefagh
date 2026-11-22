@@ -83,7 +83,7 @@ test('findVerifiedLegalArticles prioritizes exact law and article citations', as
   assert.ok(calls[0].bindings.includes('%قانون اجرای احکام مدنی%'));
 });
 
-test('extractGrounding keeps cited passages and Google search suggestions', () => {
+test('extractGrounding keeps answer passages linked to Google search results', () => {
   const result = extractGrounding({
     candidates: [{
       content: { parts: [{ text: 'ماده ۵۶ قانون اجرای احکام مدنی' }] },
