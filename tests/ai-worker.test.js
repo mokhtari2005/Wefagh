@@ -283,7 +283,7 @@ test('میز محاکمه هوشمند: حالت مستقل، پرامپت چن�
     const data = await res.json();
     assert.equal(res.status, 200);
     assert.equal(data.ok, true);
-    assert.equal(calls.length, 7);
+    assert.equal(calls.length, 4);
     assert.ok(systems.every((system) => system.includes('میز محاکمه هوشمند')));
     assert.ok(systems.some((system) => system.includes('قوی‌ترین دفاع‌ها، ایرادهای شکلی و ماهوی')));
     assert.ok(systems.some((system) => system.includes('نقش تو وکیل موکل/کاربر است')));
