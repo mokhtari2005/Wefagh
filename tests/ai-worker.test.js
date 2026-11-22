@@ -758,7 +758,7 @@ test('میز محاکمه سه نقش مستقل را اجرا و گزارش ن�
       answer = 'ارزیابی قاضی: نتیجه مشروط و خلأهای اثباتی.';
     } else {
       assert.match(system, /میز محاکمه هوشمند/);
-      assert.match(system, /جدول راستی‌آزمایی استنادات/);
+      assert.match(system, /شماره ماده و تبصره را در همان جمله یا بند/);
       return jsonRes(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(finalJson) }] }, finishReason: 'STOP' }] });
     }
     return jsonRes(200, { candidates: [{ content: { parts: [{ text: answer }] }, finishReason: 'STOP' }] });
