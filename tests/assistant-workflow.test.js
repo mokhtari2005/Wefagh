@@ -23,5 +23,9 @@ test('فرم قرارداد پرسش‌های اختصاصی مرجع قضایی
 });
 
 test('فیلدهای اشخاص و اطلاعات تکمیلی قابل رد هستند تا اطلاعات گفته‌شده دوباره مطالبه نشود', () => {
-  for (const field of getDocumentFields('petition')) assert.equal(field.required, false);
+  const fields = getDocumentFields('petition');
+  assert.equal(fields.find((field) => field.key === 'partyOneName').required, true);
+  assert.equal(fields.find((field) => field.key === 'partyTwoName').required, true);
+  assert.equal(fields.find((field) => field.key === 'partyOneAddress').required, false);
+  assert.equal(fields.find((field) => field.key === 'additionalDetails').required, false);
 });
