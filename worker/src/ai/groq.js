@@ -162,6 +162,8 @@ export async function reviewLegalDraft(env, { mode, docType, question, draft, le
     const uri = clean(source?.uri, 500);
     const domain = clean(source?.domain, 120);
     const supportedClaim = clean(source?.supportedClaim, 1_200);
+    const pageText = clean(source?.pageText, 3_000);
+    const pageTextStatus = clean(source?.pageTextStatus, 80);
     if (!title && !uri && !supportedClaim) continue;
     const entry = [
       `عنوان: ${title || 'بدون عنوان'}`,
