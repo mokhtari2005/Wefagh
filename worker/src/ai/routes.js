@@ -495,14 +495,16 @@ async function assistant(request, env) {
     let legalBankUnavailable = false;
     const legalSearchText = [...history.slice().reverse().map((item) => item.text), message].join('\n\n');
     try {
-      [legalArticles, judicialAuthorities] = await Promise.all([
-        findVerifiedLegalArticles(env.DB, legalSearchText),
-        findVerifiedJudicialAuthorities(env.DB, legalSearchText),
-      ]);
+      legalArticles = await findVerifiedLegalArticles(env.DB, legalSearchText);
     } catch (err) {
-      // خرابی بانک نباید پاسخ اصلی را از کار بیندازد؛ فقط زمینهٔ مستند حذف و هشدار داده می‌شود.
       legalBankUnavailable = true;
-      console.error(JSON.stringify({ where: 'ai', stage: 'legal_bank_query', error: err?.name || 'Error' }));
+      console.error(JSON.stringify({ where: 'ai', stage: 'legal_article_query', error: err?.name || 'Error' }));
+    }
+    try {
+      judicialAuthorities = await findVerifiedJudicialAuthorities(env.DB, legalSearchText);
+    } catch (err) {
+      legalBankUnavailable = true;
+      console.error(JSON.stringify({ where: 'ai', stage: 'judicial_authority_query', error: err?.name || 'Error' }));
     }
     const executionTransferArticles = EXECUTION_TRANSFER_TOPIC.test(legalSearchText)
       ? [...EXECUTION_TRANSFER_ARTICLES, ...CIVIL_PROCEDURE_ARTICLES]
@@ -603,10 +605,8 @@ async function assistant(request, env) {
       let reviewBankUnavailable = false;
       try {
         // جست‌وجوی دوم با متن پاسخ، هم مواد قانونی و هم آرای قضایی/نظریات را برای بازبین بازیابی می‌کند.
-        const [matched, matchedAuthorities] = await Promise.all([
-          findVerifiedLegalArticles(env.DB, text),
-          findVerifiedJudicialAuthorities(env.DB, text),
-        ]);
+        const matched = await findVerifiedLegalArticles(env.DB, text);
+        const matchedAuthorities = await findVerifiedJudicialAuthorities(env.DB, text);
         const seen = new Set(reviewArticles.map((a) => `${a.lawType || 'law'}::${a.documentNumber || a.articleNumber || a.lawTitle}`));
         for (const article of [...matched, ...matchedAuthorities]) {
           const key = `${article.lawType || 'law'}::${article.documentNumber || article.articleNumber || article.lawTitle}`;
