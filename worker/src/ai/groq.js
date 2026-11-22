@@ -66,6 +66,7 @@ const REVIEW_SYSTEM = [
   'صلاحیت مرجع و مهلت را بدون اطلاعات لازم قطعی تعیین نکن؛ از ساختن عنوان دادگاه، ماده قانونی یا مهلت فرضی خودداری کن.',
   'تناقض در وقایع، فرض‌های بدون پشتوانه، نتیجه‌گیری ناموجه، خواسته یا ارکان شکلی ناقص، ابهام در سمت و صلاحیت، مهلت‌های حساس و تعارض بین متن درخواست و پیش‌نویس را بررسی کن.',
   'اشکال واقعی را از ترجیح سبکی جدا کن. ایرادهای کم‌اهمیت یا فرضی نساز. اگر ایراد مهمی نیافتی، صریح بگو که این صرفاً یک بازبینی ماشینی است و تأیید صحت حقوقی محسوب نمی‌شود.',
+  'عنوان دسته‌بندی هر ایراد را فارسی بنویس؛ از شناسه‌های انگلیسی و نام مدل یا سرویس استفاده نکن.',
   'فقط JSON معتبر با فیلدهای risk (low|medium|high)، summary (string)، issues (array of objects with severity, category, observation, recommendation) و citations (array of objects with citation, concern) برگردان.',
 ].join('\n');
 
@@ -86,9 +87,44 @@ function guardUnsupportedReferences(value, sourceText) {
   const source = normalizeLegalReference(sourceText);
   return value
     .replace(/(?:ماده|تبصره|بند|جزء)\s*[۰-۹0-9]+(?:\s*(?:قانون|آیین‌نامه|تصویب‌نامه)\s*[^،؛,.\n]{1,55})?/gu, (match) =>
-      source.includes(normalizeLegalReference(match)) ? match : 'مستند قانونی مشخص‌نشده (نیازمند راستی‌آزمایی)')
+      source.includes(normalizeLegalReference(match)) ? match : 'استناد قانونی تأییدنشده')
     .replace(/[۰-۹0-9]+\s*(?:سال|ماه|روز)\b/gu, (match) =>
-      source.includes(normalizeLegalReference(match)) ? match : 'مهلت قانونی مشخص‌نشده');
+      source.includes(normalizeLegalReference(match)) ? match : 'مهلت قانونی تأییدنشده');
+}
+
+const REVIEW_CATEGORY_LABELS = Object.freeze({
+  missinglegalreference: 'استناد قانونی تأییدنشده',
+  missing_legal_reference: 'استناد قانونی تأییدنشده',
+  missingcitation: 'استناد قانونی تأییدنشده',
+  missing_reference: 'استناد قانونی تأییدنشده',
+  missing_citation: 'استناد قانونی تأییدنشده',
+  inconsistentlegalconcept: 'خلط مفاهیم حقوقی',
+  inconsistent_legal_concept: 'خلط مفاهیم حقوقی',
+  inconsistentcitation: 'ناهماهنگی استنادات',
+  citationmismatch: 'ناهماهنگی استنادات',
+  citation_mismatch: 'ناهماهنگی استنادات',
+  inconsistent_citation: 'ناهماهنگی استنادات',
+  jurisdictionclarification: 'صلاحیت محلی',
+  jurisdiction_clarification: 'صلاحیت محلی',
+  unsupportedassertion: 'ادعای بدون مستند',
+  unsupported_assertion: 'ادعای بدون مستند',
+  proceduraldetail: 'نکته آیین دادرسی',
+  procedural_detail: 'نکته آیین دادرسی',
+  ambiguity: 'ابهام در بیان',
+});
+
+function reviewerCategory(value) {
+  const raw = clean(value, 100);
+  if (!raw) return 'نکته حقوقی';
+  const key = raw.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
+  return REVIEW_CATEGORY_LABELS[key] || REVIEW_CATEGORY_LABELS[raw.toLowerCase()] || (/^[a-z_ -]+$/i.test(raw) ? 'ایراد حقوقی' : raw);
+}
+
+function reviewerText(value, max = 500) {
+  return clean(value, max)
+    .replace(/openai\/gpt-oss-\d+b|gpt-oss-\d+b|\bGroq\b|\bOpenAI\b/gi, '')
+    .replace(/MissingLegalReference|MissingCitation|InconsistentLegalConcept|CitationMismatch|JurisdictionClarification|UnsupportedAssertion|ProceduralDetail|missing_reference|missing_citation|inconsistent_legal_concept|inconsistent_citation|unsupported_assertion|procedural_detail/gi, 'ایراد حقوقی')
+    .replace(/[ \t]{2,}/g, ' ').trim();
 }
 
 function parseReview(raw, sourceText) {
@@ -99,17 +135,17 @@ function parseReview(raw, sourceText) {
     if (!data || !['low', 'medium', 'high'].includes(data.risk) || typeof data.summary !== 'string' || !Array.isArray(data.issues) || !Array.isArray(data.citations)) return null;
     return {
       risk: data.risk,
-      summary: guardUnsupportedReferences(clean(data.summary, 700), sourceText),
+      summary: guardUnsupportedReferences(reviewerText(data.summary, 700), sourceText),
       issues: data.issues.slice(0, 6).map((item) => ({
         severity: ['low', 'medium', 'high'].includes(item?.severity) ? item.severity : 'medium',
-        category: clean(item?.category, 100),
-        observation: guardUnsupportedReferences(clean(item?.observation, 400), sourceText),
-        recommendation: guardUnsupportedReferences(clean(item?.recommendation, 350), sourceText),
+        category: reviewerCategory(item?.category),
+        observation: guardUnsupportedReferences(reviewerText(item?.observation, 400), sourceText),
+        recommendation: guardUnsupportedReferences(reviewerText(item?.recommendation, 350), sourceText),
       })).filter((item) => item.observation),
       // فقط استنادهایی نمایش داده می‌شوند که واقعاً در متن ورودی وجود داشته‌اند.
       citations: data.citations.slice(0, 6).map((item) => ({
-        citation: clean(item?.citation, 180),
-        concern: guardUnsupportedReferences(clean(item?.concern, 300), sourceText),
+        citation: reviewerText(item?.citation, 180),
+        concern: guardUnsupportedReferences(reviewerText(item?.concern, 300), sourceText),
       })).filter((item) => item.citation && normalizeLegalReference(sourceText).includes(normalizeLegalReference(item.citation))),
     };
   } catch {
@@ -219,42 +255,37 @@ export async function reviewLegalDraft(env, { mode, docType, question, draft, le
 export function groqReviewNotes(result) {
   if (!result || result.status !== 'reviewed') {
     const messages = {
-      not_configured: result?.keyState === 'too_short'
-        ? 'بازبینی مستقل فعال نشده است: مقدار GROQ_API_KEY در Worker ناقص یا اشتباه است.'
-        : 'بازبینی مستقل فعال نشده است: Worker مقدار GROQ_API_KEY را در زمان اجرا دریافت نمی‌کند. Secret باید در همین Worker تعریف و Worker دوباره Deploy شود (مدیر: بخش تشخیص هوش مصنوعی).',
-      invalid_input: 'بازبینی مستقل انجام نشد؛ متن پیش‌نویس برای بررسی کافی نبود.',
-      quota_exceeded: 'سهمیه رایگان بازبین مستقل Groq تمام شده است؛ این پیش‌نویس بازبینی مستقل نشده است.',
-      key_rejected: 'کلید Groq معتبر یا مجاز نیست؛ این پیش‌نویس بازبینی مستقل نشده است.',
-      timeout: 'بازبین مستقل Groq در زمان مقرر پاسخ نداد؛ این پیش‌نویس بازبینی مستقل نشده است.',
-      network_error: 'ارتباط با Groq برقرار نشد؛ این پیش‌نویس بازبینی مستقل نشده است.',
-      provider_error: 'سرویس Groq موقتاً در دسترس نیست؛ این پیش‌نویس بازبینی مستقل نشده است.',
-      request_rejected: 'Groq درخواست بازبینی را نپذیرفت؛ این پیش‌نویس بازبینی مستقل نشده است.',
-      invalid_response: 'پاسخ بازبین مستقل قابل پردازش نبود؛ این پیش‌نویس بازبینی مستقل نشده است.',
+      not_configured: 'بازبینی مستقل در دسترس نیست.',
+      invalid_input: 'متن کافی برای بازبینی مستقل وجود نداشت.',
+      quota_exceeded: 'بازبینی مستقل انجام نشد.',
+      key_rejected: 'بازبینی مستقل انجام نشد.',
+      timeout: 'بازبینی مستقل انجام نشد.',
+      network_error: 'بازبینی مستقل انجام نشد.',
+      provider_error: 'بازبینی مستقل انجام نشد.',
+      request_rejected: 'بازبینی مستقل انجام نشد.',
+      invalid_response: 'بازبینی مستقل انجام نشد.',
     };
     return [messages[result?.status] || 'بازبینی مستقل انجام نشد؛ صحت حقوقی این پیش‌نویس تأیید نشده است.'];
   }
 
   const { review } = result;
   const notes = [
-    `بازبینی ماشینی مستقل با مدل ${result.model || GROQ_REVIEW_MODEL} از طریق Groq انجام شد (سطح ریسک برآوردی: ${review.risk === 'high' ? 'زیاد' : review.risk === 'medium' ? 'متوسط' : 'کم'}). متن درخواست و پیش‌نویس برای این بازبینی به سرویس Groq ارسال شده است؛ این نتیجه تأیید صحت حقوقی یا راستی‌آزمایی منبع رسمی نیست.`,
+    `سطح ریسک برآوردی: ${review.risk === 'high' ? 'زیاد' : review.risk === 'medium' ? 'متوسط' : 'کم'}.`,
   ];
-  notes.push(result.bankArticlesCount
-    ? `بازبین برای تطبیق، ${result.bankArticlesCount} مستند تأییدشده از بانک قوانین داخلی دریافت کرد؛ این تطبیق جای بررسی آخرین نسخه رسمی قانون را نمی‌گیرد.`
-    : 'هیچ ماده تأییدشده‌ای از بانک قوانین برای این درخواست بازیابی نشد؛ تطبیق با بانک ممکن نبود.');
-  if (review.summary) notes.push(`جمع‌بندی بازبین: ${review.summary}`);
+  if (review.summary) notes.push(`جمع‌بندی: ${reviewerText(review.summary, 700)}`);
   for (const item of review.issues) {
     const level = item.severity === 'high' ? 'مهم' : item.severity === 'medium' ? 'متوسط' : 'جزئی';
-    notes.push(`[${level}] ${item.category ? item.category + ' — ' : ''}${item.observation}${item.recommendation ? ' | پیشنهاد: ' + item.recommendation : ''}`);
+    notes.push(`[${level}] ${item.category ? reviewerCategory(item.category) + ' — ' : ''}${reviewerText(item.observation, 400)}${item.recommendation ? ' | پیشنهاد: ' + reviewerText(item.recommendation, 350) : ''}`);
   }
   for (const item of review.citations) {
-    notes.push(`استناد نیازمند بررسی: ${item.citation}${item.concern ? ' — ' + item.concern : ''}`);
+    notes.push(`استناد نیازمند بررسی: ${reviewerText(item.citation, 180)}${item.concern ? ' — ' + reviewerText(item.concern, 300) : ''}`);
   }
   return notes.slice(0, 12);
 }
 
 /** یادداشت کوتاه برای نمایش پیش‌فرض زیر متن؛ جزئیات در groqReviewNotes و فقط در بخش جمع‌شونده می‌آید. */
 export function groqReviewShortNote(result) {
-  return result?.status === 'reviewed' ? 'بازبینی ماشینی مستقل انجام شد.' : 'هشدار: بازبینی مستقل انجام نشد.';
+  return result?.status === 'reviewed' ? 'بازبینی مستقل انجام شد.' : 'بازبینی مستقل انجام نشد.';
 }
 
 
