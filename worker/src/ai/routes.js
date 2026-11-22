@@ -567,7 +567,7 @@ async function assistant(request, env) {
     }
     const questions = Array.isArray(data.questions) ? data.questions.filter((q) => typeof q === 'string').slice(0, 5) : [];
     const questionOptions = mode === 'consult' && Array.isArray(data.questionOptions) ? data.questionOptions.filter((item) => item && typeof item.question === 'string' && Array.isArray(item.options)).slice(0, 3).map((item) => ({ question: item.question.slice(0, 500), options: item.options.filter((option) => typeof option === 'string').slice(0, 8).map((option) => option.slice(0, 180)), allowOther: item.allowOther !== false })).filter((item) => item.options.length > 0) : [];
-    const allowedDraftFields = ['partyOneName','partyOneAddress','partyTwoName','partyTwoAddress','court','caseNumber','caseStage','additionalDetails'];
+    const allowedDraftFields = ["partyOneName","partyOneAddress","partyTwoName","partyTwoAddress","court","caseNumber","caseStage","additionalDetails","contractSubject","contractAmount","contractDuration","incidentDate","incidentPlace","evidenceSummary","issuingCourt","judgmentNumber","judgmentDate","notificationDate","executionCaseNumber","enforcementStage","enforcementCaseNumber","disputedAction","noticeSubject","responseDeadline"];
     const knownFields = {};
     if (mode === 'consult' && data.knownFields && typeof data.knownFields === 'object') {
       for (const key of allowedDraftFields) if (typeof data.knownFields[key] === 'string') knownFields[key] = data.knownFields[key].trim().slice(0, 1200);
