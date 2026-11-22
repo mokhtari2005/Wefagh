@@ -650,7 +650,7 @@ async function assistant(request, env) {
         console.error(JSON.stringify({ where: 'ai', stage: 'groq_legal_bank_query', error: err?.name || 'Error' }));
       }
       const review = await reviewLegalDraft(env, {
-        mode, docType, question: message, draft: text, legalArticles: reviewArticles,
+        mode, docType, question: message, draft: text, legalArticles: reviewArticles, webSources: searchSources,
       });
       if (reviewBankUnavailable) notes.push('جست‌وجوی تکمیلی بانک قوانین برای بازبین Groq انجام نشد؛ نتیجه بر اساس مواد بازیابی‌شده در مرحله نخست و سایر اطلاعات موجود است.');
       if (review.status === 'reviewed') {
