@@ -270,18 +270,11 @@ export function groqReviewNotes(result) {
   }
 
   const { review } = result;
-  const notes = [
-    'بازبینی ماشینی مستقل انجام شد.',
-    `میزان خطر برآوردی: ${review.risk === 'high' ? 'زیاد است' : review.risk === 'medium' ? 'متوسط است' : 'کم است'}. این ارزیابی به‌معنای تأیید صحت حقوقی یا راستی‌آزمایی قطعی منبع رسمی نیست.`,
-  ];
-  notes.push(result.bankArticlesCount
-    ? `بازبین برای تطبیق، ${result.bankArticlesCount} مستند از بانک قوانین داخلی دریافت کرد؛ وضعیت بانک به‌تنهایی جای بررسی آخرین نسخه رسمی قانون را نمی‌گیرد.`
-    : 'هیچ ماده تأییدشده‌ای از بانک قوانین برای این درخواست بازیابی نشد؛ تطبیق با بانک ممکن نبود.');
-  if (result.webSourcesCount) notes.push(`در بازبینی، ${result.webSourcesCount} منبع اینترنتی و گزیده‌های آن از حیث پشتیبانی ادعاها بررسی شد؛ این بررسی به‌معنای تأیید رسمی یا جاری‌بودن منبع نیست.`);
+  const notes = [];
   if (review.summary) notes.push(`جمع‌بندی بازبینی: ${persianAuditText(review.summary)}`);
   for (const item of review.issues) {
-    const level = item.severity === 'high' ? 'مهم' : item.severity === 'medium' ? 'متوسط' : 'جزئی';
-    notes.push(`${level === 'مهم' ? 'ایراد مهم' : level === 'متوسط' ? 'نکته قابل توجه' : 'نکته جزئی'}${item.category ? ' در موضوع ' + persianAuditText(item.category) : ''}: ${persianAuditText(item.observation)}${item.recommendation ? ' برای رفع این ایراد، ' + persianAuditText(item.recommendation) : ''}`);
+    const level = item.severity === 'high' ? 'ایراد مهم' : item.severity === 'medium' ? 'نکته قابل توجه' : 'نکته جزئی';
+    notes.push(`${level}${item.category ? ' در موضوع ' + persianAuditText(item.category) : ''}: ${persianAuditText(item.observation)}${item.recommendation ? ' راهکار: ' + persianAuditText(item.recommendation) : ''}`);
   }
   for (const item of review.citations) {
     notes.push(`استناد نیازمند بررسی: ${persianAuditText(item.citation)}${item.concern ? '؛ ' + persianAuditText(item.concern) : ''}`);
