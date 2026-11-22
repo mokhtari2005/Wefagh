@@ -247,6 +247,30 @@ const JUDICIAL_AUTHORITY_TYPES = Object.freeze([
   'judicial_advisory_opinion',
 ]);
 
+const JUDICIAL_SEARCH_STOP_WORDS = new Set([
+  'از','به','در','با','برای','و','یا','که','را','این','آن','یک','های','ها','می','شود','است','هست',
+  'آیا','اگر','اما','باید','باشد','شده','کرده','کرد','نسبت','مورد','موارد','مطابق','طبق','قانون',
+  'ماده','مواد','قانونی','حقوقی','حقوق','دعوا','پرونده','خواسته','پاسخ','بررسی','تحلیل','مطرح',
+  'کن','کنید','همچنین','مربوط','مرتبط','شخص','طرف','طرفین','دادگاه','دادخواست','فروشنده','خریدار',
+  'سلام','وقت','بخیر','لطفا','لطفاً','ممنون','تشکر','خواهش','راهنمایی','بفرمایید',
+]);
+
+function judicialSearchTerms(query) {
+  const normalized = String(query || '').normalize('NFKC')
+    .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .toLowerCase();
+  const counts = new Map();
+  for (const token of normalized.split(/[^\p{L}\p{N}]+/u)) {
+    if (token.length < 3 || JUDICIAL_SEARCH_STOP_WORDS.has(token) || /^\d+$/.test(token)) continue;
+    counts.set(token, (counts.get(token) || 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || b[0].length - a[0].length)
+    .slice(0, 12)
+    .map(([token]) => token);
+}
+
 /**
  * فقط متن کاملِ ثبت‌شده در legal_articles و رکوردهایی که مدیر هر دو سطح سند و متن را
  * verified کرده است بازیابی می‌شود. legal_document_index عمداً در این جست‌وجو نیست:
@@ -256,7 +280,7 @@ export async function findVerifiedJudicialAuthorities(db, query) {
   const text = String(query || '').normalize('NFKC')
     .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')
     .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
-  const terms = legalSearchTerms(text);
+  const terms = judicialSearchTerms(text);
   const numbers = [...text.matchAll(/(?:رأی\s*وحدت\s*رویه|نظریه\s*مشورتی)\s*(?:شماره\s*)?([0-9]+(?:\/[0-9]+)*)/gu)]
     .map((match) => match[1]).slice(0, 6);
   if (!terms.length && !numbers.length) return [];
