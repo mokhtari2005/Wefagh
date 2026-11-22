@@ -425,17 +425,30 @@ export function extractOfficialPageArticleReferences(sources = []) {
 
 export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedContext = '') {
   if (typeof text !== 'string' || !text) return { text: text || '', changed: false };
-  const allowed = new Set(legalArticles.map((item) => normalizeLegalDigits(item.articleNumber)));
+  const trusted = (Array.isArray(legalArticles) ? legalArticles : []).filter((item) =>
+    item?.sourceStatus === 'official_page_text_retrieved' ||
+    (item?.lawStatus === 'verified' && item?.articleStatus === 'verified'));
+  const allowed = trusted.map((item) => ({
+    number: normalizeLegalDigits(item.articleNumber),
+    title: String(item.lawTitle || '').normalize('NFKC')
+      .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک').replace(/[\s\u200c]+/g, ' ').trim(),
+  })).filter((item) => item.number && item.title);
   let changed = false;
-  let guarded = text.replace(/(?:ماده|مواد)\s*([۰-۹0-9]+(?:(?:\s*(?:،|,|و|تا|الی|[-–])\s*)[۰-۹0-9]+)*)/gu, (match, sequence) => {
+  let guarded = text.replace(/(?:ماده|مواد)\s*([۰-۹0-9]+(?:(?:\s*(?:،|,|و|تا|الی|[-–])\s*)[۰-۹0-9]+)*)/gu, (match, sequence, offset) => {
     const numbers = sequence.match(/[۰-۹0-9]+/g) || [];
     const range = /(?:تا|الی|[-–])/.test(sequence);
     const values = numbers.map(normalizeLegalDigits);
+    const paragraphStart = Math.max(text.lastIndexOf('\n\n', offset), text.lastIndexOf('؛', offset), text.lastIndexOf('.', offset));
+    const nextBreaks = ['\n\n', '؛', '.'].map((token) => text.indexOf(token, offset + match.length)).filter((index) => index >= 0);
+    const paragraphEnd = nextBreaks.length ? Math.min(...nextBreaks) : text.length;
+    const nearby = text.slice(Math.max(0, paragraphStart), paragraphEnd).normalize('NFKC')
+      .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک').replace(/[\s\u200c]+/g, ' ').trim();
+    const supported = (number) => allowed.some((item) => item.number === number && nearby.includes(item.title));
     const unsupported = range && values.length === 2
       ? (Number(values[1]) >= Number(values[0]) && Number(values[1]) - Number(values[0]) <= 100
-        ? Array.from({ length: Number(values[1]) - Number(values[0]) + 1 }, (_, i) => String(Number(values[0]) + i)).some((number) => !allowed.has(number))
+        ? Array.from({ length: Number(values[1]) - Number(values[0]) + 1 }, (_, i) => String(Number(values[0]) + i)).some((number) => !supported(number))
         : true)
-      : values.some((number) => !allowed.has(number));
+      : values.some((number) => !supported(number));
     if (!unsupported) return match;
     changed = true;
     return 'ماده [شماره نیازمند تطبیق با متن رسمی]';
@@ -688,7 +701,9 @@ async function assistant(request, env) {
     // Google grounding links answer segments to result URLs; it does not provide source-page text.
     // Therefore, a URL association alone must never authorize an otherwise unverified article number.
     const officialPageArticles = extractOfficialPageArticleReferences(webResearch?.sources || []);
-    const guardedText = guardUnverifiedLegalClaims(rawText, [...promptArticles, ...officialPageArticles], `${legalContext}\\n\\n${webResearchContext}`);
+    const verifiedSourceText = [...promptArticles.filter((item) => item.lawStatus === 'verified' && item.articleStatus === 'verified'), ...officialPageArticles]
+      .map((item) => `${item.lawTitle || ''} ماده ${item.articleNumber || ''} ${item.body || ''}`).join('\n');
+    const guardedText = guardUnverifiedLegalClaims(rawText, [...promptArticles, ...officialPageArticles], verifiedSourceText);
     let text = guardedText.text;
     const searchSources = webResearch?.status === 'searched' ? webResearch.sources : [];
     const hasSearchSuggestions = ['searched', 'suggestions_only'].includes(webResearch?.status) && Boolean(webResearch.searchSuggestionHtml);
@@ -713,7 +728,7 @@ async function assistant(request, env) {
       notes.push('چون پاسخ اصلی با همان ارائه‌دهنده تولید شده است، بازبینی مستقل جداگانه اجرا نشد تا تولید پاسخ و ارزیابی آن به یک سرویس واحد واگذار نشود.');
     } else {
       stage = 'groq_review';
-      let reviewArticles = [...judicialAuthorities.slice(0, 3), ...legalArticles.slice(0, 5), ...judicialAuthorities.slice(3), ...curatedArticles];
+      let reviewArticles = [...judicialAuthorities.slice(0, 3), ...legalArticles.slice(0, 5), ...judicialAuthorities.slice(3)];
       let reviewBankUnavailable = false;
       try {
         // جست‌وجوی دوم با متن پاسخ Gemini هم انجام می‌شود تا استنادهای تازه‌مطرح‌شده نیز تطبیق داده شوند.
