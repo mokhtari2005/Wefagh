@@ -123,10 +123,12 @@ test('حذف گفت‌وگو، پیام‌های آن را هم پاک می‌ک
   assert.equal((await worker.fetch(req(`/api/ai/threads/${id}`, { cookie: cookies['الف'] }), env)).status, 404);
 });
 
-test('هشدار استناد: شماره ماده یا رأی در پاسخ دستیار علامت می‌خورد، متن عادی نه', async () => {
-  const { citationWarnings, CITATION_WARNING } = await import('../worker/src/ai/routes.js');
-  assert.deepEqual(citationWarnings('بر اساس ماده ۱۲۳ قانون مدنی ...'), [CITATION_WARNING]);
-  assert.deepEqual(citationWarnings('رأی شماره 1400 دادگاه'), [CITATION_WARNING]);
-  assert.deepEqual(citationWarnings('قانون مدنی در این موضوع مرجع است و مهلت پاسخ مشخص است.'), []);
-  assert.deepEqual(citationWarnings(''), []);
+test('کنترل استناد، ماده تأییدنشده را علامت می‌زند و ماده تأییدشده را حفظ می‌کند', async () => {
+  const { guardUnverifiedLegalClaims } = await import('../worker/src/ai/routes.js');
+  const unknown = guardUnverifiedLegalClaims('بر اساس ماده ۱۲۳ قانون مدنی باید اقدام کرد.', [], '');
+  assert.equal(unknown.changed, true);
+  assert.match(unknown.text, /شماره نیازمند تطبیق با متن رسمی/);
+  const verified = guardUnverifiedLegalClaims('بر اساس ماده ۴۲۲ قانون مدنی باید اقدام کرد.', [{ articleNumber: '۴۲۲' }], 'ماده ۴۲۲');
+  assert.equal(verified.changed, false);
+  assert.match(verified.text, /ماده ۴۲۲/);
 });
