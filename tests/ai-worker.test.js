@@ -421,8 +421,10 @@ test('Groq پیش‌نویس را مستقل بررسی می‌کند و خرو�
     assert.equal(res.status, 200);
     assert.equal(data.ok, true);
     assert.equal(data.outputs, undefined, 'reviewer output must not be returned as a second assistant answer');
-    assert.ok(data.notes.includes('بازبینی ماشینی مستقل انجام شد.'));
-    assert.ok(!data.notes.some((note) => note.includes('مرجع صالح در متن روشن نیست')));
+    assert.ok(data.notes.some((note) => note.includes('دکمه کنار کپی پاسخ')));
+    assert.equal(data.reviewReport?.risk, 'high', 'structured independent review is returned separately');
+    assert.ok(!data.text.includes('گزارش بازبینی مستقل و تطبیق استنادات'), 'the main answer must not contain the reviewer report');
+    assert.ok(!data.text.includes('مرجع صالح در متن روشن نیست'), 'review observations must stay in the separate report');
     assert.equal(data.reviewDetails, undefined, 'private reviewer diagnostics must not be returned to the user');
     assert.equal(calls.length, 2);
     assert.ok(!JSON.stringify(data).includes(groqKey));
