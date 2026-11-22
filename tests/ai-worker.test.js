@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../worker/src/index.js';
 import { AiError, extractText, extractGrounding, generateText, synthesizeSpeech, aiConfigured, modelIds } from '../worker/src/ai/gemini.js';
-import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims, curatedLegalArticlesForQuery, extractOfficialPageArticleReferences } from '../worker/src/ai/routes.js';
+import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims, curatedLegalArticlesForQuery, extractOfficialPageArticleReferences, formatLegalRecord } from '../worker/src/ai/routes.js';
 import { mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt } from '../worker/src/ai/prompts.js';
 import { groqConfigured, reviewLegalDraft, groqReviewNotes, GROQ_API, GROQ_REVIEW_MODEL } from '../worker/src/ai/groq.js';
 import batch01 from '../worker/src/moot/bank/batch-01.js';
@@ -104,6 +104,30 @@ test('extractOfficialPageArticleReferences accepts article numbers only from ret
   assert.deepEqual(refs.map((item) => item.articleNumber), ['56', '57']);
   assert.equal(refs[0].lawTitle, 'قانون اجرای احکام مدنی');
   assert.equal(refs[0].sourceStatus, 'official_page_text_retrieved');
+});
+
+test('قالب منبع، مرجع منتخب را به‌اشتباه تأییدشده معرفی نمی‌کند و نوع رأی و نظریه را تفکیک می‌کند', () => {
+  const curated = formatLegalRecord({
+    lawTitle: 'قانون اجرای احکام مدنی',
+    lawType: 'law',
+    articleNumber: '۵۶',
+    body: 'متن منتخب برای مقابله',
+    sourceStatus: 'curated_reference',
+    sourceName: 'مرجع رسمی',
+    officialSourceUrl: 'https://qavanin.ir/law/1',
+  });
+  assert.match(curated, /مرجع داخلی منتخب با پیوند رسمی/);
+  assert.doesNotMatch(curated, /متن از رکوردهای تأییدشده بانک حقوقی بازیابی شد/);
+  const advisory = formatLegalRecord({
+    lawTitle: 'نظریه مشورتی اداره کل حقوقی قوه قضاییه',
+    lawType: 'judicial_advisory_opinion',
+    documentNumber: '۷\/۹۸\/۴۲۵',
+    documentDate: '۱۳۹۸/۰۶/۲۴',
+    issuingAuthority: 'اداره کل حقوقی قوه قضاییه',
+    body: 'متن کامل نظریه',
+  });
+  assert.match(advisory, /شماره سند: ۷\/۹۸\/۴۲۵/);
+  assert.match(advisory, /نظریه مشورتی ارشادی است/);
 });
 
 test('findVerifiedJudicialAuthorities retrieves only verified precedents and advisory opinions with their metadata', async () => {
