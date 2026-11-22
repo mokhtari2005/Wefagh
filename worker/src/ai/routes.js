@@ -46,11 +46,11 @@ function formatLegalRecord(record) {
     `متن بازیابی‌شده: ${record.body}`,
     `منبع: ${record.sourceName || 'ثبت نشده'}`,
     record.officialSourceUrl || record.sourceUrl ? `پیوند منبع: ${record.officialSourceUrl || record.sourceUrl}` : null,
-    `وضعیت منبع: ${record.sourceStatus === 'curated_reference' ? 'مرجع داخلی با پیوند رسمی؛ متن و اعتبار باید مقابله شود' : 'متن از رکوردهای تأییدشده بانک حقوقی بازیابی شد'}`,
+    `وضعیت منبع: ${'متن از رکوردهای تأییدشده بانک حقوقی بازیابی شد'}`,
     isJudicial && record.lawType.includes('advisory') ? 'اثر حقوقی: نظریه مشورتی ارشادی است و به‌خودی‌خود رأی لازم‌الاتباع محسوب نمی‌شود.' : null,
     isJudicial && record.lawType.includes('unified_precedent') ? 'اثر حقوقی: رأی وحدت رویه در حدود مقرر قانونی لازم‌الاتباع است.' : null,
   ];
-  return lines.filter(Boolean).join('\\n');
+  return lines.filter(Boolean).join('\n');
 }
 
 export const SPEAKERS = Object.freeze({ judge: 'قاضی', plaintiff: 'وکیل خواهان', defendant: 'وکیل خوانده', clerk: 'منشی دادگاه', user: 'شرکت‌کننده' });
@@ -568,7 +568,7 @@ async function assistant(request, env) {
     let legalArticles = [];
     let judicialAuthorities = [];
     let legalBankUnavailable = false;
-    const legalSearchText = [...history.slice().reverse().map((item) => item.text), message].join('\\n\\n');
+    const legalSearchText = [...history.slice().reverse().map((item) => item.text), message].join('\n\n');
     try {
       [legalArticles, judicialAuthorities] = await Promise.all([
         findVerifiedLegalArticles(env.DB, legalSearchText),
