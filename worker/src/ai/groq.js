@@ -235,7 +235,8 @@ export async function reviewLegalDraft(env, { mode, docType, question, draft, le
     status: 'reviewed',
     review,
     model: selectedModel,
-    bankArticlesCount: bankItems.length,\n    webSourcesCount: webItems.length,
+    bankArticlesCount: bankItems.length,
+    webSourcesCount: webItems.length,
   } : { status: 'invalid_response' };
 }
 
