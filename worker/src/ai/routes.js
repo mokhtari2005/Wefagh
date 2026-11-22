@@ -663,7 +663,8 @@ async function assistant(request, env) {
       if (review.status === 'reviewed') {
         const auditLines = groqReviewNotes(review);
         text += '\n\n## گزارش بازبینی مستقل و تطبیق استنادات\n' + auditLines.map((line) => '• ' + line).join('\n');
-        notes.push('گزارش راستی‌آزمایی مستقل در ادامه همین پاسخ ارائه شده است. این گزارش بازبینی ماشینی است و جایگزین تطبیق نهایی با منابع رسمی نیست.');
+        notes.push('بازبینی ماشینی مستقل انجام شد.');
+        notes.push('گزارش تطبیق استنادات در ادامه پاسخ آمده و جایگزین بررسی نهایی منابع رسمی نیست.');
       } else {
         notes.push(...groqReviewNotes(review).slice(0, 3));
       }
