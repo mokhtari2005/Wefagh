@@ -36,10 +36,31 @@ function safeSources(grounding) {
       title: String(item.title || parsed.hostname).replace(/[\\r\\n\\[\\]()]/g, ' ').slice(0, 180),
       uri: parsed.href,
       domain: parsed.hostname,
+      citedText: typeof item.citedText === 'string' ? item.citedText.slice(0, 700) : '',
     });
     if (sources.length >= 8) break;
   }
   return sources;
+}
+
+// شماره ماده فقط وقتی از guard عبور می‌کند که همان گزاره در گزیده‌ای از دامنه رسمی آمده باشد.
+export function extractOfficialGroundedArticleReferences(sources) {
+  const officialDomains = new Set([
+    'qavanin.ir','rrk.ir','ara.jri.ac.ir','eadil.com','eadl.ir',
+    'edarehoquqy.eadl.ir','divan-edalat.ir','adliran.ir','rc.majlis.ir',
+  ]);
+  const refs = new Set();
+  for (const source of Array.isArray(sources) ? sources : []) {
+    if (typeof source?.uri !== 'string' || typeof source?.citedText !== 'string' || !source.citedText.trim()) continue;
+    let hostname = '';
+    try { hostname = new URL(source.uri).hostname.toLowerCase(); } catch { continue; }
+    if (![...officialDomains].some((domain) => hostname === domain || hostname.endsWith('.' + domain))) continue;
+    for (const match of source.citedText.matchAll(/(?:ماده|مواد)\\s*([۰-۹0-9]+)/gu)) {
+      const number = match[1].replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+      refs.add(number);
+    }
+  }
+  return [...refs].map((articleNumber) => ({ articleNumber }));
 }
 
 /**
@@ -73,6 +94,7 @@ export async function searchLegalAuthorities(env, input) {
       summary: String(result.text || '').slice(0, 7000),
       sources,
       queries: Array.isArray(result.grounding?.queries) ? result.grounding.queries.slice(0, 5) : [],
+      searchSuggestionHtml: typeof result.grounding?.searchSuggestionHtml === 'string' ? result.grounding.searchSuggestionHtml : '',
     };
   } catch (error) {
     // خطا فقط به‌صورت کد امن گزارش می‌شود؛ متن درخواست و پیام خام خطا ثبت نمی‌شود.
