@@ -1,7 +1,7 @@
 // مسیرهای هوش مصنوعی: موت‌کورت (پرسش، ارزیابی، صدا، تبدیل گفتار) و دستیار وکیل.
 // همه مسیرها (به‌جز وضعیت) نیاز به ورود دارند. کلید API هرگز در پاسخ یا لاگ نمی‌آید.
 import { getPublishedCase, SLUG_RE } from '../moot/caseStore.js';
-import { findVerifiedLegalArticles } from '../legal-bank.js';
+import { findVerifiedLegalArticles, findVerifiedJudicialAuthorities } from '../legal-bank.js';
 import { searchLegalAuthorities } from './legal-search.js';
 import { json, readJsonBody } from '../http.js';
 import { currentUser } from '../auth/routes.js';
@@ -18,6 +18,40 @@ import {
   ASSISTANT_DOC_TYPES, ASSISTANT_MODES, ASSISTANT_SCHEMA, MOOT_EVAL_SCHEMA,
   HEARING_ROLES, HEARING_STAGES, mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt, litigationRoleSystemPrompt,
 } from './prompts.js';
+
+
+const LEGAL_DOCUMENT_LABELS = Object.freeze({
+  unified_precedent: 'رأی وحدت رویه',
+  supreme_court_unified_precedent: 'رأی وحدت رویه هیأت عمومی دیوان عالی کشور',
+  administrative_court_unified_precedent: 'رأی وحدت رویه هیأت عمومی دیوان عدالت اداری',
+  administrative_court_general_board: 'رأی هیأت عمومی دیوان عدالت اداری',
+  administrative_court_specialized_board: 'رأی هیأت تخصصی دیوان عدالت اداری',
+  advisory_opinion: 'نظریه مشورتی',
+  judicial_advisory_opinion: 'نظریه مشورتی اداره کل حقوقی قوه قضاییه',
+  judicial_decision: 'رأی قضایی',
+  judicial_circular: 'بخشنامه قضایی',
+});
+
+function formatLegalRecord(record) {
+  const kind = LEGAL_DOCUMENT_LABELS[record.lawType] || 'قانون یا مقرره';
+  const isJudicial = Boolean(LEGAL_DOCUMENT_LABELS[record.lawType]);
+  const lines = [
+    `نوع سند: ${kind}`,
+    `عنوان: ${record.lawTitle}`,
+    isJudicial ? `شماره سند: ${record.documentNumber || record.articleNumber || 'در اطلاعات ثبت‌شده موجود نیست'}` : `ماده: ${record.articleNumber}`,
+    record.documentDate ? `تاریخ: ${record.documentDate}` : null,
+    record.issuingAuthority ? `مرجع صادرکننده: ${record.issuingAuthority}` : null,
+    record.subject ? `موضوع: ${record.subject}` : null,
+    record.heading ? `عنوان بخش: ${record.heading}` : null,
+    `متن بازیابی‌شده: ${record.body}`,
+    `منبع: ${record.sourceName || 'ثبت نشده'}`,
+    record.officialSourceUrl || record.sourceUrl ? `پیوند منبع: ${record.officialSourceUrl || record.sourceUrl}` : null,
+    `وضعیت منبع: ${record.sourceStatus === 'curated_reference' ? 'مرجع داخلی با پیوند رسمی؛ متن و اعتبار باید مقابله شود' : 'متن از رکوردهای تأییدشده بانک حقوقی بازیابی شد'}`,
+    isJudicial && record.lawType.includes('advisory') ? 'اثر حقوقی: نظریه مشورتی ارشادی است و به‌خودی‌خود رأی لازم‌الاتباع محسوب نمی‌شود.' : null,
+    isJudicial && record.lawType.includes('unified_precedent') ? 'اثر حقوقی: رأی وحدت رویه در حدود مقرر قانونی لازم‌الاتباع است.' : null,
+  ];
+  return lines.filter(Boolean).join('\\n');
+}
 
 export const SPEAKERS = Object.freeze({ judge: 'قاضی', plaintiff: 'وکیل خواهان', defendant: 'وکیل خوانده', clerk: 'منشی دادگاه', user: 'شرکت‌کننده' });
 export const VOICES = Object.freeze(['Kore', 'Puck', 'Charon', 'Leda', 'Fenrir']);
@@ -532,18 +566,26 @@ async function assistant(request, env) {
       { role: 'user', parts: buildUserParts(message, attachments) },
     ];
     let legalArticles = [];
+    let judicialAuthorities = [];
     let legalBankUnavailable = false;
-    const legalSearchText = [...history.slice().reverse().map((item) => item.text), message].join('\n\n');
+    const legalSearchText = [...history.slice().reverse().map((item) => item.text), message].join('\\n\\n');
     try {
-      legalArticles = await findVerifiedLegalArticles(env.DB, legalSearchText);
+      [legalArticles, judicialAuthorities] = await Promise.all([
+        findVerifiedLegalArticles(env.DB, legalSearchText),
+        findVerifiedJudicialAuthorities(env.DB, legalSearchText),
+      ]);
     } catch (err) {
       // خرابی بانک نباید پاسخ اصلی را از کار بیندازد؛ فقط زمینهٔ مستند حذف و هشدار داده می‌شود.
       legalBankUnavailable = true;
       console.error(JSON.stringify({ where: 'ai', stage: 'legal_bank_query', error: err?.name || 'Error' }));
     }
     const curatedArticles = curatedLegalArticlesForQuery(legalSearchText);
-    const promptArticles = [...legalArticles, ...curatedArticles];
-    const legalContext = promptArticles.length ? promptArticles.map((a) => `قانون: ${a.lawTitle}\nماده ${a.articleNumber}${a.heading ? ` ـ ${a.heading}` : ''}\n${a.body}\nمنبع: ${a.sourceName || 'ثبت نشده'}${a.sourceUrl ? ` (${a.sourceUrl})` : ''}\nوضعیت منبع: ${a.sourceStatus === 'curated_reference' ? 'مرجع داخلی با پیوند رسمی؛ تطبیق نهایی متن و اعتبار لازم است' : 'بازیابی‌شده از مواد تأییدشده بانک داخلی'}`).join('\n\n---\n\n') : '';
+    const promptArticles = [...legalArticles, ...judicialAuthorities, ...curatedArticles]
+      .filter((item, index, all) => all.findIndex((other) => `${other.lawTitle}::${other.articleNumber}` === `${item.lawTitle}::${item.articleNumber}`) === index)
+      .slice(0, 20);
+    const legalContext = promptArticles.length
+      ? promptArticles.map(formatLegalRecord).join('\\n\\n---\\n\\n')
+      : '';
     // جست‌وجوی وب فقط در مشاوره و میز محاکمه، بدون پیوست و با پرس‌وجوی حقوقیِ whitelist انجام می‌شود.
     // نام اشخاص، شرح وقایع، شماره پرونده و متن پیوست به موتور جست‌وجو ارسال نمی‌شود.
     let webResearch = null;
@@ -634,7 +676,11 @@ async function assistant(request, env) {
       let reviewBankUnavailable = false;
       try {
         // جست‌وجوی دوم با متن پاسخ Gemini هم انجام می‌شود تا استنادهای تازه‌مطرح‌شده نیز تطبیق داده شوند.
-        const matched = await findVerifiedLegalArticles(env.DB, text);
+        const [matchedArticles, matchedAuthorities] = await Promise.all([
+          findVerifiedLegalArticles(env.DB, text),
+          findVerifiedJudicialAuthorities(env.DB, text),
+        ]);
+        const matched = [...matchedArticles, ...matchedAuthorities];
         const seen = new Set(reviewArticles.map((a) => `${a.lawTitle}::${a.articleNumber}`));
         for (const article of matched) {
           const key = `${article.lawTitle}::${article.articleNumber}`;
@@ -643,7 +689,7 @@ async function assistant(request, env) {
             seen.add(key);
           }
         }
-        reviewArticles = reviewArticles.slice(0, 8);
+        reviewArticles = reviewArticles.slice(0, 16);
       } catch (err) {
         reviewBankUnavailable = true;
         console.error(JSON.stringify({ where: 'ai', stage: 'groq_legal_bank_query', error: err?.name || 'Error' }));
