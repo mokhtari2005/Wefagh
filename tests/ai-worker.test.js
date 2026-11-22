@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../worker/src/index.js';
-import { AiError, extractText, generateText, synthesizeSpeech, aiConfigured, modelIds } from '../worker/src/ai/gemini.js';
-import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims } from '../worker/src/ai/routes.js';
+import { AiError, extractText, extractGrounding, generateText, synthesizeSpeech, aiConfigured, modelIds } from '../worker/src/ai/gemini.js';
+import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims, curatedLegalArticlesForQuery } from '../worker/src/ai/routes.js';
 import { mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt, LEGAL_DISCLAIMER } from '../worker/src/ai/prompts.js';
 import { groqConfigured, reviewLegalDraft, groqReviewNotes, GROQ_API, GROQ_REVIEW_MODEL } from '../worker/src/ai/groq.js';
 import batch01 from '../worker/src/moot/bank/batch-01.js';
+import { extractExplicitLegalReferences, findVerifiedLegalArticles } from '../worker/src/legal-bank.js';
 
 // پروندهٔ نمونه از بانک (پیش‌نویس)؛ فقط برای آزمون ساخت دستور سیستمی از داده‌های پرونده.
 const SAMPLE_CASE = batch01[0];
@@ -51,6 +52,60 @@ function req(path, { method = 'POST', body, cookie = null, type = 'application/j
   if (cookie) headers.cookie = `wefagh_session=${cookie}`;
   return new Request(BASE + path, { method, headers, body: body === undefined ? undefined : (typeof body === 'string' ? body : JSON.stringify(body)) });
 }
+
+
+
+
+test('curated seizure statutes provide articles 56 and 57 with provenance labels', () => {
+  const articles = curatedLegalArticlesForQuery('انتقال مال توقیف‌شده و ملک توقیف‌شده');
+  assert.deepEqual(articles.map((item) => item.articleNumber), ['۵۶', '۵۷']);
+  assert.ok(articles.every((item) => item.sourceStatus === 'curated_reference'));
+});
+
+test('findVerifiedLegalArticles prioritizes exact law and article citations', async () => {
+  const calls = [];
+  const db = {
+    prepare(sql) {
+      return { bind(...bindings) {
+        return { all: async () => {
+          calls.push({ sql, bindings });
+          return { results: sql.includes('a.article_number IN')
+            ? [{ lawTitle: 'قانون اجرای احکام مدنی', articleNumber: '۵۶', body: 'متن ماده' }]
+            : [] };
+        } };
+      } };
+    },
+  };
+  const found = await findVerifiedLegalArticles(db, 'مواد ۵۶ و ۵۷ قانون اجرای احکام مدنی');
+  assert.equal(found[0].articleNumber, '۵۶');
+  assert.ok(calls[0].sql.includes("l.status='verified' AND a.status='verified'"));
+  assert.ok(calls[0].sql.includes('a.article_number IN (?2, ?3)'));
+  assert.ok(calls[0].bindings.includes('%قانون اجرای احکام مدنی%'));
+});
+
+test('extractGrounding keeps cited passages and Google search suggestions', () => {
+  const result = extractGrounding({
+    candidates: [{
+      content: { parts: [{ text: 'ماده ۵۶ قانون اجرای احکام مدنی' }] },
+      groundingMetadata: {
+        groundingChunks: [{ web: { title: 'سامانه ملی قوانین', uri: 'https://qavanin.ir/law/1' } }],
+        groundingSupports: [{ segment: { text: 'ماده ۵۶ قانون اجرای احکام مدنی' }, groundingChunkIndices: [0] }],
+        webSearchQueries: ['قانون اجرای احکام مدنی ماده ۵۶'],
+        searchEntryPoint: { renderedContent: '<div>Google Search</div>' },
+      },
+    }],
+  });
+  assert.equal(result.sources[0].citedText, 'ماده ۵۶ قانون اجرای احکام مدنی');
+  assert.equal(result.searchSuggestionHtml, '<div>Google Search</div>');
+});
+
+test('extractExplicitLegalReferences parses Persian article ranges', () => {
+  const refs = extractExplicitLegalReferences('مواد ۵۶ و ۵۷ قانون اجرای احکام مدنی باید بررسی شوند.');
+  assert.deepEqual(refs, [
+    { lawTitle: 'قانون اجرای احکام مدنی', articleNumber: '56' },
+    { lawTitle: 'قانون اجرای احکام مدنی', articleNumber: '57' },
+  ]);
+});
 
 test('کلید API فقط از Secret خوانده می‌شود و وضعیت آن هرگز کلید را نشان نمی‌دهد', async () => {
   assert.equal(aiConfigured({}), false);
