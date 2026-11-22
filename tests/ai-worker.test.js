@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../worker/src/index.js';
 import { AiError, extractText, extractGrounding, generateText, synthesizeSpeech, aiConfigured, modelIds } from '../worker/src/ai/gemini.js';
-import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims, curatedLegalArticlesForQuery } from '../worker/src/ai/routes.js';
+import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims, curatedLegalArticlesForQuery, extractOfficialPageArticleReferences } from '../worker/src/ai/routes.js';
 import { mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt } from '../worker/src/ai/prompts.js';
 import { groqConfigured, reviewLegalDraft, groqReviewNotes, GROQ_API, GROQ_REVIEW_MODEL } from '../worker/src/ai/groq.js';
 import batch01 from '../worker/src/moot/bank/batch-01.js';
@@ -81,6 +81,28 @@ test('findVerifiedLegalArticles prioritizes exact law and article citations', as
   assert.ok(calls[0].sql.includes("l.status='verified' AND a.status='verified'"));
   assert.ok(calls[0].sql.includes('a.article_number IN (?2, ?3)'));
   assert.ok(calls[0].bindings.includes('%قانون اجرای احکام مدنی%'));
+});
+
+test('extractOfficialPageArticleReferences accepts article numbers only from retrieved official legal pages', () => {
+  const refs = extractOfficialPageArticleReferences([
+    {
+      title: 'قانون اجرای احکام مدنی',
+      uri: 'https://qavanin.ir/law/1',
+      domain: 'qavanin.ir',
+      pageTextStatus: 'official_domain_page_text_retrieved',
+      pageText: 'ماده ۵۶ هرگونه نقل و انتقال نسبت به مال توقیف‌شده باطل است. ماده ۵۷ قرارداد بعد از توقیف...',
+    },
+    {
+      title: 'قانون مدنی',
+      uri: 'https://example.com/law',
+      domain: 'example.com',
+      pageTextStatus: 'not_primary_source_domain',
+      pageText: 'ماده ۴۲۲ ...',
+    },
+  ]);
+  assert.deepEqual(refs.map((item) => item.articleNumber), ['56', '57']);
+  assert.equal(refs[0].lawTitle, 'قانون اجرای احکام مدنی');
+  assert.equal(refs[0].sourceStatus, 'official_page_text_retrieved');
 });
 
 test('findVerifiedJudicialAuthorities retrieves only verified precedents and advisory opinions with their metadata', async () => {
