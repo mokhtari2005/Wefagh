@@ -4,7 +4,7 @@ import { buildSafeLegalSearchQuery, extractOfficialGroundedArticleReferences } f
 
 test('legal web query contains only whitelisted legal terms', () => {
   const query = buildSafeLegalSearchQuery('نام شخصی محرمانه، شماره پرونده ۱۲۳۴، ماده ۵۶ قانون اجرای احکام مدنی و توقیف ملک');
-  assert.equal(query, 'قانون اجرای احکام مدنی توقیف حقوق ایران متن قانون رأی قضایی نظریه مشورتی');
+  assert.equal(query, 'قانون اجرای احکام مدنی ماده 56 توقیف حقوق ایران متن قانون رأی قضایی نظریه مشورتی');
   assert.equal(query.includes('محرمانه'), false);
   assert.equal(query.includes('۱۲۳۴'), false);
 });
