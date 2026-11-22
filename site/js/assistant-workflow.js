@@ -18,9 +18,9 @@ export function getDocumentFields(docType) {
   const first = contract ? 'طرف اول' : criminal ? 'شاکی' : 'شخص اول';
   const second = contract ? 'طرف دوم' : criminal ? 'مشتکی‌عنه' : 'شخص دوم';
   const fields = [
-    { key: 'partyOneName', label: `نام و نام خانوادگی ${first}`, required: false, kind: 'text' },
+    { key: 'partyOneName', label: `نام و نام خانوادگی ${first}`, required: true, kind: 'text' },
     { key: 'partyOneAddress', label: `نشانی ${first}`, required: false, kind: 'textarea' },
-    { key: 'partyTwoName', label: `نام و نام خانوادگی ${second}`, required: false, kind: 'text' },
+    { key: 'partyTwoName', label: `نام و نام خانوادگی ${second}`, required: true, kind: 'text' },
     { key: 'partyTwoAddress', label: `نشانی ${second}`, required: false, kind: 'textarea' },
   ];
   if (COURT_DOCS.has(docType)) {
