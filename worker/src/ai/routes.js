@@ -1,8 +1,8 @@
 // مسیرهای هوش مصنوعی: موت‌کورت (پرسش، ارزیابی، صدا، تبدیل گفتار) و دستیار وکیل.
 // همه مسیرها (به‌جز وضعیت) نیاز به ورود دارند. کلید API هرگز در پاسخ یا لاگ نمی‌آید.
 import { getPublishedCase, SLUG_RE } from '../moot/caseStore.js';
-import { findVerifiedLegalArticles } from '../legal-bank.js';
-import { searchLegalAuthorities } from './legal-search.js';
+import { findVerifiedLegalArticles, extractExplicitLegalReferences } from '../legal-bank.js';
+import { searchLegalAuthorities, extractOfficialGroundedArticleReferences } from './legal-search.js';
 import { json, readJsonBody } from '../http.js';
 import { currentUser } from '../auth/routes.js';
 import { registrationRequired } from '../access.js';
@@ -307,6 +307,33 @@ export function citationWarnings(text) {
   return CITATION_PATTERNS.some((re) => re.test(text)) ? [CITATION_WARNING] : [];
 }
 
+const SEIZED_PROPERTY_TOPIC = /مال\\s+توقیف|ملک\\s+توقیف|توقیف\\s+ملک|بازداشت\\s+ملک|انتقال\\s+مال\\s+توقیف/u;
+const SEIZED_PROPERTY_ARTICLES = Object.freeze([
+  {
+    lawTitle: 'قانون اجرای احکام مدنی', articleNumber: '۵۶',
+    heading: 'نقل‌وانتقال مال توقیف‌شده',
+    body: 'هر گونه نقل و انتقال اعم از قطعی و شرطی و رهنی نسبت به مال توقیف شده باطل و بلااثر است.',
+    sourceName: 'سامانه ملی قوانین و مقررات؛ متن قانون اجرای احکام مدنی',
+    sourceStatus: 'curated_reference',
+    sourceUrl: 'https://qavanin.ir/Law/PrintText/83430',
+  },
+  {
+    lawTitle: 'قانون اجرای احکام مدنی', articleNumber: '۵۷',
+    heading: 'قرارداد یا تعهد زیان‌بار نسبت به مال توقیف‌شده',
+    body: 'هر گونه قرارداد یا تعهدی که نسبت به مال توقیف شده بعد از توقیف به ضرر محکوم له منعقد شود نافذ نخواهد بود مگر اینکه محکوم له کتباً رضایت دهد.',
+    sourceName: 'سامانه ملی قوانین و مقررات؛ متن قانون اجرای احکام مدنی',
+    sourceStatus: 'curated_reference',
+    sourceUrl: 'https://qavanin.ir/Law/PrintText/83430',
+  },
+]);
+
+export function curatedLegalArticlesForQuery(query) {
+  return [
+    ...(VEHICLE_DEFECT_TOPIC.test(query) ? VEHICLE_DEFECT_ARTICLES : []),
+    ...(SEIZED_PROPERTY_TOPIC.test(query) ? SEIZED_PROPERTY_ARTICLES : []),
+  ];
+}
+
 const VEHICLE_DEFECT_TOPIC = /خودرو|اتومبیل|ماشین|تصادف|خیار عیب|عیب پنهان|عیب مخفی/u;
 const VEHICLE_DEFECT_ARTICLES = Object.freeze([
   ['۴۲۲', 'انتخاب مشتری میان فسخ معامله و نگهداری مبیع معیوب با اخذ ارش.'],
@@ -441,9 +468,9 @@ async function assistant(request, env) {
       legalBankUnavailable = true;
       console.error(JSON.stringify({ where: 'ai', stage: 'legal_bank_query', error: err?.name || 'Error' }));
     }
-    const curatedArticles = VEHICLE_DEFECT_TOPIC.test(legalSearchText) ? VEHICLE_DEFECT_ARTICLES : [];
+    const curatedArticles = curatedLegalArticlesForQuery(legalSearchText);
     const promptArticles = [...legalArticles, ...curatedArticles];
-    const legalContext = promptArticles.length ? promptArticles.map((a) => `قانون: ${a.lawTitle}\nماده ${a.articleNumber}${a.heading ? ` ـ ${a.heading}` : ''}\n${a.body}\nمنبع ثبت‌شده: ${a.sourceName || 'ثبت نشده'}${a.sourceUrl ? ` (${a.sourceUrl})` : ''}`).join('\n\n---\n\n') : '';
+    const legalContext = promptArticles.length ? promptArticles.map((a) => `قانون: ${a.lawTitle}\nماده ${a.articleNumber}${a.heading ? ` ـ ${a.heading}` : ''}\n${a.body}\nمنبع: ${a.sourceName || 'ثبت نشده'}${a.sourceUrl ? ` (${a.sourceUrl})` : ''}\nوضعیت منبع: ${a.sourceStatus === 'curated_reference' ? 'مرجع داخلی با پیوند رسمی؛ تطبیق نهایی متن و اعتبار لازم است' : 'بازیابی‌شده از مواد تأییدشده بانک داخلی'}`).join('\n\n---\n\n') : '';
     // جست‌وجوی وب فقط برای مشاورهٔ متنی، بدون پیوست و با پرس‌وجوی حقوقیِ whitelist انجام می‌شود.
     // نام اشخاص، شرح وقایع، شماره پرونده و متن پیوست به موتور جست‌وجو ارسال نمی‌شود.
     let webResearch = null;
