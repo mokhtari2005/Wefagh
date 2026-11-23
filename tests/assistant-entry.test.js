@@ -27,7 +27,7 @@ test('پرسش‌های مشاوره در متن اصلی نمایش داده ن
   assert.match(source, /if \(mode === 'consult'\) return data\.text \|\| ''/u);
   assert.doesNotMatch(source, /if \(Array\.isArray\(m\.questionOptions\)/u);
   assert.match(source, /m\.reviewReport\?\.followupQuestions/u);
-  assert.match(source, /aria-label: 'پرسش‌های تکمیلی گزارش بازبینی'/u);
+  assert.match(source, /'aria-label': 'پرسش‌های تکمیلی گزارش بازبینی'/u);
   assert.match(routes, /followupQuestions: reviewFollowups/u);
 });
 
