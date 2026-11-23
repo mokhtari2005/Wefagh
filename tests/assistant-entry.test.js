@@ -25,6 +25,14 @@ test('محیط گفت‌وگو وضعیت خالی را تعریف می‌کند
   assert.match(source, /const stream = h\('div', \{ class: 'ai-stream', tabindex: '-1' \}, \[emptyState, log\]\)/u);
 });
 
+test('خطای ساخت مشاوره مرحله و جزئیات فنی امن و کوتاه را برای عیب‌یابی نمایش می‌دهد', () => {
+  assert.match(source, /let accessCheckStage = 'شروع بررسی'/u);
+  assert.match(source, /accessCheckStage = 'ساخت محیط گفت‌وگو'/u);
+  assert.match(source, /جزئیات فنی برای پشتیبانی/u);
+  assert.match(source, /slice\(0, 180\)/u);
+  assert.match(source, /assistant\.access_check_failed', \{ stage: accessCheckStage/u);
+});
+
 test('پرسش‌های پیشنهادی آغاز مشاوره حذف شده‌اند و کادر نوشتن حفظ شده است', () => {
   assert.match(source, /const composerText = h\('textarea'/u);
   assert.doesNotMatch(source, /starterSuggestions|ai-starter-suggestions|SUGGESTIONS|renderSuggestions/u);
