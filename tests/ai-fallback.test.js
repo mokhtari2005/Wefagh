@@ -124,5 +124,5 @@ test('failed Groq failover is recorded without hiding the original Gemini error'
       return true;
     },
   );
-  assert.equal(count, 4); // دو تلاش Gemini و سپس هر دو مدل Groq در صورت 429؛ در این سناریو فقط مدل اول باید اجرا شود.
+  assert.equal(count, 3); // دو تلاش Gemini و یک تلاش ناموفق با مدل اصلی Groq.
 });
