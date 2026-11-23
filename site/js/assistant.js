@@ -1136,7 +1136,10 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     if (!res.ok || !res.data?.ok) {
       const code = res.data?.error || (res.timeoutError ? 'AI_REQUEST_TIMEOUT' : res.networkError ? 'NETWORK' : 'AI_UNAVAILABLE');
       const which = res.data?.file ? ` (فایل: ${res.data.file})` : '';
-      status.textContent = `${errorText(code)}${which} (کد: ${code}${res.data?.providerStatus ? ` · HTTP ${res.data.providerStatus}` : ''}${res.data?.providerReason ? ` ${res.data.providerReason}` : ''}${res.data?.reason ? ` · ${res.data.reason}` : ''} متن و پیوست‌های شما حفظ شد.`;
+      const fallbackInfo = res.data?.fallbackCode
+        ? ` مسیر جایگزین Groq نیز موفق نشد: ${res.data.fallbackCode}${res.data.fallbackStatus ? ` · HTTP ${res.data.fallbackStatus}` : ''}.`
+        : (sent.length ? ' به‌دلیل وجود پیوست، برای حفظ محرمانگی فایل به ارائه‌دهنده دیگری ارسال نشد.' : '');
+      status.textContent = `${errorText(code)}${which} (کد: ${code}${res.data?.providerStatus ? ` · HTTP ${res.data.providerStatus}` : ''}${res.data?.providerReason ? ` ${res.data.providerReason}` : ''}${res.data?.reason ? ` · ${res.data.reason}` : ''})${fallbackInfo} متن و پیوست‌های شما حفظ شد.`;
       renderLog();
       if (voiceMode) setVoiceState('ready', 'ارسال گفتار ناموفق بود؛ متن حفظ شده است. برای تلاش دوباره «شروع صحبت» را بزنید.');
       return;

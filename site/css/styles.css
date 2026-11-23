@@ -4179,5 +4179,22 @@ body.classroom-fullscreen-fallback { overflow:hidden; }
 
 /* پیشنهادهای آغاز مشاوره در محیط یکپارچه، مستقل از پیام خوشامدگویی نمایش داده می‌شوند. */
 /* کادر پرسش در مشاوره هوشمند از تمام عرض فضای گفت‌وگو استفاده کند. */
-.ai-chat-composer { width: 100%; box-sizing: border-box; align-self: stretch; }
-.ai-chat-composer .ai-chat-input { display: block; width: 100%; min-width: 0; box-sizing: border-box; }
+.ai-main > .ai-chat-composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-self: stretch;
+  justify-self: stretch;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  box-sizing: border-box;
+}
+.ai-main > .ai-chat-composer > .ai-chat-input {
+  display: block;
+  grid-column: 1 / -1;
+  justify-self: stretch;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  box-sizing: border-box;
+}
