@@ -20,6 +20,11 @@ test('پس از دریافت پاسخ، کادر گفت‌وگو و آخرین �
   assert.doesNotMatch(source, /log\.lastElementChild\?\.scrollIntoView/u);
 });
 
+test('محیط گفت‌وگو وضعیت خالی را تعریف می‌کند و بدون خطای مرجع ساخته می‌شود', () => {
+  assert.match(source, /const emptyState = h\('div', \{ class: 'ai-empty' \}/u);
+  assert.match(source, /const stream = h\('div', \{ class: 'ai-stream', tabindex: '-1' \}, \[emptyState, log\]\)/u);
+});
+
 test('پرسش‌های پیشنهادی آغاز مشاوره حذف شده‌اند و کادر نوشتن حفظ شده است', () => {
   assert.match(source, /const composerText = h\('textarea'/u);
   assert.doesNotMatch(source, /starterSuggestions|ai-starter-suggestions|SUGGESTIONS|renderSuggestions/u);
@@ -57,7 +62,7 @@ test('ساختار پرسش‌های تکمیلی اختیاری است و فق�
 
 test('بارگذاری دستیار نسخه تازه رابط را دریافت می‌کند و در انتظار نامحدود نمی‌ماند', () => {
   assert.match(html, /js\/app\.js\?v=20261123-consult-ui-refresh-2/u);
-  assert.match(app, /assistant\.js\?v=20261123-consult-ui-refresh-2/u);
+  assert.match(app, /assistant\.js\?v=20261123-consult-ui-refresh-3/u);
   assert.match(app, /assistant-forms\.js\?v=20261123-consult-ui-refresh-2/u);
   assert.match(app, /timeoutMs = 20000/u);
   assert.match(app, /page_load_timeout/u);
