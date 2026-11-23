@@ -556,10 +556,13 @@ async function assistant(request, env) {
         contents,
         // توکن‌های «تفکر» مدل هم از این سقف کم می‌شوند؛ سقف پایین باعث قطع شدن پیش‌نویس‌های فارسی می‌شد.
         maxOutputTokens: generationMode === 'consult' ? 5500 : 6000,
-        timeoutMs: 45_000,
+        // برای پاسخ تعاملی، Gemini اصلی حداکثر ۲۰ ثانیه و مدل جایگزین ۱۲ ثانیه فرصت دارد؛
+        // پس از دو شکست، مسیر Groq فعال می‌شود و یک تلاش سومِ تکراری روی Gemini تأخیر نمی‌سازد.
+        timeoutMs: 20_000,
+        fallbackTimeoutMs: 12_000,
         json: true,
         schema: ASSISTANT_SCHEMA,
-        plainFallback: true,
+      // فایل‌های PDF و تصویر به‌صورت inlineData به Gemini می‌رسند؛ ارسال ناخواستهٔ محتوای پیوست به سرویس ثالث ممنوع است.
       }, { allowGroq: attachments.length === 0 });
       data = generated.data;
       truncated = generated.truncated;
