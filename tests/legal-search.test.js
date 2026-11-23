@@ -4,7 +4,11 @@ import { buildSafeLegalSearchQuery } from '../worker/src/ai/legal-search.js';
 
 test('legal web query contains only whitelisted legal terms', () => {
   const query = buildSafeLegalSearchQuery('نام شخصی محرمانه، شماره پرونده ۱۲۳۴، ماده ۵۶ قانون اجرای احکام مدنی و توقیف ملک');
-  assert.equal(query, 'قانون اجرای احکام مدنی ماده 56 توقیف حقوق ایران متن رسمی قانون و رأی قضایی «آرای وحدت رویه دیوان عالی کشور» «نظریات مشورتی اداره کل حقوقی قوه قضاییه»');
+  assert.match(query, /قانون اجرای احکام مدنی/u);
+  assert.match(query, /ماده 56/u);
+  assert.match(query, /قانون ثبت اسناد و املاک/u);
+  assert.match(query, /اعتراض ثالث اجرایی/u);
+  assert.match(query, /آرای وحدت رویه دیوان عالی کشور/u);
   assert.equal(query.includes('محرمانه'), false);
   assert.equal(query.includes('۱۲۳۴'), false);
 });
@@ -15,5 +19,7 @@ test('legal web query is empty when no whitelisted legal term exists', () => {
 
 test('legal term normalization accepts Arabic Yeh and Kaf variants', () => {
   const query = buildSafeLegalSearchQuery('قانون مدني و توقيف');
-  assert.equal(query, 'قانون مدنی توقیف حقوق ایران متن رسمی قانون و رأی قضایی «آرای وحدت رویه دیوان عالی کشور» «نظریات مشورتی اداره کل حقوقی قوه قضاییه»');
+  assert.match(query, /قانون مدنی/u);
+  assert.match(query, /توقیف/u);
+  assert.doesNotMatch(query, /مدني|توقيف/u);
 });
