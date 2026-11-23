@@ -69,9 +69,10 @@ test('ساختار پرسش‌های تکمیلی اختیاری است و فق�
 });
 
 test('بارگذاری دستیار نسخه تازه رابط را دریافت می‌کند و در انتظار نامحدود نمی‌ماند', () => {
-  assert.match(html, /js\/app\.js\?v=20261123-consult-ui-refresh-2/u);
+  assert.match(html, /js\/app\.js\?v=20261123-consult-ui-refresh-3/u);
+  assert.match(html, /css\/styles\.css\?v=20261123-assistant-width-3/u);
   assert.match(app, /assistant\.js\?v=20261123-assistant-error-detail-4/u);
-  assert.match(app, /assistant-forms\.js\?v=20261123-consult-ui-refresh-2/u);
+  assert.match(app, /assistant-forms\.js\?v=20261123-assistant-loading-fix-1/u);
   assert.match(app, /timeoutMs = 20000/u);
   assert.match(app, /page_load_timeout/u);
   assert.match(app, /تلاش دوباره/u);
