@@ -586,6 +586,7 @@ async function assistant(request, env) {
     // گزارش مستقل جدا از متن پاسخ برگردانده می‌شود تا کاربر فقط در صورت نیاز آن را باز کند.
     let reviewReport = null;
     let reviewStatus = 'not_run';
+    let reviewFollowups = [];
     // برای حفظ محرمانگی، در صورت وجود پیوست، پیش‌نویس حاوی محتوای استخراج‌شده به ارائه‌دهندهٔ سوم ارسال نمی‌شود.
     if (attachments.length) {
       reviewStatus = 'skipped_attachments';
@@ -595,7 +596,7 @@ async function assistant(request, env) {
       notes.push('بازبینی مستقل به‌دلیل استفاده از مسیر جایگزین انجام نشد.');
     } else {
       stage = 'groq_review';
-      let reviewArticles = [...curatedArticles, ...legalArticles, ...judicialAuthorities];
+      let reviewArticles = [...curatedArticles.slice(0, 3), ...judicialAuthorities.slice(0, 6), ...legalArticles.slice(0, 5)];
       let reviewBankUnavailable = false;
       try {
         // جست‌وجوی دوم با متن پاسخ، هم مواد قانونی و هم آرای قضایی/نظریات را برای بازبین بازیابی می‌کند.
@@ -609,12 +610,12 @@ async function assistant(request, env) {
             seen.add(key);
           }
         }
-        reviewArticles = reviewArticles.slice(0, 12);
+        reviewArticles = reviewArticles.slice(0, 14);
       } catch (err) {
         reviewBankUnavailable = true;
         console.error(JSON.stringify({ where: 'ai', stage: 'groq_legal_bank_query', error: err?.name || 'Error' }));
       }
-      const reviewFollowups = mode === 'consult'
+      reviewFollowups = mode === 'consult'
         ? [
             ...questionOptions,
             ...questions.filter((item) => !questionOptions.some((option) => option.question === item)).map((question) => ({ question, options: [], allowOther: true })),
@@ -660,6 +661,7 @@ async function assistant(request, env) {
       text,
       notes,
       ...(reviewReport ? { reviewReport } : {}),
+      ...(reviewFollowups.length ? { reviewFollowups } : {}),
       reviewStatus,
       attachments: summarizeAttachments(attachments),
     });
