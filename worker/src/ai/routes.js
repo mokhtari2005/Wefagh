@@ -586,6 +586,12 @@ async function assistant(request, env) {
     // گزارش مستقل جدا از متن پاسخ برگردانده می‌شود تا کاربر فقط در صورت نیاز آن را باز کند.
     let reviewReport = null;
     let reviewStatus = 'not_run';
+    const reviewFollowups = mode === 'consult'
+      ? [
+          ...questionOptions,
+          ...questions.filter((item) => !questionOptions.some((option) => option.question === item)).map((question) => ({ question, options: [], allowOther: true })),
+        ].slice(0, 3)
+      : [];
     // برای حفظ محرمانگی، در صورت وجود پیوست، پیش‌نویس حاوی محتوای استخراج‌شده به ارائه‌دهندهٔ سوم ارسال نمی‌شود.
     if (attachments.length) {
       reviewStatus = 'skipped_attachments';
@@ -595,7 +601,7 @@ async function assistant(request, env) {
       notes.push('بازبینی مستقل به‌دلیل استفاده از مسیر جایگزین انجام نشد.');
     } else {
       stage = 'groq_review';
-      let reviewArticles = [...curatedArticles, ...legalArticles, ...judicialAuthorities];
+      let reviewArticles = [...curatedArticles.slice(0, 3), ...judicialAuthorities.slice(0, 6), ...legalArticles.slice(0, 5)];
       let reviewBankUnavailable = false;
       try {
         // جست‌وجوی دوم با متن پاسخ، هم مواد قانونی و هم آرای قضایی/نظریات را برای بازبین بازیابی می‌کند.
@@ -609,7 +615,7 @@ async function assistant(request, env) {
             seen.add(key);
           }
         }
-        reviewArticles = reviewArticles.slice(0, 12);
+        reviewArticles = reviewArticles.slice(0, 14);
       } catch (err) {
         reviewBankUnavailable = true;
         console.error(JSON.stringify({ where: 'ai', stage: 'groq_legal_bank_query', error: err?.name || 'Error' }));
@@ -617,6 +623,7 @@ async function assistant(request, env) {
       const review = await reviewLegalDraft(env, {
         mode, docType, question: message, draft: text, legalArticles: reviewArticles,
         webSources: webResearch?.sources || [],
+        followupQuestions: reviewFollowups,
       });
       reviewStatus = review.status || 'provider_error';
       if (reviewBankUnavailable) notes.push('جست‌وجوی تکمیلی بانک قوانین برای بازبین مستقل انجام نشد؛ نتیجه بر اساس مواد بازیابی‌شده در مرحله نخست و سایر اطلاعات موجود است.');
@@ -648,12 +655,12 @@ async function assistant(request, env) {
       ok: true,
       status: data.status === 'need_info' ? 'need_info' : 'ready',
       questions,
-      questionOptions,
       suggestedDocType: mode === 'consult' && typeof data.suggestedDocType === 'string' && Object.hasOwn(ASSISTANT_DOC_TYPES, data.suggestedDocType) && !['analyze','review','research','other'].includes(data.suggestedDocType) ? data.suggestedDocType : '',
       knownFields,
       text,
       notes,
       ...(reviewReport ? { reviewReport } : {}),
+      ...(reviewFollowups.length ? { reviewFollowups } : {}),
       reviewStatus,
       attachments: summarizeAttachments(attachments),
     });

@@ -16,8 +16,8 @@ test('ساختار پاسخ مشاوره از پرسش‌های چندگزینه
 test('دستور مشاوره گزینه‌های واقعی و امکان توضیح آزاد را پیش‌بینی می‌کند', () => {
   const prompt = assistantSystemPrompt({ mode: 'consult', docType: 'petition' });
   assert.match(prompt, /questionOptions/u);
-  assert.match(prompt, /گزینه «سایر موارد یا توضیح بیشتر»/u);
-  assert.match(prompt, /گزینه‌های ساختگی نساز/u);
+  assert.match(prompt, /صرفاً برای گزارش بازبینی مستقل/u);
+  assert.match(prompt, /گزینه ساختگی نساز/u);
   assert.match(prompt, /knownFields/u);
   assert.match(prompt, /حدس نزن/u);
   assert.match(prompt, /مناسب‌ترین نوع سند/u);
