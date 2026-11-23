@@ -266,10 +266,14 @@ export async function findVerifiedLegalArticles(db, query) {
   const where = terms.map((_,i)=>`(a.body LIKE ?${i+1} OR a.article_number LIKE ?${i+1} OR l.title LIKE ?${i+1})`).join(' OR ');
   const legalTypes = ['law','regulation','bylaw','circular','executive_circular','executive_regulation','treaty'];
   const typePlaceholders = legalTypes.map((_,i)=>`?${terms.length+i+1}`).join(',');
-  const bindings = [...terms.map(t=>`%${t}%`), ...legalTypes];
+  const scoreStart = terms.length + legalTypes.length;
+  const score = terms.map((_,i)=>`(CASE WHEN a.body LIKE ?${scoreStart+i+1} OR a.article_number LIKE ?${scoreStart+i+1} OR l.title LIKE ?${scoreStart+i+1} THEN 1 ELSE 0 END)`).join(' + ');
+  const termBindings = terms.map(t=>`%${t}%`);
+  const bindings = [...termBindings, ...legalTypes, ...termBindings];
   const result = await db.prepare(`SELECT l.title AS lawTitle,l.source_name AS sourceName,l.source_url AS sourceUrl,a.article_number AS articleNumber,a.heading,a.body
     FROM legal_articles a JOIN legal_laws l ON l.id=a.law_id
-    WHERE l.status='verified' AND a.status='verified' AND l.law_type IN (${typePlaceholders}) AND (${where}) LIMIT 6`).bind(...bindings).all();
+    WHERE l.status='verified' AND a.status='verified' AND l.law_type IN (${typePlaceholders}) AND (${where})
+    ORDER BY (${score}) DESC,l.title,a.id LIMIT 8`).bind(...bindings).all();
   return result.results || [];
 }
 
