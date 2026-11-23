@@ -37,8 +37,8 @@ test('پرسش‌های پیشنهادی آغاز مشاوره حذف شده‌�
   assert.match(source, /const composerText = h\('textarea'/u);
   assert.doesNotMatch(source, /starterSuggestions|ai-starter-suggestions|SUGGESTIONS|renderSuggestions/u);
   assert.doesNotMatch(source, /برای شروع، یکی از این موضوع‌ها را انتخاب کنید/u);
-  assert.match(css, /\.ai-chat-composer \{ width: 100%/u);
-  assert.match(css, /\.ai-chat-composer \.ai-chat-input \{ display: block; width: 100%/u);
+  assert.match(css, /\.ai-main > \.ai-chat-composer[\s\S]*?width: 100%/u);
+  assert.match(css, /\.ai-main > \.ai-chat-composer > \.ai-chat-input[\s\S]*?width: 100%/u);
 });
 
 test('پرسش‌های مشاوره در متن اصلی نمایش داده نمی‌شوند', () => {
@@ -70,9 +70,18 @@ test('ساختار پرسش‌های تکمیلی اختیاری است و فق�
 
 test('بارگذاری دستیار نسخه تازه رابط را دریافت می‌کند و در انتظار نامحدود نمی‌ماند', () => {
   assert.match(html, /js\/app\.js\?v=20261123-consult-ui-refresh-2/u);
-  assert.match(app, /assistant\.js\?v=20261123-consult-ui-refresh-3/u);
+  assert.match(app, /assistant\.js\?v=20261123-assistant-error-detail-4/u);
   assert.match(app, /assistant-forms\.js\?v=20261123-consult-ui-refresh-2/u);
   assert.match(app, /timeoutMs = 20000/u);
   assert.match(app, /page_load_timeout/u);
   assert.match(app, /تلاش دوباره/u);
+});
+
+
+test('خطای ارائه‌دهنده، شکست مسیر جایگزین یا محدودیت محرمانگی پیوست را روشن می‌کند', () => {
+  assert.match(source, /fallbackInfo = res\.data\?\.fallbackCode/u);
+  assert.match(source, /مسیر جایگزین Groq نیز موفق نشد/u);
+  assert.match(source, /به‌دلیل وجود پیوست، برای حفظ محرمانگی/u);
+  assert.match(source, /fallbackStatus/u);
+  assert.match(readFileSync(new URL('../site/js/ai-client.js', import.meta.url), 'utf8'), /سرویس اصلی هوش مصنوعی موقتاً پاسخ قابل استفاده‌ای/u);
 });
