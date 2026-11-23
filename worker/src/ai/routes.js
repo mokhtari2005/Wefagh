@@ -614,9 +614,16 @@ async function assistant(request, env) {
         reviewBankUnavailable = true;
         console.error(JSON.stringify({ where: 'ai', stage: 'groq_legal_bank_query', error: err?.name || 'Error' }));
       }
+      const reviewFollowups = mode === 'consult'
+        ? [
+            ...questionOptions,
+            ...questions.filter((item) => !questionOptions.some((option) => option.question === item)).map((question) => ({ question, options: [], allowOther: true })),
+          ].slice(0, 3)
+        : [];
       const review = await reviewLegalDraft(env, {
         mode, docType, question: message, draft: text, legalArticles: reviewArticles,
         webSources: webResearch?.sources || [],
+        followupQuestions: reviewFollowups,
       });
       reviewStatus = review.status || 'provider_error';
       if (reviewBankUnavailable) notes.push('جست‌وجوی تکمیلی بانک قوانین برای بازبین مستقل انجام نشد؛ نتیجه بر اساس مواد بازیابی‌شده در مرحله نخست و سایر اطلاعات موجود است.');
@@ -648,7 +655,6 @@ async function assistant(request, env) {
       ok: true,
       status: data.status === 'need_info' ? 'need_info' : 'ready',
       questions,
-      questionOptions,
       suggestedDocType: mode === 'consult' && typeof data.suggestedDocType === 'string' && Object.hasOwn(ASSISTANT_DOC_TYPES, data.suggestedDocType) && !['analyze','review','research','other'].includes(data.suggestedDocType) ? data.suggestedDocType : '',
       knownFields,
       text,
