@@ -181,7 +181,8 @@ export function trimHistory(history) {
 }
 
 /** متن پاسخ دستیار برای تاریخچه: پرسش‌های تکمیلی یا متن پیش‌نویس. */
-export function summarizeReply(data) {
+export function summarizeReply(data, mode = '') {
+  if (mode === 'consult') return data.text || '';
   if (data.status === 'need_info') {
     const optionQuestions = new Set((Array.isArray(data.questionOptions) ? data.questionOptions : []).map((item) => item?.question).filter(Boolean));
     const freeQuestions = (data.questions || []).filter((question) => !optionQuestions.has(question));
@@ -477,10 +478,38 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     const hasReviewState = Boolean(m.reviewStatus || reviewReport);
     if (hasReviewState) {
       const reviewButton = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'دیدن گزارش بازبینی مستقل', 'aria-expanded': 'false' });
-      reviewPanel = h('section', { class: 'ai-review-panel', hidden: '' }, [
+      const reviewChildren = [
         h('strong', { class: 'ai-review-panel-title', text: 'گزارش بازبینی مستقل و تطبیق استنادات' }),
         h('div', { class: 'ai-text pre-wrap', text: reviewReport || reviewUnavailableMessage(m.reviewStatus, m.notes) }),
-      ]);
+      ];
+      const followups = Array.isArray(m.reviewReport?.followupQuestions) ? m.reviewReport.followupQuestions : [];
+      if (followups.length) {
+        const followupPanel = h('div', { class: 'ai-question-options', 'aria-label': 'پرسش‌های تکمیلی گزارش بازبینی' });
+        followups.forEach((item) => {
+          if (!item || typeof item.question !== 'string') return;
+          followupPanel.append(h('strong', { text: item.question }));
+          for (const option of (Array.isArray(item.options) ? item.options : []).filter((value) => typeof value === 'string').slice(0, 8)) {
+            const choice = h('button', { class: 'btn secondary ai-mini', type: 'button', text: option });
+            choice.addEventListener('click', () => {
+              composerText.value = `${item.question}\nپاسخ انتخاب‌شده: ${option}`;
+              counter.textContent = `${composerText.value.length} / ${MESSAGE_LIMIT}`;
+              send();
+            });
+            followupPanel.append(choice);
+          }
+          if (item.allowOther !== false) {
+            const other = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'توضیح بیشتر درباره این موضوع' });
+            other.addEventListener('click', () => {
+              composerText.value = `${item.question}\nتوضیح من: `;
+              composerText.focus();
+              counter.textContent = `${composerText.value.length} / ${MESSAGE_LIMIT}`;
+            });
+            followupPanel.append(other);
+          }
+        });
+        if (followupPanel.childElementCount) reviewChildren.push(followupPanel);
+      }
+      reviewPanel = h('section', { class: 'ai-review-panel', hidden: '' }, reviewChildren);
       reviewButton.addEventListener('click', () => {
         reviewPanel.hidden = !reviewPanel.hidden;
         reviewButton.setAttribute('aria-expanded', String(!reviewPanel.hidden));
@@ -504,24 +533,6 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       h('div', { class: 'ai-text pre-wrap', text: m.text }),
     ];
     if (reviewPanel) children.push(reviewPanel);
-    if (Array.isArray(m.questionOptions) && m.questionOptions.length) {
-      const choices = h('div', { class: 'ai-question-options', 'aria-label': 'گزینه‌های پاسخ' });
-      m.questionOptions.forEach((item) => {
-        if (!item || typeof item.question !== 'string' || !Array.isArray(item.options)) return;
-        choices.append(h('strong', { text: item.question }));
-        for (const option of item.options.filter((value) => typeof value === 'string').slice(0, 8)) {
-          const choice = h('button', { class: 'btn secondary ai-mini', type: 'button', text: option });
-          choice.addEventListener('click', () => { composerText.value = `${item.question}\nپاسخ انتخاب‌شده: ${option}`; counter.textContent = `${composerText.value.length} / ${MESSAGE_LIMIT}`; send(); });
-          choices.append(choice);
-        }
-        if (item.allowOther !== false) {
-          const other = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'هیچ‌کدام؛ توضیح می‌دهم' });
-          other.addEventListener('click', () => { composerText.value = `${item.question}\nتوضیح من: `; composerText.focus(); });
-          choices.append(other);
-        }
-      });
-      if (choices.childElementCount) children.push(choices);
-    }
     if (m.notes?.length) children.push(h('ul', {
       class: 'ai-notes',
       'aria-label': 'نکات تکمیلی',
@@ -1160,9 +1171,9 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     const names = sent.map((a) => a.file.name);
     const userText = [typed, names.length ? `[پیوست: ${names.join('، ')}]` : ''].filter(Boolean).join('\n');
     history.push({ role: 'user', text: userText });
-    const reply = summarizeReply(res.data);
+    const reply = summarizeReply(res.data, mode);
     const responseNotes = [...(res.data.notes || [])];
-    history.push({ role: 'ai', text: reply, notes: responseNotes, reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null, reviewStatus: typeof res.data.reviewStatus === 'string' ? res.data.reviewStatus : null, questionOptions: Array.isArray(res.data.questionOptions) ? res.data.questionOptions : [], suggestedDocType: typeof res.data.suggestedDocType === 'string' ? res.data.suggestedDocType : '', knownFields: res.data.knownFields && typeof res.data.knownFields === 'object' ? res.data.knownFields : {}, documentDraft: mode === 'draft' && res.data.status === 'ready' && !(res.data.questions || []).length, docType: mode === 'draft' ? docSelect.value : null });
+    history.push({ role: 'ai', text: reply, notes: responseNotes, reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null, reviewStatus: typeof res.data.reviewStatus === 'string' ? res.data.reviewStatus : null, suggestedDocType: typeof res.data.suggestedDocType === 'string' ? res.data.suggestedDocType : '', knownFields: res.data.knownFields && typeof res.data.knownFields === 'object' ? res.data.knownFields : {}, documentDraft: mode === 'draft' && res.data.status === 'ready' && !(res.data.questions || []).length, docType: mode === 'draft' ? docSelect.value : null });
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
     attachments = [];
