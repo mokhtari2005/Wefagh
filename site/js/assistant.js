@@ -482,7 +482,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
         h('strong', { class: 'ai-review-panel-title', text: 'گزارش بازبینی مستقل و تطبیق استنادات' }),
         h('div', { class: 'ai-text pre-wrap', text: reviewReport || reviewUnavailableMessage(m.reviewStatus, m.notes) }),
       ];
-      const followups = Array.isArray(m.reviewReport?.followupQuestions) ? m.reviewReport.followupQuestions : [];
+      const followups = Array.isArray(m.reviewFollowups) ? m.reviewFollowups : Array.isArray(m.reviewReport?.followupQuestions) ? m.reviewReport.followupQuestions : [];
       if (followups.length) {
         const followupPanel = h('div', { class: 'ai-question-options', 'aria-label': 'پرسش‌های تکمیلی گزارش بازبینی' });
         followups.forEach((item) => {
@@ -1173,7 +1173,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     history.push({ role: 'user', text: userText });
     const reply = summarizeReply(res.data, mode);
     const responseNotes = [...(res.data.notes || [])];
-    history.push({ role: 'ai', text: reply, notes: responseNotes, reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null, reviewStatus: typeof res.data.reviewStatus === 'string' ? res.data.reviewStatus : null, suggestedDocType: typeof res.data.suggestedDocType === 'string' ? res.data.suggestedDocType : '', knownFields: res.data.knownFields && typeof res.data.knownFields === 'object' ? res.data.knownFields : {}, documentDraft: mode === 'draft' && res.data.status === 'ready' && !(res.data.questions || []).length, docType: mode === 'draft' ? docSelect.value : null });
+    history.push({ role: 'ai', text: reply, notes: responseNotes, reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null, reviewStatus: typeof res.data.reviewStatus === 'string' ? res.data.reviewStatus : null, reviewFollowups: Array.isArray(res.data.reviewFollowups) ? res.data.reviewFollowups : [], suggestedDocType: typeof res.data.suggestedDocType === 'string' ? res.data.suggestedDocType : '', knownFields: res.data.knownFields && typeof res.data.knownFields === 'object' ? res.data.knownFields : {}, documentDraft: mode === 'draft' && res.data.status === 'ready' && !(res.data.questions || []).length, docType: mode === 'draft' ? docSelect.value : null });
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
     attachments = [];
