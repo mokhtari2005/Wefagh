@@ -260,7 +260,8 @@ export async function handleLegalBank(request, env, path) {
 
 // برای تزریق به زمینهٔ مدل فقط مواد تأییدشده برگردانده می‌شوند.
 export async function findVerifiedLegalArticles(db, query) {
-  const terms = [...new Set(String(query||'').split(/[\s،؛,.()]+/).map(x=>x.trim()).filter(x=>x.length>=2))].slice(0,6);
+  // از واژگان معنادار حقوقی و مترادف‌های موضوعی استفاده کن؛ شش واژه نخست جمله ممکن است فقط ضمیر و فعل باشند.
+  const terms = legalSearchTerms(query).slice(0, 12);
   if (!terms.length) return [];
   const where = terms.map((_,i)=>`(a.body LIKE ?${i+1} OR a.article_number LIKE ?${i+1} OR l.title LIKE ?${i+1})`).join(' OR ');
   const legalTypes = ['law','regulation','bylaw','circular','executive_circular','executive_regulation','treaty'];
@@ -299,7 +300,7 @@ const SEARCH_STOP_WORDS = new Set([
   'کن','کنید','همچنین','مربوط','مرتبط','شخص','طرف','طرفین','دادگاه','دادخواست','فروشنده','خریدار',
 ]);
 
-function legalSearchTerms(query) {
+export function legalSearchTerms(query) {
   const normalized = String(query || '').normalize('NFKC')
     .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')
     .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
@@ -309,9 +310,23 @@ function legalSearchTerms(query) {
     if (token.length < 3 || SEARCH_STOP_WORDS.has(token) || /^\d+$/.test(token)) continue;
     counts.set(token, (counts.get(token) || 0) + 1);
   }
-  return [...counts.entries()]
+  const terms = [...counts.entries()]
     .sort((a,b) => b[1]-a[1] || b[0].length-a[0].length)
     .slice(0, 12).map(([token]) => token);
+  const topicTerms = [];
+  if (/آپارتمان|ساختمان|پارکینگ|شارژ|مدیر ساختمان|مشاعات/u.test(normalized)) {
+    topicTerms.push('قانون تملک آپارتمان‌ها', 'آیین‌نامه اجرایی قانون تملک آپارتمان‌ها', 'شارژ ساختمان', 'هزینه‌های مشترک', 'قسمت‌های مشترک', 'پارکینگ', 'مدیر ساختمان', 'ماده ۱۰ مکرر');
+  }
+  if (/پارکینگ|توقف خودرو|محل پارک/u.test(normalized)) {
+    topicTerms.push('حق اختصاصی پارکینگ', 'مشاعات ساختمان', 'صورت‌مجلس تفکیکی');
+  }
+  if (/قرارداد|تعهد|وجه|ثمن|معامله|بیع/u.test(normalized)) {
+    topicTerms.push('قانون مدنی', 'الزام به ایفای تعهد', 'مسئولیت قراردادی');
+  }
+  if (/چک|صیاد|برگشت/u.test(normalized)) {
+    topicTerms.push('قانون صدور چک', 'اجرائیه چک', 'خسارت تأخیر تأدیه');
+  }
+  return [...new Set([...topicTerms, ...terms])].slice(0, 18);
 }
 
 const JUDICIAL_AUTHORITY_TYPES = Object.freeze([
