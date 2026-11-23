@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 const source = readFileSync(new URL('../site/js/assistant.js', import.meta.url), 'utf8');
 const app = readFileSync(new URL('../site/js/app.js', import.meta.url), 'utf8');
 const html = readFileSync(new URL('../site/index.html', import.meta.url), 'utf8');
+const css = readFileSync(new URL('../site/css/styles.css', import.meta.url), 'utf8');
 const prompt = readFileSync(new URL('../worker/src/ai/prompts.js', import.meta.url), 'utf8');
 const routes = readFileSync(new URL('../worker/src/ai/routes.js', import.meta.url), 'utf8');
 
@@ -19,9 +20,12 @@ test('پس از دریافت پاسخ، کادر گفت‌وگو و آخرین �
   assert.doesNotMatch(source, /log\.lastElementChild\?\.scrollIntoView/u);
 });
 
-test('کادر نوشتن و گزینه‌های آغاز مشاوره حفظ می‌شوند', () => {
+test('پرسش‌های پیشنهادی آغاز مشاوره حذف شده‌اند و کادر نوشتن حفظ شده است', () => {
   assert.match(source, /const composerText = h\('textarea'/u);
-  assert.match(source, /const starterSuggestions = h\('div', \{ class: 'ai-starter-suggestions'/u);
+  assert.doesNotMatch(source, /starterSuggestions|ai-starter-suggestions|SUGGESTIONS|renderSuggestions/u);
+  assert.doesNotMatch(source, /برای شروع، یکی از این موضوع‌ها را انتخاب کنید/u);
+  assert.match(css, /\.ai-chat-composer \{ width: 100%/u);
+  assert.match(css, /\.ai-chat-composer \.ai-chat-input \{ display: block; width: 100%/u);
 });
 
 test('پرسش‌های مشاوره در متن اصلی نمایش داده نمی‌شوند', () => {
@@ -52,9 +56,9 @@ test('ساختار پرسش‌های تکمیلی اختیاری است و فق�
 });
 
 test('بارگذاری دستیار نسخه تازه رابط را دریافت می‌کند و در انتظار نامحدود نمی‌ماند', () => {
-  assert.match(html, /js\/app\.js\?v=20261123-assistant-loading-fix-1/u);
-  assert.match(app, /assistant\.js\?v=20261123-assistant-loading-fix-1/u);
-  assert.match(app, /assistant-forms\.js\?v=20261123-assistant-loading-fix-1/u);
+  assert.match(html, /js\/app\.js\?v=20261123-consult-ui-refresh-2/u);
+  assert.match(app, /assistant\.js\?v=20261123-consult-ui-refresh-2/u);
+  assert.match(app, /assistant-forms\.js\?v=20261123-consult-ui-refresh-2/u);
   assert.match(app, /timeoutMs = 20000/u);
   assert.match(app, /page_load_timeout/u);
   assert.match(app, /تلاش دوباره/u);
