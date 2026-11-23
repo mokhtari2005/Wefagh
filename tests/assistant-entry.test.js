@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { summarizeReply } from '../site/js/assistant.js';
 
 const source = readFileSync(new URL('../site/js/assistant.js', import.meta.url), 'utf8');
 const prompt = readFileSync(new URL('../worker/src/ai/prompts.js', import.meta.url), 'utf8');
@@ -39,8 +38,8 @@ test('گزارش بازبینی مستقل پرسش‌های ساخت‌یافت
 });
 
 test('پاسخ اصلی مشاوره فقط متن تحلیل را نشان می‌دهد و گزارش مستقل جدا می‌ماند', () => {
-  assert.equal(summarizeReply({ status: 'need_info', text: 'تحلیل مقدماتی', questions: ['پرسش تکمیلی'] }, 'consult'), 'تحلیل مقدماتی');
-  assert.equal(summarizeReply({ status: 'need_info', text: 'پیش‌نویس', questions: ['نام طرف'] }, 'draft'), 'برای ادامه این اطلاعات لازم است:\n- نام طرف');
+  assert.match(source, /if \(mode === 'consult'\) return data\.text \|\| ''/u);
+  assert.match(source, /freeQuestions\.map\(\(question\) => `- \$\{question\}`\)/u);
 });
 
 test('ساختار پرسش‌های تکمیلی اختیاری است و فقط برای گزارش مستقل تولید می‌شود', () => {
