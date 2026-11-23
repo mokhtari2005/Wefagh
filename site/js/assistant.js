@@ -215,7 +215,10 @@ export function assistantPage(params = {}) {
     }
     const initialMode = MODES.some(([value]) => value === params.mode) ? params.mode : 'consult';
     const chooserTitle = initialMode === 'litigation' ? 'میز محاکمه هوشمند' : initialMode === 'research' ? 'تحقیق و راستی‌آزمایی حقوقی' : 'مشاوره حقوقی هوشمند';
-    body.replaceChildren(methodChooser((method) => body.replaceChildren(assistantWorkspace(guestMode ? null : params.thread, guestMode, method, initialMode)), chooserTitle));
+    const openWorkspace = (method) => body.replaceChildren(assistantWorkspace(guestMode ? null : params.thread, guestMode, method, initialMode));
+    // در مشاوره هوشمند، چت متنی از قبل در همان محیط وجود دارد؛ انتخاب جداگانهٔ «پاسخ‌گویی متنی» تکراری است.
+    if (initialMode === 'consult') openWorkspace('smart');
+    else body.replaceChildren(methodChooser(openWorkspace, chooserTitle));
   })().catch((error) => {
     console.error('assistant.access_check_failed', error);
     body.replaceChildren(h('div', { class: 'notice', role: 'alert' }, [
@@ -527,10 +530,11 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       : h('li', { class: 'ai-msg ai-msg-user' }, [h('span', { class: 'ai-role', text: 'شما' }), h('div', { class: 'ai-text pre-wrap', text: m.text })]))));
     emptyState.hidden = history.length > 0;
     stream.scrollTop = stream.scrollHeight;
-    // پس از دریافت پاسخ، فقط اسکرول داخلی گفت‌وگو کافی نیست؛ صفحه نیز باید
-    // پاسخ تازه را در دید کاربر قرار دهد، به‌ویژه در نمایشگرهای کوچک.
+    // ابتدا کادر گفت‌وگو را وارد محدوده دید می‌کنیم و سپس پیام‌های آن را تا انتها می‌بریم.
+    // اسکرول روی پیام منفرد در ساختار تو در توی موبایل ممکن است کادر اشتباهی را جابه‌جا کند.
     if (revealLatest) requestAnimationFrame(() => {
-      log.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'end', inline: 'nearest' });
+      stream.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      requestAnimationFrame(() => stream.scrollTo({ top: stream.scrollHeight, behavior: 'smooth' }));
     });
   }
 
