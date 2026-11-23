@@ -14,3 +14,15 @@ test('پس از دریافت پاسخ، کادر گفت‌وگو و آخرین �
   assert.match(source, /stream\.scrollTo\(\{ top: stream\.scrollHeight, behavior: 'smooth' \}\)/u);
   assert.doesNotMatch(source, /log\.lastElementChild\?\.scrollIntoView/u);
 });
+
+test('گزینه‌های آغاز مشاوره در حالت هوشمند پنهان نمی‌شوند', () => {
+  assert.match(source, /const starterSuggestions = h\('div', \{ class: 'ai-starter-suggestions'/u);
+  assert.match(source, /starterSuggestions\.hidden = history\.some\(\(m\) => m\.role === 'user'\)/u);
+  assert.match(source, /acceptBtn, partyPanel, attachChip,\s*starterSuggestions,\s*composerText/u);
+});
+
+test('کادر نوشتن و گزینه‌های تعاملی پاسخ در محیط مشاوره حفظ می‌شوند', () => {
+  assert.match(source, /const composerText = h\('textarea'/u);
+  assert.match(source, /m\.questionOptions\.length/u);
+  assert.match(source, /choices\.append\(choice\)/u);
+});

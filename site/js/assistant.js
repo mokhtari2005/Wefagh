@@ -163,6 +163,8 @@ export function checkNewFile(file, current = []) {
 const SUGGESTIONS = [
   ['consult', 'other', 'مهلت تجدیدنظرخواهی از رأی دادگاه بدوی چقدر است و از چه تاریخی شروع می‌شود؟'],
   ['consult', 'other', 'برای مطالبهٔ وجه چک برگشتی، شکایت کیفری بهتر است یا دادخواست حقوقی؟'],
+  ['consult', 'other', 'در اختلاف قراردادی، چه زمانی می‌توان الزام به انجام تعهد یا فسخ قرارداد را خواست؟'],
+  ['consult', 'other', 'برای اثبات مالکیت یا الزام به تنظیم سند رسمی ملک، چه اقدام حقوقی لازم است؟'],
   ['draft', 'petition', 'دادخواست مطالبهٔ وجه چک برگشتی را پیش‌نویس کن.'],
   ['analyze', 'petition', 'نقاط قوت و ضعف این پرونده را تحلیل کن: ...'],
   ['review', 'petition', 'این متن لایحه را از نظر ساختار و استدلال بازبینی کن: ...'],
@@ -399,6 +401,10 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
   }
   const emptyState = h('div', { class: 'ai-empty', hidden: voiceAllowed }, [
     h('p', { class: 'muted', text: 'پرسش یا شرح پرونده را بنویسید؛ اگر منبع معتبری نباشد، پاسخ صریحاً همین را می‌گوید.' }),
+  ]);
+  // پیشنهادهای آغاز گفت‌وگو باید در محیط هوشمند هم دیده شوند؛ در حالت چت این بخش داخل emptyState پنهان می‌شد.
+  const starterSuggestions = h('div', { class: 'ai-starter-suggestions', 'aria-label': 'پیشنهادهایی برای شروع گفت‌وگو' }, [
+    h('strong', { text: 'برای شروع، یکی از این موضوع‌ها را انتخاب کنید:' }),
     suggestionsBox,
   ]);
   // در حالت هوشمند، چت از ابتدا مانند گفت‌وگوی پشتیبانی آغاز می‌شود؛ نه با فرم خالی.
@@ -529,6 +535,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       ? aiMessageNode(m)
       : h('li', { class: 'ai-msg ai-msg-user' }, [h('span', { class: 'ai-role', text: 'شما' }), h('div', { class: 'ai-text pre-wrap', text: m.text })]))));
     emptyState.hidden = history.length > 0;
+    starterSuggestions.hidden = history.some((m) => m.role === 'user');
     stream.scrollTop = stream.scrollHeight;
     // ابتدا کادر گفت‌وگو را وارد محدوده دید می‌کنیم و سپس پیام‌های آن را تا انتها می‌بریم.
     // اسکرول روی پیام منفرد در ساختار تو در توی موبایل ممکن است کادر اشتباهی را جابه‌جا کند.
@@ -1213,6 +1220,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
   const toolbar = h('div', { class: voiceAllowed ? 'ai-toolbar ai-smart-toolbar' : 'ai-toolbar' }, [modeGroup, docWrap, contractWrap, newBtn]);
   const composer = h('form', { class: voiceAllowed ? 'ai-composer ai-chat-composer' : 'ai-composer', 'aria-label': voiceAllowed ? 'چت با دستیار' : 'ارسال پیام' }, [
     acceptBtn, partyPanel, attachChip,
+    starterSuggestions,
     composerText,
     h('div', { class: 'ai-composer-bar' }, [attachBtn, fileInput, counter, sendBtn]),
     pending,
