@@ -120,7 +120,7 @@ function textOrLog(op, model, data) {
 }
 
 /** تولید متن (و JSON ساخت‌یافته در صورت تعیین schema). */
-export async function generateText(env, { system, contents, maxOutputTokens = 1024, json = false, schema = null, timeoutMs = AI_TIMEOUT_MS, plainFallback = false, useGoogleSearch = false }) {
+export async function generateText(env, { system, contents, maxOutputTokens = 1024, json = false, schema = null, timeoutMs = AI_TIMEOUT_MS, fallbackTimeoutMs = 20_000, plainFallback = false, useGoogleSearch = false }) {
   const configuredModel = modelIds(env).text;
   const fallbackModel = fallbackTextModel(configuredModel);
   const makePayload = (model, { useSchema, useMime }) => {
@@ -143,7 +143,7 @@ export async function generateText(env, { system, contents, maxOutputTokens = 10
   // برنامهٔ تلاش‌ها: مدل اصلی، مدل جایگزین، و (فقط اگر خواسته شود) یک درخواست ساده بدون schema و بدون حالت JSON
   // برای وقتی که Google به‌خاطر شکل درخواست ساخت‌یافته خطای 5xx می‌دهد.
   const plan = [{ model: configuredModel, useSchema: true, useMime: true, timeout: Math.min(timeoutMs, 45_000) }];
-  plan.push({ model: fallbackModel, useSchema: true, useMime: true, timeout: 25_000 });
+  plan.push({ model: fallbackModel, useSchema: true, useMime: true, timeout: Math.min(Number(fallbackTimeoutMs) || 20_000, 25_000) });
   // مرحلهٔ ساده با مدل اصلی اجرا می‌شود تا اثر «شکل درخواست» از «اختلال مدل جایگزین» جدا شود.
   if (plainFallback && json) plan.push({ model: configuredModel, useSchema: false, useMime: false, timeout: 15_000, plain: true });
   let model = configuredModel;
