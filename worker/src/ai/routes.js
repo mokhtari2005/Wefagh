@@ -586,7 +586,12 @@ async function assistant(request, env) {
     // گزارش مستقل جدا از متن پاسخ برگردانده می‌شود تا کاربر فقط در صورت نیاز آن را باز کند.
     let reviewReport = null;
     let reviewStatus = 'not_run';
-    let reviewFollowups = [];
+    const reviewFollowups = mode === 'consult'
+      ? [
+          ...questionOptions,
+          ...questions.filter((item) => !questionOptions.some((option) => option.question === item)).map((question) => ({ question, options: [], allowOther: true })),
+        ].slice(0, 3)
+      : [];
     // برای حفظ محرمانگی، در صورت وجود پیوست، پیش‌نویس حاوی محتوای استخراج‌شده به ارائه‌دهندهٔ سوم ارسال نمی‌شود.
     if (attachments.length) {
       reviewStatus = 'skipped_attachments';
@@ -615,12 +620,6 @@ async function assistant(request, env) {
         reviewBankUnavailable = true;
         console.error(JSON.stringify({ where: 'ai', stage: 'groq_legal_bank_query', error: err?.name || 'Error' }));
       }
-      reviewFollowups = mode === 'consult'
-        ? [
-            ...questionOptions,
-            ...questions.filter((item) => !questionOptions.some((option) => option.question === item)).map((question) => ({ question, options: [], allowOther: true })),
-          ].slice(0, 3)
-        : [];
       const review = await reviewLegalDraft(env, {
         mode, docType, question: message, draft: text, legalArticles: reviewArticles,
         webSources: webResearch?.sources || [],
