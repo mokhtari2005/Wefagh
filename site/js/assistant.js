@@ -273,7 +273,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     history.length = 0;
     for (const m of res.data?.messages || []) history.push({ role: m.role === 'ai' ? 'ai' : 'user', text: m.content });
     threadId = Number(id);
-    renderLog();
+    renderLog({ revealLatest: true });
     acceptBtn.hidden = true;
     status.textContent = 'گفت‌وگو بازیابی شد. برای تأیید نتیجه، ابتدا از دستیار بخواهید جمع‌بندی نهایی مشاوره را ارائه کند.';
   }
@@ -521,12 +521,17 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     return h('li', { class: 'ai-msg ai-msg-ai' }, children);
   }
 
-  function renderLog() {
+  function renderLog({ revealLatest = false } = {}) {
     log.replaceChildren(...history.map((m) => (m.role === 'ai'
       ? aiMessageNode(m)
       : h('li', { class: 'ai-msg ai-msg-user' }, [h('span', { class: 'ai-role', text: 'شما' }), h('div', { class: 'ai-text pre-wrap', text: m.text })]))));
     emptyState.hidden = history.length > 0;
     stream.scrollTop = stream.scrollHeight;
+    // پس از دریافت پاسخ، فقط اسکرول داخلی گفت‌وگو کافی نیست؛ صفحه نیز باید
+    // پاسخ تازه را در دید کاربر قرار دهد، به‌ویژه در نمایشگرهای کوچک.
+    if (revealLatest) requestAnimationFrame(() => {
+      log.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'end', inline: 'nearest' });
+    });
   }
 
   // ---------- کادر ارسال ----------
@@ -1151,7 +1156,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
     attachments = [];
     renderAttachments();
-    renderLog();
+    renderLog({ revealLatest: true });
     const saved = await persistTurn(userText, reply).catch(() => false);
     if (mode === 'consult' && voiceMode) speakReply(reply);
     // گزینه ورود به تنظیم سند فقط با اعلام آمادگی صریح سرور، بدون سؤال باز و با جمع‌بندی واقعی ظاهر می‌شود.
