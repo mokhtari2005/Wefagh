@@ -426,6 +426,9 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     if (progressTimer) clearInterval(progressTimer);
     progressTimer = null;
   }
+  const emptyState = h('div', { class: 'ai-empty' }, [
+    h('p', { text: 'موضوع یا مسئله حقوقی خود را در کادر پایین بنویسید تا گفت‌وگو را آغاز کنیم.' }),
+  ]);
   const log = h('ol', { class: 'ai-log', 'aria-label': 'گفت‌وگو' });
   const stream = h('div', { class: 'ai-stream', tabindex: '-1' }, [emptyState, log]);
 
