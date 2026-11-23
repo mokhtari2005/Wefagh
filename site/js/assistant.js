@@ -508,8 +508,23 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       h('div', { class: 'ai-text pre-wrap', text: m.text }),
     ];
     const questionOptions = Array.isArray(m.questionOptions) ? m.questionOptions : [];
-    if (questionOptions.length) {
+    const freeQuestions = (Array.isArray(m.questions) ? m.questions : []).filter((question) =>
+      typeof question === 'string' && !questionOptions.some((item) => item?.question === question));
+    if (questionOptions.length || freeQuestions.length) {
       const questionPanel = h('section', { class: 'ai-question-options', 'aria-label': 'پرسش‌های تکمیلی مشاوره' });
+      const addFreeAnswer = (question) => {
+        const answer = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'پاسخ به این پرسش' });
+        answer.addEventListener('click', () => {
+          composerText.value = `${question}\nپاسخ من: `;
+          composerText.focus();
+          counter.textContent = `${composerText.value.length} / ${MESSAGE_LIMIT}`;
+        });
+        questionPanel.append(answer);
+      };
+      freeQuestions.forEach((question) => {
+        questionPanel.append(h('strong', { text: question }));
+        addFreeAnswer(question);
+      });
       questionOptions.forEach((item) => {
         if (!item || typeof item.question !== 'string') return;
         questionPanel.append(h('strong', { text: item.question }));
@@ -522,15 +537,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
           });
           questionPanel.append(choice);
         }
-        if (item.allowOther !== false) {
-          const other = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'پاسخ با توضیح بیشتر' });
-          other.addEventListener('click', () => {
-            composerText.value = `${item.question}\nتوضیح من: `;
-            composerText.focus();
-            counter.textContent = `${composerText.value.length} / ${MESSAGE_LIMIT}`;
-          });
-          questionPanel.append(other);
-        }
+        if (item.allowOther !== false) addFreeAnswer(item.question);
       });
       if (questionPanel.childElementCount) children.push(questionPanel);
     }
@@ -1177,7 +1184,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     history.push({ role: 'user', text: userText });
     const reply = summarizeReply(res.data, mode);
     const responseNotes = [...(res.data.notes || [])];
-    history.push({ role: 'ai', text: reply, notes: responseNotes, reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null, reviewStatus: typeof res.data.reviewStatus === 'string' ? res.data.reviewStatus : null, reviewFollowups: Array.isArray(res.data.reviewFollowups) ? res.data.reviewFollowups : [], questionOptions: Array.isArray(res.data.questionOptions) ? res.data.questionOptions : [], suggestedDocType: typeof res.data.suggestedDocType === 'string' ? res.data.suggestedDocType : '', knownFields: res.data.knownFields && typeof res.data.knownFields === 'object' ? res.data.knownFields : {}, documentDraft: mode === 'draft' && res.data.status === 'ready' && !(res.data.questions || []).length, docType: mode === 'draft' ? docSelect.value : null });
+    history.push({ role: 'ai', text: reply, notes: responseNotes, reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null, reviewStatus: typeof res.data.reviewStatus === 'string' ? res.data.reviewStatus : null, reviewFollowups: Array.isArray(res.data.reviewFollowups) ? res.data.reviewFollowups : [], questionOptions: Array.isArray(res.data.questionOptions) ? res.data.questionOptions : [], questions: Array.isArray(res.data.questions) ? res.data.questions : [], suggestedDocType: typeof res.data.suggestedDocType === 'string' ? res.data.suggestedDocType : '', knownFields: res.data.knownFields && typeof res.data.knownFields === 'object' ? res.data.knownFields : {}, documentDraft: mode === 'draft' && res.data.status === 'ready' && !(res.data.questions || []).length, docType: mode === 'draft' ? docSelect.value : null });
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
     attachments = [];
