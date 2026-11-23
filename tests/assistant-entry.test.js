@@ -41,13 +41,13 @@ test('پرسش‌های پیشنهادی آغاز مشاوره حذف شده‌�
   assert.match(css, /\.ai-main > \.ai-chat-composer > \.ai-chat-input[\s\S]*?width: 100%/u);
 });
 
-test('پرسش‌های مشاوره در متن اصلی نمایش داده نمی‌شوند', () => {
-  assert.match(source, /export function summarizeReply\(data, mode = ''\)/u);
+test('پرسش‌ها و گزینه‌های تکمیلی در جریان اصلی مشاوره نمایش داده می‌شوند', () => {
   assert.match(source, /if \(mode === 'consult'\) return data\.text \|\| ''/u);
-  assert.doesNotMatch(source, /if \(Array\.isArray\(m\.questionOptions\)/u);
-  assert.match(source, /m\.reviewReport\?\.followupQuestions/u);
-  assert.match(source, /'aria-label': 'پرسش‌های تکمیلی گزارش بازبینی'/u);
-  assert.match(routes, /followupQuestions: reviewFollowups/u);
+  assert.match(source, /questionOptions: Array\.isArray\(res\.data\.questionOptions\)/u);
+  assert.match(source, /'aria-label': 'پرسش‌های تکمیلی مشاوره'/u);
+  assert.match(source, /پاسخ انتخاب‌شده:/u);
+  assert.match(routes, /questionOptions,/u);
+  assert.match(routes, /reviewFollowups: reviewFollowups/u);
 });
 
 test('گزارش بازبینی مستقل پرسش‌های ساخت‌یافته و آزاد را دریافت می‌کند', () => {
@@ -61,11 +61,10 @@ test('پاسخ اصلی مشاوره فقط متن تحلیل را نشان می
   assert.match(source, /freeQuestions\.map\(\(question\) => `- \$\{question\}`\)/u);
 });
 
-test('ساختار پرسش‌های تکمیلی اختیاری است و فقط برای گزارش مستقل تولید می‌شود', () => {
+test('دستور مشاوره تولید و نمایش پرسش‌های تکمیلی را به گزارش مستقل محدود نمی‌کند', () => {
   assert.match(prompt, /required: \['status', 'questions', 'text', 'notes'\]/u);
-  assert.doesNotMatch(prompt, /حتماً یک مورد در questionOptions تولید کن/u);
-  assert.match(prompt, /پرسش‌های تکمیلی، فهرست ابهام‌ها یا گزینه‌های انتخابی را در متن پاسخ اصلی تکرار نکند/u);
-  assert.match(prompt, /صرفاً برای گزارش بازبینی مستقل/u);
+  assert.match(prompt, /در جریان اصلی مشاوره به کاربر نمایش داده شوند/u);
+  assert.doesNotMatch(prompt, /صرفاً برای گزارش بازبینی مستقل/u);
 });
 
 test('بارگذاری دستیار نسخه تازه رابط را دریافت می‌کند و در انتظار نامحدود نمی‌ماند', () => {
