@@ -188,7 +188,9 @@ export function assistantPage(params = {}) {
   const body = h('div', { role: 'region', 'aria-live': 'polite' }, [h('p', { class: 'muted', text: 'در حال بررسی دسترسی…' })]);
   wrap.append(body);
 
+  let accessCheckStage = 'شروع بررسی';
   (async () => {
+    accessCheckStage = 'بررسی نشست کاربر و وضعیت سرویس';
     const [me, status, settings] = await Promise.all([getJson('/api/me'), aiStatus(), getJson('/api/access-settings').catch(() => ({ ok: false }))]);
     const guestMode = !me.ok && settings.ok && settings.data?.registrationRequired === false;
     if (!me.ok && !guestMode) {
@@ -204,14 +206,20 @@ export function assistantPage(params = {}) {
     }
     const initialMode = MODES.some(([value]) => value === params.mode) ? params.mode : 'consult';
     const chooserTitle = initialMode === 'litigation' ? 'میز محاکمه هوشمند' : initialMode === 'research' ? 'تحقیق و راستی‌آزمایی حقوقی' : 'مشاوره حقوقی هوشمند';
-    const openWorkspace = (method) => body.replaceChildren(assistantWorkspace(guestMode ? null : params.thread, guestMode, method, initialMode));
+    const openWorkspace = (method) => {
+      accessCheckStage = 'ساخت محیط گفت‌وگو';
+      body.replaceChildren(assistantWorkspace(guestMode ? null : params.thread, guestMode, method, initialMode));
+    };
     // در مشاوره هوشمند، چت متنی از قبل در همان محیط وجود دارد؛ انتخاب جداگانهٔ «پاسخ‌گویی متنی» تکراری است.
     if (initialMode === 'consult') openWorkspace('smart');
     else body.replaceChildren(methodChooser(openWorkspace, chooserTitle));
   })().catch((error) => {
-    console.error('assistant.access_check_failed', error);
+    const errorName = error instanceof Error ? error.name : 'UnknownError';
+    const errorMessage = String(error instanceof Error ? error.message : error).replace(/\\s+/g, ' ').slice(0, 180);
+    console.error('assistant.access_check_failed', { stage: accessCheckStage, name: errorName, message: errorMessage, stack: error?.stack });
     body.replaceChildren(h('div', { class: 'notice', role: 'alert' }, [
       h('p', { text: 'بررسی دسترسی به دستیار کامل نشد. اتصال یا وضعیت ورود را بررسی کنید و دوباره تلاش کنید.' }),
+      h('p', { class: 'muted', text: `جزئیات فنی برای پشتیبانی: ${accessCheckStage} · ${errorName}: ${errorMessage || 'بدون توضیح'}` }),
       h('p', {}, [h('a', { href: '#/assistant', text: 'تلاش دوباره' })]),
     ]));
   });
