@@ -4164,3 +4164,14 @@ body.classroom-fullscreen-fallback { overflow:hidden; }
 .ai-question-options>strong{line-height:1.9}
 .ai-question-options button{justify-self:start;max-width:100%;white-space:normal;text-align:right}
 @media(max-width:600px){.ai-document-review-list{grid-template-columns:1fr;gap:3px}.ai-document-review-list dd{margin-bottom:8px}.ai-wizard-actions>*{flex:1 1 auto}}
+
+
+/* پس از پاسخ، آخرین پیام در کادر گفت‌وگو قابل مشاهده می‌شود؛ اسکرول داخلی و صفحه هماهنگ‌اند. */
+.ai-stream {
+  min-height: 0;
+  scroll-behavior: smooth;
+  scroll-padding-block: 1rem;
+  overscroll-behavior-y: contain;
+}
+.ai-stream:focus { outline: none; }
+.ai-main { scroll-margin-block: 1rem; }
