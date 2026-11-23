@@ -18,16 +18,28 @@ const lazyObserver = 'IntersectionObserver' in window
     }, { rootMargin: '480px 0px' })
   : null;
 
-function lazy(fn, { defer = false } = {}) {
+function lazy(fn, { defer = false, timeoutMs = 20000 } = {}) {
   const holder = h('div', {}, [h('p', { class: 'loading', role: 'status', text: 'در حال بارگذاری…' })]);
   let started = false;
   const load = () => {
     if (started) return;
     started = true;
-    Promise.resolve()
-      .then(fn)
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error('page_load_timeout')), timeoutMs);
+    });
+    Promise.race([Promise.resolve().then(fn), timeout])
       .then((node) => holder.replaceChildren(node))
-      .catch(() => holder.replaceChildren(h('p', { class: 'form-status err', role: 'alert', text: 'بارگذاری صفحه ناموفق بود.' })));
+      .catch(() => {
+        started = false;
+        const retry = h('button', { class: 'btn secondary', type: 'button', text: 'تلاش دوباره' });
+        retry.addEventListener('click', load);
+        holder.replaceChildren(h('div', { class: 'notice', role: 'alert' }, [
+          h('p', { text: 'بارگذاری این بخش بیش از زمان معمول طول کشید یا کامل نشد.' }),
+          retry,
+        ]));
+      })
+      .finally(() => clearTimeout(timer));
   };
   // صفحات مقصد باید بلافاصله پس از ورود بارگذاری شوند؛ تعویق فقط برای
   // اجزای پایین صفحهٔ اصلی است که هنوز در دید کاربر قرار نگرفته‌اند.
@@ -323,9 +335,9 @@ const ROUTES = {
   '/community': () => lazy(async () => (await import('./community.js?v=20261119-community-title-fix-4')).communityPage()),
   '/cases': () => lazy(async () => (await import('./cases.js')).casesPage()),
   '/moot-court': (params) => lazy(async () => (await import('./moot.js')).mootCourtPage(params)),
-  '/assistant': () => lazy(async () => (await import('./assistant-forms.js?v=20261122-legal-workbench-1')).assistantMenuPage()),
+  '/assistant': () => lazy(async () => (await import('./assistant-forms.js?v=20261123-assistant-loading-fix-1')).assistantMenuPage()),
   '/assistant/documents': () => lazy(async () => (await import('./assistant-forms.js?v=20261122-legal-workbench-1')).assistantDocumentsMenuPage()),
-  '/assistant/consult': (params) => lazy(async () => (await import('./assistant.js?v=20261122-audit-timer-1')).assistantPage(params)),
+  '/assistant/consult': (params) => lazy(async () => (await import('./assistant.js?v=20261123-assistant-loading-fix-1')).assistantPage(params)),
   '/assistant/litigation': (params) => lazy(async () => (await import('./assistant.js?v=20261122-audit-timer-1')).assistantPage({ ...params, mode: 'litigation' })),
   '/assistant/research': (params) => lazy(async () => (await import('./assistant.js?v=20261122-audit-timer-1')).assistantPage({ ...params, mode: 'research' })),
   '/voice-typing': () => lazy(async () => (await import('./voice-typing.js')).voiceTypingPage()),
