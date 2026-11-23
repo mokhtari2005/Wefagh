@@ -1185,7 +1185,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     if (mode === 'consult' && res.data.status === 'ready' && !(res.data.questions || []).length && reply.trim().length >= 120) acceptBtn.hidden = false;
     status.textContent = saved
       ? (mode === 'consult'
-        ? (res.data.status === 'ready' ? 'اگر با جمع‌بندی مشاوره موافقید، نتیجه را تأیید کنید تا وارد مرحله تنظیم سند شوید.' : 'برای تکمیل مشاوره، به پرسش‌های دستیار پاسخ دهید.')
+        ? (res.data.status === 'ready' ? 'اگر با جمع‌بندی مشاوره موافقید، نتیجه را تأیید کنید تا وارد مرحله تنظیم سند شوید.' : 'برای مشاهده و پاسخ به پرسش‌های تکمیلی، گزارش بازبینی مستقل را باز کنید.')
         : (mode === 'litigation' ? (res.data.reviewReport ? 'پاسخ آماده شد.' : 'پاسخ آماده شد؛ گزارش بازبینی مستقل در این نوبت ارائه نشد.') : mode === 'draft' && (res.data.status === 'need_info' || (res.data.questions || []).length) ? 'برای تکمیل پیش‌نویس، به پرسش‌های دستیار پاسخ دهید.' : 'خروجی آماده است.'))
       : 'پاسخ نمایش داده شد، اما ذخیرهٔ آن در تاریخچه انجام نشد.';
   }
