@@ -26,3 +26,12 @@ test('کادر نوشتن و گزینه‌های تعاملی پاسخ در مح
   assert.match(source, /m\.questionOptions\.length/u);
   assert.match(source, /choices\.append\(choice\)/u);
 });
+
+
+test('پرسش‌های تکمیلی مشاوره با گزینه‌های ساخت‌یافته الزامی می‌شوند', async () => {
+  const prompt = readFileSync(new URL('../worker/src/ai/prompts.js', import.meta.url), 'utf8');
+  assert.match(prompt, /required: \['status', 'questions', 'questionOptions', 'text', 'notes'\]/u);
+  assert.match(prompt, /حتماً یک مورد در questionOptions تولید کن/u);
+  assert.match(prompt, /این پرسش و گزینه‌ها را فقط داخل متن text ننویس/u);
+  assert.match(prompt, /همان متن پرسش باید در questions نیز درج شود/u);
+});
