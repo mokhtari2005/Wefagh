@@ -43,10 +43,18 @@ export async function generateTextWithFallback(env, prompt, { allowGroq = true }
     if (!allowGroq || !groqConfigured(env) || !FAILOVER_CODES.has(error?.code)) throw error;
     console.error(JSON.stringify({ where: 'ai.failover', from: 'gemini', to: 'groq', reason: error.code }));
     try {
-      return cleanGroqResult(await generateGroqText(env, prompt));
+      const result = cleanGroqResult(await generateGroqText(env, prompt));
+      console.info(JSON.stringify({ where: 'ai.failover', provider: 'groq', outcome: 'success', model: result?.model || 'unknown' }));
+      return result;
     } catch (fallbackError) {
       const code = typeof fallbackError?.code === 'string' && /^[A-Z][A-Z0-9_]{1,39}$/.test(fallbackError.code) ? fallbackError.code : 'GROQ_FAILED';
-      console.error(JSON.stringify({ where: 'ai.failover', provider: 'groq', code }));
+      const status = Number.isInteger(fallbackError?.status) ? fallbackError.status : undefined;
+      console.error(JSON.stringify({ where: 'ai.failover', provider: 'groq', outcome: 'failed', code, ...(status ? { status } : {}) }));
+      // خطای اصلی Gemini را برای سازگاری API نگه می‌داریم، اما علت شکست مسیر جایگزین نیز
+      // به‌صورت دادهٔ شمارشی و بدون متن کاربر/کلید ثبت و همراه پاسخ برگردانده می‌شود.
+      if (error && typeof error === 'object') {
+        error.details = { ...(error.details || {}), fallbackProvider: 'groq', fallbackCode: code, ...(status ? { fallbackStatus: status } : {}) };
+      }
       throw error;
     }
   }
