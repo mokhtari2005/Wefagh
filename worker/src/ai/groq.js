@@ -170,7 +170,7 @@ export async function reviewLegalDraft(env, { mode, docType, question, draft, le
   // مواد قانونی و اسناد قضایی تأییدشده؛ برای هر سند نوع، شماره، تاریخ، مرجع و متن جداگانه منتقل می‌شود.
   let bankChars = 0;
   const bankItems = [];
-  for (const article of (Array.isArray(legalArticles) ? legalArticles : []).slice(0, 12)) {
+  for (const article of (Array.isArray(legalArticles) ? legalArticles : []).slice(0, 14)) {
     const lawTitle = clean(article?.lawTitle, 180);
     const documentNumber = clean(article?.documentNumber, 120);
     const articleNumber = clean(article?.articleNumber, 40);
