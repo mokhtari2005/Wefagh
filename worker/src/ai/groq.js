@@ -161,7 +161,7 @@ function parseReview(raw, sourceText) {
 }
 
 /** یک بار بازبینی مستقل؛ در خطا پاسخ اصلی حفظ می‌شود اما هرگز تأییدشده تلقی نمی‌شود. */
-export async function reviewLegalDraft(env, { mode, docType, question, draft, legalArticles = [], webSources = [] }) {
+export async function reviewLegalDraft(env, { mode, docType, question, draft, legalArticles = [], webSources = [], followupQuestions = [] }) {
   if (!groqConfigured(env)) return { status: 'not_configured', keyState: groqKeyState(env) };
   const userText = clean(question, 3_000);
   const draftText = clean(draft, 7_000);
@@ -280,13 +280,24 @@ export async function reviewLegalDraft(env, { mode, docType, question, draft, le
   const raw = payload?.choices?.[0]?.message?.content;
   const sourceText = [userText, draftText, legalBankContext, webSourceContext].filter(Boolean).join('\n\n');
   const review = parseReview(raw, sourceText);
-  return review ? {
+  if (!review) return { status: 'invalid_response' };
+  // پرسش‌های تکمیلیِ استخراج‌شده از پاسخ اصلی فقط در گزارش مستقل نمایش داده می‌شوند.
+  review.followupQuestions = (Array.isArray(followupQuestions) ? followupQuestions : []).slice(0, 3).map((item) => {
+    if (typeof item === 'string') return { question: clean(item, 500), options: [], allowOther: true };
+    if (!item || typeof item.question !== 'string') return null;
+    return {
+      question: clean(item.question, 500),
+      options: (Array.isArray(item.options) ? item.options : []).filter((option) => typeof option === 'string').slice(0, 8).map((option) => clean(option, 180)),
+      allowOther: item.allowOther !== false,
+    };
+  }).filter((item) => item && item.question);
+  return {
     status: 'reviewed',
     review,
     model: selectedModel,
     bankArticlesCount: bankItems.length,
     webSourcesCount: webItems.length,
-  } : { status: 'invalid_response' };
+  };
 }
 
 /** یادداشت‌های فارسی برای رابط کاربری؛ هیچ خروجی مدل به‌عنوان تأیید رسمی نمایش داده نمی‌شود. */
