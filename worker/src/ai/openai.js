@@ -1,7 +1,7 @@
-// درگاه تولید متن با مدل‌های GPT؛ کلید فقط از Secret محیطی خوانده می‌شود.
+// درگاه تولید متن با مدل‌های GPT از Responses API؛ کلید فقط از Secret محیطی خوانده می‌شود.
 import { AiError } from './gemini.js';
 
-export const OPENAI_API = 'https://api.openai.com/v1/chat/completions';
+export const OPENAI_API = 'https://api.openai.com/v1/responses';
 export const OPENAI_DEFAULT_MODEL = 'gpt-6.2-astra';
 export const OPENAI_TIMEOUT_MS = 45_000;
 
@@ -60,11 +60,8 @@ export function toOpenAIJsonSchema(source, required = true) {
   return required ? output : { anyOf: [output, { type: 'null' }] };
 }
 
-function buildMessages(system, contents) {
-  const messages = [{
-    role: 'system',
-    content: [system || '', 'وقتی خروجی ساخت‌یافته خواسته شده است، فقط یک شیء JSON معتبر و بدون متن پیرامونی برگردان.'].filter(Boolean).join('\n\n'),
-  }];
+function buildInput(contents) {
+  const input = [];
   for (const item of Array.isArray(contents) ? contents : []) {
     const role = item?.role === 'model' || item?.role === 'assistant' ? 'assistant' : 'user';
     const parts = Array.isArray(item?.parts) ? item.parts : [];
@@ -72,9 +69,30 @@ function buildMessages(system, contents) {
       throw new AiError('AI_UNSUPPORTED_CONTENT', 422);
     }
     const content = parts.map((part) => part.text).join('\n');
-    if (content.trim()) messages.push({ role, content });
+    if (content.trim()) input.push({ role, content });
   }
-  return messages;
+  return input;
+}
+
+function extractContent(payload) {
+  if (payload?.status === 'failed' || payload?.error) {
+    throw new AiError('AI_PROVIDER_ERROR', 503, { provider: 'openai' });
+  }
+  const output = Array.isArray(payload?.output) ? payload.output : [];
+  const messageParts = output
+    .filter((item) => item?.type === 'message' && (!item.role || item.role === 'assistant'))
+    .flatMap((item) => Array.isArray(item.content) ? item.content : []);
+  if (messageParts.some((part) => part?.type === 'refusal' || part?.refusal)) {
+    throw new AiError('AI_BLOCKED', 422, { provider: 'openai' });
+  }
+  const content = messageParts
+    .filter((part) => part?.type === 'output_text' && typeof part.text === 'string')
+    .map((part) => part.text)
+    .join('');
+  const fallback = typeof payload?.output_text === 'string' ? payload.output_text : '';
+  const text = (content || fallback).trim();
+  if (!text) throw new AiError('AI_EMPTY', 502, { provider: 'openai' });
+  return text;
 }
 
 /** آزمون سبک اتصال برای پنل مدیر؛ متن پاسخ و کلید هرگز بازگردانده نمی‌شود. */
@@ -112,15 +130,6 @@ export function openaiProbeHint(result) {
   return 'سرویس پاسخ معتبر نداد';
 }
 
-function extractContent(payload) {
-  const choice = payload?.choices?.[0];
-  if (choice?.message?.refusal) throw new AiError('AI_BLOCKED', 422);
-  const content = choice?.message?.content;
-  if (typeof content === 'string') return content.trim();
-  if (Array.isArray(content)) return content.map((part) => typeof part?.text === 'string' ? part.text : '').join('').trim();
-  throw new AiError('AI_EMPTY', 502);
-}
-
 /** تولید پاسخ متنی یا JSON؛ ورودی‌های تصویری/فایلی عمداً به این مسیر فرستاده نمی‌شوند. */
 export async function generateOpenAIText(env, {
   system,
@@ -132,8 +141,29 @@ export async function generateOpenAIText(env, {
 }) {
   if (!openaiConfigured(env)) throw new AiError('AI_NOT_CONFIGURED', 503);
   const model = openaiModelId(env);
-  const messages = buildMessages(system, contents);
+  const input = buildInput(contents);
   const tokenLimit = Math.max(256, Math.min(Number(maxOutputTokens) || 2048, 16_000));
+  const instructions = [
+    system || '',
+    json ? 'وقتی خروجی ساخت‌یافته خواسته شده است، فقط یک شیء JSON معتبر و مطابق طرح‌واره برگردان؛ متن پیرامونی یا حصار Markdown اضافه نکن.' : '',
+  ].filter(Boolean).join('\n\n');
+
+  const body = {
+    model,
+    instructions,
+    input,
+    max_output_tokens: tokenLimit,
+    reasoning: { effort: safeReasoningEffort(env) },
+    store: false,
+    ...(json ? {
+      text: {
+        format: schema
+          ? { type: 'json_schema', name: 'legal_assistant_response', strict: true, schema: toOpenAIJsonSchema(schema) }
+          : { type: 'json_object' },
+      },
+    } : {}),
+  };
+
   let response;
   try {
     response = await fetch(OPENAI_API, {
@@ -142,17 +172,7 @@ export async function generateOpenAIText(env, {
         'content-type': 'application/json',
         authorization: `Bearer ${env.OPENAI_API_KEY.trim()}`,
       },
-      body: JSON.stringify({
-        model,
-        messages,
-        max_completion_tokens: tokenLimit,
-        reasoning_effort: safeReasoningEffort(env),
-        ...(json ? {
-          response_format: schema
-            ? { type: 'json_schema', json_schema: { name: 'legal_assistant_response', strict: true, schema: toOpenAIJsonSchema(schema) } }
-            : { type: 'json_object' },
-        } : {}),
-      }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(Math.min(Number(timeoutMs) || OPENAI_TIMEOUT_MS, 90_000)),
     });
   } catch (error) {
@@ -179,10 +199,12 @@ export async function generateOpenAIText(env, {
   } catch {
     throw new AiError('AI_PROVIDER_BAD_RESPONSE', 503, { provider: 'openai' });
   }
-  const text = extractContent(payload);
-  if (!text) throw new AiError('AI_EMPTY', 502, { provider: 'openai' });
 
-  if (!json) return { text, model, provider: 'openai', usage: payload.usage || null };
+  const text = extractContent(payload);
+  const truncated = payload?.status === 'incomplete' || payload?.incomplete_details?.reason === 'max_output_tokens';
+  if (json && truncated) throw new AiError('AI_PROVIDER_ERROR', 502, { provider: 'openai', reason: 'OUTPUT_TRUNCATED' });
+
+  if (!json) return { text, model, provider: 'openai', usage: payload.usage || null, truncated };
   const stripped = text.replace(/^\x60{3}(?:json)?\s*/i, '').replace(/\s*\x60{3}$/, '');
   let data;
   try {
@@ -193,12 +215,5 @@ export async function generateOpenAIText(env, {
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
     throw new AiError('AI_EMPTY', 502, { provider: 'openai', reason: 'INVALID_JSON_SHAPE' });
   }
-  return {
-    text,
-    data,
-    truncated: payload.choices?.[0]?.finish_reason === 'length',
-    model,
-    provider: 'openai',
-    usage: payload.usage || null,
-  };
+  return { text, data, truncated, model, provider: 'openai', usage: payload.usage || null };
 }
