@@ -78,7 +78,7 @@ function buildMessages(system, contents) {
 }
 
 /** آزمون سبک اتصال برای پنل مدیر؛ متن پاسخ و کلید هرگز بازگردانده نمی‌شود. */
-export async function probeOpenAI(env, timeoutMs = 15_000) {
+export async function probeOpenAI(env, timeoutMs = 20_000) {
   const model = openaiModelId(env);
   if (!openaiConfigured(env)) return { model, status: 'not_configured', ok: false };
   const started = Date.now();
@@ -86,7 +86,7 @@ export async function probeOpenAI(env, timeoutMs = 15_000) {
     await generateOpenAIText(env, {
       system: 'فقط یک پاسخ کوتاه بده.',
       contents: [{ role: 'user', parts: [{ text: 'برای آزمون اتصال فقط بنویس: OK' }] }],
-      maxOutputTokens: 32,
+      maxOutputTokens: 128,
       timeoutMs,
     });
     return { model, status: 'ok', ok: true, ms: Date.now() - started };
@@ -96,7 +96,7 @@ export async function probeOpenAI(env, timeoutMs = 15_000) {
       status: 'error',
       ok: false,
       code: typeof error?.code === 'string' ? error.code : 'AI_PROVIDER_ERROR',
-      httpStatus: Number.isInteger(error?.status) ? error.status : undefined,
+      httpStatus: Number.isInteger(error?.details?.providerStatus) ? error.details.providerStatus : (Number.isInteger(error?.status) ? error.status : undefined),
       ms: Date.now() - started,
     };
   }
@@ -164,9 +164,9 @@ export async function generateOpenAIText(env, {
   }
 
   if (!response.ok) {
-    if (response.status === 429) throw new AiError('AI_QUOTA', 429, { provider: 'openai' });
-    if (response.status === 401 || response.status === 403) throw new AiError('AI_KEY_REJECTED', 503, { provider: 'openai' });
-    if (response.status === 404) throw new AiError('AI_MODEL_UNAVAILABLE', 503, { provider: 'openai' });
+    if (response.status === 429) throw new AiError('AI_QUOTA', 429, { provider: 'openai', providerStatus: response.status });
+    if (response.status === 401 || response.status === 403) throw new AiError('AI_KEY_REJECTED', 503, { provider: 'openai', providerStatus: response.status });
+    if (response.status === 404) throw new AiError('AI_MODEL_UNAVAILABLE', 503, { provider: 'openai', providerStatus: response.status });
     if (response.status >= 500 || response.status === 408 || response.status === 499) {
       throw new AiError('AI_PROVIDER_ERROR', 503, { provider: 'openai', providerStatus: response.status });
     }
