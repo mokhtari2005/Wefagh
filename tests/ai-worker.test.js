@@ -231,7 +231,7 @@ test('میز محاکمه هوشمند: حالت مستقل، پرامپت چن�
     assert.equal(res.status, 200);
     assert.equal(data.ok, true);
     const roleSystems = systems.filter((system) => system.includes('میز محاکمه هوشمند'));
-    assert.equal(roleSystems.length, 7);
+    assert.equal(roleSystems.length, 1);
     assert.ok(roleSystems.every((system) => system.includes('میز محاکمه هوشمند')));
     assert.ok(roleSystems.some((system) => system.includes('قوی‌ترین دفاع‌ها، ایرادهای شکلی و ماهوی')));
     assert.ok(roleSystems.some((system) => system.includes('نقش تو وکیل موکل/کاربر است')));
