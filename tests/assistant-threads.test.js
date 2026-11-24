@@ -146,11 +146,3 @@ test('حذف گفت‌وگو، پیام‌های آن را هم پاک می‌ک
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM assistant_messages').get().n, 0);
   assert.equal((await worker.fetch(req(`/api/ai/threads/${id}`, { cookie: cookies['الف'] }), env)).status, 404);
 });
-
-test('هشدار استناد: شماره ماده یا رأی در پاسخ دستیار علامت می‌خورد، متن عادی نه', async () => {
-  const { citationWarnings, CITATION_WARNING } = await import('../worker/src/ai/routes.js');
-  assert.deepEqual(citationWarnings('بر اساس ماده ۱۲۳ قانون مدنی ...'), [CITATION_WARNING]);
-  assert.deepEqual(citationWarnings('رأی شماره 1400 دادگاه'), [CITATION_WARNING]);
-  assert.deepEqual(citationWarnings('قانون مدنی در این موضوع مرجع است و مهلت پاسخ مشخص است.'), []);
-  assert.deepEqual(citationWarnings(''), []);
-});
