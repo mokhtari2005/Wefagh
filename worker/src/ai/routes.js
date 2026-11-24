@@ -435,7 +435,7 @@ function resolveKnownLegalPlaceholders(text, legalArticles = []) {
   if (typeof text !== 'string' || !text.includes('[شماره نیازمند تطبیق با متن رسمی]')) return text;
   const available = new Set(legalArticles.map((item) =>
     `${String(item.lawTitle || '').replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')}::${normalizeLegalDigits(item.articleNumber)}`));
-  return text.replace(/\[شماره نیازمند تطبیق با متن رسمی\]/gu, (placeholder, offset, whole) => {
+    .replace(/\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده تأییدنشده از')
     const leftMarks = ['\n', '۔', '.', '؟'].map((mark) => whole.lastIndexOf(mark, offset - 1));
     const left = Math.max(...leftMarks);
     const rightMarks = ['\n', '۔', '.', '؟'].map((mark) => whole.indexOf(mark, offset)).filter((index) => index >= 0);
@@ -478,12 +478,12 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
     return '[مدت نیازمند تطبیق با منبع رسمی]';
   });
   if (/ماده‌ای که شماره آن احراز نشده/gu.test(guarded)) {
-    guarded = guarded.replace(/ماده‌ای که شماره آن احراز نشده/gu, 'شماره ماده تأییدنشده (شماره نیازمند تطبیق با متن رسمی)');
+    guarded = guarded.replace(/ماده‌ای که شماره آن احراز نشده/gu, 'شماره ماده تأییدنشده');
     changed = true;
   }
   guarded = guarded
-    .replace(/ماده\s*\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده (شماره نیازمند تطبیق با متن رسمی)')
-    .replace(/\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده (شماره نیازمند تطبیق با متن رسمی)')
+    .replace(/ماده\s*\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده تأییدنشده از')
+    .replace(/\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده تأییدنشده از')
     .replace(/\[مدت نیازمند تطبیق با منبع رسمی\]/gu, 'مدت (نیازمند تطبیق با منبع رسمی)');
   if (guarded !== text) changed = true;
   return { text: guarded, changed };
