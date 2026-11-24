@@ -728,6 +728,7 @@ async function assistant(request, env) {
     const rawText = typeof data.text === 'string' ? data.text : '';
     const guardedText = guardUnverifiedLegalClaims(rawText, promptArticles, legalContext);
     let text = guardedText.text;
+    if (guardedText.changed) notes.push('برخی استنادها یا مهلت‌های عددی در متن اولیه فاقد پشتوانه احرازپذیر بودند و با هشدار مشخص جایگزین شدند.');
     if (webResearch?.status === 'searched' && webResearch.sources.length) {
       text += '\n\nمنابع وبی بازیابی‌شده برای پیگیری و راستی‌آزمایی:\n' + webResearch.sources.slice(0, 8).map((source, index) => (index + 1) + '. ' + source.title + ' — ' + source.uri + ' (' + source.domain + ')').join('\n');
       notes.push('جست‌وجوی وب با Google Search انجام شد. منابع زیر سرنخ تحقیق‌اند و به‌معنای تأیید رسمی متن قانون، اعتبار رأی یا جاری‌بودن مقرره نیستند.');
