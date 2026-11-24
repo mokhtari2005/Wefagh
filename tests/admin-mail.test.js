@@ -42,7 +42,13 @@ async function call(env, path, { method = 'POST', body, cookie } = {}) {
 async function loginAs(env, sent, email) {
   const user = { email, password: 'رمز-امن-۱۴۰۵', displayName: 'کاربر آزمایشی' };
   await call(env, '/api/auth/register', { body: user });
-  const token = sent.at(-1).text.match(/token=([A-Za-z0-9_-]+)/)[1];
+  const verificationEmail = [...sent].reverse().find((message) =>
+    [message?.text, message?.html, message?.body].some((value) => typeof value === 'string' && /token=/.test(value))
+  );
+  const verificationBody = [verificationEmail?.text, verificationEmail?.html, verificationEmail?.body]
+    .filter((value) => typeof value === 'string').join('\\n');
+  const token = verificationBody.match(/token=([A-Za-z0-9_-]+)/)?.[1];
+  assert.ok(token, 'لینک تأیید باید در ایمیل تأیید ثبت‌نام وجود داشته باشد');
   await call(env, '/api/auth/verify-email', { body: { token } });
   const res = await call(env, '/api/auth/login', { body: { email, password: user.password } });
   return `wefagh_session=${/wefagh_session=([^;]+)/.exec(res.headers.get('set-cookie'))[1]}`;
