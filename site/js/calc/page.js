@@ -182,6 +182,17 @@ function monthFields(idPrefix, labels) {
   ]);
   const yearLabel = h('label', { for: `${idPrefix}-year`, text: labels.year });
   const monthLabel = h('label', { for: `${idPrefix}-month`, text: labels.month });
+  const refreshMonths = () => {
+    const selectedYear = Number(year.value);
+    Array.from(month.options).forEach((option) => {
+      if (!option.value) return;
+      const available = !selectedYear || Boolean(cpiFor(`${selectedYear}-${String(option.value).padStart(2, '0')}`));
+      option.disabled = !available;
+      if (!available && option.selected) month.value = '';
+    });
+  };
+  year.addEventListener('change', refreshMonths);
+  refreshMonths();
   return {
     nodes: [
       h('div', { class: 'field' }, [yearLabel, year]),
