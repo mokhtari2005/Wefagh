@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { ASSISTANT_SCHEMA, assistantSystemPrompt } from '../worker/src/ai/prompts.js';
 
 test('ساختار پاسخ مشاوره از پرسش‌های چندگزینه‌ای کنترل‌شده پشتیبانی می‌کند', () => {
@@ -28,4 +29,12 @@ test('پیشنهاد نوع سند در صورت نامشخص بودن حذف م
   assert.ok(allowed.every((value) => typeof value === 'string' && value.trim().length > 0));
   const prompt = assistantSystemPrompt({ mode: 'consult' });
   assert.match(prompt, /فیلد suggestedDocType را در خروجی نیاور/u);
+});
+
+
+test('کاربر می‌تواند از پاسخ به پرسش تکمیلی بگذرد و مشاوره را ادامه دهد', () => {
+  const ui = readFileSync(new URL('../site/js/assistant.js', import.meta.url), 'utf8');
+  assert.match(ui, /فعلاً از پاسخ به این پرسش می‌گذرم/u);
+  assert.match(ui, /فعلاً اطلاعاتی برای پاسخ به این پرسش ندارم/u);
+  assert.match(ui, /ارسال پاسخ‌ها و ادامهٔ مشاوره/u);
 });
