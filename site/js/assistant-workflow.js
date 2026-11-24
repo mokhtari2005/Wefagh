@@ -91,11 +91,24 @@ export function createDocumentWizard({ docType, initialValues = {}, onComplete, 
   next.type = 'button';
   const cancel = node('button', 'btn secondary', 'بازگشت به گفت‌وگو');
   cancel.type = 'button';
-  actions.append(back, next, cancel);
+  const build = node('button', 'btn', 'ساخت سند با اطلاعات فعلی');
+  build.type = 'button';
+  build.addEventListener('click', () => {
+    // اگر فیلد الزامی خالی است، همان مرحله نمایش داده می‌شود؛ در غیر این صورت سند با اطلاعات فعلی ساخته می‌شود.
+    const missing = fields.find((field) => field.required && !String(values[field.key] || '').trim());
+    if (missing) {
+      const at = steps.indexOf(missing);
+      if (at >= 0) { index = at; render(); }
+      label.textContent = missing.label + ' ـ الزامی';
+      return;
+    }
+    onComplete({ ...values });
+  });
+  actions.append(back, next, build, cancel);
   root.append(heading, intro, progress, label, controlWrap, actions);
 
   function render() {
-    actions.replaceChildren(back, next, cancel);
+    actions.replaceChildren(back, next, build, cancel);
     back.hidden = false;
     next.hidden = false;
     const field = steps[index];
