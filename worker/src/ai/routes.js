@@ -549,7 +549,7 @@ async function assistant(request, env) {
           'جست‌وجوی حقوقی برخط در مسیرهای جایگزین انجام شد، اما متن مستقیم قابل بازیابی از منبع رسمی به دست نیامد.',
           `وضعیت جست‌وجو: ${webResearch.status || 'نامشخص'}؛ مسیرهای اجراشده: ${(webResearch.routesTried || []).join('، ') || 'ثبت نشده'}.`,
           'این نتیجه به معنای نبودن قانون یا رأی نیست. از خالی گذاشتن مستند خودداری کن: اگر حکم قانونی شناخته‌شده و شماره ماده را با اطمینان واقعی می‌دانی، آن را با توضیح دقیق دامنه و انطباق بیاور؛ در غیر این صورت از منابع معتبر دیگری که در دسترس‌اند برای یافتن مستند جایگزین استفاده کن. هیچ شماره، متن، رأی یا تاریخ را نساز و ادعای مشاهده منبع رسمی نکن.',
-        ].join('\\n');
+        ].join('\n');
       }
     }
     stage = 'gemini_generation';
@@ -605,10 +605,8 @@ async function assistant(request, env) {
     // برای حفظ محرمانگی، در صورت وجود پیوست، پیش‌نویس حاوی محتوای استخراج‌شده به ارائه‌دهندهٔ سوم ارسال نمی‌شود.
     if (attachments.length) {
       reviewStatus = 'skipped_attachments';
-      notes.push('هشدار: بازبینی مستقل به‌دلیل وجود پیوست اجرا نشد.');
     } else if (provider === 'groq') {
       reviewStatus = 'skipped_fallback';
-      notes.push('بازبینی مستقل به‌دلیل استفاده از مسیر جایگزین انجام نشد.');
     } else {
       stage = 'groq_review';
       let reviewArticles = [...curatedArticles.slice(0, 3), ...judicialAuthorities.slice(0, 6), ...legalArticles.slice(0, 5)];
@@ -645,17 +643,13 @@ async function assistant(request, env) {
       if (mode === 'draft' && workersAiConfigured(env)) {
         stage = 'cloudflare_workers_ai_review';
         const thirdReview = await reviewWithWorkersAI(env, { mode, docType, question: message, draft: text });
-        notes.push(thirdReview.status === 'reviewed'
-          ? 'بازبینی مستقل سوم با Cloudflare Workers AI انجام شد.'
-          : 'بازبینی مستقل سوم انجام نشد.');
+        if (thirdReview.status === 'reviewed') notes.push('بازبینی تکمیلی انجام شد.');
       }
     }
     if (!attachments.length && mode === 'draft' && provider === 'groq' && workersAiConfigured(env)) {
       stage = 'cloudflare_workers_ai_review';
       const thirdReview = await reviewWithWorkersAI(env, { mode, docType, question: message, draft: text });
-      notes.push(thirdReview.status === 'reviewed'
-        ? 'بازبینی مستقل سوم با Cloudflare Workers AI انجام شد.'
-        : 'بازبینی مستقل سوم انجام نشد.');
+      if (thirdReview.status === 'reviewed') notes.push('بازبینی تکمیلی انجام شد.');
     }
     for (const a of attachments) {
       if (a.truncated) notes.push(`فقط بخش ابتدایی «${a.name}» (حداکثر ${ATTACHMENT_LIMITS.extractedChars.toLocaleString('fa-IR')} نویسه) بررسی شد.`);
