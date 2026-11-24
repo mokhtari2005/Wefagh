@@ -50,6 +50,8 @@ async function loginAs(env, sent, email) {
   const token = verificationBody.match(/token=([A-Za-z0-9_-]+)/)?.[1];
   assert.ok(token, 'لینک تأیید باید در ایمیل تأیید ثبت‌نام وجود داشته باشد');
   await call(env, '/api/auth/verify-email', { body: { token } });
+  const row = await env.DB.prepare('SELECT id FROM users WHERE email = ?1').bind(email).first();
+  if (row?.id) await env.DB.prepare("UPDATE users SET status='active', membership_status='approved' WHERE id = ?1").bind(row.id).run();
   const res = await call(env, '/api/auth/login', { body: { email, password: user.password } });
   return `wefagh_session=${/wefagh_session=([^;]+)/.exec(res.headers.get('set-cookie'))[1]}`;
 }
