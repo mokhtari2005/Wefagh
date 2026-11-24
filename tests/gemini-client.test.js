@@ -18,7 +18,7 @@ test('Gemini 3 uses low thinking effort and a practical interactive timeout', as
       system: 'پاسخ کوتاه بده',
       contents: [{ role: 'user', parts: [{ text: 'سلام' }] }],
     });
-    assert.deepEqual(result, { text: 'سلام' });
+    assert.deepEqual(result, { text: 'سلام', model: 'gemini-3.8-flash' });
     assert.equal(AI_TIMEOUT_MS, 40_000);
     assert.equal(request.url, 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent');
     assert.deepEqual(request.body.generationConfig.thinkingConfig, { thinkingLevel: 'low' });
@@ -136,7 +136,7 @@ test('Gemini response-body timeout retries once on Flash-Lite', async () => {
       system: 'x',
       contents: [{ role: 'user', parts: [{ text: 'x' }] }],
     });
-    assert.deepEqual(result, { text: 'پاسخ جایگزین' });
+    assert.deepEqual(result, { text: 'پاسخ جایگزین', model: 'gemini-3.5-flash-lite' });
     assert.equal(requests.length, 2);
     assert.ok(requests[1].url.endsWith('/models/gemini-3.5-flash-lite:generateContent'));
   } finally {
@@ -154,7 +154,7 @@ test('Gemini provider 503 falls back once to Flash-Lite', async () => {
   };
   try {
     const result = await generateText(env, { system: 'x', contents: [{ role: 'user', parts: [{ text: 'x' }] }] });
-    assert.deepEqual(result, { text: 'پاسخ' });
+    assert.deepEqual(result, { text: 'پاسخ', model: 'gemini-3.5-flash-lite' });
     assert.equal(requests.length, 2);
     assert.ok(requests[1].endsWith('/models/gemini-3.5-flash-lite:generateContent'));
   } finally {
