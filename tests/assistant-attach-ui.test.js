@@ -46,7 +46,9 @@ test('همهٔ کدهای خطای پیوست متن فارسی دارند و ه
   for (const code of ['UNSUPPORTED_FILE_TYPE', 'FILE_TOO_LARGE', 'FILE_CORRUPT', 'FILE_EMPTY', 'PDF_ENCRYPTED', 'TOO_MANY_FILES']) {
     assert.ok(AI_ERROR_TEXT[code]?.length > 10, code);
   }
-  assert.match(ATTACH_PRIVACY_NOTE, /Gemini/);
+  assert.match(ATTACH_PRIVACY_NOTE, /جمینای/);
+  assert.match(ATTACH_PRIVACY_NOTE, /جی‌پی‌تی/);
+  assert.match(ATTACH_PRIVACY_NOTE, /گروک/);
   assert.match(ATTACH_PRIVACY_NOTE, /هویتی/);
 });
 
