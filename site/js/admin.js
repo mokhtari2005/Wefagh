@@ -823,7 +823,7 @@ export async function adminPage() {
     diagnosticsSelfTest.textContent = 'در حال اجرای آزمون‌ها…';
     diagnosticsTestResults.replaceChildren();
     diagnosticsNotice.className = 'form-status';
-    diagnosticsNotice.textContent = 'در حال بررسی اعتبارسنجی، D1، Gemini و دسترسی خواندن GitHub…';
+    diagnosticsNotice.textContent = 'در حال بررسی اعتبارسنجی، D1، GPT، Gemini و دسترسی خواندن GitHub…';
     try {
       const result = await postJson('/api/admin/diagnostics/self-test', {}, { timeoutMs: 60000 });
       if (!result.ok) {
