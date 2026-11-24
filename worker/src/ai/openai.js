@@ -77,6 +77,41 @@ function buildMessages(system, contents) {
   return messages;
 }
 
+/** آزمون سبک اتصال برای پنل مدیر؛ متن پاسخ و کلید هرگز بازگردانده نمی‌شود. */
+export async function probeOpenAI(env, timeoutMs = 15_000) {
+  const model = openaiModelId(env);
+  if (!openaiConfigured(env)) return { model, status: 'not_configured', ok: false };
+  const started = Date.now();
+  try {
+    await generateOpenAIText(env, {
+      system: 'فقط یک پاسخ کوتاه بده.',
+      contents: [{ role: 'user', parts: [{ text: 'برای آزمون اتصال فقط بنویس: OK' }] }],
+      maxOutputTokens: 32,
+      timeoutMs,
+    });
+    return { model, status: 'ok', ok: true, ms: Date.now() - started };
+  } catch (error) {
+    return {
+      model,
+      status: 'error',
+      ok: false,
+      code: typeof error?.code === 'string' ? error.code : 'AI_PROVIDER_ERROR',
+      httpStatus: Number.isInteger(error?.status) ? error.status : undefined,
+      ms: Date.now() - started,
+    };
+  }
+}
+
+export function openaiProbeHint(result) {
+  if (result?.status === 'ok') return 'سالم';
+  if (result?.status === 'not_configured') return 'کلید OPENAI_API_KEY ثبت نشده است';
+  if (result?.code === 'AI_QUOTA') return 'محدودیت سهمیه یا نرخ درخواست';
+  if (result?.code === 'AI_KEY_REJECTED') return 'کلید نامعتبر یا فاقد دسترسی';
+  if (result?.code === 'AI_MODEL_UNAVAILABLE') return 'مدل در این حساب در دسترس نیست';
+  if (result?.code === 'AI_NETWORK_ERROR') return 'خطای شبکه یا پایان مهلت پاسخ';
+  return 'سرویس پاسخ معتبر نداد';
+}
+
 function extractContent(payload) {
   const choice = payload?.choices?.[0];
   if (choice?.message?.refusal) throw new AiError('AI_BLOCKED', 422);
