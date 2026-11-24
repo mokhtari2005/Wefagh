@@ -306,7 +306,7 @@ export async function reviewLegalDraft(env, { mode, docType, question, draft, le
 export function groqReviewNotes(result) {
   if (!result || result.status !== 'reviewed') {
     const messages = {
-      not_configured: 'کلید سرویس بازبینی مستقل در تنظیمات اجرایی فعال نشده است.',
+      not_configured: 'کلید سرویس بازبینی مستقل در زمان اجرا و تنظیمات اجرایی فعال نشده است.',
       invalid_input: 'متن کافی برای بازبینی مستقل وجود نداشت.',
       quota_exceeded: 'سهمیه رایگان سرویس بازبینی به پایان رسیده است؛ بازبینی مستقل انجام نشد.',
       key_rejected: 'کلید سرویس بازبینی مستقل معتبر یا مجاز نیست.',
