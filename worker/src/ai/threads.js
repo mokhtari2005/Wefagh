@@ -165,7 +165,7 @@ export async function handleThreads(request, env, path) {
       return json({ ok: true, threads: rows?.results || [] });
     }
     if (request.method === 'POST') {
-      const parsed = await readThreadThreadJsonBody(request);
+      const parsed = await readThreadJsonBody(request);
       if (parsed.error) return parsed.error;
       const title = cleanTitle(parsed.body?.title);
       const row = await env.DB
