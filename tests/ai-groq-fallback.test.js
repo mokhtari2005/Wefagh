@@ -67,7 +67,7 @@ test('parses JSON output from Groq for structured assistant responses', async ()
   try {
     const result = await generateTextWithFallback(env, { ...input, json: true });
     assert.equal(result.provider, 'groq');
-    assert.equal(result.data.text, 'پاسخ حقوقی\\n\\nمبنای قانونی\\nماده ۱۰ قانون مدنی');
+    assert.equal(result.data.text, `پاسخ حقوقی\n\nمبنای قانونی\nماده ۱۰ قانون مدنی`);
     assert.equal(result.data.status, 'ready');
   } finally {
     globalThis.fetch = originalFetch;
@@ -76,7 +76,7 @@ test('parses JSON output from Groq for structured assistant responses', async ()
 
 test('removes Markdown stars, headings and list markers from Groq text while preserving numbering and legal punctuation', () => {
   const raw = '**شکایت کیفری**\\n\\n## مبنای قانونی\\n- ماده ۲۲۲ قانون مجازات اسلامی؛\\n1. شرط نخست\\n* شرط دوم';
-  assert.equal(stripGroqFormatting(raw), 'شکایت کیفری\\n\\nمبنای قانونی\\nماده ۲۲۲ قانون مجازات اسلامی؛\\n1. شرط نخست\\nشرط دوم');
+  assert.equal(stripGroqFormatting(raw), `شکایت کیفری\n\nمبنای قانونی\nماده ۲۲۲ قانون مجازات اسلامی؛\n1. شرط نخست\nشرط دوم`);
 });
 
 
