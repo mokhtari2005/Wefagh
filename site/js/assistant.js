@@ -576,7 +576,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     // فقط آخرین پاسخ دستیار قابل پاسخ‌گویی است؛ پرسش‌های قبلی در تاریخچه بسته می‌مانند.
     if (questionItems.length && isLatest) children.push(questionStepper(questionItems));
     if (Array.isArray(m.sources) && m.sources.length) {
-      const sourceItems = m.sources.slice(0, 6).map((source) => {
+      const sourceItems = m.sources.slice(0, 8).map((source) => {
         const details = [
           h('strong', { text: source.title || 'منبع حقوقی' }),
           h('small', { class: 'ai-source-meta', text: [source.type, source.domain, source.status].filter(Boolean).join(' · ') }),
@@ -586,7 +586,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
         return h('li', { class: 'ai-source-item' }, details);
       });
       children.push(h('details', { class: 'ai-sources-panel' }, [
-        h('summary', { text: `مستندات بازیابی‌شده (${Math.min(m.sources.length, 6)})` }),
+        h('summary', { text: `مستندات بازیابی‌شده (${Math.min(m.sources.length, 8)})` }),
         h('ol', { class: 'ai-sources-list' }, sourceItems),
       ]));
     }
