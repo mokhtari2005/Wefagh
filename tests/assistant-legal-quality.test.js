@@ -76,11 +76,11 @@ test('منابع بازیابی‌شده از بانک و جست‌وجو با �
       { title: 'پیوند ناامن', uri: 'javascript:alert(1)', domain: 'unsafe.test', pageTextStatus: 'not_primary_source_domain' },
     ],
   });
-  assert.equal(sources.length, 4);
+  assert.equal(sources.length, 5);
   assert.equal(sources[0].type, 'قانون یا مقرره');
   assert.equal(sources[0].url, 'https://qavanin.ir/law/10');
   assert.equal(sources[1].type, 'رأی یا نظریه قضایی');
   assert.match(sources[2].status, /متن صفحه از دامنه رسمی بازیابی شد/u);
   assert.match(sources[3].status, /دامنه رسمی احراز نشد/u);
-  assert.equal(sources.some((source) => source.url.startsWith('javascript:')), false);
+  assert.equal(sources[4].url, '', 'پیوند ناامن باید بدون href باقی بماند');
 });
