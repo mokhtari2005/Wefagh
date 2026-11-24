@@ -507,6 +507,40 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       h('span', { class: 'ai-role', text: 'دستیار' }),
       h('div', { class: 'ai-text pre-wrap', text: m.text }),
     ];
+    const questionOptions = Array.isArray(m.questionOptions) ? m.questionOptions : [];
+    const freeQuestions = (Array.isArray(m.questions) ? m.questions : []).filter((question) =>
+      typeof question === 'string' && !questionOptions.some((item) => item?.question === question));
+    if (questionOptions.length || freeQuestions.length) {
+      const questionPanel = h('section', { class: 'ai-question-options', 'aria-label': 'پرسش‌های تکمیلی مشاوره' });
+      const addFreeAnswer = (question) => {
+        const answer = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'پاسخ به این پرسش' });
+        answer.addEventListener('click', () => {
+          composerText.value = `${question}\nپاسخ من: `;
+          composerText.focus();
+          counter.textContent = `${composerText.value.length} / ${MESSAGE_LIMIT}`;
+        });
+        questionPanel.append(answer);
+      };
+      freeQuestions.forEach((question) => {
+        questionPanel.append(h('strong', { text: question }));
+        addFreeAnswer(question);
+      });
+      questionOptions.forEach((item) => {
+        if (!item || typeof item.question !== 'string') return;
+        questionPanel.append(h('strong', { text: item.question }));
+        for (const option of (Array.isArray(item.options) ? item.options : []).filter((value) => typeof value === 'string').slice(0, 8)) {
+          const choice = h('button', { class: 'btn secondary ai-mini', type: 'button', text: option });
+          choice.addEventListener('click', () => {
+            composerText.value = `${item.question}\nپاسخ انتخاب‌شده: ${option}`;
+            counter.textContent = `${composerText.value.length} / ${MESSAGE_LIMIT}`;
+            send();
+          });
+          questionPanel.append(choice);
+        }
+        if (item.allowOther !== false) addFreeAnswer(item.question);
+      });
+      if (questionPanel.childElementCount) children.push(questionPanel);
+    }
     if (reviewPanel) children.push(reviewPanel);
     if (m.notes?.length) children.push(h('ul', {
       class: 'ai-notes',
@@ -1150,7 +1184,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     history.push({ role: 'user', text: userText });
     const reply = summarizeReply(res.data, mode);
     const responseNotes = [...(res.data.notes || [])];
-    history.push({ role: 'ai', text: reply, notes: responseNotes, reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null, reviewStatus: typeof res.data.reviewStatus === 'string' ? res.data.reviewStatus : null, reviewFollowups: Array.isArray(res.data.reviewFollowups) ? res.data.reviewFollowups : [], suggestedDocType: typeof res.data.suggestedDocType === 'string' ? res.data.suggestedDocType : '', knownFields: res.data.knownFields && typeof res.data.knownFields === 'object' ? res.data.knownFields : {}, documentDraft: mode === 'draft' && res.data.status === 'ready' && !(res.data.questions || []).length, docType: mode === 'draft' ? docSelect.value : null });
+    history.push({ role: 'ai', text: reply, notes: responseNotes, reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null, reviewStatus: typeof res.data.reviewStatus === 'string' ? res.data.reviewStatus : null, reviewFollowups: Array.isArray(res.data.reviewFollowups) ? res.data.reviewFollowups : [], questionOptions: Array.isArray(res.data.questionOptions) ? res.data.questionOptions : [], questions: Array.isArray(res.data.questions) ? res.data.questions : [], suggestedDocType: typeof res.data.suggestedDocType === 'string' ? res.data.suggestedDocType : '', knownFields: res.data.knownFields && typeof res.data.knownFields === 'object' ? res.data.knownFields : {}, documentDraft: mode === 'draft' && res.data.status === 'ready' && !(res.data.questions || []).length, docType: mode === 'draft' ? docSelect.value : null });
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
     attachments = [];
@@ -1162,7 +1196,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     if (mode === 'consult' && res.data.status === 'ready' && !(res.data.questions || []).length && reply.trim().length >= 120) acceptBtn.hidden = false;
     status.textContent = saved
       ? (mode === 'consult'
-        ? (res.data.status === 'ready' ? 'اگر با جمع‌بندی مشاوره موافقید، نتیجه را تأیید کنید تا وارد مرحله تنظیم سند شوید.' : 'برای مشاهده و پاسخ به پرسش‌های تکمیلی، گزارش بازبینی مستقل را باز کنید.')
+        ? (res.data.status === 'ready' ? 'اگر با جمع‌بندی مشاوره موافقید، نتیجه را تأیید کنید تا وارد مرحله تنظیم سند شوید.' : 'برای ادامه مشاوره، گزینه‌های پرسش تکمیلی را انتخاب کنید یا پاسخ تشریحی بنویسید.')
         : (mode === 'litigation' ? (res.data.reviewReport ? 'پاسخ آماده شد.' : 'پاسخ آماده شد؛ گزارش بازبینی مستقل در این نوبت ارائه نشد.') : mode === 'draft' && (res.data.status === 'need_info' || (res.data.questions || []).length) ? 'برای تکمیل پیش‌نویس، به پرسش‌های دستیار پاسخ دهید.' : 'خروجی آماده است.'))
       : 'پاسخ نمایش داده شد، اما ذخیرهٔ آن در تاریخچه انجام نشد.';
   }
