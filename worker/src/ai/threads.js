@@ -116,7 +116,7 @@ function parseMetadata(value) {
   }
 }
 
-async function readThreadThreadJsonBody(request) {
+async function readThreadJsonBody(request) {
   const type = request.headers.get('content-type') || '';
   if (!type.toLowerCase().includes('application/json')) return { error: json({ ok: false, error: 'UNSUPPORTED_MEDIA_TYPE' }, 415) };
   const declared = Number(request.headers.get('content-length') || 0);
