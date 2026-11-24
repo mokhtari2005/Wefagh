@@ -50,6 +50,27 @@ function cleanKnownFields(value) {
   return output;
 }
 
+function cleanSources(value) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 6).map((item) => {
+    let url = '';
+    if (typeof item?.url === 'string' && item.url.trim()) {
+      try {
+        const parsed = new URL(item.url);
+        if (parsed.protocol === 'https:' && (!parsed.port || parsed.port === '443') && !parsed.username && !parsed.password) url = parsed.href;
+      } catch {}
+    }
+    return {
+      type: shortText(item?.type, 40),
+      title: shortText(item?.title, 180),
+      url,
+      domain: shortText(item?.domain, 100),
+      status: shortText(item?.status, 120),
+      excerpt: shortText(item?.excerpt, 160),
+    };
+  }).filter((item) => item.title);
+}
+
 function cleanReviewReport(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const report = {
@@ -87,6 +108,7 @@ function cleanMetadata(value) {
   metadata.questionOptions = cleanQuestionOptions(value.questionOptions);
   metadata.knownFields = cleanKnownFields(value.knownFields);
   metadata.notes = cleanStringArray(value.notes, 8, 350);
+  metadata.sources = cleanSources(value.sources);
   if (REVIEW_STATUSES.has(value.reviewStatus)) metadata.reviewStatus = value.reviewStatus;
   metadata.reviewFollowups = cleanQuestionOptions(value.reviewFollowups);
   const report = cleanReviewReport(value.reviewReport);
@@ -95,6 +117,10 @@ function cleanMetadata(value) {
   let serialized = JSON.stringify(metadata);
   if (serialized.length > MAX_METADATA_CHARS) {
     delete metadata.reviewReport;
+    serialized = JSON.stringify(metadata);
+  }
+  if (serialized.length > MAX_METADATA_CHARS) {
+    metadata.sources = metadata.sources.slice(0, 4).map(({ type, title, url, domain, status }) => ({ type, title, url, domain, status }));
     serialized = JSON.stringify(metadata);
   }
   if (serialized.length > MAX_METADATA_CHARS) {
