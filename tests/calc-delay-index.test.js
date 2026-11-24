@@ -21,7 +21,7 @@ test('خسارت بر پایه نسبت شاخص سالانه منتشرشده �
 test('دوره فاقد داده شاخص، بدون تخمین رد می‌شود', () => {
   const result = indexedDelayDamage({
     principal: 1_000_000,
-    startIso: '2020-03-21',
+    startIso: '1994-03-20',
     endIso: '2021-04-21',
   });
   assert.equal(result.ok, false);
