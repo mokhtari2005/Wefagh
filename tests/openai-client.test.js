@@ -18,8 +18,10 @@ const input = {
 
 function success(content = '{"status":"ready","questions":[],"notes":[],"text":"پاسخ آزمایشی"}') {
   return new Response(JSON.stringify({
-    choices: [{ message: { role: 'assistant', content }, finish_reason: 'stop' }],
-    usage: { prompt_tokens: 12, completion_tokens: 18, total_tokens: 30 },
+    id: 'resp_test_123',
+    status: 'completed',
+    output: [{ type: 'message', role: 'assistant', content: [{ type: 'output_text', text: content }] }],
+    usage: { input_tokens: 12, output_tokens: 18, total_tokens: 30 },
   }), { status: 200, headers: { 'content-type': 'application/json' } });
 }
 
@@ -40,15 +42,18 @@ test('sends structured assistant requests to the configured GPT model and parses
   };
   try {
     const result = await generateOpenAIText(env, input);
-    assert.equal(request.url, 'https://api.openai.com/v1/chat/completions');
+    assert.equal(request.url, 'https://api.openai.com/v1/responses');
     assert.equal(request.options.headers.authorization, `Bearer ${env.OPENAI_API_KEY}`);
     assert.equal(request.body.model, 'gpt-6.2-astra');
-    assert.equal(request.body.max_completion_tokens, 1200);
-    assert.equal(request.body.reasoning_effort, 'medium');
-    assert.equal(request.body.response_format.type, 'json_schema');
-    assert.equal(request.body.response_format.json_schema.strict, true);
-    assert.deepEqual(request.body.response_format.json_schema.schema.required, ['status', 'optionalNote']);
-    assert.deepEqual(request.body.response_format.json_schema.schema.properties.optionalNote, { anyOf: [{ type: 'string' }, { type: 'null' }] });
+    assert.equal(request.body.max_output_tokens, 1200);
+    assert.equal(request.body.reasoning.effort, 'medium');
+    assert.equal(request.body.store, false);
+    assert.equal(request.body.instructions, 'پاسخ حقوقی دقیق بده.\\n\\nوقتی خروجی ساخت‌یافته خواسته شده است، فقط یک شیء JSON معتبر و مطابق طرح‌واره برگردان؛ متن پیرامونی یا حصار Markdown اضافه نکن.');
+    assert.deepEqual(request.body.input, [{ role: 'user', content: 'سؤال حقوقی آزمایشی' }]);
+    assert.equal(request.body.text.format.type, 'json_schema');
+    assert.equal(request.body.text.format.strict, true);
+    assert.deepEqual(request.body.text.format.schema.required, ['status', 'optionalNote']);
+    assert.deepEqual(request.body.text.format.schema.properties.optionalNote, { anyOf: [{ type: 'string' }, { type: 'null' }] });
     assert.equal(result.provider, 'openai');
     assert.equal(result.model, 'gpt-6.2-astra');
     assert.equal(result.data.status, 'ready');
