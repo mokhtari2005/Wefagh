@@ -116,11 +116,14 @@ test('ارسال مجدد مدیریتی در دورهٔ محدودیت، درخ
 
 test('تشخیص هوش مصنوعی: فقط مدیر؛ نتیجهٔ مدل اصلی و جایگزین بدون افشای کلید', { skip }, async () => {
   const original = globalThis.fetch;
-  globalThis.fetch = async (url) => (String(url).includes('gemini-2.5-flash:')
-    ? new Response(JSON.stringify({ error: { status: 'PERMISSION_DENIED', message: 'secret detail' } }), { status: 403 })
-    : new Response(JSON.stringify({ candidates: [] }), { status: 200 }));
+  globalThis.fetch = async (url) => {
+    const target = String(url);
+    if (target.includes('api.openai.com')) return new Response(JSON.stringify({ error: { message: 'secret detail' } }), { status: 403 });
+    if (target.includes('gemini-2.5-flash:')) return new Response(JSON.stringify({ error: { status: 'PERMISSION_DENIED', message: 'secret detail' } }), { status: 403 });
+    return new Response(JSON.stringify({ candidates: [] }), { status: 200 });
+  };
   try {
-    const { env, sent } = setup({ GEMINI_API_KEY: 'AIza-test-key-0123456789', GEMINI_TEXT_MODEL: 'gemini-2.5-flash' });
+    const { env, sent } = setup({ OPENAI_API_KEY: 'sk-test-openai-key-0123456789abcdef', GEMINI_API_KEY: 'AIza-test-key-0123456789', GEMINI_TEXT_MODEL: 'gemini-2.5-flash' });
     assert.equal((await call(env, '/api/admin/ai/status', { method: 'GET' })).status, 401);
     const user = await loginAs(env, sent, 'user@example.com');
     assert.equal((await call(env, '/api/admin/ai/status', { method: 'GET', cookie: user })).status, 403);
@@ -129,11 +132,15 @@ test('تشخیص هوش مصنوعی: فقط مدیر؛ نتیجهٔ مدل اص
     const text = await res.text();
     const body = JSON.parse(text);
     assert.equal(body.configured, true);
-    const [primary, fallback] = body.models;
+    const [primary, geminiPrimary, fallback] = body.models;
+    assert.equal(primary.provider, 'openai');
     assert.equal(primary.role, 'اصلی');
     assert.equal(primary.ok, false);
-    assert.equal(primary.httpStatus, 403);
-    assert.equal(primary.reason, 'PERMISSION_DENIED');
+    assert.equal(primary.code, 'AI_KEY_REJECTED');
+    assert.equal(geminiPrimary.provider, 'gemini');
+    assert.equal(geminiPrimary.ok, false);
+    assert.equal(geminiPrimary.httpStatus, 403);
+    assert.equal(geminiPrimary.reason, 'PERMISSION_DENIED');
     assert.equal(fallback.ok, true);
     assert.ok(!text.includes('AIza-test-key') && !text.includes('secret detail'));
   } finally {
