@@ -9,7 +9,7 @@
 // خسارت = مبلغ روز دین − اصل دین.
 // داده‌ها فقط از جدول cpi-data.js خوانده می‌شوند؛ هیچ ماهی درون‌یابی یا تخمین زده نمی‌شود.
 
-import { cpiFor, cpiCoverage, CPI_SOURCE } from './cpi-data.js';
+import { cpiFor, cpiCoverage, CPI_SOURCE, CPI_HISTORICAL_SOURCE } from './cpi-data.js';
 
 /** نکاتی که باید پیش از استفاده از عدد احراز شود؛ همیشه در خروجی نمایش داده می‌شوند. */
 export const LEGAL_VERIFICATION_POINTS = Object.freeze([
@@ -85,6 +85,24 @@ export function indexedDelayDamage({ principal, startIso, endIso, startBasis = '
   const ratio = end.index / start.index;
   const damage = Math.round(principal * (ratio - 1));
   const total = principal + damage;
+  const sourceFor = (record) => record.source === CPI_HISTORICAL_SOURCE.id
+    ? {
+        title: CPI_HISTORICAL_SOURCE.title,
+        publisher: CPI_HISTORICAL_SOURCE.publisher,
+        base: CPI_HISTORICAL_SOURCE.base,
+        url: CPI_HISTORICAL_SOURCE.url,
+        note: CPI_HISTORICAL_SOURCE.note,
+      }
+    : {
+        title: CPI_SOURCE.title,
+        publisher: CPI_SOURCE.publisher,
+        base: '۱۴۰۰=۱۰۰',
+        note: CPI_SOURCE.note,
+      };
+  const sources = [sourceFor(start), sourceFor(end)].filter((source, index, all) =>
+    all.findIndex((candidate) => candidate.title === source.title) === index
+  );
+
   return {
     ok: true,
     principal,
@@ -104,8 +122,9 @@ export function indexedDelayDamage({ principal, startIso, endIso, startBasis = '
       `جمع اصل و خسارت = ${total} ریال`,
     ],
     source: {
-      title: CPI_SOURCE.title,
-      publisher: CPI_SOURCE.publisher,
+      title: sources.map((source) => source.title).join('؛ '),
+      publisher: sources.map((source) => source.publisher).join('؛ '),
+      sources,
       reportPublishedAt: CPI_SOURCE.reportPublishedAt,
       file: CPI_SOURCE.file,
       startPage: start.pdfPage,

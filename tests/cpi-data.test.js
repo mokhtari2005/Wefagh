@@ -1,7 +1,7 @@
 // آزمون داده‌های شاخص بانک مرکزی: ارقام با تصویر گزارش شهریور ۱۴۰۵ مطابقت دارند، جدول پیوسته است و ماه تخمینی ندارد.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CPI_RECORDS, CPI_SOURCE, cpiFor, cpiCoverage } from '../site/js/calc/cpi-data.js';
+import { CPI_RECORDS, CPI_SOURCE, CPI_HISTORICAL_SOURCE, cpiFor, cpiCoverage } from '../site/js/calc/cpi-data.js';
 
 test('ارقام کلیدی گزارش: فروردین ۱۴۰۰ = ۸۳٫۳، تیر ۱۴۰۵ = ۷۴۲٫۸، شهریور ۱۴۰۵ = ۸۰۰٫۰', () => {
   assert.equal(cpiFor('1400-01').index, 83.3);
@@ -15,9 +15,9 @@ test('ارقام کلیدی گزارش: فروردین ۱۴۰۰ = ۸۳٫۳، ت�
   assert.equal(shahrivar.yearOverYearChangePct, 83.8);
 });
 
-test('جدول پیوسته است: از فروردین ۱۴۰۰ تا شهریور ۱۴۰۵، بدون ماه جاافتاده یا تکراری (۶۶ ماه)', () => {
-  assert.deepEqual(cpiCoverage(), { first: '1400-01', last: '1405-06' });
-  assert.equal(CPI_RECORDS.length, 66);
+test('جدول ماهانه تاریخی پیوسته است: از فروردین ۱۳۷۳ تا شهریور ۱۴۰۵، بدون ماه جاافتاده یا تکراری', () => {
+  assert.deepEqual(cpiCoverage(), { first: '1373-01', last: '1405-06' });
+  assert.equal(CPI_RECORDS.length, 390);
   const keys = CPI_RECORDS.map((r) => r.periodKey);
   assert.equal(new Set(keys).size, keys.length);
   for (let i = 1; i < keys.length; i += 1) {
@@ -45,17 +45,24 @@ test('کنترل داخلی: تغییر ماهانه و سالانه، هر جا
   }
 });
 
-test('هر ماه منبع، شماره صفحهٔ PDF، شماره صفحهٔ چاپی، تاریخ انتشار و مبنا دارد؛ ماه بدون داده پاسخ ندارد', () => {
+test('منبع و مبنای هر بخش از جدول مشخص است و ماه فاقد داده پاسخ ندارد', () => {
   for (const r of CPI_RECORDS) {
     assert.equal(r.base, '۱۴۰۰=۱۰۰');
-    assert.equal(r.source, CPI_SOURCE.id);
-    assert.equal(r.sourceFile, '1a46bdcb');
-    assert.ok([6, 7].includes(r.pdfPage), r.periodKey);
-    assert.equal(r.printedPage, r.pdfPage - 1);
-    assert.equal(r.publishedAt, 'مهرماه ۱۴۰۵');
-    assert.equal(r.status, 'source_read');
     assert.ok(Number.isFinite(r.index) && r.index > 0);
+    if (r.status === 'source_read') {
+      assert.equal(r.source, CPI_SOURCE.id);
+      assert.equal(r.sourceFile, '1a46bdcb');
+      assert.ok([6, 7].includes(r.pdfPage), r.periodKey);
+      assert.equal(r.printedPage, r.pdfPage - 1);
+      assert.equal(r.publishedAt, 'مهرماه ۱۴۰۵');
+    } else {
+      assert.equal(r.status, 'historical_rebased');
+      assert.equal(r.source, CPI_HISTORICAL_SOURCE.id);
+      assert.equal(r.pdfPage, null);
+      assert.equal(r.base, '۱۴۰۰=۱۰۰');
+    }
   }
-  assert.equal(cpiFor('1399-12'), null, 'قبل از ۱۴۰۰ داده‌ای ثبت نشده است');
+  assert.ok(cpiFor('1399-12'), 'شاخص ماهانه تاریخی تا اسفند ۱۳۹۹ موجود است');
+  assert.equal(cpiFor('1372-12'), null, 'برای این دوره شاخص ماهانه در داده‌های موجود نیست');
   assert.equal(cpiFor('1405-07'), null, 'بعد از شهریور ۱۴۰۵ داده‌ای ثبت نشده است');
 });
