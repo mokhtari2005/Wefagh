@@ -41,10 +41,7 @@ export function toOpenAIJsonSchema(source, required = true) {
     const requiredKeys = new Set(Array.isArray(source.required) ? source.required : []);
     const properties = {};
     for (const [key, child] of entries) {
-      const childSchema = toOpenAIJsonSchema(child, requiredKeys.has(key));
-      properties[key] = requiredKeys.has(key)
-        ? childSchema
-        : { anyOf: [childSchema, { type: 'null' }] };
+      properties[key] = toOpenAIJsonSchema(child, requiredKeys.has(key));
     }
     output = {
       type: 'object',
