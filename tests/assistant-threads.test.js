@@ -46,6 +46,7 @@ async function setup() {
   db.exec(migration('0001_init.sql'));
   db.exec(migration('0002_auth.sql'));
   db.exec(migration('0010_assistant_threads.sql'));
+  db.exec(migration('0011_assistant_message_metadata.sql'));
   const env = { DB: d1Like(db) };
   const cookies = {};
   for (const name of ['الف', 'ب']) {
@@ -80,11 +81,23 @@ test('ساخت گفت‌وگو، افزودن پیام و بازیابی ترت�
   const id = created.thread.id;
 
   for (const [role, content] of [['user', 'سلام'], ['ai', 'پاسخ'], ['user', 'ادامه']]) {
-    const r = await worker.fetch(req(`/api/ai/threads/${id}/messages`, { method: 'POST', body: { role, content }, cookie: cookies['الف'] }), env);
+    const metadata = role === 'ai' ? {
+      mode: 'consult',
+      status: 'need_info',
+      questionOptions: [{ question: 'سمت شما چیست؟', options: ['خواهان', 'خوانده'], allowOther: true }],
+      knownFields: { partyOneName: 'نام نمونه', injectedField: 'نباید ذخیره شود' },
+      privateField: 'نباید ذخیره شود',
+    } : undefined;
+    const r = await worker.fetch(req(`/api/ai/threads/${id}/messages`, { method: 'POST', body: { role, content, metadata }, cookie: cookies['الف'] }), env);
     assert.equal(r.status, 201);
   }
   const msgs = await (await worker.fetch(req(`/api/ai/threads/${id}/messages`, { cookie: cookies['الف'] }), env)).json();
   assert.deepEqual(msgs.messages.map((m) => [m.role, m.content]), [['user', 'سلام'], ['ai', 'پاسخ'], ['user', 'ادامه']]);
+  assert.equal(msgs.messages[1].metadata.mode, 'consult');
+  assert.equal(msgs.messages[1].metadata.status, 'need_info');
+  assert.deepEqual(msgs.messages[1].metadata.questionOptions[0].options, ['خواهان', 'خوانده']);
+  assert.deepEqual(msgs.messages[1].metadata.knownFields, { partyOneName: 'نام نمونه' });
+  assert.equal('privateField' in msgs.messages[1].metadata, false);
 
   const list = await (await worker.fetch(req('/api/ai/threads', { cookie: cookies['الف'] }), env)).json();
   assert.equal(list.threads.length, 1);
