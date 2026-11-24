@@ -86,6 +86,7 @@ test('ساخت گفت‌وگو، افزودن پیام و بازیابی ترت�
       status: 'need_info',
       questionOptions: [{ question: 'سمت شما چیست؟', options: ['خواهان', 'خوانده'], allowOther: true }],
       knownFields: { partyOneName: 'نام نمونه', injectedField: 'نباید ذخیره شود' },
+      sources: [{ type: 'قانون', title: 'قانون مدنی ـ ماده ۱۰', url: 'https://qavanin.ir/law', domain: 'qavanin.ir', status: 'تأییدشده' }, { type: 'نتیجه جست‌وجو', title: 'پیوند نامعتبر', url: 'javascript:alert(1)' }],
       privateField: 'نباید ذخیره شود',
     } : undefined;
     const r = await worker.fetch(req(`/api/ai/threads/${id}/messages`, { method: 'POST', body: { role, content, metadata }, cookie: cookies['الف'] }), env);
@@ -97,6 +98,8 @@ test('ساخت گفت‌وگو، افزودن پیام و بازیابی ترت�
   assert.equal(msgs.messages[1].metadata.status, 'need_info');
   assert.deepEqual(msgs.messages[1].metadata.questionOptions[0].options, ['خواهان', 'خوانده']);
   assert.deepEqual(msgs.messages[1].metadata.knownFields, { partyOneName: 'نام نمونه' });
+  assert.equal(msgs.messages[1].metadata.sources[0].url, 'https://qavanin.ir/law');
+  assert.equal(msgs.messages[1].metadata.sources[1].url, '');
   assert.equal('privateField' in msgs.messages[1].metadata, false);
 
   const longPersianReply = 'متن حقوقی طولانی '.repeat(700);
