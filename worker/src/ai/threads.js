@@ -116,7 +116,7 @@ function parseMetadata(value) {
   }
 }
 
-async function readThreadJsonBody(request) {
+async function readThreadThreadJsonBody(request) {
   const type = request.headers.get('content-type') || '';
   if (!type.toLowerCase().includes('application/json')) return { error: json({ ok: false, error: 'UNSUPPORTED_MEDIA_TYPE' }, 415) };
   const declared = Number(request.headers.get('content-length') || 0);
@@ -165,7 +165,7 @@ export async function handleThreads(request, env, path) {
       return json({ ok: true, threads: rows?.results || [] });
     }
     if (request.method === 'POST') {
-      const parsed = await readThreadJsonBody(request);
+      const parsed = await readThreadThreadJsonBody(request);
       if (parsed.error) return parsed.error;
       const title = cleanTitle(parsed.body?.title);
       const row = await env.DB
@@ -190,7 +190,7 @@ export async function handleThreads(request, env, path) {
       return json({ ok: true, messages: (rows?.results || []).map((row) => ({ ...row, metadata: parseMetadata(row.metadata_json) })) });
     }
     if (request.method !== 'POST') return fail('METHOD_NOT_ALLOWED', 405);
-    const parsed = await readJsonBody(request);
+    const parsed = await readThreadJsonBody(request);
     if (parsed.error) return parsed.error;
     const role = parsed.body?.role;
     const content = typeof parsed.body?.content === 'string' ? parsed.body.content.trim() : '';
