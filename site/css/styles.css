@@ -3469,6 +3469,10 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
 
 /* PWA installation links live in the footer, never in the responsive header. */
 .pwa-install-links { display:grid; gap:.55rem; width:100%; padding:.9rem 0; border-top:1px solid rgba(255,255,255,.16); }
+.pwa-install-title { color: #111; }
+.pwa-platform-icon { display: grid; place-items: center; background: #e5d8c3; color: #111; }
+.pwa-platform-icon svg { display: block; width: 25px; height: 25px; color: #111; }
+#pwa-install-ios { color: #111; background: #fffdf8; border-color: #8d8170; }
 .pwa-install-title { color:var(--bone); font-size:.9rem; }
 .pwa-install-actions { display:flex; flex-wrap:wrap; gap:.65rem; }
 .pwa-install-link { display:inline-flex; align-items:center; gap:.65rem; min-width:190px; padding:.55rem .85rem; border:1px solid rgba(255,255,255,.22); border-radius:12px; background:rgba(255,255,255,.07); color:var(--bone); text-align:right; font:inherit; cursor:pointer; }
