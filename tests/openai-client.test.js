@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generateOpenAIText, openaiConfigured, openaiModelId, toOpenAIJsonSchema } from '../worker/src/ai/openai.js';
+import { generateOpenAIText, openaiConfigured, openaiModelId, toOpenAIJsonSchema, probeOpenAI, openaiProbeHint } from '../worker/src/ai/openai.js';
 
 const env = {
   OPENAI_API_KEY: 'sk-test-openai-key-123456789012345',
@@ -127,4 +127,36 @@ test('converts nested Gemini schemas to strict OpenAI JSON Schema with nullable 
     }, { type: 'null' }],
   });
   assert.deepEqual(schema.properties.choices, { type: 'array', items: { type: 'string' } });
+});
+
+
+test('admin GPT probe reports only health metadata and never returns generated text', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => success('OK');
+  try {
+    const result = await probeOpenAI(env);
+    assert.equal(result.status, 'ok');
+    assert.equal(result.ok, true);
+    assert.equal(result.model, 'gpt-6.2-astra');
+    assert.equal(typeof result.ms, 'number');
+    assert.equal('text' in result, false);
+    assert.equal(openaiProbeHint(result), 'سالم');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('admin GPT probe reports a missing secret without making a network request', async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => { calls += 1; return success(); };
+  try {
+    const result = await probeOpenAI({});
+    assert.equal(result.status, 'not_configured');
+    assert.equal(result.ok, false);
+    assert.equal(openaiProbeHint(result), 'کلید OPENAI_API_KEY ثبت نشده است');
+    assert.equal(calls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
