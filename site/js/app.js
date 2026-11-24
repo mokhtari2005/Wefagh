@@ -337,7 +337,7 @@ const ROUTES = {
   '/moot-court': (params) => lazy(async () => (await import('./moot.js')).mootCourtPage(params)),
   '/assistant': () => lazy(async () => (await import('./assistant-forms.js?v=20261123-assistant-loading-fix-1')).assistantMenuPage()),
   '/assistant/documents': () => lazy(async () => (await import('./assistant-forms.js?v=20261122-legal-workbench-1')).assistantDocumentsMenuPage()),
-  '/assistant/consult': (params) => lazy(async () => (await import('./assistant.js?v=20261125-choice-flow-2')).assistantPage(params)),
+  '/assistant/consult': (params) => lazy(async () => (await import('./assistant.js?v=20261125-gpt-primary-assistant-1')).assistantPage(params)),
   '/assistant/litigation': (params) => lazy(async () => (await import('./assistant.js?v=20261125-choice-flow-2')).assistantPage({ ...params, mode: 'litigation' })),
   '/assistant/research': (params) => lazy(async () => (await import('./assistant.js?v=20261125-choice-flow-2')).assistantPage({ ...params, mode: 'research' })),
   '/voice-typing': () => lazy(async () => (await import('./voice-typing.js')).voiceTypingPage()),
