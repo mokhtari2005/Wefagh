@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateTextWithFallback } from '../worker/src/ai/fallback.js';
 
-const env = { GROQ_API_KEY: 'gsk_test_key_for_unit_tests_1234567890' };
+const env = { GEMINI_API_KEY: 'test-gemini-key-1234567890', GEMINI_TEXT_MODEL: 'gemini-3.5-flash-lite', GROQ_API_KEY: 'gsk_test_key_for_unit_tests_1234567890' };
 const prompt = {
   system: 'دستیار حقوقی',
   contents: [{ role: 'user', parts: [{ text: 'یک پاسخ آزمایشی بده.' }] }],
