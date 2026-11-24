@@ -481,10 +481,6 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
     guarded = guarded.replace(/ماده‌ای که شماره آن احراز نشده/gu, 'شماره ماده تأییدنشده');
     changed = true;
   }
-  if (/ماده‌ای که شماره آن احراز نشده/gu.test(guarded)) {
-    guarded = guarded.replace(/ماده‌ای که شماره آن احراز نشده/gu, 'شماره ماده تأییدنشده');
-    changed = true;
-  }
   guarded = guarded
     .replace(/ماده\s*\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده تأییدنشده از')
     .replace(/\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده تأییدنشده از')
