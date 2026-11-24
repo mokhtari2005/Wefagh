@@ -484,7 +484,7 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
   guarded = guarded
     .replace(/ماده\s*\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده تأییدنشده (شماره نیازمند تطبیق با متن رسمی)')
     .replace(/\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده (شماره نیازمند تطبیق با متن رسمی)')
-    .replace(/\\[مدت نیازمند تطبیق با منبع رسمی\\]/gu, 'مدت نیازمند تطبیق با منبع رسمی');
+    .replace(/\[مدت نیازمند تطبیق با منبع رسمی\]/gu, 'مدت نیازمند تطبیق با منبع رسمی');
   if (guarded !== text) changed = true;
   return { text: guarded, changed };
 }
