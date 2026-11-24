@@ -12,7 +12,11 @@ const FAILOVER_CODES = new Set([
 /** نشانه‌های ظاهری Markdown را حذف می‌کند و متن، تیترها و شماره‌گذاری حقوقی را نگه می‌دارد. */
 export function stripResponseFormatting(value) {
   if (typeof value !== 'string') return value;
-  return value
+  const normalized = value
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '\n');
+  return normalized
     .replace(/\r/g, '')
     .replace(/^[ \t]*(?:[-*_][ \t]*){3,}$/gm, '')
     .replace(/^[ \t]*#{1,6}[ \t]*/gm, '')
