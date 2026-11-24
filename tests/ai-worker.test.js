@@ -595,11 +595,11 @@ test('تحلیل چندمنظری litigation سابقه پرونده را در �
     const data = await res.json();
     assert.equal(res.status, 200);
     assert.equal(data.ok, true);
-    assert.equal(assistantRequests.length, 1);
-    assert.match(assistantRequests[0].system, /قوی‌ترین دفاع‌ها، ایرادهای شکلی و ماهوی/);
-    assert.match(assistantRequests[0].system, /نقش تو وکیل موکل\/کاربر است/);
-    assert.match(assistantRequests[0].system, /قاضی بی‌طرف و ارزیاب/);
-    assert.match(JSON.stringify(assistantRequests[0].contents), /فروشنده در قرارداد آزادی ملک را تضمین کرده است/);
+    assert.equal(assistantRequests.length, 7);
+    assert.ok(assistantRequests.some((item) => /قوی‌ترین دفاع‌ها، ایرادهای شکلی و ماهوی/u.test(item.system)));
+    assert.ok(assistantRequests.some((item) => /نقش تو وکیل موکل\/کاربر است/u.test(item.system)));
+    assert.ok(assistantRequests.some((item) => /قاضی بی‌طرف و ارزیاب/u.test(item.system)));
+    assert.ok(assistantRequests.every((item) => /فروشنده در قرارداد آزادی ملک را تضمین کرده است/u.test(JSON.stringify(item.contents))));
     assert.match(data.text, /واقعیت‌های مستند/);
   });
 });
