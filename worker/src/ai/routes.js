@@ -553,7 +553,7 @@ async function assistant(request, env) {
         ].join('\n');
       }
     }
-    stage = 'gemini_generation';
+    stage = 'primary_model_generation';
     const generationMode = mode === 'litigation' ? 'consult' : mode;
     let data;
     let truncated = false;
@@ -564,9 +564,8 @@ async function assistant(request, env) {
         contents,
         // توکن‌های «تفکر» مدل هم از این سقف کم می‌شوند؛ سقف پایین باعث قطع شدن پیش‌نویس‌های فارسی می‌شد.
         maxOutputTokens: generationMode === 'consult' ? 5500 : 6000,
-        // برای پاسخ تعاملی، Gemini اصلی حداکثر ۲۰ ثانیه و مدل جایگزین ۱۲ ثانیه فرصت دارد؛
-        // پس از دو شکست، مسیر Groq فعال می‌شود و یک تلاش سومِ تکراری روی Gemini تأخیر نمی‌سازد.
-        timeoutMs: 20_000,
+        // برای پاسخ تعاملی، مدل اصلی حداکثر ۳۰ ثانیه فرصت دارد؛ در مسیر جایگزین، زمان مدل دوم محدودتر است.
+        timeoutMs: 30_000,
         fallbackTimeoutMs: 12_000,
         json: true,
         schema: ASSISTANT_SCHEMA,
