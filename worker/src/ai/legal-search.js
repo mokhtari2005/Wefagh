@@ -212,10 +212,12 @@ export async function searchLegalAuthorities(env, input) {
   const collected = new Map();
   const summaries = [];
   const discoveredQueries = [];
+  const routesTried = [];
   let lastCode = 'SEARCH_FAILED';
   let successfulAttempts = 0;
 
   for (const attempt of attempts) {
+    routesTried.push(attempt.label);
     try {
       const result = await generateText(env, {
         system: [
@@ -258,7 +260,7 @@ export async function searchLegalAuthorities(env, input) {
       sources: [],
       summary,
       attempts: attempts.length,
-      routesTried: attempts.map((item) => item.label),
+      routesTried,
     };
   }
   return {
@@ -267,6 +269,6 @@ export async function searchLegalAuthorities(env, input) {
     sources,
     queries: discoveredQueries.slice(0, 10),
     attempts: successfulAttempts,
-    routesTried: attempts.map((item) => item.label),
+    routesTried,
   };
 }
