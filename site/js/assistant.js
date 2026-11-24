@@ -1097,6 +1097,27 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     docSelect.focus();
   });
 
+  // پس از ساخت پیش‌نویس، متن در یک نمای ویرایشی جداگانه نمایش داده می‌شود تا کاربر آن را بیابد، ویرایش یا دریافت کند.
+  function showDraftResult(text, type) {
+    const label = DOC_TYPES.find(([value]) => value === type)?.[1] || 'سند حقوقی';
+    const editor = h('textarea', { class: 'ai-party-input ai-draft-editor', rows: '18', 'aria-label': 'متن سند تنظیم‌شده' });
+    editor.value = text;
+    const word = h('button', { class: 'btn', type: 'button', text: 'دریافت فایل ورد' });
+    word.addEventListener('click', () => downloadWordDocument(editor.value, label));
+    const pdf = h('button', { class: 'btn secondary', type: 'button', text: 'چاپ یا دریافت پی‌دی‌اف' });
+    pdf.addEventListener('click', () => { if (!printDocumentPdf(editor.value, label)) status.textContent = 'پنجرهٔ چاپ باز نشد؛ اجازهٔ پنجرهٔ جدید را بررسی کنید.'; });
+    const close = h('button', { class: 'btn secondary', type: 'button', text: 'بازگشت به گفت‌وگو' });
+    close.addEventListener('click', () => { partyPanel.hidden = true; });
+    partyPanel.replaceChildren(
+      h('h3', { text: `سند آماده شد: ${label}` }),
+      h('p', { class: 'muted', text: 'متن را می‌توانید مستقیماً ویرایش کنید، سپس فایل ورد یا پی‌دی‌اف دریافت کنید. این پیش‌نویس جایگزین بررسی وکیل نیست.' }),
+      editor,
+      h('div', { class: 'ai-wizard-actions' }, [word, pdf, close]),
+    );
+    partyPanel.hidden = false;
+    partyPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   async function send() {
     if (busy) return;
     const rawTyped = composerText.value.trim();
@@ -1181,6 +1202,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     attachments = [];
     renderAttachments();
     renderLog({ revealLatest: true });
+    if (mode === 'draft' && reply.trim() && res.data.status !== 'need_info') showDraftResult(reply, docSelect.value);
     const saved = await persistTurn(userText, reply).catch(() => false);
     if (mode === 'consult' && voiceMode) speakReply(reply);
     // گزینه ورود به تنظیم سند فقط با اعلام آمادگی صریح سرور، بدون سؤال باز و با جمع‌بندی واقعی ظاهر می‌شود.
