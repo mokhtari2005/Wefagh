@@ -36,6 +36,9 @@ test('کاربر می‌تواند از پاسخ به پرسش تکمیلی بگ
   const ui = readFileSync(new URL('../site/js/assistant.js', import.meta.url), 'utf8');
   assert.match(ui, /فعلاً از پاسخ به این پرسش می‌گذرم/u);
   assert.match(ui, /فعلاً اطلاعاتی برای پاسخ به این پرسش ندارم/u);
+  assert.match(ui, /m\.metadata && typeof m\.metadata === 'object'/u);
+  assert.match(ui, /history\.push\(\{ role, text: m\.content, \.\.\.metadata \}\)/u);
+  assert.match(ui, /latest\.status === 'ready'/u);
   assert.match(ui, /ارسال پاسخ‌ها و ادامهٔ مشاوره/u);
   assert.match(ui, /پیام‌های متنی برای تولید پاسخ به جی‌پی‌تی/u);
   assert.match(ui, /متن درخواست و پیش‌نویس ممکن است/u);
