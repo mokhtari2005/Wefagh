@@ -9,9 +9,11 @@ const css = readFileSync(new URL('../site/css/styles.css', import.meta.url), 'ut
 const prompt = readFileSync(new URL('../worker/src/ai/prompts.js', import.meta.url), 'utf8');
 const routes = readFileSync(new URL('../worker/src/ai/routes.js', import.meta.url), 'utf8');
 
-test('مشاوره هوشمند مستقیماً با محیط یکپارچه متنی و صوتی باز می‌شود', () => {
-  assert.match(source, /if \(initialMode === 'consult'\) openWorkspace\('smart'\)/u);
-  assert.match(source, /else body\.replaceChildren\(methodChooser\(openWorkspace, chooserTitle\)\)/u);
+test('همهٔ بخش‌های دستیار مستقیماً محیط یکپارچهٔ متنی و صوتی را باز می‌کنند', () => {
+  assert.match(source, /assistantWorkspace\(guestMode \? null : params\.thread, guestMode, 'smart', initialMode\)/u);
+  assert.doesNotMatch(source, /methodChooser|پاسخ‌گویی متنی/u);
+  assert.match(source, /پیام خود را برای دستیار بنویسید/u);
+  assert.match(source, /voicePanel\.hidden = !voiceAllowed/u);
 });
 
 test('پس از دریافت پاسخ، کادر گفت‌وگو و آخرین پیام در محدوده دید قرار می‌گیرند', () => {
