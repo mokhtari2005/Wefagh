@@ -226,7 +226,7 @@ export async function searchLegalAuthorities(env, input) {
           'شماره، تاریخ، مرجع، متن ماده یا رأی را فقط وقتی ذکر کن که صریحاً در نتیجه یا متن منبع مشاهده شده باشد. منبع ثانویه را متن رسمی معرفی نکن و از حدس‌زدن و نقل‌قول ساختگی خودداری کن.',
           'خروجی را خلاصه و تفکیک‌شده بنویس: متن قانون، رأی وحدت رویه، رأی هیأت عمومی، نظریه مشورتی و منبع ثانویه. برای هر سند پیوند نسخه اصلی را پیدا کن.',
           'نتایج جست‌وجو به‌تنهایی اثبات‌کننده اعتبار جاری یا اصالت سند نیستند؛ موارد نامطمئن را صریحاً علامت بزن.',
-        ].join('\\n'),
+        ].join('\n'),
         contents: [{ role: 'user', parts: [{ text: `پرس‌وجوی عمومی و غیرشخصی حقوق ایران؛ مسیر ${attempt.label}: ${attempt.query}` }] }],
         maxOutputTokens: 1800,
         timeoutMs: 35_000,
@@ -250,7 +250,7 @@ export async function searchLegalAuthorities(env, input) {
   }
 
   const sources = [...collected.values()].slice(0, 12);
-  const summary = summaries.join('\\n\\n').slice(0, 7000);
+  const summary = summaries.join('\n\n').slice(0, 7000);
   if (!sources.length) {
     return {
       status: successfulAttempts ? 'no_sources' : 'failed',
