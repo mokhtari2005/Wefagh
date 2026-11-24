@@ -553,7 +553,7 @@ async function runLitigationDebate(env, { contents, message, docType, legalConte
       maxOutputTokens: index === stages.length - 1 ? 2200 : 1400,
       timeoutMs: 30_000,
       json: false,
-    }, { allowOpenAI: !hasAttachments, allowGroq: !hasAttachments });
+    }, { allowOpenAI: !hasAttachments, allowGroq: false });
     provider = generated.provider || provider;
     truncated = truncated || Boolean(generated.truncated);
     const text = typeof generated.text === 'string' ? generated.text.trim() : '';
