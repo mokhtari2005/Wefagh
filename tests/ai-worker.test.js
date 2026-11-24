@@ -568,33 +568,20 @@ test('مواد ۵۶ و ۵۷ قانون اجرای احکام مدنی در ان�
 });
 
 
-test('میز محاکمه مناظره هفت‌مرحله‌ای را اجرا می‌کند و گزارش واحد مستند می‌سازد', async () => {
-  const roleCalls = [];
+test('تحلیل چندمنظری litigation سابقه پرونده را در یک درخواست ساخت‌یافته حفظ می‌کند', async () => {
+  const modelJson = {
+    status: 'ready',
+    questions: [],
+    text: 'واقعیت‌های مستند، دفاع طرف مقابل، پاسخ موکل و ارزیابی بی‌طرفانه قاضی باید جداگانه سنجیده شوند.',
+    notes: [],
+  };
+  let sentSystem = '';
+  let sentContents = [];
   await withFetch(async (url, init) => {
-    assert.ok(url.includes('generativelanguage.googleapis.com'));
     const sent = JSON.parse(init.body);
-    const system = sent.systemInstruction.parts[0].text;
-    const contents = sent.contents || [];
-    assert.match(JSON.stringify(contents), /فروشنده در قرارداد آزادی ملک را تضمین کرده است/);
-    assert.match(system, /حافظه استدلال پرونده/);
-    assert.match(system, /کنترل خواسته‌ها/);
-    const latest = (contents.at(-1)?.parts || []).map((part) => part.text || '').join(' ');
-    let answer;
-    if (system.includes('قوی‌ترین دفاع‌ها، ایرادهای شکلی و ماهوی')) {
-      roleCalls.push('opposing');
-      answer = latest.includes('مرحله اول') ? 'دفاع فروشنده دور نخست: تعارض خواسته‌ها.' : 'پاسخ تکمیلی فروشنده دور دوم: ایراد بار اثبات.';
-    } else if (system.includes('ابتدا همه ایرادهای مطرح‌شده')) {
-      roleCalls.push('client');
-      answer = latest.includes('مرحله اول') ? 'پاسخ خریدار دور نخست: اظهار خلاف واقع و جهل.' : 'پاسخ تکمیلی خریدار دور دوم: ادله و آثار تدلیس.';
-    } else if (system.includes('قاضی بی‌طرف و ارزیاب')) {
-      roleCalls.push('judge');
-      if (latest.includes('مرحله دوم')) answer = 'نقد قاضی دور نخست: ادله و تعارض خواسته‌ها باید روشن شود.';
-      else if (latest.includes('مرحله هفتم')) answer = 'کارنامه تحلیلی: قوت استنادها و خلأ اثباتی.';
-      else answer = 'تحلیل نهایی قاضی: نتیجه مشروط و مستند پرونده.';
-    } else {
-      throw new Error('نقش ناشناخته در میز محاکمه');
-    }
-    return jsonRes(200, { candidates: [{ content: { parts: [{ text: answer }] }, finishReason: 'STOP' }] });
+    sentSystem = sent.systemInstruction.parts[0].text;
+    sentContents = sent.contents || [];
+    return jsonRes(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(modelJson) }] } }] });
   }, async (calls) => {
     const env = { DB: fakeDb({ loggedIn: true }), GEMINI_API_KEY: KEY };
     const res = await worker.fetch(req('/api/ai/assistant', {
@@ -609,12 +596,13 @@ test('میز محاکمه مناظره هفت‌مرحله‌ای را اجرا 
     const data = await res.json();
     assert.equal(res.status, 200);
     assert.equal(data.ok, true);
-    assert.equal(roleCalls.length, 7, 'هفت مرحله مستقل نقش‌محور اجرا می‌شود؛ جست‌وجوی منابع جداگانه شمرده نمی‌شود');
-    assert.deepEqual(roleCalls.sort(), ['client', 'client', 'judge', 'judge', 'judge', 'opposing', 'opposing']);
-    for (const heading of ['دور نخست ـ استدلال وکیل طرف مقابل', 'دور نخست ـ استدلال وکیل موکل', 'ارزیابی قاضی پس از دور نخست', 'دور دوم ـ پاسخ وکیل طرف مقابل', 'دور دوم ـ پاسخ وکیل موکل', 'ارزیابی نهایی قاضی و گزارش مستند', 'کارنامه تحلیلی مناظره']) {
-      assert.ok(data.text.includes(heading), heading);
-    }
-    assert.match(data.text, /تحلیل نهایی قاضی/);
+    assert.equal(calls.length, 1);
+    assert.match(sentSystem, /میز محاکمه هوشمند/);
+    assert.match(sentSystem, /قوی‌ترین دفاع‌ها، ایرادهای شکلی و ماهوی/);
+    assert.match(sentSystem, /نقش تو وکیل موکل\/کاربر است/);
+    assert.match(sentSystem, /قاضی بی‌طرف و ارزیاب/);
+    assert.match(JSON.stringify(sentContents), /فروشنده در قرارداد آزادی ملک را تضمین کرده است/);
+    assert.match(data.text, /واقعیت‌های مستند/);
   });
 });
 
