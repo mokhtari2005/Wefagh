@@ -790,8 +790,8 @@ function toolPage(kind) {
     h('a', { class: 'calculator-back', href: '#/calculators' }, [icon('arrow-right', { size: 17 }), h('span', { text: 'بازگشت به همهٔ محاسبه‌گرها' })]),
     hero,
     guidance,
-    h('div', { class: 'calculator-actions' }, [toolToolbar(section)]),
     section,
+    h('div', { class: 'calculator-actions calculator-actions-bottom' }, [toolToolbar(section)]),
   ]);
 }
 
