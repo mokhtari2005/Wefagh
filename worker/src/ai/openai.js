@@ -200,9 +200,12 @@ export async function generateOpenAIText(env, {
     throw new AiError('AI_PROVIDER_BAD_RESPONSE', 503, { provider: 'openai' });
   }
 
-  const text = extractContent(payload);
+  if (payload?.incomplete_details?.reason === 'content_filter') {
+    throw new AiError('AI_BLOCKED', 422, { provider: 'openai' });
+  }
   const truncated = payload?.status === 'incomplete' || payload?.incomplete_details?.reason === 'max_output_tokens';
   if (json && truncated) throw new AiError('AI_PROVIDER_ERROR', 502, { provider: 'openai', reason: 'OUTPUT_TRUNCATED' });
+  const text = extractContent(payload);
 
   if (!json) return { text, model, provider: 'openai', usage: payload.usage || null, truncated };
   const stripped = text.replace(/^\x60{3}(?:json)?\s*/i, '').replace(/\s*\x60{3}$/, '');
