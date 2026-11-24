@@ -304,9 +304,9 @@ export async function reviewLegalDraft(env, { mode, docType, question, draft, le
 export function groqReviewNotes(result) {
   if (!result || result.status !== 'reviewed') {
     const messages = {
-      not_configured: 'بازبینی مستقل در دسترس نیست.',
+      not_configured: 'بازبینی مستقل در زمان اجرا فعال نشده است.',
       invalid_input: 'متن کافی برای بازبینی مستقل وجود نداشت.',
-      quota_exceeded: 'بازبینی مستقل انجام نشد.',
+      quota_exceeded: 'سهمیه رایگان سرویس بازبینی به پایان رسیده است؛ بازبینی مستقل انجام نشد.',
       key_rejected: 'بازبینی مستقل انجام نشد.',
       timeout: 'بازبینی مستقل انجام نشد.',
       network_error: 'بازبینی مستقل انجام نشد.',
