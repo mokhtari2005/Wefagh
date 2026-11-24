@@ -17,7 +17,7 @@ import { reviewLegalDraft, groqReviewNotes } from './groq.js';
 import { AttachmentError, ATTACHMENT_LIMITS, processAttachments, buildUserParts, summarizeAttachments } from './attachments.js';
 import {
   ASSISTANT_DOC_TYPES, ASSISTANT_MODES, ASSISTANT_SCHEMA, MOOT_EVAL_SCHEMA,
-  HEARING_ROLES, HEARING_STAGES, mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt,
+  HEARING_ROLES, HEARING_STAGES, mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt, LEGAL_DISCLAIMER,
 } from './prompts.js';
 
 export const SPEAKERS = Object.freeze({ judge: 'قاضی', plaintiff: 'وکیل خواهان', defendant: 'وکیل خوانده', clerk: 'منشی دادگاه', user: 'شرکت‌کننده' });
@@ -657,6 +657,7 @@ async function assistant(request, env) {
 
     return json({
       ok: true,
+      disclaimer: LEGAL_DISCLAIMER,
       status: data.status === 'need_info' ? 'need_info' : 'ready',
       questions,
       questionOptions,
