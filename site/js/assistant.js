@@ -575,6 +575,21 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     ];
     // فقط آخرین پاسخ دستیار قابل پاسخ‌گویی است؛ پرسش‌های قبلی در تاریخچه بسته می‌مانند.
     if (questionItems.length && isLatest) children.push(questionStepper(questionItems));
+    if (Array.isArray(m.sources) && m.sources.length) {
+      const sourceItems = m.sources.slice(0, 6).map((source) => {
+        const details = [
+          h('strong', { text: source.title || 'منبع حقوقی' }),
+          h('small', { class: 'ai-source-meta', text: [source.type, source.domain, source.status].filter(Boolean).join(' · ') }),
+        ];
+        if (source.excerpt) details.push(h('p', { class: 'ai-source-excerpt', text: source.excerpt }));
+        if (source.url) details.push(h('a', { class: 'ai-source-link', href: source.url, target: '_blank', rel: 'noopener noreferrer', text: 'مشاهده منبع' }));
+        return h('li', { class: 'ai-source-item' }, details);
+      });
+      children.push(h('details', { class: 'ai-sources-panel' }, [
+        h('summary', { text: `مستندات بازیابی‌شده (${Math.min(m.sources.length, 6)})` }),
+        h('ol', { class: 'ai-sources-list' }, sourceItems),
+      ]));
+    }
     if (reviewPanel) children.push(reviewPanel);
     if (m.notes?.length) children.push(h('ul', {
       class: 'ai-notes',
@@ -1262,6 +1277,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       mode,
       status: res.data.status,
       notes: responseNotes,
+      sources: Array.isArray(res.data.sources) ? res.data.sources : [],
       reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null,
       reviewStatus: typeof res.data.reviewStatus === 'string' ? res.data.reviewStatus : null,
       reviewFollowups: Array.isArray(res.data.reviewFollowups) ? res.data.reviewFollowups : [],
