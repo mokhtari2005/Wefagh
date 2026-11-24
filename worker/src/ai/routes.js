@@ -434,8 +434,8 @@ const normalizeLegalDigits = (value) => String(value).replace(/[۰-۹]/g, (digit
 function resolveKnownLegalPlaceholders(text, legalArticles = []) {
   if (typeof text !== 'string' || !text.includes('[شماره نیازمند تطبیق با متن رسمی]')) return text;
   const available = new Set(legalArticles.map((item) =>
-    `${String(item.lawTitle || '').replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')}::${normalizeLegalDigits(item.articleNumber)}`));
-    .replace(/\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده تأییدنشده از')
+    \`\${String(item.lawTitle || '').replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')}::\${normalizeLegalDigits(item.articleNumber)}\`));
+  return text.replace(/\[شماره نیازمند تطبیق با متن رسمی\]/gu, (placeholder, offset, whole) => {
     const leftMarks = ['\n', '۔', '.', '؟'].map((mark) => whole.lastIndexOf(mark, offset - 1));
     const left = Math.max(...leftMarks);
     const rightMarks = ['\n', '۔', '.', '؟'].map((mark) => whole.indexOf(mark, offset)).filter((index) => index >= 0);
@@ -447,7 +447,7 @@ function resolveKnownLegalPlaceholders(text, legalArticles = []) {
     else if (law.includes('قانون اجرای احکام مدنی') && /(?:باطل|بلااثر|بلااثری|بطلان)/u.test(law)) candidate = ['قانون اجرای احکام مدنی', '56', '۵۶'];
     else if (law.includes('قانون آیین دادرسی') && /(?:غیرمنقول|محل وقوع)/u.test(law)) candidate = ['قانون آیین دادرسی', '12', '۱۲'];
     if (!candidate) return placeholder;
-    const lawEntry = [...available].some((entry) => entry.endsWith(`::${candidate[1]}`) && (candidate[0] === 'قانون اجرای احکام مدنی' ? entry.startsWith('قانون اجرای احکام مدنی::') : entry.startsWith('قانون آیین دادرسی')));
+    const lawEntry = [...available].some((entry) => entry.endsWith(\`::\${candidate[1]}\`) && (candidate[0] === 'قانون اجرای احکام مدنی' ? entry.startsWith('قانون اجرای احکام مدنی::') : entry.startsWith('قانون آیین دادرسی')));
     return lawEntry ? candidate[2] : placeholder;
   });
 }
@@ -482,8 +482,8 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
     changed = true;
   }
   guarded = guarded
-    .replace(/ماده\s*\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده تأییدنشده از')
-    .replace(/\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده تأییدنشده از')
+    .replace(/ماده\s*\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده (شماره نیازمند تطبیق با متن رسمی)')
+    .replace(/\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده (شماره نیازمند تطبیق با متن رسمی)')
     .replace(/\[مدت نیازمند تطبیق با منبع رسمی\]/gu, 'مدت (نیازمند تطبیق با منبع رسمی)');
   if (guarded !== text) changed = true;
   return { text: guarded, changed };
