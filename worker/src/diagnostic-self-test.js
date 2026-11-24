@@ -2,6 +2,7 @@
 import { json } from './http.js';
 import { requireMailAdmin } from './admin-mail.js';
 import { aiConfigured, modelIds, probeModel, probeHint } from './ai/gemini.js';
+import { probeOpenAI, openaiProbeHint } from './ai/openai.js';
 
 const OWNER = 'mokhtari2005';
 const REPOSITORY = 'Wefagh';
@@ -162,6 +163,16 @@ export async function handleDiagnosticSelfTest(request, env, path) {
     label: 'اتصال بانک گزارش‌ها',
     ok: Boolean(env.DB),
     detail: env.DB ? 'اتصال D1 در محیط Worker در دسترس است.' : 'اتصال D1 برای Worker تعریف نشده است.',
+  });
+
+  const openaiProbe = await probeOpenAI(env);
+  checks.push({
+    id: 'openai',
+    label: 'اتصال و پاسخ GPT',
+    ok: openaiProbe.ok,
+    detail: openaiProbe.ok
+      ? `مدل ${openaiProbe.model} پاسخ داد (${openaiProbe.ms} میلی‌ثانیه).`
+      : openaiProbeHint(openaiProbe),
   });
 
   if (aiConfigured(env)) {
