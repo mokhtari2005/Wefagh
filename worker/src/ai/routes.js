@@ -51,7 +51,7 @@ export function buildEvidenceSources({ legalArticles = [], judicialAuthorities =
   const output = [];
   const seen = new Set();
   const add = (source) => {
-    if (!source?.title || output.length >= 8) return;
+    if (!source?.title || output.length >= 6) return;
     const key = source.url || source.title;
     if (seen.has(key)) return;
     seen.add(key);
