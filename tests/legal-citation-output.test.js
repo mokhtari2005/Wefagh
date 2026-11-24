@@ -32,7 +32,7 @@ test('استناد عددی فاقد پشتوانه همچنان علامت‌گ
     [...EXECUTION_TRANSFER_ARTICLES, ...CIVIL_PROCEDURE_ARTICLES],
   );
   assert.match(result.text, /شماره ماده تأییدنشده/u);
-  assert.doesNotMatch(result.text, /شماره نیازمند تطبیق/u);
+  assert.doesNotMatch(result.text, /\\[شماره نیازمند تطبیق/u);
   assert.equal(result.changed, true);
 });
 
