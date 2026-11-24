@@ -48,7 +48,7 @@ test('sends structured assistant requests to the configured GPT model and parses
     assert.equal(request.body.max_output_tokens, 1200);
     assert.equal(request.body.reasoning.effort, 'medium');
     assert.equal(request.body.store, false);
-    assert.equal(request.body.instructions, 'پاسخ حقوقی دقیق بده.\\n\\nوقتی خروجی ساخت‌یافته خواسته شده است، فقط یک شیء JSON معتبر و مطابق طرح‌واره برگردان؛ متن پیرامونی یا حصار Markdown اضافه نکن.');
+    assert.equal(request.body.instructions, `پاسخ حقوقی دقیق بده.\n\nوقتی خروجی ساخت‌یافته خواسته شده است، فقط یک شیء JSON معتبر و مطابق طرح‌واره برگردان؛ متن پیرامونی یا حصار Markdown اضافه نکن.`);
     assert.deepEqual(request.body.input, [{ role: 'user', content: 'سؤال حقوقی آزمایشی' }]);
     assert.equal(request.body.text.format.type, 'json_schema');
     assert.equal(request.body.text.format.strict, true);
@@ -161,6 +161,28 @@ test('admin GPT probe reports a missing secret without making a network request'
     assert.equal(result.ok, false);
     assert.equal(openaiProbeHint(result), 'کلید OPENAI_API_KEY ثبت نشده است');
     assert.equal(calls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+
+test('marks incomplete text output and rejects truncated structured JSON', async () => {
+  const originalFetch = globalThis.fetch;
+  const partial = new Response(JSON.stringify({
+    status: 'incomplete',
+    incomplete_details: { reason: 'max_output_tokens' },
+    output: [{ type: 'message', role: 'assistant', content: [{ type: 'output_text', text: 'پاسخ نیمه‌تمام' }] }],
+  }), { status: 200, headers: { 'content-type': 'application/json' } });
+  globalThis.fetch = async () => partial;
+  try {
+    const plain = await generateOpenAIText(env, { ...input, json: false });
+    assert.equal(plain.text, 'پاسخ نیمه‌تمام');
+    assert.equal(plain.truncated, true);
+    await assert.rejects(
+      generateOpenAIText(env, input),
+      (error) => error.code === 'AI_PROVIDER_ERROR' && error.details?.reason === 'OUTPUT_TRUNCATED',
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }
