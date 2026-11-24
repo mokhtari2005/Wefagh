@@ -46,7 +46,7 @@ async function setup() {
   db.exec(migration('0001_init.sql'));
   db.exec(migration('0002_auth.sql'));
   db.exec(migration('0010_assistant_threads.sql'));
-  db.exec(migration('0011_assistant_message_metadata.sql'));
+  db.exec(migration('0038_assistant_message_metadata.sql'));
   const env = { DB: d1Like(db) };
   const cookies = {};
   for (const name of ['الف', 'ب']) {
