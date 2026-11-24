@@ -575,14 +575,13 @@ test('تحلیل چندمنظری litigation سابقه پرونده را در �
     text: 'واقعیت‌های مستند، دفاع طرف مقابل، پاسخ موکل و ارزیابی بی‌طرفانه قاضی باید جداگانه سنجیده شوند.',
     notes: [],
   };
-  let sentSystem = '';
-  let sentContents = [];
+  const assistantRequests = [];
   await withFetch(async (url, init) => {
     const sent = JSON.parse(init.body);
-    sentSystem = sent.systemInstruction.parts[0].text;
-    sentContents = sent.contents || [];
+    const system = sent.systemInstruction?.parts?.[0]?.text || '';
+    if (system.includes('میز محاکمه هوشمند')) assistantRequests.push({ system, contents: sent.contents || [] });
     return jsonRes(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(modelJson) }] } }] });
-  }, async (calls) => {
+  }, async () => {
     const env = { DB: fakeDb({ loggedIn: true }), GEMINI_API_KEY: KEY };
     const res = await worker.fetch(req('/api/ai/assistant', {
       body: {
@@ -596,12 +595,11 @@ test('تحلیل چندمنظری litigation سابقه پرونده را در �
     const data = await res.json();
     assert.equal(res.status, 200);
     assert.equal(data.ok, true);
-    assert.equal(calls.length, 1);
-    assert.match(sentSystem, /میز محاکمه هوشمند/);
-    assert.match(sentSystem, /قوی‌ترین دفاع‌ها، ایرادهای شکلی و ماهوی/);
-    assert.match(sentSystem, /نقش تو وکیل موکل\/کاربر است/);
-    assert.match(sentSystem, /قاضی بی‌طرف و ارزیاب/);
-    assert.match(JSON.stringify(sentContents), /فروشنده در قرارداد آزادی ملک را تضمین کرده است/);
+    assert.equal(assistantRequests.length, 1);
+    assert.match(assistantRequests[0].system, /قوی‌ترین دفاع‌ها، ایرادهای شکلی و ماهوی/);
+    assert.match(assistantRequests[0].system, /نقش تو وکیل موکل\/کاربر است/);
+    assert.match(assistantRequests[0].system, /قاضی بی‌طرف و ارزیاب/);
+    assert.match(JSON.stringify(assistantRequests[0].contents), /فروشنده در قرارداد آزادی ملک را تضمین کرده است/);
     assert.match(data.text, /واقعیت‌های مستند/);
   });
 });
