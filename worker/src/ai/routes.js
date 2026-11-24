@@ -453,10 +453,11 @@ function resolveKnownLegalPlaceholders(text, legalArticles = []) {
 }
 
 export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedContext = '') {
-  if (typeof text !== 'string' || !text) return { text: text || '', changed: false };
+  if (typeof text !== 'string' || !text) return { text: text || '', changed: false, flagged: false };
   const resolved = resolveKnownLegalPlaceholders(text, legalArticles);
   const allowed = new Set(legalArticles.map((item) => normalizeLegalDigits(item.articleNumber)));
   let changed = resolved !== text;
+  let flagged = false;
   let guarded = resolved.replace(/(?:ماده|مواد)\s*([۰-۹0-9]+(?:(?:\s*(?:،|,|و|تا|الی|[-–])\s*)[۰-۹0-9]+)*)/gu, (match, sequence) => {
     const numbers = sequence.match(/[۰-۹0-9]+/g) || [];
     const range = /(?:تا|الی|[-–])/.test(sequence);
@@ -468,6 +469,7 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
       : values.some((number) => !allowed.has(number));
     if (!unsupported) return match;
     changed = true;
+    flagged = true;
     return 'ماده [شماره نیازمند تطبیق با متن رسمی]';
   });
   guarded = guarded.replace(/([۰-۹0-9]{1,3})\s*(روز|ماه|هفته|سال)/gu, (match) => {
@@ -475,18 +477,20 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
     const source = normalizeLegalDigits(verifiedContext).replace(/\s+/g, ' ');
     if (source.includes(normalizedMatch)) return match;
     changed = true;
+    flagged = true;
     return '[مدت نیازمند تطبیق با منبع رسمی]';
   });
   if (/ماده‌ای که شماره آن احراز نشده/gu.test(guarded)) {
     guarded = guarded.replace(/ماده‌ای که شماره آن احراز نشده/gu, 'شماره ماده تأییدنشده');
     changed = true;
+    flagged = true;
   }
   guarded = guarded
-    .replace(/ماده\s*\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده تأییدنشده (شماره نیازمند تطبیق با متن رسمی)')
-    .replace(/\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده (شماره نیازمند تطبیق با متن رسمی)')
+    .replace(/ماده\s*\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده تأییدنشده')
+    .replace(/\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده تأییدنشده')
     .replace(/\[مدت نیازمند تطبیق با منبع رسمی\]/gu, 'مدت نیازمند تطبیق با منبع رسمی');
   if (guarded !== text) changed = true;
-  return { text: guarded, changed };
+  return { text: guarded, changed, flagged };
 }
 
 const DEFAULT_ATTACHMENT_MESSAGE = 'پیوست‌ها را بر اساس نوع کار و نوع سند انتخاب‌شده بررسی کن.';
@@ -728,7 +732,7 @@ async function assistant(request, env) {
     const rawText = typeof data.text === 'string' ? data.text : '';
     const guardedText = guardUnverifiedLegalClaims(rawText, promptArticles, legalContext);
     let text = guardedText.text;
-    if (guardedText.changed) notes.push('برخی استنادها یا مهلت‌های عددی در متن اولیه فاقد پشتوانه احرازپذیر بودند و با هشدار مشخص جایگزین شدند.');
+    if (guardedText.flagged) notes.push('برخی استنادها یا مهلت‌های عددی در متن اولیه فاقد پشتوانه احرازپذیر بودند و با هشدار مشخص جایگزین شدند.');
     if (webResearch?.status === 'searched' && webResearch.sources.length) {
       text += '\n\nمنابع وبی بازیابی‌شده برای پیگیری و راستی‌آزمایی:\n' + webResearch.sources.slice(0, 8).map((source, index) => (index + 1) + '. ' + source.title + ' — ' + source.uri + ' (' + source.domain + ')').join('\n');
       notes.push('جست‌وجوی وب با Google Search انجام شد. منابع زیر سرنخ تحقیق‌اند و به‌معنای تأیید رسمی متن قانون، اعتبار رأی یا جاری‌بودن مقرره نیستند.');
