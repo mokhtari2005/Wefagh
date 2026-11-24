@@ -20,6 +20,49 @@ function safeReasoningEffort(env) {
   return ['low', 'medium', 'high', 'xhigh'].includes(value) ? value : 'medium';
 }
 
+const JSON_SCHEMA_TYPES = Object.freeze({
+  OBJECT: 'object',
+  ARRAY: 'array',
+  STRING: 'string',
+  BOOLEAN: 'boolean',
+  NUMBER: 'number',
+  INTEGER: 'integer',
+});
+
+/** تبدیل طرح‌واره Gemini به JSON Schema سخت‌گیرانه؛ ویژگی‌های اختیاری به‌صورت nullable حفظ می‌شوند. */
+export function toOpenAIJsonSchema(source, required = true) {
+  if (!source || typeof source !== 'object') return { type: 'string' };
+  const rawType = String(source.type || 'STRING').toUpperCase();
+  const type = JSON_SCHEMA_TYPES[rawType] || 'string';
+  let output;
+
+  if (type === 'object') {
+    const entries = Object.entries(source.properties || {});
+    const requiredKeys = new Set(Array.isArray(source.required) ? source.required : []);
+    const properties = {};
+    for (const [key, child] of entries) {
+      const childSchema = toOpenAIJsonSchema(child, requiredKeys.has(key));
+      properties[key] = requiredKeys.has(key)
+        ? childSchema
+        : { anyOf: [childSchema, { type: 'null' }] };
+    }
+    output = {
+      type: 'object',
+      properties,
+      required: entries.map(([key]) => key),
+      additionalProperties: false,
+    };
+  } else if (type === 'array') {
+    output = { type: 'array', items: toOpenAIJsonSchema(source.items, true) };
+  } else {
+    output = { type };
+  }
+
+  if (Array.isArray(source.enum)) output.enum = source.enum;
+  if (source.description) output.description = String(source.description);
+  return required ? output : { anyOf: [output, { type: 'null' }] };
+}
+
 function buildMessages(system, contents) {
   const messages = [{
     role: 'system',
@@ -52,6 +95,7 @@ export async function generateOpenAIText(env, {
   contents,
   maxOutputTokens = 2048,
   json = false,
+  schema = null,
   timeoutMs = OPENAI_TIMEOUT_MS,
 }) {
   if (!openaiConfigured(env)) throw new AiError('AI_NOT_CONFIGURED', 503);
@@ -71,7 +115,11 @@ export async function generateOpenAIText(env, {
         messages,
         max_completion_tokens: tokenLimit,
         reasoning_effort: safeReasoningEffort(env),
-        ...(json ? { response_format: { type: 'json_object' } } : {}),
+        ...(json ? {
+          response_format: schema
+            ? { type: 'json_schema', json_schema: { name: 'legal_assistant_response', strict: true, schema: toOpenAIJsonSchema(schema) } }
+            : { type: 'json_object' },
+        } : {}),
       }),
       signal: AbortSignal.timeout(Math.min(Number(timeoutMs) || OPENAI_TIMEOUT_MS, 90_000)),
     });
