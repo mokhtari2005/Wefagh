@@ -51,7 +51,7 @@ export function buildEvidenceSources({ legalArticles = [], judicialAuthorities =
   const output = [];
   const seen = new Set();
   const add = (source) => {
-    if (!source?.title || output.length >= 6) return;
+    if (!source?.title || output.length >= 8) return;
     const key = source.url || source.title;
     if (seen.has(key)) return;
     seen.add(key);
@@ -65,7 +65,7 @@ export function buildEvidenceSources({ legalArticles = [], judicialAuthorities =
     });
   };
 
-  for (const article of (Array.isArray(legalArticles) ? legalArticles : []).slice(0, 8)) {
+  for (const article of (Array.isArray(legalArticles) ? legalArticles : []).slice(0, 3)) {
     const title = [article.lawTitle, article.articleNumber ? 'ماده ' + article.articleNumber : '', article.heading].filter(Boolean).join(' ـ ');
     add({
       type: 'قانون یا مقرره',
@@ -77,7 +77,7 @@ export function buildEvidenceSources({ legalArticles = [], judicialAuthorities =
     });
   }
 
-  for (const authority of (Array.isArray(judicialAuthorities) ? judicialAuthorities : []).slice(0, 8)) {
+  for (const authority of (Array.isArray(judicialAuthorities) ? judicialAuthorities : []).slice(0, 3)) {
     const title = [authority.lawTypeLabel || 'سند قضایی', authority.lawTitle, authority.documentNumber ? 'شماره ' + authority.documentNumber : ''].filter(Boolean).join(' ـ ');
     add({
       type: 'رأی یا نظریه قضایی',
@@ -89,7 +89,7 @@ export function buildEvidenceSources({ legalArticles = [], judicialAuthorities =
     });
   }
 
-  for (const source of (Array.isArray(webSources) ? webSources : []).slice(0, 8)) {
+  for (const source of (Array.isArray(webSources) ? webSources : []).slice(0, 4)) {
     const pageStatus = source.pageTextStatus === 'official_domain_page_text_retrieved'
       ? 'متن صفحه از دامنه رسمی بازیابی شد؛ اعتبار جاری جداگانه باید کنترل شود'
       : source.pageTextStatus === 'not_primary_source_domain'
@@ -664,7 +664,7 @@ async function assistant(request, env) {
     const guardedText = guardUnverifiedLegalClaims(rawText, promptArticles, legalContext);
     let text = guardedText.text;
     if (webResearch?.status === 'searched' && webResearch.sources.length) {
-      text += '\n\n## منابع وبی بازیابی‌شده برای پیگیری و راستی‌آزمایی\n' + webResearch.sources.map((source, index) => (index + 1) + '. [' + source.title + '](' + source.uri + ') — ' + source.domain).join('\n');
+      text += '\n\nمنابع وبی بازیابی‌شده برای پیگیری و راستی‌آزمایی:\n' + webResearch.sources.slice(0, 8).map((source, index) => (index + 1) + '. ' + source.title + ' — ' + source.uri + ' (' + source.domain + ')').join('\n');
       notes.push('جست‌وجوی وب با Google Search انجام شد. منابع زیر سرنخ تحقیق‌اند و به‌معنای تأیید رسمی متن قانون، اعتبار رأی یا جاری‌بودن مقرره نیستند.');
     }
     if (truncated) notes.push('پاسخ به‌دلیل طول زیاد کامل نشد. برای ادامه بنویسید «ادامه بده».');
