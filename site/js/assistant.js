@@ -437,12 +437,14 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       if (answeredCount < items.length) {
         const item = items[current];
         root.append(
-          h('p', { class: 'muted', text: `پرسش ${(current + 1).toLocaleString('fa-IR')} از ${items.length.toLocaleString('fa-IR')}` }),
-          h('strong', { text: item.question }),
+          h('div', { class: 'ai-question-head' }, [
+            h('span', { class: 'ai-question-progress', text: `پرسش ${(current + 1).toLocaleString('fa-IR')} از ${items.length.toLocaleString('fa-IR')}` }),
+            h('strong', { class: 'ai-question-text', text: item.question }),
+          ]),
         );
-        const choices = h('div', { class: 'ai-question-choices' });
+        const choices = h('div', { class: 'ai-question-choices', role: 'group', 'aria-label': 'گزینه‌های پاسخ' });
         for (const option of item.options) {
-          const choice = h('button', { class: 'btn secondary ai-mini', type: 'button', text: option });
+          const choice = h('button', { class: 'ai-question-choice', type: 'button', text: option });
           choice.addEventListener('click', () => setAnswer(option));
           choices.append(choice);
         }
