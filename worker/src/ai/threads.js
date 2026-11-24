@@ -1,14 +1,15 @@
 // تاریخچهٔ گفت‌وگوی دستیار وکیل در D1: فهرست، بازیابی، ساخت، افزودن پیام و حذف.
 // هر کاربر فقط گفت‌وگوهای خودش را می‌بیند؛ گفت‌وگوی دیگران با ۴۰۴ پاسخ داده می‌شود (بدون افشای وجود آن).
-import { json, readJsonBody } from '../http.js';
+import { json } from '../http.js';
 import { currentUser } from '../auth/routes.js';
 
 const ID_RE = /^[1-9][0-9]{0,15}$/;
 const MAX_MESSAGE = 12000;
+const MAX_THREAD_BODY_BYTES = 80 * 1024;
 const MAX_THREADS_LISTED = 50;
 const MAX_MESSAGES_PER_THREAD = 200;
 
-const MAX_METADATA_CHARS = 20_000;
+const MAX_METADATA_CHARS = 8_000;
 const MODES = new Set(['consult', 'analyze', 'litigation', 'research', 'review', 'draft']);
 const REVIEW_STATUSES = new Set(['reviewed', 'skipped_attachments', 'skipped_fallback', 'not_configured', 'timeout', 'quota_exceeded', 'provider_error', 'invalid_response', 'invalid_input', 'network_error', 'not_run', 'rate_limited', 'unavailable']);
 const KNOWN_FIELD_KEYS = new Set([
@@ -115,6 +116,20 @@ function parseMetadata(value) {
   }
 }
 
+async function readThreadJsonBody(request) {
+  const type = request.headers.get('content-type') || '';
+  if (!type.toLowerCase().includes('application/json')) return { error: json({ ok: false, error: 'UNSUPPORTED_MEDIA_TYPE' }, 415) };
+  const declared = Number(request.headers.get('content-length') || 0);
+  if (declared > MAX_THREAD_BODY_BYTES) return { error: json({ ok: false, error: 'PAYLOAD_TOO_LARGE' }, 413) };
+  const text = await request.text();
+  if (new TextEncoder().encode(text).length > MAX_THREAD_BODY_BYTES) return { error: json({ ok: false, error: 'PAYLOAD_TOO_LARGE' }, 413) };
+  try {
+    return { body: JSON.parse(text) };
+  } catch {
+    return { error: json({ ok: false, error: 'INVALID_JSON' }, 400) };
+  }
+}
+
 function fail(code, status, extra = {}) {
   return json({ ok: false, error: code, ...extra }, status);
 }
@@ -150,7 +165,7 @@ export async function handleThreads(request, env, path) {
       return json({ ok: true, threads: rows?.results || [] });
     }
     if (request.method === 'POST') {
-      const parsed = await readJsonBody(request);
+      const parsed = await readThreadJsonBody(request);
       if (parsed.error) return parsed.error;
       const title = cleanTitle(parsed.body?.title);
       const row = await env.DB
