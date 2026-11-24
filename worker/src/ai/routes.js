@@ -34,6 +34,80 @@ export const LIMITS = Object.freeze({
   callsPerMinute: 60,
 });
 
+
+function safeEvidenceUrl(value) {
+  if (typeof value !== 'string' || !value.trim()) return '';
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' || (url.port && url.port !== '443') || url.username || url.password) return '';
+    return url.href;
+  } catch {
+    return '';
+  }
+}
+
+/** منابع بازیابی‌شده را با تفکیک منبع داخلیِ تأییدشده و سرنخ جست‌وجو به رابط کاربر می‌دهد. */
+export function buildEvidenceSources({ legalArticles = [], judicialAuthorities = [], webSources = [] } = {}) {
+  const output = [];
+  const seen = new Set();
+  const add = (source) => {
+    if (!source?.title || output.length >= 8) return;
+    const key = source.url || source.title;
+    if (seen.has(key)) return;
+    seen.add(key);
+    output.push({
+      type: String(source.type || 'منبع حقوقی').slice(0, 40),
+      title: String(source.title).replace(/[\\r\\n]/g, ' ').slice(0, 220),
+      url: safeEvidenceUrl(source.url),
+      domain: String(source.domain || '').slice(0, 120),
+      status: String(source.status || '').slice(0, 140),
+      excerpt: String(source.excerpt || '').replace(/\\s+/g, ' ').slice(0, 260),
+    });
+  };
+
+  for (const article of (Array.isArray(legalArticles) ? legalArticles : []).slice(0, 8)) {
+    const title = [article.lawTitle, article.articleNumber ? 'ماده ' + article.articleNumber : '', article.heading].filter(Boolean).join(' ـ ');
+    add({
+      type: 'قانون یا مقرره',
+      title: title || 'مستند قانونی تأییدشده',
+      url: article.sourceUrl,
+      domain: article.sourceName,
+      status: 'متن ماده در بانک حقوقی با وضعیت تأییدشده بازیابی شد',
+      excerpt: article.body,
+    });
+  }
+
+  for (const authority of (Array.isArray(judicialAuthorities) ? judicialAuthorities : []).slice(0, 8)) {
+    const title = [authority.lawTypeLabel || 'سند قضایی', authority.lawTitle, authority.documentNumber ? 'شماره ' + authority.documentNumber : ''].filter(Boolean).join(' ـ ');
+    add({
+      type: 'رأی یا نظریه قضایی',
+      title: title || 'مستند قضایی تأییدشده',
+      url: authority.officialSourceUrl || authority.sourceUrl || authority.articleStatusSourceUrl,
+      domain: authority.issuingAuthority || authority.sourceName,
+      status: 'سند و متن آن در بانک حقوقی با وضعیت تأییدشده بازیابی شد',
+      excerpt: authority.body,
+    });
+  }
+
+  for (const source of (Array.isArray(webSources) ? webSources : []).slice(0, 8)) {
+    const pageStatus = source.pageTextStatus === 'official_domain_page_text_retrieved'
+      ? 'متن صفحه از دامنه رسمی بازیابی شد؛ اعتبار جاری جداگانه باید کنترل شود'
+      : source.pageTextStatus === 'not_primary_source_domain'
+        ? 'سرنخ جست‌وجو؛ دامنه رسمی احراز نشد'
+        : 'سرنخ جست‌وجو؛ متن رسمی کامل بازیابی نشد';
+    add({
+      type: 'نتیجه جست‌وجوی برخط',
+      title: source.title || source.domain || 'نتیجه جست‌وجو',
+      url: source.uri,
+      domain: source.domain,
+      status: pageStatus,
+      excerpt: source.supportedClaim,
+    });
+  }
+  return output;
+}
+
+
 const DIFFICULTIES = ['beginner', 'intermediate', 'advanced'];
 const AUDIO_TYPES = ['audio/webm', 'audio/mp4', 'audio/ogg', 'audio/wav'];
 const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
@@ -668,6 +742,7 @@ async function assistant(request, env) {
       ...(reviewReport ? { reviewReport } : {}),
       ...(reviewFollowups.length ? { reviewFollowups } : {}),
       reviewStatus,
+      sources: buildEvidenceSources({ legalArticles, judicialAuthorities, webSources: webResearch?.sources || [] }),
       attachments: summarizeAttachments(attachments),
     });
   } catch (err) {
