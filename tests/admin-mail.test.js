@@ -138,6 +138,7 @@ test('تشخیص هوش مصنوعی: فقط مدیر؛ نتیجهٔ مدل اص
     assert.equal(primary.role, 'اصلی');
     assert.equal(primary.ok, false);
     assert.equal(primary.code, 'AI_KEY_REJECTED');
+    assert.equal(primary.httpStatus, 403);
     assert.equal(geminiPrimary.provider, 'gemini');
     assert.equal(geminiPrimary.ok, false);
     assert.equal(geminiPrimary.httpStatus, 403);
