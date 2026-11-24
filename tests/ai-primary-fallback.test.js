@@ -19,7 +19,9 @@ const prompt = {
 
 function openaiSuccess() {
   return new Response(JSON.stringify({
-    choices: [{ message: { content: '{"status":"ready","questions":[],"notes":[],"text":"پاسخ GPT"}' }, finish_reason: 'stop' }],
+    id: 'resp_primary_test',
+    status: 'completed',
+    output: [{ type: 'message', role: 'assistant', content: [{ type: 'output_text', text: '{"status":"ready","questions":[],"notes":[],"text":"پاسخ GPT"}' }] }],
   }), { status: 200, headers: { 'content-type': 'application/json' } });
 }
 
