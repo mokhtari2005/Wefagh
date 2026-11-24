@@ -1025,7 +1025,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
   let acceptedConclusion = '';
   let draftFormData = null;
   let draftKnownFields = {};
-  const acceptBtn = h('button', { class: 'btn ai-accept-consultation', type: 'button', text: 'نتیجه مشاوره را تأیید می‌کنم و می‌خواهم سند تنظیم شود', hidden: '' });
+  const acceptBtn = h('button', { class: 'btn ai-accept-consultation', type: 'button', text: 'تأیید و ادامه', hidden: '' });
   const partyOneLabel = h('span', { text: 'خواهان ـ نام' });
   const partyTwoLabel = h('span', { text: 'خوانده ـ نام' });
   const partyOneAddressLabel = h('span', { text: 'خواهان ـ نشانی' });
@@ -1073,10 +1073,11 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     syncMode();
     partyPanel.replaceChildren(
       h('h3', { text: 'انتخاب نوع سند قضایی یا حقوقی' }),
-      h('p', { class: 'muted', text: 'نوع سند پیشنهادی را انتخاب یا اصلاح کنید. سپس اطلاعات لازم، یک مورد در هر مرحله، دریافت می‌شود. شرح وقایع و استدلال‌های مطرح‌شده در مشاوره دوباره پرسیده نخواهد شد.' }),
+      h('p', { class: 'muted', text: 'یکی از اسناد پیشنهادی را انتخاب کنید. سپس اطلاعات لازم، یک مورد در هر مرحله، دریافت می‌شود. شرح وقایع و استدلال‌های مطرح‌شده در مشاوره دوباره پرسیده نخواهد شد.' }),
     );
-    const startWizard = h('button', { class: 'btn', type: 'button', text: 'تأیید نوع سند و ادامه' });
-    startWizard.addEventListener('click', () => {
+    const startDocumentWizard = (type) => {
+      docSelect.value = type;
+      syncPartyLabels();
       if (docSelect.value === 'contract' && !contractSelect.value) {
         status.textContent = 'ابتدا نوع قرارداد را انتخاب کنید.';
         contractSelect.focus();
@@ -1100,9 +1101,26 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
           syncMode();
         },
       }));
-    });
-    partyPanel.append(startWizard);
-    status.textContent = 'نظر مشورتی پذیرفته شد. نوع سند را انتخاب کنید تا تکمیل مرحله‌ای آغاز شود.';
+    };
+    // اسناد پیشنهادی: ابتدا سند پیشنهادی مشاوره، سپس گزینه‌های رایج؛ هر کارت مستقیم فرم مرحله‌ای همان سند را باز می‌کند.
+    const commonDocs = ['petition', 'notice', 'defense', 'appeal', 'letter'];
+    const suggested = [recommendedType, ...commonDocs]
+      .filter((type, index, all) => type && all.indexOf(type) === index && type !== 'other' && type !== 'contract' && DOC_TYPES.some(([value]) => value === type))
+      .slice(0, 6);
+    if (recommendedType === 'contract') suggested.unshift('contract');
+    const choiceGrid = h('div', { class: 'assistant-document-grid', role: 'group', 'aria-label': 'اسناد پیشنهادی' }, suggested.map((type) => {
+      const label = DOC_TYPES.find(([value]) => value === type)?.[1] || type;
+      const card = h('button', { class: 'assistant-document-card', type: 'button' }, [
+        h('span', { class: 'assistant-document-copy' }, [
+          h('strong', { text: label }),
+          h('small', { text: type === recommendedType ? 'پیشنهاد دستیار بر اساس مشاوره' : 'سند مرتبط با موضوع' }),
+        ]),
+      ]);
+      card.addEventListener('click', () => startDocumentWizard(type));
+      return card;
+    }));
+    partyPanel.append(choiceGrid);
+    status.textContent = 'نظر مشورتی پذیرفته شد. یکی از اسناد پیشنهادی را انتخاب کنید تا تکمیل مرحله‌ای آغاز شود.';
     docSelect.focus();
   });
 
