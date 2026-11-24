@@ -99,6 +99,14 @@ test('ساخت گفت‌وگو، افزودن پیام و بازیابی ترت�
   assert.deepEqual(msgs.messages[1].metadata.knownFields, { partyOneName: 'نام نمونه' });
   assert.equal('privateField' in msgs.messages[1].metadata, false);
 
+  const longPersianReply = 'متن حقوقی طولانی '.repeat(700);
+  const longReply = await worker.fetch(req(`/api/ai/threads/${id}/messages`, {
+    method: 'POST',
+    body: { role: 'ai', content: longPersianReply, metadata: { mode: 'consult', status: 'ready' } },
+    cookie: cookies['الف'],
+  }), env);
+  assert.equal(longReply.status, 201, 'پاسخ فارسی بزرگ‌تر از سقف عمومی JSON باید در تاریخچه ذخیره شود');
+
   const list = await (await worker.fetch(req('/api/ai/threads', { cookie: cookies['الف'] }), env)).json();
   assert.equal(list.threads.length, 1);
 });
