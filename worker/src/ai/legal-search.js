@@ -193,11 +193,10 @@ function safeSources(grounding) {
 
 // Google grounding فقط ارتباط یک بخش از پاسخ با نتیجه جست‌وجو را گزارش می‌کند؛ متن صفحه منبع را برنمی‌گرداند.
 /**
- * جست‌وجوی برخط برای تحقیق حقوقی فعال است؛ فقط با مقدار صریح false غیرفعال می‌شود.
+ * جست‌وجوی برخط برای تحقیق حقوقی در پاسخ‌های حقوقی اجباری است.
  * این تابع فقط query ساخته‌شده از واژگان حقوقی whitelist را به Google Search می‌دهد.
  */
 export async function searchLegalAuthorities(env, input) {
-  if (env.GEMINI_SEARCH_GROUNDING_ENABLED === 'false') return { status: 'disabled', sources: [], attempts: 0 };
   const query = buildSafeLegalSearchQuery(input);
   if (!query) return { status: 'no_legal_terms', sources: [], attempts: 0 };
 
