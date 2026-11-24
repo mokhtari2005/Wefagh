@@ -14,9 +14,9 @@ export function stripResponseFormatting(value) {
   if (typeof value !== 'string') return value;
   return value
     .replace(/\r/g, '')
-    .replace(/^\s*(?:[-*_]\s*){3,}$/gm, '')
-    .replace(/^\s*#{1,6}\s*/gm, '')
-    .replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/^[ \t]*(?:[-*_][ \t]*){3,}$/gm, '')
+    .replace(/^[ \t]*#{1,6}[ \t]*/gm, '')
+    .replace(/^[ \t]*[-*+][ \t]+/gm, '')
     .replace(/\*\*(.*?)\*\*/gs, '$1')
     .replace(/__(.*?)__/gs, '$1')
     .replace(/(^|[\s([{])\*([^*\n]+)\*(?=$|[\s)},.!?؛،:])/gm, '$1$2')
