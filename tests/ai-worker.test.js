@@ -676,3 +676,15 @@ test('متن مستقیم فقط از دامنه رسمی مجاز دریافت 
     assert.equal(calls.length, 1);
   });
 });
+
+
+test('وضعیت دستیار با Secret مدل GPT فعال می‌شود و کلید را افشا نمی‌کند', async () => {
+  const key = 'sk-test-openai-key-0123456789abcdef';
+  const res = await worker.fetch(req('/api/ai/status', { method: 'GET' }), { OPENAI_API_KEY: key });
+  const body = await res.json();
+  assert.equal(res.status, 200);
+  assert.equal(body.configured, true);
+  assert.equal(body.providers.openai, true);
+  assert.equal(body.providers.gemini, false);
+  assert.equal(JSON.stringify(body).includes(key), false);
+});
