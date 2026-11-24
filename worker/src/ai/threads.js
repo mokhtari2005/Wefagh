@@ -10,7 +10,7 @@ const MAX_MESSAGES_PER_THREAD = 200;
 
 const MAX_METADATA_CHARS = 20_000;
 const MODES = new Set(['consult', 'analyze', 'litigation', 'research', 'review', 'draft']);
-const REVIEW_STATUSES = new Set(['reviewed', 'skipped_attachments', 'skipped_fallback', 'not_configured', 'timeout', 'quota_exceeded', 'provider_error', 'invalid_response', 'network_error', 'not_run']);
+const REVIEW_STATUSES = new Set(['reviewed', 'skipped_attachments', 'skipped_fallback', 'not_configured', 'timeout', 'quota_exceeded', 'provider_error', 'invalid_response', 'invalid_input', 'network_error', 'not_run', 'rate_limited', 'unavailable']);
 const KNOWN_FIELD_KEYS = new Set([
   'partyOneName', 'partyOneAddress', 'partyTwoName', 'partyTwoAddress', 'court', 'caseNumber',
   'caseStage', 'additionalDetails', 'contractSubject', 'contractAmount', 'contractDuration',
@@ -35,7 +35,7 @@ function cleanQuestionOptions(value) {
     question: shortText(item?.question, 500),
     options: cleanStringArray(item?.options, 8, 180),
     allowOther: item?.allowOther !== false,
-  })).filter((item) => item.question && item.options.length);
+  })).filter((item) => item.question && (item.options.length || item.allowOther));
 }
 
 function cleanKnownFields(value) {
