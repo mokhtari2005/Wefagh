@@ -83,7 +83,7 @@ test('ورودی نامعتبر: اصل صفر یا منفی، تاریخ خال
 test('خروجی شامل شاخص مبدأ و مقصد، ماه مبنا، ضریب، فرمول، منبع و توضیح احراز است', () => {
   const r = indexedDelayDamage({ principal: 50000000, startIso: D.m1400_01, endIso: D.m1405_06, startBasis: 'تاریخ سررسید', endBasis: 'تاریخ محاسبه' });
   assert.equal(r.referenceMonth, 'فروردین ۱۴۰۰');
-  assert.match(r.formula, /شاخص ماه پایان/);
+  assert.match(r.formula, /شاخص سالانه ماه پرداخت/);
   assert.equal(r.ratio.toFixed(4), (800 / 83.3).toFixed(4));
   assert.equal(r.source.reportPublishedAt, 'مهرماه ۱۴۰۵');
   assert.equal(r.source.startPage, 6);
