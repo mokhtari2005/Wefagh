@@ -4,7 +4,7 @@ import { applyRule } from './engine.js';
 import { findRule, rulesFor } from './rates.js';
 import { formatShamsi } from '../shamsi.js';
 import { parseShamsiInput, isoToShamsiInput, shamsiToIso, normalizeDigits } from '../jalali.js';
-import { cpiFor, cpiCoverage, CPI_SOURCE } from './cpi-data.js';
+import { cpiFor, cpiAnnualFor, cpiCoverage, CPI_SOURCE } from './cpi-data.js';
 import { shamsiField } from '../shamsi-field.js';
 import { normalizeLimitations, formatNumbersInLine, formatRial, statusLabel } from './result-format.js';
 import { indexedDelayDamage, planDelayPeriod, periodLabel, periodKeyOfIso } from './indexation.js';
@@ -159,9 +159,9 @@ const INDEXED_ERRORS = {
   NO_INDEX_DATA: 'برای یکی از ماه‌های انتخاب‌شده، شاخص معتبر بانک مرکزی در داده‌های این محاسبه‌گر موجود نیست.',
 };
 
-/** سال‌های قابل انتخاب دقیقاً از محدودهٔ دادهٔ مستند استخراج می‌شوند؛ سال فاقد داده نمایش داده نمی‌شود. */
+/** فهرست سال‌ها از ۱۳۱۰ آغاز می‌شود؛ ماه‌های فاقد شاخص واقعی قابل انتخاب نیستند. */
 const INDEX_COVERAGE = cpiCoverage();
-const FIRST_INDEX_YEAR = Number(INDEX_COVERAGE.first.slice(0, 4));
+const FIRST_INDEX_YEAR = 1310;
 const LAST_INDEX_YEAR = Number(INDEX_COVERAGE.last.slice(0, 4));
 const INDEX_YEARS = Array.from(
   { length: LAST_INDEX_YEAR - FIRST_INDEX_YEAR + 1 },
@@ -182,6 +182,7 @@ function monthFields(idPrefix, labels) {
   ]);
   const yearLabel = h('label', { for: `${idPrefix}-year`, text: labels.year });
   const monthLabel = h('label', { for: `${idPrefix}-month`, text: labels.month });
+  const annualInfo = h('p', { class: 'muted', text: '' });
   const refreshMonths = () => {
     const selectedYear = Number(year.value);
     Array.from(month.options).forEach((option) => {
@@ -190,6 +191,14 @@ function monthFields(idPrefix, labels) {
       option.disabled = !available;
       if (!available && option.selected) month.value = '';
     });
+    const annual = selectedYear ? cpiAnnualFor(selectedYear) : null;
+    if (annual) {
+      annualInfo.textContent = `شاخص سالانه تاریخی: ${annual.index} (پایه ${annual.base})؛ این عدد برای محاسبه ماهانه خسارت تأخیر تأدیه قابل استفاده نیست.`;
+    } else if (selectedYear >= 1310 && selectedYear <= 1314) {
+      annualInfo.textContent = 'برای این سال، شاخص تاریخی قابل استناد در منابع بررسی‌شده یافت نشد.';
+    } else {
+      annualInfo.textContent = '';
+    }
   };
   year.addEventListener('change', refreshMonths);
   refreshMonths();
@@ -197,6 +206,7 @@ function monthFields(idPrefix, labels) {
     nodes: [
       h('div', { class: 'field' }, [yearLabel, year]),
       h('div', { class: 'field' }, [monthLabel, month]),
+      annualInfo,
     ],
     iso() {
       const y = Number(year.value);
@@ -236,7 +246,7 @@ function groupAmount(text) {
  */
 function indexedDelayTool() {
   const cov = cpiCoverage();
-  const coverageText = `شاخص سالانهٔ بانک مرکزی در جدول ماهانه، از ${periodLabel(cov.first)} تا ${periodLabel(cov.last)} در دسترس است. آخرین ماه قابل محاسبه: ${periodLabel(cov.last)}. دوره‌های خارج از این بازه محاسبه نمی‌شوند.`;
+  const coverageText = `فهرست سال‌ها از ۱۳۱۰ آغاز می‌شود. شاخص ماهانهٔ قابل استفاده در محاسبه از ${periodLabel(cov.first)} تا ${periodLabel(cov.last)} موجود است. برای سال‌های ۱۳۱۵ تا ۱۳۷۲ فقط شاخص سالانهٔ تاریخی نمایش داده می‌شود و محاسبهٔ ماهانه انجام نمی‌گیرد؛ برای سال‌های ۱۳۱۰ تا ۱۳۱۴ شاخص تاریخی یافت نشده است. آخرین ماه قابل محاسبه: ${periodLabel(cov.last)}.`;
   const coverage = h('div', { class: 'notice', role: 'status', text: coverageText });
 
   const obligation = h('select', { id: 'dix-obligation' }, [
@@ -327,7 +337,7 @@ function indexedDelayTool() {
           ? 'در خصوص چک، مبدأ محاسبه بر اساس تاریخ سررسید انتخاب شده است؛ شرایط خاص سند و رأی صادره باید بررسی شود.'
           : 'در خصوص سایر دیون پولی، احراز مطالبه، تمکن مدیون، امتناع از پرداخت و سایر شرایط مادهٔ ۵۲۲ بر عهده مرجع رسیدگی است.',
         'پرداخت جزئی، اقساط و تغییر مبلغ اصل دین در طول دوره در این نسخه محاسبه نمی‌شود.',
-        `منبع شاخص: ${r.source.publisher}، ${r.source.title}، صفحات ${r.source.startPage} و ${r.source.endPage}. داده‌های پیش از ${periodLabel(r.coverage.first)} و پس از ${periodLabel(r.coverage.last)} در این نسخه موجود نیست.`,
+        `منبع شاخص: ${r.source.publisher}، ${r.source.title}، صفحات ${r.source.startPage} و ${r.source.endPage}. شاخص ماهانه پیش از ${periodLabel(r.coverage.first)} و پس از ${periodLabel(r.coverage.last)} در این نسخه موجود نیست؛ برای سال‌های ۱۳۱۵ تا ۱۳۷۲ فقط شاخص سالانه تاریخی نمایش داده می‌شود.`,
         'این محاسبه بر مبنای شاخص و فرمول رأی وحدت رویه انجام می‌شود و جایگزین احراز شرایط استحقاق خسارت در پرونده نیست.',
       ],
     }));
