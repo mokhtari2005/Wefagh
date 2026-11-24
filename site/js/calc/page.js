@@ -4,7 +4,7 @@ import { applyRule } from './engine.js';
 import { findRule, rulesFor } from './rates.js';
 import { formatShamsi } from '../shamsi.js';
 import { parseShamsiInput, isoToShamsiInput, shamsiToIso, normalizeDigits } from '../jalali.js';
-import { cpiCoverage, CPI_SOURCE } from './cpi-data.js';
+import { cpiFor, cpiCoverage, CPI_SOURCE } from './cpi-data.js';
 import { shamsiField } from '../shamsi-field.js';
 import { normalizeLimitations, formatNumbersInLine, formatRial, statusLabel } from './result-format.js';
 import { indexedDelayDamage, planDelayPeriod, periodLabel, periodKeyOfIso } from './indexation.js';
@@ -154,30 +154,45 @@ function delayTool() {
 
 const INDEXED_ERRORS = {
   INVALID_PRINCIPAL: 'اصل دین باید عددی بزرگ‌تر از صفر باشد.',
-  INVALID_DATES: 'سال و ماه سررسید یا مطالبه (طبق مبنای شروع)، و سال و ماه پایان محاسبه را از فهرست‌ها انتخاب کنید.',
-  INVALID_PERIOD: 'تاریخ پایان باید بعد از تاریخ شروع باشد.',
-  INVALID_PAYMENT: 'وضعیت پرداخت را انتخاب کنید.',
-  PARTIAL_PAYMENT_UNSUPPORTED: 'پرداخت جزئی در این ابزار پشتیبانی نمی‌شود؛ محاسبه تنها برای «پرداخت نشده» یا «پرداخت کامل» انجام می‌شود. برای پرداخت جزئی باید محاسبهٔ تفکیکی توسط وکیل انجام شود.',
+  INVALID_DATES: 'ماه و سال شروع و پایان را از فهرست‌ها انتخاب کنید.',
+  INVALID_PERIOD: 'ماه پایان نمی‌تواند پیش از ماه شروع باشد.',
+  NO_INDEX_DATA: 'برای یکی از ماه‌های انتخاب‌شده، شاخص معتبر بانک مرکزی در داده‌های این محاسبه‌گر موجود نیست.',
 };
 
-/** خسارت تأخیر تأدیه بر اساس شاخص بانک مرکزی: محاسبهٔ مشروط؛ احراز شرایط قانونی با کاربر یا وکیل است. */
-// فهرست سال‌ها گسترده‌تر از پوشش داده است تا تاریخ خارج از محدوده انتخاب و با پیام روشن رد شود.
-const INDEX_YEARS = [1399, 1400, 1401, 1402, 1403, 1404, 1405, 1406];
+/** سال‌های قابل انتخاب دقیقاً از محدودهٔ دادهٔ مستند استخراج می‌شوند؛ سال فاقد داده نمایش داده نمی‌شود. */
+const INDEX_COVERAGE = cpiCoverage();
+const FIRST_INDEX_YEAR = Number(INDEX_COVERAGE.first.slice(0, 4));
+const LAST_INDEX_YEAR = Number(INDEX_COVERAGE.last.slice(0, 4));
+const INDEX_YEARS = Array.from(
+  { length: LAST_INDEX_YEAR - FIRST_INDEX_YEAR + 1 },
+  (_, index) => FIRST_INDEX_YEAR + index,
+);
 const MONTH_NAMES_FA = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
 const faDigits = (n) => String(n).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
-/** فهرست‌های کشویی سال و ماه. خروجی iso() اولین روز ماه شمسی انتخاب‌شده است، یا '' اگر کامل نباشد. */
+/** فهرست‌های سال و ماه؛ فقط دوره‌های داخل پوشش داده برای انتخاب معتبرند. */
 function monthFields(idPrefix, labels) {
   const year = h('select', { id: `${idPrefix}-year`, 'aria-label': labels.year }, [
-    h('option', { value: '', text: 'سال را انتخاب کنید' }),
+    h('option', { value: '', text: 'انتخاب سال' }),
     ...INDEX_YEARS.map((y) => h('option', { value: String(y), text: faDigits(y) })),
   ]);
   const month = h('select', { id: `${idPrefix}-month`, 'aria-label': labels.month }, [
-    h('option', { value: '', text: 'ماه را انتخاب کنید' }),
+    h('option', { value: '', text: 'انتخاب ماه' }),
     ...MONTH_NAMES_FA.map((name, i) => h('option', { value: String(i + 1), text: name })),
   ]);
   const yearLabel = h('label', { for: `${idPrefix}-year`, text: labels.year });
   const monthLabel = h('label', { for: `${idPrefix}-month`, text: labels.month });
+  const refreshMonths = () => {
+    const selectedYear = Number(year.value);
+    Array.from(month.options).forEach((option) => {
+      if (!option.value) return;
+      const available = !selectedYear || Boolean(cpiFor(`${selectedYear}-${String(option.value).padStart(2, '0')}`));
+      option.disabled = !available;
+      if (!available && option.selected) month.value = '';
+    });
+  };
+  year.addEventListener('change', refreshMonths);
+  refreshMonths();
   return {
     nodes: [
       h('div', { class: 'field' }, [yearLabel, year]),
@@ -187,7 +202,8 @@ function monthFields(idPrefix, labels) {
       const y = Number(year.value);
       const m = Number(month.value);
       if (!y || !m) return '';
-      return shamsiToIso(y, m, 1) ?? '';
+      const key = `${y}-${String(m).padStart(2, '0')}`;
+      return cpiFor(key) ? (shamsiToIso(y, m, 1) ?? '') : '';
     },
     setLabels(next) {
       yearLabel.textContent = next.year;
@@ -213,121 +229,106 @@ function groupAmount(text) {
   return digits ? Number(digits).toLocaleString('fa-IR') : '';
 }
 
+/**
+ * خسارت تأخیر تأدیه: شاخص سالانهٔ بانک مرکزی که به‌صورت جدول ماهانه منتشر می‌شود.
+ * مطابق رأی وحدت رویه ۸۵۰، نسبت شاخص ماه پرداخت به شاخص ماه سررسید/مطالبه ملاک است؛
+ * این ابزار روش مستقل «تورم ماهانه» یا میانگین سالانه را اعمال نمی‌کند.
+ */
 function indexedDelayTool() {
   const cov = cpiCoverage();
-  const coverageText = `داده‌های شاخص از ${periodLabel(cov.first)} تا ${periodLabel(cov.last)} موجود است (${CPI_SOURCE.shortTitle}، ${CPI_SOURCE.reportPublishedAt}). آخرین ماه قابل محاسبه: ${periodLabel(cov.last)}. ماه‌های خارج از این بازه محاسبه نمی‌شوند.`;
+  const coverageText = `شاخص سالانهٔ بانک مرکزی در جدول ماهانه، از ${periodLabel(cov.first)} تا ${periodLabel(cov.last)} در دسترس است. آخرین ماه قابل محاسبه: ${periodLabel(cov.last)}. دوره‌های خارج از این بازه محاسبه نمی‌شوند.`;
   const coverage = h('div', { class: 'notice', role: 'status', text: coverageText });
 
-  const period = h('select', { id: 'dix-period' }, [
-    h('option', { value: 'monthly', text: 'ماهانه (بر اساس شاخص ماهانه بانک مرکزی)' }),
-  ]);
   const obligation = h('select', { id: 'dix-obligation' }, [
-    h('option', { value: 'money', text: 'دین پولی (وجه نقد یا مبلغ ریالی)' }),
-    h('option', { value: 'other', text: 'سایر تعهدات (این ابزار پشتیبانی نمی‌کند)' }),
+    h('option', { value: 'money', text: 'وجه نقد و سایر دیون پولی' }),
+    h('option', { value: 'cheque', text: 'وجه چک' }),
   ]);
-  const paymentStatus = h('select', { id: 'dix-payment' }, [
-    h('option', { value: 'unpaid', text: 'پرداخت نشده است' }),
-    h('option', { value: 'full', text: 'پرداخت کامل شده است' }),
-    h('option', { value: 'partial', text: 'پرداخت جزئی شده است (پشتیبانی نمی‌شود)' }),
-  ]);
-  const endFields = monthFields('dix-end', { year: 'سال محاسبه', month: 'ماه محاسبه' });
-  const dueFields = monthFields('dix-due', { year: 'سال سررسید', month: 'ماه سررسید' });
-  const demandFields = monthFields('dix-demand', { year: 'سال مطالبه', month: 'ماه مطالبه' });
   const startBasis = h('select', { id: 'dix-start-basis' }, [
-    h('option', { value: 'due', text: 'تاریخ سررسید' }),
-    h('option', { value: 'demand', text: 'تاریخ مطالبه' }),
+    h('option', { value: 'demand', text: 'تاریخ مطالبهٔ دین' }),
+    h('option', { value: 'due', text: 'تاریخ سررسید؛ در صورت مطالبه در همان تاریخ' }),
   ]);
-  const principal = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'مثال: ۷۰۰٬۰۰۰٬۰۰۰' });
-  principal.addEventListener('input', () => {
-    principal.value = groupAmount(principal.value);
-  });
-  const endLabels = {
-    unpaid: { year: 'سال محاسبه', month: 'ماه محاسبه' },
-    full: { year: 'سال پرداخت', month: 'ماه پرداخت' },
-  };
-  paymentStatus.addEventListener('change', () => endFields.setLabels(endLabels[paymentStatus.value] ?? endLabels.unpaid));
-
+  const basisWrap = field('dix-start-basis', 'مبنای شروع محاسبه برای دین غیرچکی', startBasis);
+  const startFields = monthFields('dix-start', { year: 'سال شروع', month: 'ماه شروع' });
+  const endFields = monthFields('dix-end', { year: 'سال پرداخت یا محاسبه', month: 'ماه پرداخت یا محاسبه' });
+  const principal = h('input', { type: 'text', id: 'dix-principal', inputmode: 'numeric', autocomplete: 'off', placeholder: 'مثال: ۷۰۰٬۰۰۰٬۰۰۰' });
+  principal.addEventListener('input', () => { principal.value = groupAmount(principal.value); });
   const out = h('div', { class: 'tool-out' });
-  const form = h('form', { class: 'form dix-form', novalidate: '', 'aria-label': 'خسارت تأخیر تأدیه بر اساس شاخص بانک مرکزی' }, [
+
+  function syncStartLabels() {
+    const isCheque = obligation.value === 'cheque';
+    basisWrap.hidden = isCheque;
+    startFields.setLabels(isCheque
+      ? { year: 'سال سررسید چک', month: 'ماه سررسید چک' }
+      : { year: startBasis.value === 'due' ? 'سال سررسید دین' : 'سال مطالبهٔ دین', month: startBasis.value === 'due' ? 'ماه سررسید دین' : 'ماه مطالبهٔ دین' });
+  }
+  obligation.addEventListener('change', syncStartLabels);
+  startBasis.addEventListener('change', syncStartLabels);
+  syncStartLabels();
+
+  const form = h('form', { class: 'form dix-form', novalidate: '', 'aria-label': 'محاسبه خسارت تأخیر تأدیه بر اساس شاخص سالانه بانک مرکزی' }, [
     coverage,
-    field('dix-period', 'نوع محاسبه', period),
-    field('dix-obligation', 'نوع تعهد', obligation),
-    field('dix-payment', 'وضعیت پرداخت تا تاریخ پایان', paymentStatus),
+    field('dix-obligation', 'نوع دین', obligation),
+    basisWrap,
+    ...startFields.nodes,
     ...endFields.nodes,
-    ...dueFields.nodes,
-    ...demandFields.nodes,
-    field('dix-start-basis', 'مبنای شروع تأخیر (انتخاب شما)', startBasis),
-    field('dix-principal', 'مبلغ دین (ریال)', principal),
-    h('p', { class: 'muted', text: 'مبنای قانونی انتخاب تاریخ شروع و پایان در این ابزار احراز نشده است. تاریخ شروع را بر اساس قرارداد یا حکم انتخاب کنید.' }),
-    h('button', { class: 'btn dix-submit', type: 'submit', text: 'محاسبه' }),
+    field('dix-principal', 'مبلغ اصل دین (ریال)', principal),
+    h('p', { class: 'muted', text: 'فرمول: مبلغ روزِ پرداخت = اصل دین × شاخص سالانهٔ ماه پرداخت ÷ شاخص سالانهٔ ماه شروع. شاخص سالانه در جدول بانک مرکزی برای هر ماه جداگانه درج می‌شود؛ این به معنای محاسبه با نرخ تورم ماهانه نیست.' }),
+    h('p', { class: 'muted', text: 'در دین غیرچکی، تحقق شرایط مادهٔ ۵۲۲ و تاریخ مطالبه باید احراز شود. در چک، مبدأ اصولاً تاریخ سررسید چک است. پرداخت جزئی و محاسبهٔ اقساطی در این نسخه پشتیبانی نمی‌شود.' }),
+    h('button', { class: 'btn dix-submit', type: 'submit', text: 'محاسبه خسارت تأخیر تأدیه' }),
     out,
   ]);
 
-  const fail = (text) => out.replaceChildren(h('div', { class: 'notice', role: 'alert', text }));
-
+  const fail = (message) => out.replaceChildren(h('div', { class: 'notice', role: 'alert', text: message }));
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    if (obligation.value !== 'money') {
-      return fail('این ابزار فقط برای دین پولی است؛ برای سایر تعهدات محاسبه انجام نمی‌شود.');
-    }
-    const startFields = startBasis.value === 'due' ? dueFields : demandFields;
     const startIso = startFields.iso();
-    const calcIso = endFields.iso();
-    if (!startIso || !calcIso) {
-      return fail(INDEXED_ERRORS.INVALID_DATES);
-    }
+    const endIso = endFields.iso();
+    if (!startIso || !endIso) return fail('ماه و سال شروع و پایان باید انتخاب شوند و هر دو باید در محدودهٔ شاخص‌های موجود بانک مرکزی باشند.');
     const amount = parseAmount(principal.value);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return fail(INDEXED_ERRORS.INVALID_PRINCIPAL);
-    }
-    const plan = planDelayPeriod({
-      startIso,
-      calcIso,
-      payment: { status: paymentStatus.value, dateIso: paymentStatus.value === 'full' ? calcIso : undefined },
-    });
-    if (!plan.ok) {
-      return fail(INDEXED_ERRORS[plan.error] || 'ورودی‌ها را بررسی کنید.');
-    }
+    if (!Number.isFinite(amount) || amount <= 0) return fail(INDEXED_ERRORS.INVALID_PRINCIPAL);
+
+    const startLabel = obligation.value === 'cheque'
+      ? 'تاریخ سررسید چک'
+      : (startBasis.value === 'due' ? 'تاریخ سررسید دین' : 'تاریخ مطالبهٔ دین');
     const r = indexedDelayDamage({
       principal: amount,
       startIso,
-      endIso: plan.endIso,
-      startBasis: startBasis.value === 'due' ? 'تاریخ سررسید' : 'تاریخ مطالبه',
-      endBasis: plan.endBasis,
+      endIso,
+      startBasis: startLabel,
+      endBasis: 'تاریخ پرداخت یا ماه محاسبه',
     });
     if (!r.ok) {
-      let text = INDEXED_ERRORS[r.error] || 'ورودی‌ها را بررسی کنید.';
       if (r.error === 'NO_INDEX_DATA') {
-        const lines = r.outside.map((o) => (o.side === 'before'
-          ? `${periodLabel(o.periodKey)} قبل از اولین ماه جدول (${periodLabel(r.coverage.first)}) است.`
-          : `${periodLabel(o.periodKey)} بعد از آخرین ماه جدول (${periodLabel(r.coverage.last)}) است؛ شاخص آن هنوز در داده‌های معتبر نیست.`));
-        text = `${lines.join(' ')} محاسبه انجام نمی‌شود و عدد تقریبی ساخته نمی‌شود.`;
+        const periods = (r.outside || []).map((item) => periodLabel(item.periodKey));
+        return fail(`برای ${periods.join(' و ')} شاخص معتبر در داده‌های فعلی وجود ندارد؛ عدد تقریبی ساخته نمی‌شود.`);
       }
-      return fail(text);
+      return fail(INDEXED_ERRORS[r.error] || 'ورودی‌ها را بررسی کنید.');
     }
+
     const facts = [
-      ['ماه مبنا (شروع)', r.startIndex.period],
-      ['شاخص مبدأ', `${r.startIndex.index} (گزارش صفحه ${r.source.startPage})`],
-      ['ماه مقصد (پایان)', r.endIndex.period],
-      ['شاخص مقصد', `${r.endIndex.index} (گزارش صفحه ${r.source.endPage})`],
+      ['ماه مبنای شروع', r.startIndex.period],
+      ['شاخص سالانهٔ ماه شروع', String(r.startIndex.index)],
+      ['ماه پرداخت یا محاسبه', r.endIndex.period],
+      ['شاخص سالانهٔ ماه پایان', String(r.endIndex.index)],
       ['ضریب تعدیل', r.ratio.toFixed(6)],
-      ['فرمول', r.formula],
       ['اصل دین', formatRial(r.principal)],
     ];
     out.replaceChildren(resultBox({
       ok: true,
-      title: 'محاسبهٔ مشروط؛ احراز شرایط قانونی لازم است',
+      title: 'نتیجهٔ محاسبه بر مبنای شاخص سالانه بانک مرکزی',
       facts,
       interest: r.interest,
       total: r.total,
       steps: r.steps,
-      ruleVersion: `شاخص بهای کالاها و خدمات مصرفی، ${r.source.reportPublishedAt} (فایل ${r.source.file})`,
+      ruleVersion: `رأی وحدت رویه شماره ۸۵۰ مورخ ۱۴۰۳/۰۵/۱۶؛ شاخص‌های بانک مرکزی تا ${periodLabel(r.coverage.last)}`,
       limitations: [
-        `پایان محاسبه: ${plan.endBasis}.`,
-        'این عدد مشروط است؛ تا شرایط زیر احراز نشود، به‌عنوان مبلغ قطعی استفاده نکنید:',
-        ...r.requiredVerification,
-        `منبع شاخص‌ها: ${r.source.publisher}، ${r.source.title}، صفحه‌های ${r.source.startPage} و ${r.source.endPage} فایل؛ سایت رسمی بانک مرکزی بررسی نشده است.`,
-        `جدول شاخص از ${periodLabel(r.coverage.first)} تا ${periodLabel(r.coverage.last)} داده دارد.`,
+        'مبنای محاسبه، شاخص سالانهٔ بانک مرکزی است که در جدول ماهانه منتشر می‌شود؛ شاخص ماهانهٔ تغییر قیمت یا متوسط شاخص سال تقویمی جایگزین آن نشده است.',
+        obligation.value === 'cheque'
+          ? 'در خصوص چک، مبدأ محاسبه بر اساس تاریخ سررسید انتخاب شده است؛ شرایط خاص سند و رأی صادره باید بررسی شود.'
+          : 'در خصوص سایر دیون پولی، احراز مطالبه، تمکن مدیون، امتناع از پرداخت و سایر شرایط مادهٔ ۵۲۲ بر عهده مرجع رسیدگی است.',
+        'پرداخت جزئی، اقساط و تغییر مبلغ اصل دین در طول دوره در این نسخه محاسبه نمی‌شود.',
+        `منبع شاخص: ${r.source.publisher}، ${r.source.title}، صفحات ${r.source.startPage} و ${r.source.endPage}. داده‌های پیش از ${periodLabel(r.coverage.first)} و پس از ${periodLabel(r.coverage.last)} در این نسخه موجود نیست.`,
+        'این محاسبه بر مبنای شاخص و فرمول رأی وحدت رویه انجام می‌شود و جایگزین احراز شرایط استحقاق خسارت در پرونده نیست.',
       ],
     }));
   });
@@ -438,7 +439,6 @@ function ruleTool({ title, amountLabel, group, submitLabel, note, withRanges = f
   }
   return h('section', { class: 'tool' }, children);
 }
-
 /** حق‌الوکاله و تمبر مالیاتی وکیل: فرم مطابق نمونهٔ مرجع. محاسبه در attorney-form.js است؛ این تابع فقط فرم و نمایش را می‌سازد. */
 const ATTORNEY_LICENSES = [
   { value: '', text: 'انتخاب کنید (برای سهم‌ها)' },
@@ -657,8 +657,7 @@ const TOOL_PAGES = {
       amountLabel: 'مبلغ مبنا (ریال)',
       group: 'court',
       submitLabel: 'محاسبه هزینهٔ دادرسی',
-      note: ['مبنای محاسبه (خواسته یا محکوم‌به) و نحوهٔ اعمال هر پله باید مطابق متن رسمی باشد.', 'این ابزار پیش‌نویس است و پیش از ثبت دادخواست باید بازبینی شود.'],
-    }),
+      note: ['مبنای محاسبه (خواسته یا محکوم‌به) و نحوهٔ اعمال هر پله باید مطابق متن رسمی باشد.', 'این ابزار پیش‌نویس است و پیش از ثبت دادخواست باید بازبینی شود.'],    }),
   },
   attorney: {
     title: 'حق‌الوکاله و تمبر طبق تعرفه',
