@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generateOpenAIText, openaiConfigured, openaiModelId } from '../worker/src/ai/openai.js';
+import { generateOpenAIText, openaiConfigured, openaiModelId, toOpenAIJsonSchema } from '../worker/src/ai/openai.js';
 
 const env = {
   OPENAI_API_KEY: 'sk-test-openai-key-123456789012345',
@@ -13,6 +13,7 @@ const input = {
   contents: [{ role: 'user', parts: [{ text: 'سؤال حقوقی آزمایشی' }] }],
   maxOutputTokens: 1200,
   json: true,
+  schema: { type: 'OBJECT', properties: { status: { type: 'STRING' }, optionalNote: { type: 'STRING' } }, required: ['status'] },
 };
 
 function success(content = '{"status":"ready","questions":[],"notes":[],"text":"پاسخ آزمایشی"}') {
@@ -44,7 +45,10 @@ test('sends structured assistant requests to the configured GPT model and parses
     assert.equal(request.body.model, 'gpt-6.2-astra');
     assert.equal(request.body.max_completion_tokens, 1200);
     assert.equal(request.body.reasoning_effort, 'medium');
-    assert.deepEqual(request.body.response_format, { type: 'json_object' });
+    assert.equal(request.body.response_format.type, 'json_schema');
+    assert.equal(request.body.response_format.json_schema.strict, true);
+    assert.deepEqual(request.body.response_format.json_schema.schema.required, ['status', 'optionalNote']);
+    assert.deepEqual(request.body.response_format.json_schema.schema.properties.optionalNote, { anyOf: [{ type: 'string' }, { type: 'null' }] });
     assert.equal(result.provider, 'openai');
     assert.equal(result.model, 'gpt-6.2-astra');
     assert.equal(result.data.status, 'ready');
@@ -95,4 +99,32 @@ test('maps rate limiting and invalid credentials to safe provider errors', async
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+
+test('converts nested Gemini schemas to strict OpenAI JSON Schema with nullable optional fields', () => {
+  const schema = toOpenAIJsonSchema({
+    type: 'OBJECT',
+    properties: {
+      title: { type: 'STRING' },
+      details: {
+        type: 'OBJECT',
+        properties: { enabled: { type: 'BOOLEAN' } },
+      },
+      choices: { type: 'ARRAY', items: { type: 'STRING' } },
+    },
+    required: ['title', 'choices'],
+  });
+  assert.equal(schema.type, 'object');
+  assert.equal(schema.additionalProperties, false);
+  assert.deepEqual(schema.required, ['title', 'details', 'choices']);
+  assert.deepEqual(schema.properties.details, {
+    anyOf: [{
+      type: 'object',
+      properties: { enabled: { anyOf: [{ type: 'boolean' }, { type: 'null' }] } },
+      required: ['enabled'],
+      additionalProperties: false,
+    }, { type: 'null' }],
+  });
+  assert.deepEqual(schema.properties.choices, { type: 'array', items: { type: 'string' } });
 });
