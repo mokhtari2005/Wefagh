@@ -740,7 +740,7 @@ async function assistant(request, env) {
       text,
       notes,
       ...(reviewReport ? { reviewReport } : {}),
-      ...(reviewFollowups.length ? { reviewFollowups } : {}),
+      reviewFollowups: reviewFollowups,
       reviewStatus,
       sources: buildEvidenceSources({ legalArticles, judicialAuthorities, webSources: webResearch?.sources || [] }),
       attachments: summarizeAttachments(attachments),
