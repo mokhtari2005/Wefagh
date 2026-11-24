@@ -118,7 +118,7 @@ test('تشخیص هوش مصنوعی: فقط مدیر؛ نتیجهٔ مدل اص
   const original = globalThis.fetch;
 
   try {
-    const { env, sent } = setup({ OPENAI_API_KEY: 'sk-test-openai-key-0123456789abcdef', GEMINI_API_KEY: 'AIza-test-key-0123456789', GEMINI_TEXT_MODEL: 'gemini-2.5-flash' });
+    const { env, sent } = setup({ OPENAI_API_KEY: 'sk-test-openai-key-0123456789abcdef', GEMINI_API_KEY: 'AIza-test-key-0123456789', GEMINI_TEXT_MODEL: 'gemini-2.5-flash', RESEND_API_KEY: 're_test_key_1234567890' });
     assert.equal((await call(env, '/api/admin/ai/status', { method: 'GET' })).status, 401);
     const user = await loginAs(env, sent, 'user@example.com');
     assert.equal((await call(env, '/api/admin/ai/status', { method: 'GET', cookie: user })).status, 403);
