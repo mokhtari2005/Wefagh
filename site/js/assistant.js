@@ -244,14 +244,26 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     const res = await getJson(`/api/ai/threads/${encodeURIComponent(id)}/messages`);
     if (!res.ok) { status.textContent = 'بازیابی گفت‌وگو انجام نشد.'; return; }
     history.length = 0;
-    for (const m of res.data?.messages || []) history.push({ role: m.role === 'ai' ? 'ai' : 'user', text: m.content });
+    for (const m of res.data?.messages || []) {
+      const role = m.role === 'ai' ? 'ai' : 'user';
+      const metadata = role === 'ai' && m.metadata && typeof m.metadata === 'object' ? m.metadata : {};
+      history.push({ role, text: m.content, ...metadata });
+    }
     threadId = Number(id);
+    const latest = history.at(-1);
+    if (latest?.role === 'ai') {
+      if (MODES.some(([value]) => value === latest.mode) || latest.mode === 'draft') mode = latest.mode;
+      if (latest.docType && DOC_TYPES.some(([value]) => value === latest.docType)) docSelect.value = latest.docType;
+      syncMode();
+      acceptBtn.hidden = !(mode === 'consult' && latest.status === 'ready' && !(latest.questions || []).length && latest.text.length >= 120);
+    } else {
+      acceptBtn.hidden = true;
+    }
     renderLog({ revealLatest: true });
-    acceptBtn.hidden = true;
-    status.textContent = 'گفت‌وگو بازیابی شد. برای تأیید نتیجه، ابتدا از دستیار بخواهید جمع‌بندی نهایی مشاوره را ارائه کند.';
+    status.textContent = 'گفت‌وگو و وضعیت پرسش‌های تکمیلی بازیابی شد. می‌توانید پاسخ‌های باقی‌مانده را ادامه دهید یا نتیجه مشاوره را تأیید کنید.';
   }
 
-  async function persistTurn(userText, aiText) {
+  async function persistTurn(userText, aiText, metadata = {}) {
     if (guestMode) return true; // تاریخچهٔ مهمان فقط در حافظهٔ همین صفحه می‌ماند.
     if (!threadId) {
       const created = await postJson('/api/ai/threads', { title: userText.slice(0, 60) });
@@ -259,7 +271,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       threadId = created.data.thread.id;
     }
     const a = await postJson(`/api/ai/threads/${threadId}/messages`, { role: 'user', content: userText });
-    const b = await postJson(`/api/ai/threads/${threadId}/messages`, { role: 'ai', content: aiText });
+    const b = await postJson(`/api/ai/threads/${threadId}/messages`, { role: 'ai', content: aiText, metadata });
     return a.ok && b.ok;
   }
 
@@ -1246,14 +1258,28 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     history.push({ role: 'user', text: userText });
     const reply = summarizeReply(res.data, mode);
     const responseNotes = [...(res.data.notes || [])];
-    history.push({ role: 'ai', text: reply, notes: responseNotes, reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null, reviewStatus: typeof res.data.reviewStatus === 'string' ? res.data.reviewStatus : null, reviewFollowups: Array.isArray(res.data.reviewFollowups) ? res.data.reviewFollowups : [], questionOptions: Array.isArray(res.data.questionOptions) ? res.data.questionOptions : [], questions: Array.isArray(res.data.questions) ? res.data.questions : [], suggestedDocType: typeof res.data.suggestedDocType === 'string' ? res.data.suggestedDocType : '', knownFields: res.data.knownFields && typeof res.data.knownFields === 'object' ? res.data.knownFields : {}, documentDraft: mode === 'draft' && res.data.status === 'ready' && !(res.data.questions || []).length, docType: mode === 'draft' ? docSelect.value : null });
+    const aiMetadata = {
+      mode,
+      status: res.data.status,
+      notes: responseNotes,
+      reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null,
+      reviewStatus: typeof res.data.reviewStatus === 'string' ? res.data.reviewStatus : null,
+      reviewFollowups: Array.isArray(res.data.reviewFollowups) ? res.data.reviewFollowups : [],
+      questionOptions: Array.isArray(res.data.questionOptions) ? res.data.questionOptions : [],
+      questions: Array.isArray(res.data.questions) ? res.data.questions : [],
+      suggestedDocType: typeof res.data.suggestedDocType === 'string' ? res.data.suggestedDocType : '',
+      knownFields: res.data.knownFields && typeof res.data.knownFields === 'object' ? res.data.knownFields : {},
+      documentDraft: mode === 'draft' && res.data.status === 'ready' && !(res.data.questions || []).length,
+      docType: mode === 'draft' ? docSelect.value : null,
+    };
+    history.push({ role: 'ai', text: reply, ...aiMetadata });
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
     attachments = [];
     renderAttachments();
     renderLog({ revealLatest: true });
     if (mode === 'draft' && reply.trim() && res.data.status !== 'need_info') showDraftResult(reply, docSelect.value);
-    const saved = await persistTurn(userText, reply).catch(() => false);
+    const saved = await persistTurn(userText, reply, aiMetadata).catch(() => false);
     if (mode === 'consult' && voiceMode) speakReply(reply);
     // گزینه ورود به تنظیم سند فقط با اعلام آمادگی صریح سرور، بدون سؤال باز و با جمع‌بندی واقعی ظاهر می‌شود.
     if (mode === 'consult' && res.data.status === 'ready' && !(res.data.questions || []).length && reply.trim().length >= 120) acceptBtn.hidden = false;
