@@ -9,6 +9,7 @@ import { registrationRequired } from '../access.js';
 import { handleThreads } from './threads.js';
 import { AiError, aiConfigured, transcribeAudio, synthesizeLongSpeech } from './gemini.js';
 import { generateTextWithFallback, stripResponseFormatting } from './fallback.js';
+import { openaiConfigured } from './openai.js';
 import { groqConfigured } from './groq.js';
 import { reviewWithWorkersAI, workersAiConfigured } from './cloudflare.js';
 import { clampReply } from './speech.js';
@@ -570,7 +571,7 @@ async function assistant(request, env) {
         json: true,
         schema: ASSISTANT_SCHEMA,
       // فایل‌های PDF و تصویر به‌صورت inlineData به Gemini می‌رسند؛ ارسال ناخواستهٔ محتوای پیوست به سرویس ثالث ممنوع است.
-      }, { allowGroq: attachments.length === 0 });
+      }, { allowOpenAI: attachments.length === 0, allowGroq: attachments.length === 0 });
       data = generated.data;
       truncated = generated.truncated;
       provider = generated.provider;
@@ -583,7 +584,8 @@ async function assistant(request, env) {
       for (const key of allowedDraftFields) if (typeof data.knownFields[key] === 'string') knownFields[key] = data.knownFields[key].trim().slice(0, 1200);
     }
     const notes = Array.isArray(data.notes) ? data.notes.filter((n) => typeof n === 'string').slice(0, 10) : [];
-    if (provider === 'groq') notes.push('به‌دلیل اختلال سرویس اصلی، پاسخ با مسیر جایگزین تولید شد.');
+    if (provider === 'groq') notes.push('به‌دلیل در دسترس نبودن مدل اصلی و مسیر جایگزین نخست، پاسخ با مسیر پشتیبان تولید شد.');
+    if (provider === 'gemini' && attachments.length === 0) notes.push('مدل اصلی GPT در دسترس نبود یا کلید آن روی سرور فعال نشده بود؛ پاسخ با مدل جایگزین تهیه شد.');
     if (legalBankUnavailable) notes.push('بانک قوانین در این درخواست پاسخ نداد؛ پاسخ بدون استناد به مواد ثبت‌شده در بانک تهیه شد و استنادها باید جداگانه بررسی شوند.');
     const rawText = typeof data.text === 'string' ? data.text : '';
     const guardedText = guardUnverifiedLegalClaims(rawText, promptArticles, legalContext);
@@ -753,7 +755,7 @@ export async function handleAi(request, env, path) {
 async function routeAi(request, env, path) {
   if (path === '/api/ai/status') {
     if (request.method !== 'GET') return fail('METHOD_NOT_ALLOWED', 405);
-    return json({ ok: true, configured: aiConfigured(env) || groqConfigured(env), providers: { gemini: aiConfigured(env), groq: groqConfigured(env), cloudflareWorkersAI: workersAiConfigured(env), googleSearchGrounding: aiConfigured(env) } });
+    return json({ ok: true, configured: openaiConfigured(env) || aiConfigured(env) || groqConfigured(env), providers: { openai: openaiConfigured(env), gemini: aiConfigured(env), groq: groqConfigured(env), cloudflareWorkersAI: workersAiConfigured(env), googleSearchGrounding: aiConfigured(env) } });
   }
   if (path === '/api/ai/speech') return speech(request, env);
   if (path === '/api/ai/transcribe') return transcribe(request, env);
