@@ -19,7 +19,7 @@ export function stripResponseFormatting(value) {
     .replace(/^\s*[-*+]\s+/gm, '')
     .replace(/\*\*(.*?)\*\*/gs, '$1')
     .replace(/__(.*?)__/gs, '$1')
-    .replace(/(^|[\\s([{])\*([^*\\n]+)\*(?=$|[\\s)\\]},.!?؛،:])/gm, '$1$2')
+    .replace(/(^|[\s([{])\*([^*\n]+)\*(?=$|[\s)},.!?؛،:])/gm, '$1$2')
     .replace(/\x60{1,3}/g, '')
     .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '$1 ($2)')
     .replace(/[ \t]+$/gm, '')
