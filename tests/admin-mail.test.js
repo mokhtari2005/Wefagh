@@ -28,7 +28,7 @@ function d1Like(db) {
 function setup(extra = {}) {
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON;');
-  for (const f of readdirSync(join(here, '..', 'worker', 'migrations')).filter((name) => /^\\d{4}_.*\\.sql$/u.test(name)).sort()) db.exec(migration(f));
+  for (const f of readdirSync(join(here, '..', 'worker', 'migrations')).filter((name) => /^\d{4}_.*\.sql$/u.test(name)).sort()) db.exec(migration(f));
   const sent = [];
   const env = { DB: d1Like(db), PUBLIC_BASE_URL: 'https://mokhtari.ir', ADMIN_EMAIL: 'admin@example.com', mailer: async (msg) => { sent.push(msg); }, ...extra };
   return { db, env, sent };
