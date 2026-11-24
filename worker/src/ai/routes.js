@@ -17,7 +17,7 @@ import { reviewLegalDraft, groqReviewNotes } from './groq.js';
 import { AttachmentError, ATTACHMENT_LIMITS, processAttachments, buildUserParts, summarizeAttachments } from './attachments.js';
 import {
   ASSISTANT_DOC_TYPES, ASSISTANT_MODES, ASSISTANT_SCHEMA, MOOT_EVAL_SCHEMA,
-  HEARING_ROLES, HEARING_STAGES, mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt, litigationRoleSystemPrompt, LEGAL_DISCLAIMER,
+  HEARING_ROLES, HEARING_STAGES, mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt, LEGAL_DISCLAIMER,
 } from './prompts.js';
 
 export const SPEAKERS = Object.freeze({ judge: 'قاضی', plaintiff: 'وکیل خواهان', defendant: 'وکیل خوانده', clerk: 'منشی دادگاه', user: 'شرکت‌کننده' });
@@ -528,56 +528,6 @@ async function readAssistantInput(request) {
   return { body, files };
 }
 
-async function runLitigationDebate(env, { contents, message, docType, legalContext, hasAttachments }) {
-  const stages = [
-    { role: 'opposing', label: 'دور نخست ـ استدلال وکیل طرف مقابل', phase: 'مرحله اول', task: 'قوی‌ترین ادعاها و دفاعیات طرف مقابل، ایرادهای شکلی و ماهوی، بار اثبات و پاسخ‌های محتمل را بیان کن.' },
-    { role: 'client', label: 'دور نخست ـ استدلال وکیل موکل', phase: 'مرحله اول', task: 'به ادعاها و ایرادهای طرف مقابل پاسخ بده و مبانی و ادله موکل را با صداقت تحلیل کن.' },
-    { role: 'judge', label: 'ارزیابی قاضی پس از دور نخست', phase: 'مرحله دوم', task: 'استدلال‌های دو طرف را بی‌طرفانه مقایسه کن و تعارض‌ها، خلأهای اثباتی و پرسش‌های حل‌نشده را مشخص کن.' },
-    { role: 'opposing', label: 'دور دوم ـ پاسخ وکیل طرف مقابل', phase: 'مرحله دوم', task: 'با توجه به پاسخ موکل و ارزیابی قاضی، دفاع طرف مقابل را تکمیل کن و به نقاط قوت موکل پاسخ بده.' },
-    { role: 'client', label: 'دور دوم ـ پاسخ وکیل موکل', phase: 'مرحله دوم', task: 'به دفاع تکمیلی طرف مقابل و ارزیابی قاضی پاسخ بده و نقاط ضعف واقعی پرونده را نیز پنهان نکن.' },
-    { role: 'judge', label: 'ارزیابی نهایی قاضی و گزارش مستند', phase: 'مرحله ششم', task: 'پس از ملاحظه همه مراحل، نتیجه مشروط، مسائل تعیین‌کننده، وضعیت ادله و استنادات و اقدام‌های لازم را جمع‌بندی کن.' },
-    { role: 'judge', label: 'کارنامه تحلیلی مناظره', phase: 'مرحله هفتم', task: 'کارنامه نهایی و موجز شامل نقاط قوت و ضعف هر طرف، خلأهای اثباتی، خطرهای آیینی و اولویت اقدام بعدی را تهیه کن.' },
-  ];
-  const outputs = [];
-  let provider = 'gemini';
-  let truncated = false;
-  for (let index = 0; index < stages.length; index += 1) {
-    const stage = stages[index];
-    const previous = outputs.map((item) => item.label + ':\n' + item.text).join('\n\n');
-    const prompt = [
-      'میز محاکمه هوشمند ـ ' + stage.phase,
-      'موضوع پرونده: ' + message,
-      stage.task,
-      previous ? 'گفت‌وگو و استدلال‌های مراحل پیشین:\n' + previous : 'این نخستین دور مناظره است؛ فقط بر اساس اطلاعات پرونده تحلیل کن.',
-      'هر واقعیت را از ادعا و فرض جدا کن. ماده، رأی، تاریخ یا مهلت نساز. اگر متن منبع یا انطباق آن احراز نشده، صریحاً تأییدنشده اعلام کن.',
-    ].join('\n\n');
-    const generated = await generateTextWithFallback(env, {
-      system: litigationRoleSystemPrompt({ role: stage.role, docType, legalContext, hasAttachments }),
-      contents: [...contents, { role: 'user', parts: [{ text: prompt }] }],
-      maxOutputTokens: index === stages.length - 1 ? 2200 : 1400,
-      timeoutMs: 30_000,
-      json: false,
-    }, { allowOpenAI: !hasAttachments, allowGroq: false });
-    provider = generated.provider || provider;
-    truncated = truncated || Boolean(generated.truncated);
-    const answer = typeof generated.text === 'string' ? generated.text.trim() : '';
-    if (!answer) throw new AiError('AI_EMPTY', 502);
-    outputs.push({ label: stage.label, text: answer });
-  }
-  return {
-    data: {
-      status: 'ready',
-      questions: [],
-      questionOptions: [],
-      knownFields: {},
-      notes: [],
-      text: outputs.map((item) => item.label + '\n' + item.text).join('\n\n'),
-    },
-    provider,
-    truncated,
-  };
-}
-
 async function assistant(request, env) {
   const auth = await authorized(request, env);
   if (auth.error) return auth.error;
@@ -687,35 +637,19 @@ async function assistant(request, env) {
     }
     stage = 'primary_model_generation';
     const generationMode = mode;
-    let data;
-    let truncated = false;
-    let provider = 'gemini';
-    if (mode === 'litigation') {
-      const debated = await runLitigationDebate(env, {
-        contents,
-        message,
-        docType,
-        legalContext: [legalContext, webResearchContext].filter(Boolean).join('\n\n'),
-        hasAttachments: attachments.length > 0,
-      });
-      data = debated.data;
-      truncated = debated.truncated;
-      provider = debated.provider;
-    } else {
-      const generated = await generateTextWithFallback(env, {
-        system: [assistantSystemPrompt({ mode: generationMode, docType, hasAttachments: attachments.length > 0, legalContext }), webResearchContext].filter(Boolean).join('\n\n'),
-        contents,
-        // توکن‌های «تفکر» مدل هم از این سقف کم می‌شوند؛ سقف پایین باعث قطع شدن پیش‌نویس‌های فارسی می‌شد.
-        maxOutputTokens: generationMode === 'consult' ? 5500 : 6000,
-        timeoutMs: 30_000,
-        fallbackTimeoutMs: 12_000,
-        json: true,
-        schema: ASSISTANT_SCHEMA,
-      }, { allowOpenAI: attachments.length === 0, allowGroq: attachments.length === 0 });
-      data = generated.data;
-      truncated = generated.truncated;
-      provider = generated.provider || 'gemini';
-    }
+    const generated = await generateTextWithFallback(env, {
+      system: [assistantSystemPrompt({ mode: generationMode, docType, hasAttachments: attachments.length > 0, legalContext }), webResearchContext].filter(Boolean).join('\n\n'),
+      contents,
+      // توکن‌های «تفکر» مدل هم از این سقف کم می‌شوند؛ سقف پایین باعث قطع شدن پیش‌نویس‌های فارسی می‌شد.
+      maxOutputTokens: generationMode === 'consult' ? 5500 : 6000,
+      timeoutMs: 30_000,
+      fallbackTimeoutMs: 12_000,
+      json: true,
+      schema: ASSISTANT_SCHEMA,
+    }, { allowOpenAI: attachments.length === 0, allowGroq: attachments.length === 0 });
+    const data = generated.data;
+    const truncated = generated.truncated;
+    const provider = generated.provider || 'gemini';
     const questions = Array.isArray(data.questions) ? data.questions.filter((q) => typeof q === 'string').slice(0, 5) : [];
     const questionOptions = mode === 'consult' && Array.isArray(data.questionOptions) ? data.questionOptions.filter((item) => item && typeof item.question === 'string' && Array.isArray(item.options)).slice(0, 3).map((item) => ({ question: item.question.slice(0, 500), options: item.options.filter((option) => typeof option === 'string').slice(0, 8).map((option) => option.slice(0, 180)), allowOther: item.allowOther !== false })).filter((item) => item.options.length > 0) : [];
     const allowedDraftFields = ["partyOneName","partyOneAddress","partyTwoName","partyTwoAddress","court","caseNumber","caseStage","additionalDetails","contractSubject","contractAmount","contractDuration","incidentDate","incidentPlace","evidenceSummary","issuingCourt","judgmentNumber","judgmentDate","notificationDate","executionCaseNumber","enforcementStage","enforcementCaseNumber","disputedAction","noticeSubject","responseDeadline"];
