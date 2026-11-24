@@ -26,3 +26,19 @@ test('نمونه شارژ ساختمان به‌عنوان آزمون رگرسی
   assert.match(prompt, /مسئولیت مالک و استفاده‌کننده\/مستأجر/u);
   assert.match(prompt, /قانون جاری شوراهای حل اختلاف و صلاحیت دادگاه صلح/u);
 });
+
+
+test('جست‌وجوی جایگزین منابع رسمی برای تصادف عابر پیاده تعریف شده است', async () => {
+  const { buildSafeLegalSearchQuery } = await import('../worker/src/ai/legal-search.js');
+  const query = buildSafeLegalSearchQuery('تصادف رانندگی با عابر پیاده و مسئولیت راننده');
+  assert.match(query, /قانون بیمه اجباری خسارات واردشده به شخص ثالث/u);
+  assert.match(query, /قانون رسیدگی به تخلفات رانندگی/u);
+  assert.match(query, /مسئولیت راننده در تصادف با عابر پیاده/u);
+  assert.doesNotMatch(query, /شهرام مختاری|علیرضا/u);
+});
+
+test('دستورالعمل، جست‌وجوی جایگزین را پیش از خالی گذاشتن مستند الزامی می‌کند', () => {
+  assert.match(prompt, /پیدا نشدن مستند در بانک داخلی پایان تحقیق نیست/u);
+  assert.match(prompt, /جست‌وجوی جایگزین در سامانه ملی قوانین و مقررات/u);
+  assert.match(prompt, /انجام‌نشدن بازبینی مستقل/u);
+});
