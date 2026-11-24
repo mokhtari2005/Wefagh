@@ -568,6 +568,11 @@ body { background: var(--cream); color: var(--ink); }
 .site-nav a[aria-current="page"] { background: var(--teal-dark); }
 main.container { padding-top: 1.25rem; padding-bottom: 6rem; }
 .home-dashboard { display: grid; gap: 1.35rem; }
+/* جلوگیری از پرش صفحه: جای بخش‌های تأخیری تقویم و مواعد از ابتدا رزرو می‌شود. */
+.home-dashboard .deadline-panel { min-height: 15rem; }
+.home-dashboard .home-calendar { min-height: 24rem; }
+/* حالت بارگذاری اولیه: فوتر پیش از آمدن محتوا بالا نمی‌ماند تا پرش بزرگ نداشته باشد. */
+#main { min-height: 75vh; }
 .dashboard-hero { position: relative; min-height: 300px; display: flex; align-items: center; overflow: hidden; border-radius: 22px; background: linear-gradient(90deg, rgba(var(--deep-rgb), .05) 0%, rgba(var(--deep-rgb), .25) 36%, rgba(var(--deep-rgb), .97) 68%), url('../assets/images/legal-hero.webp') center/cover no-repeat; box-shadow: var(--shadow-sm); }
 .dashboard-hero-copy { width: 54%; margin-inline-start: auto; padding: clamp(1.25rem, 4vw, 3.2rem); color: white; }
 .dashboard-hero .section-kicker { color: #eac27f; }
