@@ -53,7 +53,17 @@ const HISTORICAL_MONTH_NAMES = ['فروردین', 'اردیبهشت', 'خردا�
 // جدول ماهانهٔ تاریخیِ بازنشرشده از ارقام شاخص بانک مرکزی، پایهٔ ۱۳۹۵=۱۰۰.
 // برای اتصال به سری فعلی با پایهٔ ۱۴۰۰=۱۰۰، از متوسط شاخص سال ۱۴۰۰ در همان جدول
 // (۴۳۷٫۰۴۲) به‌عنوان ضریب تغییر پایه استفاده شده است. ارقام منبع تا یک رقم اعشارند.
-const HISTORICAL_REBASE_FACTOR = 437.042;
+export const CPI_HISTORICAL_SOURCE = Object.freeze({
+  id: 'cbi-monthly-historical-1395-rebased',
+  title: 'جدول شاخص ماهانه بانک مرکزی با پایه ۱۳۹۵=۱۰۰، سال‌های ۱۳۷۳ تا ۱۳۹۹',
+  publisher: 'بانک مرکزی جمهوری اسلامی ایران (بازنشر جدول در PDF مورخ ۱۴۰۳/۱۰/۳۰)',
+  base: '۱۳۹۵=۱۰۰',
+  rebaseFactor: 437.042,
+  url: 'https://vakilsoal.com/wp-content/uploads/2025/01/شاخص-محاسبه-تأخیر-تأدیه.pdf',
+  note: 'برای اتصال به سری ۱۴۰۰=۱۰۰، ارقام در ۱۰۰ تقسیم بر متوسط شاخص سال ۱۴۰۰ (۴۳۷٫۰۴۲) ضرب شده‌اند؛ ارقام منبع تا یک رقم اعشار منتشر شده‌اند.',
+});
+
+const HISTORICAL_REBASE_FACTOR = CPI_HISTORICAL_SOURCE.rebaseFactor;
 const HISTORICAL_MONTHLY_RAW = [
   [1373, [2.1, 2.2, 2.2, 2.3, 2.3, 2.4, 2.5, 2.5, 2.5, 2.6, 2.8, 3.0]],
   [1374, [3.2, 3.5, 3.5, 3.5, 3.5, 3.5, 3.6, 3.7, 3.8, 4.0, 4.0, 4.1]],
@@ -94,7 +104,7 @@ const HISTORICAL_MONTHLY_RECORDS = Object.freeze(
       monthlyChangePct: null,
       yearOverYearChangePct: null,
       base: CPI_BASE,
-      source: 'cbi-monthly-historical-1395-rebased',
+      source: CPI_HISTORICAL_SOURCE.id,
       sourceFile: 'historical-monthly-table-1395-base',
       pdfPage: null,
       printedPage: null,
