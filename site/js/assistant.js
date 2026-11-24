@@ -413,7 +413,72 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
   const log = h('ol', { class: 'ai-log', 'aria-label': 'گفت‌وگو' });
   const stream = h('div', { class: 'ai-stream', tabindex: '-1' }, [emptyState, log]);
 
-  function aiMessageNode(m) {
+  // پرسش‌ها یکی‌یکی نمایش داده می‌شوند؛ با هر گزینه یا پاسخ آزاد، پرسش بعدی باز می‌شود و در پایان همه پاسخ‌ها یک‌جا ارسال می‌شوند.
+  function questionStepper(items) {
+    const answers = items.map(() => null);
+    let current = 0;
+    const root = h('section', { class: 'ai-question-options ai-question-stepper', 'aria-label': 'پرسش‌های تکمیلی مشاوره' });
+    const nextUnanswered = (from) => {
+      for (let step = 1; step <= items.length; step += 1) {
+        const index = (from + step) % items.length;
+        if (answers[index] === null) return index;
+      }
+      return -1;
+    };
+    const setAnswer = (value) => {
+      answers[current] = value;
+      const next = nextUnanswered(current);
+      if (next >= 0) current = next;
+      render();
+    };
+    function render() {
+      root.replaceChildren();
+      const answeredCount = answers.filter((value) => value !== null).length;
+      if (answeredCount < items.length) {
+        const item = items[current];
+        root.append(
+          h('p', { class: 'muted', text: `پرسش ${(current + 1).toLocaleString('fa-IR')} از ${items.length.toLocaleString('fa-IR')}` }),
+          h('strong', { text: item.question }),
+        );
+        const choices = h('div', { class: 'ai-question-choices' });
+        for (const option of item.options) {
+          const choice = h('button', { class: 'btn secondary ai-mini', type: 'button', text: option });
+          choice.addEventListener('click', () => setAnswer(option));
+          choices.append(choice);
+        }
+        root.append(choices);
+        if (item.allowOther) {
+          const free = h('input', { type: 'text', class: 'ai-party-input', maxlength: '600', placeholder: 'پاسخ دیگر خود را بنویسید', 'aria-label': 'پاسخ آزاد به این پرسش' });
+          const submit = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'ثبت پاسخ' });
+          submit.addEventListener('click', () => { const value = free.value.trim(); if (value) setAnswer(value); else free.focus(); });
+          root.append(h('div', { class: 'ai-question-free' }, [free, submit]));
+        }
+        if (answeredCount > 0 && current > 0) {
+          const back = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'پرسش قبلی' });
+          back.addEventListener('click', () => { current = (current - 1 + items.length) % items.length; render(); });
+          root.append(back);
+        }
+        return;
+      }
+      const list = h('dl', { class: 'ai-question-summary' });
+      items.forEach((item, index) => {
+        const edit = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'ویرایش' });
+        edit.addEventListener('click', () => { answers[index] = null; current = index; render(); });
+        list.append(h('dt', { text: item.question }), h('dd', {}, [h('span', { text: answers[index] }), edit]));
+      });
+      const sendAll = h('button', { class: 'btn', type: 'button', text: 'ارسال پاسخ‌ها و ادامهٔ مشاوره' });
+      sendAll.addEventListener('click', () => {
+        composerText.value = items.map((item, index) => `${item.question}\nپاسخ انتخاب‌شده: ${answers[index]}`).join('\n\n');
+        counter.textContent = `${composerText.value.length} / ${MESSAGE_LIMIT}`;
+        send();
+      });
+      root.append(list, sendAll);
+    }
+    render();
+    return root;
+  }
+
+  function aiMessageNode(m, isLatest = false) {
     const actions = h('div', { class: 'ai-msg-actions' });
     const copy = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'کپی پاسخ' });
     copy.addEventListener('click', async () => {
@@ -483,37 +548,16 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     const questionOptions = Array.isArray(m.questionOptions) ? m.questionOptions : [];
     const freeQuestions = (Array.isArray(m.questions) ? m.questions : []).filter((question) =>
       typeof question === 'string' && !questionOptions.some((item) => item?.question === question));
-    if (questionOptions.length || freeQuestions.length) {
-      const questionPanel = h('section', { class: 'ai-question-options', 'aria-label': 'پرسش‌های تکمیلی مشاوره' });
-      const addFreeAnswer = (question) => {
-        const answer = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'پاسخ به این پرسش' });
-        answer.addEventListener('click', () => {
-          composerText.value = `${question}\nپاسخ من: `;
-          composerText.focus();
-          counter.textContent = `${composerText.value.length} / ${MESSAGE_LIMIT}`;
-        });
-        questionPanel.append(answer);
-      };
-      freeQuestions.forEach((question) => {
-        questionPanel.append(h('strong', { text: question }));
-        addFreeAnswer(question);
-      });
-      questionOptions.forEach((item) => {
-        if (!item || typeof item.question !== 'string') return;
-        questionPanel.append(h('strong', { text: item.question }));
-        for (const option of (Array.isArray(item.options) ? item.options : []).filter((value) => typeof value === 'string').slice(0, 8)) {
-          const choice = h('button', { class: 'btn secondary ai-mini', type: 'button', text: option });
-          choice.addEventListener('click', () => {
-            composerText.value = `${item.question}\nپاسخ انتخاب‌شده: ${option}`;
-            counter.textContent = `${composerText.value.length} / ${MESSAGE_LIMIT}`;
-            send();
-          });
-          questionPanel.append(choice);
-        }
-        if (item.allowOther !== false) addFreeAnswer(item.question);
-      });
-      if (questionPanel.childElementCount) children.push(questionPanel);
-    }
+    const questionItems = [
+      ...questionOptions.filter((item) => item && typeof item.question === 'string').map((item) => ({
+        question: item.question,
+        options: (Array.isArray(item.options) ? item.options : []).filter((value) => typeof value === 'string').slice(0, 8),
+        allowOther: item.allowOther !== false,
+      })),
+      ...freeQuestions.map((question) => ({ question, options: [], allowOther: true })),
+    ];
+    // فقط آخرین پاسخ دستیار قابل پاسخ‌گویی است؛ پرسش‌های قبلی در تاریخچه بسته می‌مانند.
+    if (questionItems.length && isLatest) children.push(questionStepper(questionItems));
     if (reviewPanel) children.push(reviewPanel);
     if (m.notes?.length) children.push(h('ul', {
       class: 'ai-notes',
@@ -524,8 +568,9 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
   }
 
   function renderLog({ revealLatest = false } = {}) {
-    log.replaceChildren(...history.map((m) => (m.role === 'ai'
-      ? aiMessageNode(m)
+    const lastAiIndex = history.reduce((found, item, index) => (item.role === 'ai' ? index : found), -1);
+    log.replaceChildren(...history.map((m, index) => (m.role === 'ai'
+      ? aiMessageNode(m, index === lastAiIndex)
       : h('li', { class: 'ai-msg ai-msg-user' }, [h('span', { class: 'ai-role', text: 'شما' }), h('div', { class: 'ai-text pre-wrap', text: m.text })]))));
     emptyState.hidden = history.length > 0;
     stream.scrollTop = stream.scrollHeight;
