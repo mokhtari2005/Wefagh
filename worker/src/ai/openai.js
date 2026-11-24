@@ -103,7 +103,7 @@ export async function generateOpenAIText(env, {
   if (!text) throw new AiError('AI_EMPTY', 502, { provider: 'openai' });
 
   if (!json) return { text, model, provider: 'openai', usage: payload.usage || null };
-  const stripped = text.replace(/^\`\`\`(?:json)?\\s*/i, '').replace(/\\s*\`\`\`$/, '');
+  const stripped = text.replace(/^\x60{3}(?:json)?\s*/i, '').replace(/\s*\x60{3}$/, '');
   let data;
   try {
     data = JSON.parse(stripped);
