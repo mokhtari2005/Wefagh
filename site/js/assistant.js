@@ -455,6 +455,9 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
           submit.addEventListener('click', () => { const value = free.value.trim(); if (value) setAnswer(value); else free.focus(); });
           root.append(h('div', { class: 'ai-question-free' }, [free, submit]));
         }
+        const skip = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'فعلاً از پاسخ به این پرسش می‌گذرم' });
+        skip.addEventListener('click', () => setAnswer('فعلاً اطلاعاتی برای پاسخ به این پرسش ندارم یا مایل به پاسخ‌گویی نیستم.'));
+        root.append(skip);
         if (answeredCount > 0 && current > 0) {
           const back = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'پرسش قبلی' });
           back.addEventListener('click', () => { current = (current - 1 + items.length) % items.length; render(); });
