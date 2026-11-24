@@ -205,14 +205,9 @@ export function assistantPage(params = {}) {
       return;
     }
     const initialMode = MODES.some(([value]) => value === params.mode) ? params.mode : 'consult';
-    const chooserTitle = initialMode === 'litigation' ? 'میز محاکمه هوشمند' : initialMode === 'research' ? 'تحقیق و راستی‌آزمایی حقوقی' : 'مشاوره حقوقی هوشمند';
-    const openWorkspace = (method) => {
-      accessCheckStage = 'ساخت محیط گفت‌وگو';
-      body.replaceChildren(assistantWorkspace(guestMode ? null : params.thread, guestMode, method, initialMode));
-    };
-    // در مشاوره هوشمند، چت متنی از قبل در همان محیط وجود دارد؛ انتخاب جداگانهٔ «پاسخ‌گویی متنی» تکراری است.
-    if (initialMode === 'consult') openWorkspace('smart');
-    else body.replaceChildren(methodChooser(openWorkspace, chooserTitle));
+    // همهٔ حالت‌ها مستقیماً در محیط یکپارچه باز می‌شوند؛ تایپ و گفت‌وگوی صوتی در همان صفحه در دسترس است.
+    accessCheckStage = 'ساخت محیط گفت‌وگو';
+    body.replaceChildren(assistantWorkspace(guestMode ? null : params.thread, guestMode, 'smart', initialMode));
   })().catch((error) => {
     const errorName = error instanceof Error ? error.name : 'UnknownError';
     const errorMessage = String(error instanceof Error ? error.message : error).replace(/\\s+/g, ' ').slice(0, 180);
@@ -224,28 +219,6 @@ export function assistantPage(params = {}) {
     ]));
   });
   return wrap;
-}
-
-/** انتخاب روش پاسخ‌گویی: متنی، یا هوشمند (چت و گفت‌وگوی صوتی در یک محیط). */
-function methodChooser(onPick, title = 'مشاوره حقوقی هوشمند') {
-  const description = title === 'مشاوره حقوقی هوشمند'
-    ? 'روش پاسخ‌گویی را انتخاب کنید. هر دو از همان مشاوره، حافظهٔ گفت‌وگو و بازبینی پشت‌صحنه استفاده می‌کنند.'
-    : `روش پاسخ‌گویی را برای بخش «${title}» انتخاب کنید؛ متن یا گفت‌وگوی صوتی در همین گردش‌کار در دسترس است.`;
-  const card = (title, desc, method) => {
-    const b = h('button', { class: 'assistant-document-card', type: 'button' }, [
-      h('span', { class: 'assistant-document-copy' }, [h('strong', { text: title }), h('small', { text: desc })]),
-    ]);
-    b.addEventListener('click', () => onPick(method));
-    return b;
-  };
-  return h('section', { class: 'ai-method-chooser', 'aria-label': 'روش پاسخ‌گویی' }, [
-    h('h1', { text: title }),
-    h('p', { class: 'muted', text: description }),
-    h('div', { class: 'assistant-document-grid' }, [
-      card('پاسخ‌گویی متنی', 'پرسش یا شرح پرونده را تایپ کنید و گفت‌وگو را ادامه دهید.', 'text'),
-      card('پاسخ‌گویی هوشمند', 'چت متنی و گفت‌وگوی صوتی؛ بین آن‌ها جابه‌جا شوید بدون از دست رفتن گفت‌وگو.', 'smart'),
-    ]),
-  ]);
 }
 
 /** متن یک پیام را به‌صورت فایل متنی دانلود می‌کند. */
