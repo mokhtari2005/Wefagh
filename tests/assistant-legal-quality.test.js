@@ -42,3 +42,11 @@ test('دستورالعمل، جست‌وجوی جایگزین را پیش از �
   assert.match(prompt, /جست‌وجوی جایگزین در سامانه ملی قوانین و مقررات/u);
   assert.match(prompt, /انجام‌نشدن بازبینی مستقل/u);
 });
+
+
+test('جست‌وجوی منابع رسمی در پاسخ‌های حقوقی با پرچم اختیاری خاموش نمی‌شود', () => {
+  const legalSearch = readFileSync(new URL('../worker/src/ai/legal-search.js', import.meta.url), 'utf8');
+  const routes = readFileSync(new URL('../worker/src/ai/routes.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(legalSearch, /GEMINI_SEARCH_GROUNDING_ENABLED === 'false'/u);
+  assert.match(routes, /\['consult', 'litigation', 'draft', 'analyze', 'research'\]\.includes\(mode\)/u);
+});
