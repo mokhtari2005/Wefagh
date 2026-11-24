@@ -519,8 +519,8 @@ async function assistant(request, env) {
       'وضعیت بانک: تأییدشده؛ انطباق موضوعی و اعتبار زمانی باید جداگانه سنجیده شود.',
     ].filter(Boolean).join('\n')).join('\n\n---\n\n');
     const legalContext = [statuteContext, judicialContext].filter(Boolean).join('\n\n---\n\n');
-    // جست‌وجوی وب فقط برای مشاورهٔ متنی، بدون پیوست و با پرس‌وجوی حقوقیِ whitelist انجام می‌شود.
-    // نام اشخاص، شرح وقایع، شماره پرونده و متن پیوست به موتور جست‌وجو ارسال نمی‌شود.
+    // جست‌وجوی وب برای حالت‌های حقوقی با واژگان whitelist انجام می‌شود؛ متن پیوست هرگز وارد پرس‌وجو نمی‌شود.
+    // نام اشخاص، شرح وقایع و شماره پرونده نیز به موتور جست‌وجو ارسال نمی‌شوند.
     let webResearch = null;
     let webResearchContext = '';
     if (['consult', 'litigation', 'draft', 'analyze', 'research'].includes(mode) && env.GEMINI_SEARCH_GROUNDING_ENABLED !== 'false') {
@@ -634,7 +634,6 @@ async function assistant(request, env) {
         followupQuestions: reviewFollowups,
       });
       reviewStatus = review.status || 'provider_error';
-      if (reviewBankUnavailable) notes.push('جست‌وجوی تکمیلی بانک قوانین برای بازبین مستقل انجام نشد؛ نتیجه بر اساس مواد بازیابی‌شده در مرحله نخست و سایر اطلاعات موجود است.');
       if (review.status === 'reviewed') {
         reviewReport = review.review;
       } else {
