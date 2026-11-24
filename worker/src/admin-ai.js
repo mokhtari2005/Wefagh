@@ -26,7 +26,7 @@ export async function handleAdminAi(request, env, path) {
   ]);
   return json({
     ok: true,
-    configured: openaiConfigured(env) || aiConfigured(env),
+    configured: openaiConfigured(env) || aiConfigured(env) || groqConfigured(env),
     groq: { ...groq, hint: groqProbeHint(groq) },
     models: [
       { ...openai, provider: 'openai', role: 'اصلی', hint: openaiProbeHint(openai) },
