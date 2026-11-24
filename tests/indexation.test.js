@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { indexedDelayDamage, planDelayPeriod, periodKeyOfIso, LEGAL_VERIFICATION_POINTS } from '../site/js/calc/indexation.js';
 
 // تاریخ‌های میلادی نمونه (هر کدام در ماه شمسی مشخص‌شده قرار دارد)
-const D = { m1399_12: '2021-02-19', m1400_01: '2021-03-21', m1402_02: '2023-04-21', m1403_01: '2024-03-20', m1404_07: '2025-09-23', m1405_06: '2026-08-23', m1405_08: '2026-10-23' };
+const D = { m1372_12: '1994-03-20', m1399_12: '2021-02-19', m1400_01: '2021-03-21', m1402_02: '2023-04-21', m1403_01: '2024-03-20', m1404_07: '2025-09-23', m1405_06: '2026-08-23', m1405_08: '2026-10-23' };
 
 test('تبدیل تاریخ میلادی به ماه شمسی درست است', () => {
   assert.equal(periodKeyOfIso(D.m1400_01), '1400-01');
@@ -60,10 +60,10 @@ test('همان ماه: خسارت صفر؛ پایان قبل از شروع رد 
   assert.equal(indexedDelayDamage({ principal: 5000000, startIso: D.m1405_06, endIso: D.m1403_01 }).error, 'INVALID_PERIOD');
 });
 
-test('تاریخ قبل از اولین ماه جدول (۱۳۹۹/۱۲): محاسبه انجام نمی‌شود و جهت خطا مشخص است', () => {
-  const r = indexedDelayDamage({ principal: 1000000, startIso: D.m1399_12, endIso: D.m1405_06 });
+test('تاریخ قبل از اولین ماه دارای شاخص ماهانه (اسفند ۱۳۷۲): محاسبه انجام نمی‌شود و جهت خطا مشخص است', () => {
+  const r = indexedDelayDamage({ principal: 1000000, startIso: D.m1372_12, endIso: D.m1405_06 });
   assert.equal(r.error, 'NO_INDEX_DATA');
-  assert.deepEqual(r.outside, [{ periodKey: '1399-12', side: 'before' }]);
+  assert.deepEqual(r.outside, [{ periodKey: '1372-12', side: 'before' }]);
   assert.equal(r.interest, undefined);
 });
 
@@ -71,7 +71,7 @@ test('تاریخ بعد از آخرین ماه جدول (مهر ۱۴۰۵): مح�
   const r = indexedDelayDamage({ principal: 1000000, startIso: D.m1403_01, endIso: D.m1405_08 });
   assert.equal(r.error, 'NO_INDEX_DATA');
   assert.deepEqual(r.outside, [{ periodKey: '1405-08', side: 'after' }]);
-  assert.deepEqual(r.coverage, { first: '1400-01', last: '1405-06' });
+  assert.deepEqual(r.coverage, { first: '1373-01', last: '1405-06' });
 });
 
 test('ورودی نامعتبر: اصل صفر یا منفی، تاریخ خالی', () => {
