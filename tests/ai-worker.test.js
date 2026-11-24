@@ -230,13 +230,14 @@ test('میز محاکمه هوشمند: حالت مستقل، پرامپت چن�
     const data = await res.json();
     assert.equal(res.status, 200);
     assert.equal(data.ok, true);
-    assert.equal(calls.length, 7);
-    assert.ok(systems.every((system) => system.includes('میز محاکمه هوشمند')));
-    assert.ok(systems.some((system) => system.includes('قوی‌ترین دفاع‌ها، ایرادهای شکلی و ماهوی')));
-    assert.ok(systems.some((system) => system.includes('نقش تو وکیل موکل/کاربر است')));
-    assert.ok(systems.some((system) => system.includes('قاضی بی‌طرف و ارزیاب')));
-    assert.ok(systems.every((system) => system.includes('ماده ۴۲۶')));
-    assert.ok(systems.every((system) => system.includes('تأییدنشده')));
+    const roleSystems = systems.filter((system) => system.includes('میز محاکمه هوشمند'));
+    assert.equal(roleSystems.length, 7);
+    assert.ok(roleSystems.every((system) => system.includes('میز محاکمه هوشمند')));
+    assert.ok(roleSystems.some((system) => system.includes('قوی‌ترین دفاع‌ها، ایرادهای شکلی و ماهوی')));
+    assert.ok(roleSystems.some((system) => system.includes('نقش تو وکیل موکل/کاربر است')));
+    assert.ok(roleSystems.some((system) => system.includes('قاضی بی‌طرف و ارزیاب')));
+    assert.ok(roleSystems.every((system) => system.includes('ماده ۴۲۶')));
+    assert.ok(roleSystems.every((system) => system.includes('تأییدنشده')));
     assert.match(data.text, /واقعیت‌های مستند/);
     assert.ok(data.notes.some((note) => note.includes('بازبینی مستقل')));
   });
@@ -608,7 +609,7 @@ test('میز محاکمه مناظره هفت‌مرحله‌ای را اجرا 
     const data = await res.json();
     assert.equal(res.status, 200);
     assert.equal(data.ok, true);
-    assert.equal(calls.length, 7);
+    assert.equal(roleCalls.length, 7, 'هفت مرحله مستقل نقش‌محور اجرا می‌شود؛ جست‌وجوی منابع جداگانه شمرده نمی‌شود');
     assert.deepEqual(roleCalls.sort(), ['client', 'client', 'judge', 'judge', 'judge', 'opposing', 'opposing']);
     for (const heading of ['دور نخست ـ استدلال وکیل طرف مقابل', 'دور نخست ـ استدلال وکیل موکل', 'ارزیابی قاضی پس از دور نخست', 'دور دوم ـ پاسخ وکیل طرف مقابل', 'دور دوم ـ پاسخ وکیل موکل', 'ارزیابی نهایی قاضی و گزارش مستند', 'کارنامه تحلیلی مناظره']) {
       assert.ok(data.text.includes(heading), heading);
