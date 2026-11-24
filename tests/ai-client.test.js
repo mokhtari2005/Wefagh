@@ -51,9 +51,10 @@ test('پاسخ خالی و بیش از حد طولانی رد می‌شود', ()
   assert.deepEqual(validAnswer('  متن  '), { ok: true, text: 'متن' });
 });
 
-test('تاریخچهٔ دستیار حداکثر ده مورد می‌ماند و پاسخ پرسش‌های تکمیلی فهرست می‌شود', () => {
-  const many = Array.from({ length: 15 }, (_, i) => ({ role: 'user', text: `ت${i}` }));
-  assert.equal(trimHistory(many).length, 10);
+test('تاریخچهٔ دستیار حداکثر چهل مورد می‌ماند و پاسخ پرسش‌های تکمیلی فهرست می‌شود', () => {
+  const many = Array.from({ length: 50 }, (_, i) => ({ role: 'user', text: `ت${i}` }));
+  assert.equal(trimHistory(many).length, 40);
+  assert.equal(trimHistory(many)[0].text, 'ت10');
   const reply = summarizeReply({ status: 'need_info', questions: ['موضوع دعوا چیست؟', 'مرجع رسیدگی؟'] });
   assert.match(reply, /موضوع دعوا چیست؟/);
   assert.equal(summarizeReply({ status: 'ready', text: 'متن نهایی' }), 'متن نهایی');
