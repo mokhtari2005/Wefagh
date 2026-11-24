@@ -20,7 +20,7 @@ const KNOWN_FIELD_KEYS = new Set([
 ]);
 
 function shortText(value, limit) {
-  return typeof value === 'string' ? value.replace(/\\u0000/g, '').trim().slice(0, limit) : '';
+  return typeof value === 'string' ? value.replaceAll(String.fromCharCode(0), '').trim().slice(0, limit) : '';
 }
 
 function cleanStringArray(value, count, length) {
