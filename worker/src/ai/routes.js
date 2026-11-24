@@ -523,7 +523,7 @@ async function assistant(request, env) {
     // نام اشخاص، شرح وقایع و شماره پرونده نیز به موتور جست‌وجو ارسال نمی‌شوند.
     let webResearch = null;
     let webResearchContext = '';
-    if (['consult', 'litigation', 'draft', 'analyze', 'research'].includes(mode) && env.GEMINI_SEARCH_GROUNDING_ENABLED !== 'false') {
+    if (['consult', 'litigation', 'draft', 'analyze', 'research'].includes(mode)) {
       stage = 'legal_web_search';
       webResearch = await searchLegalAuthorities(env, legalSearchText);
       if (webResearch.status === 'searched') {
@@ -753,7 +753,7 @@ export async function handleAi(request, env, path) {
 async function routeAi(request, env, path) {
   if (path === '/api/ai/status') {
     if (request.method !== 'GET') return fail('METHOD_NOT_ALLOWED', 405);
-    return json({ ok: true, configured: aiConfigured(env) || groqConfigured(env), providers: { gemini: aiConfigured(env), groq: groqConfigured(env), cloudflareWorkersAI: workersAiConfigured(env), googleSearchGrounding: env.GEMINI_SEARCH_GROUNDING_ENABLED === 'true' && aiConfigured(env) } });
+    return json({ ok: true, configured: aiConfigured(env) || groqConfigured(env), providers: { gemini: aiConfigured(env), groq: groqConfigured(env), cloudflareWorkersAI: workersAiConfigured(env), googleSearchGrounding: aiConfigured(env) } });
   }
   if (path === '/api/ai/speech') return speech(request, env);
   if (path === '/api/ai/transcribe') return transcribe(request, env);
