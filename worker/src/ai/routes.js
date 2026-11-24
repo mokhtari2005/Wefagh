@@ -57,11 +57,11 @@ export function buildEvidenceSources({ legalArticles = [], judicialAuthorities =
     seen.add(key);
     output.push({
       type: String(source.type || 'منبع حقوقی').slice(0, 40),
-      title: String(source.title).replace(/[\\r\\n]/g, ' ').slice(0, 220),
+      title: String(source.title).replaceAll(String.fromCharCode(10), ' ').replaceAll(String.fromCharCode(13), ' ').slice(0, 220),
       url: safeEvidenceUrl(source.url),
       domain: String(source.domain || '').slice(0, 120),
       status: String(source.status || '').slice(0, 140),
-      excerpt: String(source.excerpt || '').replace(/\\s+/g, ' ').slice(0, 260),
+      excerpt: String(source.excerpt || '').replaceAll(String.fromCharCode(10), ' ').replaceAll(String.fromCharCode(13), ' ').split(' ').filter(Boolean).join(' ').slice(0, 260),
     });
   };
 
