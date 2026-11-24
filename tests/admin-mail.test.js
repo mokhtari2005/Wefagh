@@ -116,18 +116,19 @@ test('ارسال مجدد مدیریتی در دورهٔ محدودیت، درخ
 
 test('تشخیص هوش مصنوعی: فقط مدیر؛ نتیجهٔ مدل اصلی و جایگزین بدون افشای کلید', { skip }, async () => {
   const original = globalThis.fetch;
-  globalThis.fetch = async (url) => {
-    const target = String(url);
-    if (target.includes('api.openai.com')) return new Response(JSON.stringify({ error: { message: 'secret detail' } }), { status: 403 });
-    if (target.includes('gemini-2.5-flash:')) return new Response(JSON.stringify({ error: { status: 'PERMISSION_DENIED', message: 'secret detail' } }), { status: 403 });
-    return new Response(JSON.stringify({ candidates: [] }), { status: 200 });
-  };
+
   try {
     const { env, sent } = setup({ OPENAI_API_KEY: 'sk-test-openai-key-0123456789abcdef', GEMINI_API_KEY: 'AIza-test-key-0123456789', GEMINI_TEXT_MODEL: 'gemini-2.5-flash' });
     assert.equal((await call(env, '/api/admin/ai/status', { method: 'GET' })).status, 401);
     const user = await loginAs(env, sent, 'user@example.com');
     assert.equal((await call(env, '/api/admin/ai/status', { method: 'GET', cookie: user })).status, 403);
     const admin = await loginAs(env, sent, 'admin@example.com');
+  globalThis.fetch = async (url) => {
+    const target = String(url);
+    if (target.includes('api.openai.com')) return new Response(JSON.stringify({ error: { message: 'secret detail' } }), { status: 403 });
+    if (target.includes('gemini-2.5-flash:')) return new Response(JSON.stringify({ error: { status: 'PERMISSION_DENIED', message: 'secret detail' } }), { status: 403 });
+    return new Response(JSON.stringify({ candidates: [] }), { status: 200 });
+  };
     const res = await call(env, '/api/admin/ai/status', { method: 'GET', cookie: admin });
     const text = await res.text();
     const body = JSON.parse(text);
