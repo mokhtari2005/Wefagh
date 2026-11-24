@@ -43,7 +43,7 @@ test('uses GPT as the primary text model when its key is configured', async () =
     assert.equal(result.provider, 'openai');
     assert.equal(result.data.text, 'پاسخ GPT');
     assert.equal(calls.length, 1);
-    assert.match(calls[0].url, /api\.openai\.com\/v1\/chat\/completions/u);
+    assert.match(calls[0].url, /api\.openai\.com\/v1\/responses/u);
     assert.equal(calls[0].body.model, 'gpt-6.2-astra');
   } finally {
     globalThis.fetch = originalFetch;
