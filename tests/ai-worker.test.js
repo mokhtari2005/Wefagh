@@ -230,7 +230,7 @@ test('میز محاکمه هوشمند: حالت مستقل، پرامپت چن�
     const data = await res.json();
     assert.equal(res.status, 200);
     assert.equal(data.ok, true);
-    assert.equal(calls.length, 7);
+    assert.equal(calls.length, 1, 'یک فراخوانی ساخت‌یافته برای تحلیل چندمنظری کافی است');
     assert.ok(systems.every((system) => system.includes('میز محاکمه هوشمند')));
     assert.ok(systems.some((system) => system.includes('قوی‌ترین دفاع‌ها، ایرادهای شکلی و ماهوی')));
     assert.ok(systems.some((system) => system.includes('نقش تو وکیل موکل/کاربر است')));
@@ -365,7 +365,8 @@ test('Groq بازبین مستقل فقط با Secret فعال می‌شود و 
   assert.match(GROQ_API, /api\.groq\.com/);
   assert.equal(GROQ_REVIEW_MODEL, 'openai/gpt-oss-120b');
   assert.match(groqReviewNotes({ status: 'quota_exceeded' })[0], /سهمیه رایگان/);
-  assert.match(groqReviewNotes({ status: 'not_configured' })[0], /GROQ_API_KEY/);
+  assert.match(groqReviewNotes({ status: 'not_configured' })[0], /فعال نشده است/);
+  assert.ok(!groqReviewNotes({ status: 'not_configured' })[0].includes('GROQ_API_KEY'));
 });
 
 test('بازبین میز محاکمه نقش‌های طرف مقابل، وکیل موکل و قاضی را جداگانه بررسی می‌کند', async () => {
@@ -380,15 +381,11 @@ test('بازبین میز محاکمه نقش‌های طرف مقابل، وک�
     ],
     citations: [],
   };
+  let requestUrl = '';
+  let requestPayload = null;
   await withFetch(async (url, init) => {
-    assert.equal(url, GROQ_API);
-    const sent = JSON.parse(init.body);
-    assert.match(sent.messages[0].content, /وکیل طرف مقابل/);
-    assert.match(sent.messages[0].content, /وکیل موکل/);
-    assert.match(sent.messages[0].content, /قاضی بی‌طرف/);
-    assert.match(sent.messages[0].content, /راستی‌آزمایی استنادات/);
-    assert.match(sent.messages[0].content, /کنترل خواسته‌ها/);
-    assert.match(sent.messages[0].content, /نقل‌قول ترکیبی/);
+    requestUrl = url;
+    requestPayload = JSON.parse(init.body);
     return jsonRes(200, { choices: [{ message: { content: JSON.stringify(reviewJson) } }] });
   }, async () => {
     const result = await reviewLegalDraft({ GROQ_API_KEY: groqKey }, {
@@ -399,6 +396,14 @@ test('بازبین میز محاکمه نقش‌های طرف مقابل، وک�
     assert.equal(result.status, 'reviewed');
     assert.deepEqual(result.review.issues.map((item) => item.category), ['وکیل طرف مقابل', 'وکیل موکل', 'قاضی بی‌طرف']);
   });
+  assert.equal(requestUrl, GROQ_API);
+  const reviewerInstructions = (requestPayload?.messages || []).map((message) => message.content).join('\n');
+  assert.match(reviewerInstructions, /وکیل طرف مقابل/);
+  assert.match(reviewerInstructions, /وکیل موکل/);
+  assert.match(reviewerInstructions, /قاضی بی‌طرف/);
+  assert.match(reviewerInstructions, /راستی‌آزمایی استنادات/);
+  assert.match(reviewerInstructions, /کنترل خواسته‌ها/);
+  assert.match(reviewerInstructions, /نقل‌قول ترکیبی/);
 });
 
 
