@@ -169,12 +169,12 @@ test('admin GPT probe reports a missing secret without making a network request'
 
 test('marks incomplete text output and rejects truncated structured JSON', async () => {
   const originalFetch = globalThis.fetch;
-  const partial = new Response(JSON.stringify({
+  const partialPayload = {
     status: 'incomplete',
     incomplete_details: { reason: 'max_output_tokens' },
     output: [{ type: 'message', role: 'assistant', content: [{ type: 'output_text', text: 'پاسخ نیمه‌تمام' }] }],
-  }), { status: 200, headers: { 'content-type': 'application/json' } });
-  globalThis.fetch = async () => partial;
+  };
+  globalThis.fetch = async () => new Response(JSON.stringify(partialPayload), { status: 200, headers: { 'content-type': 'application/json' } });
   try {
     const plain = await generateOpenAIText(env, { ...input, json: false });
     assert.equal(plain.text, 'پاسخ نیمه‌تمام');
