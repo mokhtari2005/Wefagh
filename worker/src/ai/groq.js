@@ -304,15 +304,15 @@ export async function reviewLegalDraft(env, { mode, docType, question, draft, le
 export function groqReviewNotes(result) {
   if (!result || result.status !== 'reviewed') {
     const messages = {
-      not_configured: 'بازبینی مستقل در زمان اجرا فعال نشده است.',
+      not_configured: 'کلید سرویس بازبینی مستقل در تنظیمات اجرایی فعال نشده است.',
       invalid_input: 'متن کافی برای بازبینی مستقل وجود نداشت.',
       quota_exceeded: 'سهمیه رایگان سرویس بازبینی به پایان رسیده است؛ بازبینی مستقل انجام نشد.',
-      key_rejected: 'بازبینی مستقل انجام نشد.',
-      timeout: 'بازبینی مستقل انجام نشد.',
-      network_error: 'بازبینی مستقل انجام نشد.',
-      provider_error: 'بازبینی مستقل انجام نشد.',
-      request_rejected: 'بازبینی مستقل انجام نشد.',
-      invalid_response: 'بازبینی مستقل انجام نشد.',
+      key_rejected: 'کلید سرویس بازبینی مستقل معتبر یا مجاز نیست.',
+      timeout: 'مهلت پاسخ سرویس بازبینی مستقل به پایان رسید؛ بازبینی انجام نشد.',
+      network_error: 'ارتباط شبکه با سرویس بازبینی مستقل برقرار نشد.',
+      provider_error: 'سرویس بازبینی مستقل موقتاً خطا داد.',
+      request_rejected: 'سرویس بازبینی مستقل درخواست را نپذیرفت.',
+      invalid_response: 'پاسخ سرویس بازبینی مستقل قابل استفاده نبود.',
     };
     return [messages[result?.status] || 'بازبینی مستقل انجام نشد؛ صحت حقوقی این پیش‌نویس تأیید نشده است.'];
   }
