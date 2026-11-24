@@ -1,7 +1,7 @@
 // تست مسیر واقعی ایمیل ثبت‌نام (Resend) و ابزارهای مدیریتی حساب؛ بدون شبکهٔ واقعی.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
 import worker from '../worker/src/index.js';
@@ -28,7 +28,7 @@ function d1Like(db) {
 function setup(extra = {}) {
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON;');
-  for (const f of ['0001_init.sql','0002_auth.sql','0008_registration_profile.sql','0014_member_identity.sql']) db.exec(migration(f));
+  for (const f of readdirSync(join(here, '..', 'worker', 'migrations')).filter((name) => /^\\d{4}_.*\\.sql$/u.test(name)).sort()) db.exec(migration(f));
   const sent = [];
   const env = { DB: d1Like(db), PUBLIC_BASE_URL: 'https://mokhtari.ir', ADMIN_EMAIL: 'admin@example.com', mailer: async (msg) => { sent.push(msg); }, ...extra };
   return { db, env, sent };
