@@ -352,6 +352,10 @@ export async function generateGroqText(env, { system, contents, maxOutputTokens 
     const content = parts.map((part) => part.text).join('\n');
     if (content.trim()) messages.push({ role, content });
   }
+  // حالت JSON در Groq فقط وقتی پذیرفته می‌شود که یکی از پیام‌ها واژهٔ json را داشته باشد؛ در غیر این صورت درخواست ۴۰۰ می‌گیرد.
+  if (json && !messages.some((m) => /json/i.test(m.content))) {
+    messages[0] = { role: 'system', content: messages[0].content + '\n\nخروجی را فقط به‌صورت JSON معتبر بده.' };
+  }
   const models = [GROQ_REVIEW_MODEL, GROQ_REVIEW_FALLBACK_MODEL];
   let response;
   let selectedModel = models[0];
