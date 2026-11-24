@@ -16,6 +16,9 @@ const LEGAL_TERMS = Object.freeze([
   'دستور موقت', 'اثبات مالکیت', 'الزام به ایفای تعهد', 'اجاره', 'سرقفلی',
   'خلع ید', 'تصرف عدوانی', 'دستور تخلیه', 'نفقه', 'مهریه', 'حضانت', 'طلاق', 'اخراج کارگر', 'سرقت', 'کلاهبرداری', 'خیانت در امانت', 'اجاره‌بها', 'مزایده', 'اجرای احکام',
   'حق اختصاصی پارکینگ', 'صورت‌مجلس تفکیکی', 'ماده ۱۰ مکرر',
+  'تصادف رانندگی', 'تصادف با عابر پیاده', 'عابر پیاده', 'مسئولیت راننده', 'تقصیر راننده',
+  'گزارش افسر کارشناس تصادفات', 'کارشناس تصادفات', 'حادثه رانندگی', 'بیمه شخص ثالث',
+  'قانون رسیدگی به تخلفات رانندگی', 'دیه صدمات بدنی', 'صندوق تأمین خسارت‌های بدنی',
 ]);
 
 export function buildSafeLegalSearchQuery(input) {
@@ -47,6 +50,10 @@ export function buildSafeLegalSearchQuery(input) {
   const criminalResearchTerms = /سرقت|کلاهبرداری|خیانت در امانت|ضرب و جرح|تهدید|توهین|جرم|مجازات/u.test(normalized)
     ? ['قانون مجازات اسلامی', 'قانون آیین دادرسی کیفری', 'ارکان جرم', 'ادله اثبات کیفری']
     : [];
+  const trafficTopic = /تصادف|عابر پیاده|رانندگی|راننده|برخورد خودرو|حادثه رانندگی|بیمه شخص ثالث|صدمه بدنی/u.test(normalized);
+  const trafficResearchTerms = trafficTopic
+    ? ['قانون بیمه اجباری خسارات واردشده به شخص ثالث', 'قانون رسیدگی به تخلفات رانندگی', 'قانون مسئولیت مدنی', 'قانون مجازات اسلامی', 'مسئولیت راننده در تصادف با عابر پیاده', 'تقصیر و رابطه سببیت در تصادف', 'گزارش افسر کارشناس تصادفات', 'دیه صدمات بدنی ناشی از تصادف', 'آرای وحدت رویه تصادفات رانندگی']
+    : [];
   const propertyResearchTerms = /ملک|زمین|سند|تصرف|خلع ید|بیع|معامله|مالکیت/u.test(normalized)
     ? ['قانون مدنی', 'قانون ثبت اسناد و املاک', 'اثبات مالکیت', 'الزام به تنظیم سند رسمی']
     : [];
@@ -54,12 +61,12 @@ export function buildSafeLegalSearchQuery(input) {
     ? ['قانون اجرای احکام مدنی', 'اعتراض ثالث اجرایی', 'توقیف اموال', 'مزایده اموال']
     : [];
   const remainingMatches = matches.filter((term) => !exactReferences.some((ref) => ref.startsWith(term + ' ماده ')));
-  const unique = [...new Set([...exactReferences, ...chequeResearchTerms, ...apartmentResearchTerms, ...rentalResearchTerms, ...familyResearchTerms, ...laborResearchTerms, ...criminalResearchTerms, ...propertyResearchTerms, ...executionResearchTerms, ...remainingMatches])].slice(0, 18);
+  const unique = [...new Set([...exactReferences, ...chequeResearchTerms, ...apartmentResearchTerms, ...rentalResearchTerms, ...familyResearchTerms, ...laborResearchTerms, ...criminalResearchTerms, ...trafficResearchTerms, ...propertyResearchTerms, ...executionResearchTerms, ...remainingMatches])].slice(0, 18);
   return unique.length ? `${unique.join(' ')} حقوق ایران متن رسمی قانون و رأی قضایی «آرای وحدت رویه دیوان عالی کشور» «نظریات مشورتی اداره کل حقوقی قوه قضاییه»` : '';
 }
 
 const OFFICIAL_LEGAL_HOSTS = new Set([
-  'qavanin.ir', 'www.qavanin.ir', 'rrk.ir', 'www.rrk.ir',
+  'qavanin.ir', 'www.qavanin.ir', 'dotic.ir', 'www.dotic.ir', 'rrk.ir', 'www.rrk.ir',
   'ara.jri.ac.ir', 'eadil.com', 'www.eadil.com',
   'edarehoquqy.eadl.ir', 'divan-edalat.ir', 'www.divan-edalat.ir',
 ]);
@@ -190,38 +197,76 @@ function safeSources(grounding) {
  * این تابع فقط query ساخته‌شده از واژگان حقوقی whitelist را به Google Search می‌دهد.
  */
 export async function searchLegalAuthorities(env, input) {
-  if (env.GEMINI_SEARCH_GROUNDING_ENABLED === 'false') return { status: 'disabled', sources: [] };
+  if (env.GEMINI_SEARCH_GROUNDING_ENABLED === 'false') return { status: 'disabled', sources: [], attempts: 0 };
   const query = buildSafeLegalSearchQuery(input);
-  if (!query) return { status: 'no_legal_terms', sources: [] };
+  if (!query) return { status: 'no_legal_terms', sources: [], attempts: 0 };
 
-  try {
-    const result = await generateText(env, {
-      system: [
-        'شما ابزار جست‌وجوی منابع حقوقی ایران هستید.',
-        'فقط درباره پرس‌وجوی حقوقی داده‌شده جست‌وجو کن؛ هیچ نام شخص، شرح پرونده، شماره پرونده، نشانی یا داده خصوصی در اختیار تو قرار نگرفته و نباید چیزی از خود اضافه کنی.',
-        'برای هر مسئله، علاوه بر متن قانون، در صورت ارتباط رأی وحدت رویه دیوان عالی کشور و آرای هیأت عمومی دیوان عدالت اداری و نیز نظریات مشورتی اداره کل حقوقی قوه قضاییه را جست‌وجو کن. شماره، تاریخ، مرجع و موضوع هر سند را فقط در صورت مشاهده صریح ثبت کن.',
-        'اولویت جست‌وجو: متن رسمی قوانین و مقررات، آرای منتشرشده در پایگاه‌های رسمی قوه قضاییه و دیوان عالی کشور، نظریات منتشرشده از سوی اداره کل حقوقی قوه قضاییه؛ سپس منابع حقوقی معتبر.',
-        'خروجی را به‌صورت خلاصه‌ای کوتاه از آنچه در نتایج جست‌وجو دیده‌ای بنویس. میان متن رسمی قانون، رأی وحدت رویه، نظریه مشورتی، مقاله و بازنشر ثانویه تفکیک کن.',
-        'شماره، تاریخ، متن ماده یا رأی را فقط وقتی ذکر کن که در نتیجه جست‌وجو صریحاً قابل مشاهده باشد. از حدس‌زدن و نقل‌قول ساختگی خودداری کن.',
-        'نتایج جست‌وجو به‌تنهایی اثبات‌کننده اعتبار جاری یا اصالت سند نیستند؛ موارد نامطمئن را صریحاً علامت بزن.',
-      ].join('\n'),
-      contents: [{ role: 'user', parts: [{ text: `پرس‌وجوی عمومی و غیرشخصی حقوق ایران: ${query}` }] }],
-      maxOutputTokens: 1800,
-      timeoutMs: 35_000,
-      useGoogleSearch: true,
-    });
-    const discoveredSources = safeSources(result.grounding);
-    const sources = await retrieveOfficialPageText(discoveredSources);
-    if (!sources.length) return { status: result.grounding?.searchSuggestionHtml ? 'suggestions_only' : 'no_sources', sources: [], summary: result.text || '', searchSuggestionHtml: result.grounding?.searchSuggestionHtml || '' };
-    return {
-      status: 'searched',
-      summary: String(result.text || '').slice(0, 7000),
-      sources,
-      queries: Array.isArray(result.grounding?.queries) ? result.grounding.queries.slice(0, 5) : [],
-      searchSuggestionHtml: typeof result.grounding?.searchSuggestionHtml === 'string' ? result.grounding.searchSuggestionHtml : '',
-    };
-  } catch (error) {
-    // خطا فقط به‌صورت کد امن گزارش می‌شود؛ متن درخواست و پیام خام خطا ثبت نمی‌شود.
-    return { status: 'failed', code: /^[A-Z][A-Z0-9_]{1,39}$/.test(String(error?.code || '')) ? error.code : 'SEARCH_FAILED', sources: [] };
+  // مسیر اول جست‌وجوی عمومیِ موضوعی است؛ در صورت نیافتن متن مستقیم رسمی،
+  // جست‌وجو به‌طور مستقل در پایگاه قوانین و روزنامه رسمی و سپس پایگاه‌های قضایی تکرار می‌شود.
+  // همه عبارت‌ها از فهرست واژگان حقوقیِ مجاز ساخته می‌شوند و داده پرونده ارسال نمی‌شود.
+  const attempts = [
+    { label: 'general_legal_search', query },
+    { label: 'official_statute_fallback', query: `${query} site:qavanin.ir OR site:dotic.ir OR site:rrk.ir` },
+    { label: 'official_judicial_fallback', query: `${query} site:ara.jri.ac.ir OR site:eadil.com OR site:divan-edalat.ir` },
+  ];
+  const collected = new Map();
+  const summaries = [];
+  const discoveredQueries = [];
+  let lastCode = 'SEARCH_FAILED';
+  let successfulAttempts = 0;
+
+  for (const attempt of attempts) {
+    try {
+      const result = await generateText(env, {
+        system: [
+          'شما ابزار جست‌وجوی منابع حقوقی ایران هستید.',
+          'فقط درباره پرس‌وجوی حقوقی داده‌شده جست‌وجو کن؛ هیچ نام شخص، شرح پرونده، شماره پرونده، نشانی یا داده خصوصی در اختیار تو قرار نگرفته و نباید چیزی از خود اضافه کنی.',
+          'مسیرهای جست‌وجو را به‌ترتیب اجرا کن: نخست متن قانون در سامانه ملی قوانین و مقررات جمهوری اسلامی ایران و پایگاه ملی قوانین و مقررات کشور؛ سپس روزنامه رسمی؛ سپس پایگاه‌های رسمی مراجع قضایی و آرای منتشرشده؛ پس از آن منابع حقوقی معتبر را فقط برای کشف مشخصات سند و یافتن نسخه اصلی به کار ببر.',
+          'اگر منبع اول نتیجه نداد، جست‌وجو را متوقف نکن؛ از پایگاه جایگزین رسمی استفاده کن. برای هر مسئله، علاوه بر متن قانون، در صورت ارتباط رأی وحدت رویه دیوان عالی کشور، آرای هیأت عمومی دیوان عدالت اداری و نظریات مشورتی اداره کل حقوقی قوه قضاییه را نیز جداگانه جست‌وجو کن.',
+          'شماره، تاریخ، مرجع، متن ماده یا رأی را فقط وقتی ذکر کن که صریحاً در نتیجه یا متن منبع مشاهده شده باشد. منبع ثانویه را متن رسمی معرفی نکن و از حدس‌زدن و نقل‌قول ساختگی خودداری کن.',
+          'خروجی را خلاصه و تفکیک‌شده بنویس: متن قانون، رأی وحدت رویه، رأی هیأت عمومی، نظریه مشورتی و منبع ثانویه. برای هر سند پیوند نسخه اصلی را پیدا کن.',
+          'نتایج جست‌وجو به‌تنهایی اثبات‌کننده اعتبار جاری یا اصالت سند نیستند؛ موارد نامطمئن را صریحاً علامت بزن.',
+        ].join('\\n'),
+        contents: [{ role: 'user', parts: [{ text: `پرس‌وجوی عمومی و غیرشخصی حقوق ایران؛ مسیر ${attempt.label}: ${attempt.query}` }] }],
+        maxOutputTokens: 1800,
+        timeoutMs: 35_000,
+        useGoogleSearch: true,
+      });
+      successfulAttempts += 1;
+      if (result.text) summaries.push(String(result.text).slice(0, 3500));
+      for (const q of (Array.isArray(result.grounding?.queries) ? result.grounding.queries : [])) {
+        if (typeof q === 'string' && !discoveredQueries.includes(q)) discoveredQueries.push(q);
+      }
+      const discovered = safeSources(result.grounding);
+      const retrieved = await retrieveOfficialPageText(discovered);
+      for (const source of retrieved) {
+        if (!collected.has(source.uri)) collected.set(source.uri, source);
+      }
+      const hasDirectOfficialText = [...collected.values()].some((source) => source.pageTextStatus === 'official_domain_page_text_retrieved');
+      if (hasDirectOfficialText) break;
+    } catch (error) {
+      lastCode = /^[A-Z][A-Z0-9_]{1,39}$/.test(String(error?.code || '')) ? error.code : 'SEARCH_FAILED';
+    }
   }
+
+  const sources = [...collected.values()].slice(0, 12);
+  const summary = summaries.join('\\n\\n').slice(0, 7000);
+  if (!sources.length) {
+    return {
+      status: successfulAttempts ? 'no_sources' : 'failed',
+      code: successfulAttempts ? undefined : lastCode,
+      sources: [],
+      summary,
+      attempts: attempts.length,
+      routesTried: attempts.map((item) => item.label),
+    };
+  }
+  return {
+    status: 'searched',
+    summary,
+    sources,
+    queries: discoveredQueries.slice(0, 10),
+    attempts: successfulAttempts,
+    routesTried: attempts.map((item) => item.label),
+  };
 }
