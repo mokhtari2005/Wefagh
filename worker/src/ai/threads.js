@@ -179,7 +179,7 @@ export async function handleThreads(request, env, path) {
     if (parsed.error) return parsed.error;
     const role = parsed.body?.role;
     const content = typeof parsed.body?.content === 'string' ? parsed.body.content.trim() : '';
-    const metadata = cleanMetadata(parsed.body?.metadata);
+    const metadata = role === 'ai' ? cleanMetadata(parsed.body?.metadata) : {};
     if (!['user', 'ai'].includes(role) || !content || content.length > MAX_MESSAGE) {
       return fail('VALIDATION_FAILED', 422, { field: 'content' });
     }
