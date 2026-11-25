@@ -36,6 +36,7 @@ head_sampling_rate = 1
 [vars]
 # Fail-closed: do not call billable providers. Workers AI requires a separate explicit flag.
 AI_BILLING_MODE = "zero"
+WORKERS_AI_FREE_PLAN_CONFIRMED = "false"
 WORKERS_AI_PRIMARY_ENABLED = "false"
 WORKERS_AI_REVIEW_ENABLED = "false"
 OPENAI_TEXT_MODEL = "gpt-6.2-astra"
