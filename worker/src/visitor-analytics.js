@@ -10,11 +10,11 @@ const validSession = (value) => typeof value === 'string' && /^[a-f0-9-]{24,64}$
 async function visitorIdentity(request, env) {
   const token = readCookie(request, SESSION_COOKIE);
   if (!token) return null;
-  return env.DB.prepare(`SELECT u.id, u.display_name AS displayName
+  return env.DB.prepare(`SELECT u.id, u.display_name AS displayName, u.membership_status AS membershipStatus
     FROM sessions s JOIN users u ON u.id = s.user_id
     WHERE s.token_hash = ?1 AND s.expires_at > ?2
       AND u.status = 'active' AND u.email_verified_at IS NOT NULL
-    LIMIT 1`).bind(await hashToken(token), iso()).first();
+    LIMIT 1`).bind(await hashToken(token), iso()).first().then((row) => !row?.membershipStatus || row.membershipStatus === 'approved' ? row : null);
 }
 
 // پاک‌سازی دوره‌ای؛ این کار نباید در مسیر پرتکرار heartbeat اجرا شود.
