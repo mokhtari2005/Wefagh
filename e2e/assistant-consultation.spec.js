@@ -84,7 +84,7 @@ test('مشاوره مرحله‌ای پرسش تکمیلی می‌پرسد و س
   expect(requests[0].mode).toBe('consult');
   expect(requests[0].message).toContain(initialQuestion);
   expect(requests[1].message).toContain('آیا توافق یا قرارداد کتبی میان طرفین وجود دارد؟');
-  expect(requests[1].message).toContain('پاسخ انتخاب‌شده: بله');
+  expect(requests[1].message).toContain('پاسخ: بله');
   expect(requests[1].history).toEqual(expect.arrayContaining([
     expect.objectContaining({ role: 'user', text: initialQuestion }),
     expect.objectContaining({ role: 'ai', text: expect.stringContaining('وضعیت قرارداد روشن شود') }),
