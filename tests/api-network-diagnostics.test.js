@@ -61,3 +61,40 @@ test('HTTP responses remain distinguishable from fetch-level network failures', 
     assert.equal(result.data.error, 'AI_UNAVAILABLE');
   });
 });
+
+test('assistant network failure probes API health without sending case data', async () => {
+  let calls = 0;
+  await withFetch(async (path, options) => {
+    calls += 1;
+    if (calls === 1) throw new TypeError('private request detail');
+    assert.equal(path, '/api/health');
+    assert.equal(options.method, 'GET');
+    assert.equal(options.cache, 'no-store');
+    assert.equal(options.credentials, 'same-origin');
+    assert.equal(Object.hasOwn(options, 'body'), false);
+    return {
+      status: 200,
+      ok: true,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: async () => ({ ok: true }),
+    };
+  }, async () => {
+    const result = await postJson('/api/ai/assistant', { message: 'private case facts' });
+    assert.equal(result.networkErrorType, 'TypeError');
+    assert.deepEqual(result.apiProbe, { status: 'reachable', httpStatus: 200 });
+    assert.equal(calls, 2);
+    assert.equal(JSON.stringify(result).includes('private case facts'), false);
+  });
+});
+
+test('assistant network failure reports API unreachable when health probe also fails', async () => {
+  let calls = 0;
+  await withFetch(async () => {
+    calls += 1;
+    throw new TypeError('private network detail');
+  }, async () => {
+    const result = await postJson('/api/ai/assistant', {});
+    assert.deepEqual(result.apiProbe, { status: 'unreachable' });
+    assert.equal(calls, 2);
+  });
+});
