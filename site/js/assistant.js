@@ -7,6 +7,8 @@ import { aiStatus, errorText, blobToBase64, pickRecordingMime, baseMime } from '
 import { formatShamsi } from './shamsi.js';
 import { VOICE_GREETING_TEXT, VOICE_GREETING_AUDIO_SRC } from './voice-greeting.js';
 import { createDocumentWizard, downloadWordDocument, printDocumentPdf } from './assistant-workflow.js';
+import { CONTRACT_TYPES, ASSISTANT_NOTICE } from './assistant-config.js';
+export { CONTRACT_TYPES, ASSISTANT_NOTICE } from './assistant-config.js';
 
 export const DOC_TYPES = [
   ['petition', 'پیش‌نویس دادخواست'], ['defense', 'پیش‌نویس لایحه دفاعیه'], ['appeal', 'لایحه تجدیدنظرخواهی'],
@@ -19,46 +21,7 @@ export const DOC_TYPES = [
   ['contract', 'تنظیم یا بازنویسی قرارداد'], ['judicial_request', 'درخواست قضایی متناسب با موضوع'],
   ['letter', 'نامهٔ رسمی و مکاتبهٔ حقوقی'], ['other', 'سایر اسناد (تحلیل و بررسی)'],
 ];
-export const CONTRACT_TYPES = Object.freeze([
-  ['sale', 'بیع و خریدوفروش (اموال منقول و غیرمنقول)'],
-  ['real_estate_sale', 'مبایعه‌نامه ملک و آپارتمان'],
-  ['lease', 'اجاره‌نامه املاک مسکونی و تجاری'],
-  ['vehicle_sale', 'خریدوفروش خودرو و وسایل نقلیه'],
-  ['promise_sale', 'تعهد به بیع و قرارداد پیش‌فروش'],
-  ['construction', 'مشارکت در ساخت و قراردادهای ساختمانی'],
-  ['investment', 'سرمایه‌گذاری و مشارکت مدنی'],
-  ['partnership', 'مشارکت و همکاری تجاری'],
-  ['company', 'توافق‌نامه شرکا و سهام‌داران'],
-  ['share_transfer', 'انتقال سهام و سهم‌الشرکه'],
-  ['joint_venture', 'مشارکت در پروژه و سرمایه‌گذاری مشترک'],
-  ['agency', 'وکالت و نمایندگی'],
-  ['commission', 'حق‌العمل‌کاری و عاملیت فروش'],
-  ['distribution', 'توزیع، پخش و عاملیت تجاری'],
-  ['employment', 'قرارداد کار و استخدام'],
-  ['consulting', 'مشاوره و خدمات تخصصی'],
-  ['services', 'ارائه خدمات و پیمانکاری'],
-  ['contracting', 'پیمانکاری و اجرای پروژه'],
-  ['manufacturing', 'ساخت، تولید و سفارش کالا'],
-  ['supply', 'تأمین و فروش کالا و تجهیزات'],
-  ['transport', 'حمل‌ونقل و باربری'],
-  ['maintenance', 'نگهداری، تعمیرات و پشتیبانی'],
-  ['software', 'طراحی نرم‌افزار و خدمات فناوری اطلاعات'],
-  ['license', 'مجوز بهره‌برداری و انتقال دانش فنی'],
-  ['nda', 'محرمانگی و عدم افشای اطلاعات'],
-  ['ip', 'انتقال یا اعطای مجوز مالکیت فکری'],
-  ['loan', 'قرض و قراردادهای تأمین مالی'],
-  ['guarantee', 'ضمانت، تعهد و وثیقه'],
-  ['settlement', 'صلح، سازش و تسویه‌حساب'],
-  ['debt_acknowledgment', 'اقرار به دین و تعهد به پرداخت'],
-  ['gift', 'هبه و صلح بلاعوض'],
-  ['deposit', 'ودیعه و امانت'],
-  ['franchise', 'فرانچایز و اعطای امتیاز کسب‌وکار'],
-  ['ecommerce', 'فروش اینترنتی و تجارت الکترونیکی'],
-  ['custom', 'سایر قراردادها / قرارداد اختصاصی'],
-]);
 export const MODES = [['consult', 'مشاوره حقوقی'], ['analyze', 'تحلیل حقوقی پرونده'], ['litigation', 'میز محاکمه هوشمند'], ['research', 'تحقیق و راستی‌آزمایی حقوقی'], ['review', 'بررسی و اصلاح متن']];
-
-export const ASSISTANT_NOTICE = 'این ابزار آموزشی و پیش‌نویس‌ساز است. خروجی آن پیش از استفاده در پرونده واقعی باید توسط وکیل با قوانین و مقررات جاری و رویه معتبر تطبیق داده شود. پیام‌های متنی برای تولید پاسخ به جی‌پی‌تی ارسال می‌شوند و در صورت نبودن یا اختلال آن، به جمینای منتقل می‌شوند. در صورت فعال بودن بازبینی مستقل، متن درخواست و پیش‌نویس ممکن است برای ارزیابی به گروک ارسال شود. فایل‌های پیوست برای پردازش به جمینای ارسال می‌شوند و در مسیر فعلی به جی‌پی‌تی یا بازبین گروک فرستاده نمی‌شوند. پیش از ارسال، اطلاعات محرمانه و هویتی غیرضروری را حذف یا ناشناس کنید.';
 
 const MESSAGE_LIMIT = 6000;
 
