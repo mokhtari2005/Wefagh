@@ -34,7 +34,7 @@ test('مشاوره مرحله‌ای پرسش تکمیلی می‌پرسد و س
           ok: true,
           status: 'need_info',
           text: 'برای انتخاب مسیر حقوقی مناسب، ابتدا باید وضعیت قرارداد روشن شود.',
-          questions: [],
+          questions: [' آیا توافق یا قرارداد کتبی میان طرفین وجود دارد ؟ '],
           questionOptions: [{
             question: 'آیا توافق یا قرارداد کتبی میان طرفین وجود دارد؟',
             options: ['بله', 'خیر'],
@@ -72,6 +72,8 @@ test('مشاوره مرحله‌ای پرسش تکمیلی می‌پرسد و س
   await page.getByRole('button', { name: 'ارسال پیام' }).click();
 
   await expect(page.getByText('آیا توافق یا قرارداد کتبی میان طرفین وجود دارد؟')).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'پاسخ آزاد به این پرسش' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'خیر', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'بله', exact: true }).click();
   await page.getByRole('button', { name: 'ارسال پاسخ‌ها و ادامهٔ مشاوره' }).click();
 
@@ -82,7 +84,7 @@ test('مشاوره مرحله‌ای پرسش تکمیلی می‌پرسد و س
   expect(requests[0].mode).toBe('consult');
   expect(requests[0].message).toContain(initialQuestion);
   expect(requests[1].message).toContain('آیا توافق یا قرارداد کتبی میان طرفین وجود دارد؟');
-  expect(requests[1].message).toContain('پاسخ انتخاب‌شده: بله');
+  expect(requests[1].message).toContain('پاسخ: بله');
   expect(requests[1].history).toEqual(expect.arrayContaining([
     expect.objectContaining({ role: 'user', text: initialQuestion }),
     expect.objectContaining({ role: 'ai', text: expect.stringContaining('وضعیت قرارداد روشن شود') }),

@@ -425,7 +425,17 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
   const log = h('ol', { class: 'ai-log', 'aria-label': 'گفت‌وگو' });
   const stream = h('div', { class: 'ai-stream', tabindex: '-1' }, [emptyState, log]);
 
-  // پرسش‌ها یکی‌یکی نمایش داده می‌شوند؛ با هر گزینه یا پاسخ آزاد، پرسش بعدی باز می‌شود و در پایان همه پاسخ‌ها یک‌جا ارسال می‌شوند.
+  // یکسان‌سازی متن پرسش برای حذف تکرارهایی که فقط در فاصله‌گذاری یا نشانه‌گذاری تفاوت دارند.
+  function questionKey(value) {
+    return String(value || '')
+      .normalize('NFKC')
+      .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')
+      .replace(/[\u200c\u200f\u202a-\u202e]/g, '')
+      .replace(/[؟?.,،؛:!٬٫ـ\s]/g, '')
+      .toLowerCase();
+  }
+
+  // پرسش‌های دارای گزینه فقط یک‌بار نمایش داده می‌شوند؛ پرسش آزادِ تکراری حذف می‌شود.
   function questionStepper(items) {
     const answers = items.map(() => null);
     let current = 0;
@@ -461,8 +471,9 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
           choices.append(choice);
         }
         root.append(choices);
-        if (item.allowOther) {
-          const free = h('input', { type: 'text', class: 'ai-party-input', maxlength: '600', placeholder: 'پاسخ دیگر خود را بنویسید', 'aria-label': 'پاسخ آزاد به این پرسش' });
+        // پاسخ تشریحی فقط برای پرسشی نمایش داده می‌شود که گزینهٔ انتخابی ندارد.
+        if (!item.options.length) {
+          const free = h('input', { type: 'text', class: 'ai-party-input', maxlength: '600', placeholder: 'پاسخ خود را بنویسید', 'aria-label': 'پاسخ آزاد به این پرسش' });
           const submit = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'ثبت پاسخ' });
           submit.addEventListener('click', () => { const value = free.value.trim(); if (value) setAnswer(value); else free.focus(); });
           root.append(h('div', { class: 'ai-question-free' }, [free, submit]));
@@ -484,10 +495,19 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
         list.append(h('dt', { text: item.question }), h('dd', {}, [h('span', { text: answers[index] }), edit]));
       });
       const sendAll = h('button', { class: 'btn', type: 'button', text: 'ارسال پاسخ‌ها و ادامهٔ مشاوره' });
-      sendAll.addEventListener('click', () => {
-        composerText.value = items.map((item, index) => `${item.question}\nپاسخ انتخاب‌شده: ${answers[index]}`).join('\n\n');
+      sendAll.addEventListener('click', async () => {
+        if (busy || answers.some((value) => value === null)) return;
+        composerText.value = items.map((item, index) => `${item.question}\nپاسخ: ${answers[index]}`).join('\n\n');
         counter.textContent = `${composerText.value.length} / ${MESSAGE_LIMIT}`;
-        send();
+        sendAll.disabled = true;
+        try {
+          await send();
+          if (sendAll.isConnected && composerText.value) sendAll.disabled = false;
+        } catch (error) {
+          sendAll.disabled = false;
+          status.textContent = 'ارسال پاسخ‌ها انجام نشد؛ پاسخ‌های انتخاب‌شده حفظ شده‌اند. دوباره تلاش کنید.';
+          console.error('assistant.followup_submit_failed', { name: error?.name || 'UnknownError' });
+        }
       });
       root.append(list, sendAll);
     }
@@ -562,9 +582,22 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       h('span', { class: 'ai-role', text: 'دستیار' }),
       h('div', { class: 'ai-text pre-wrap', text: m.text }),
     ];
-    const questionOptions = Array.isArray(m.questionOptions) ? m.questionOptions : [];
-    const freeQuestions = (Array.isArray(m.questions) ? m.questions : []).filter((question) =>
-      typeof question === 'string' && !questionOptions.some((item) => item?.question === question));
+    const rawQuestionOptions = Array.isArray(m.questionOptions) ? m.questionOptions : [];
+    const seenQuestionKeys = new Set();
+    const questionOptions = rawQuestionOptions.filter((item) => {
+      if (!item || typeof item.question !== 'string') return false;
+      const key = questionKey(item.question);
+      if (!key || seenQuestionKeys.has(key)) return false;
+      seenQuestionKeys.add(key);
+      return true;
+    });
+    const freeQuestions = (Array.isArray(m.questions) ? m.questions : []).filter((question) => {
+      if (typeof question !== 'string' || !question.trim()) return false;
+      const key = questionKey(question);
+      if (!key || seenQuestionKeys.has(key)) return false;
+      seenQuestionKeys.add(key);
+      return true;
+    });
     const questionItems = [
       ...questionOptions.filter((item) => item && typeof item.question === 'string').map((item) => ({
         question: item.question,

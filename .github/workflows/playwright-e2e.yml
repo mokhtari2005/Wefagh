@@ -50,12 +50,29 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Run browser tests against the live site
+      - name: Start local site for branch-specific interaction tests
+        run: |
+          python3 -m http.server 8080 --directory site > /tmp/wefagh-site.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8080/ > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:8080/ > /dev/null
+
+      - name: Run consultation interaction tests against this branch
+        env:
+          CI: true
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:8080
+          RUN_LIVE_AI_E2E: '0'
+        run: npx playwright test e2e/assistant-consultation.spec.js
+
+      - name: Run public-site smoke tests against production
         env:
           CI: true
           PLAYWRIGHT_BASE_URL: https://mokhtari.ir
-          RUN_LIVE_AI_E2E: ${{ inputs.run_live_ai && '1' || '0' }}
-        run: npm run test:e2e
+        run: npx playwright test e2e/site-smoke.spec.js
 
       - name: Upload Playwright report
         if: always()
