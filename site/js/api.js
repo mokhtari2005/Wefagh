@@ -26,7 +26,7 @@ async function probeApiHealth() {
   }
 }
 
-async function fetchFailure(error, timedOut, path) {
+async function fetchFailure(error, timedOut, path, probe = true) {
   const result = {
     status: 0,
     ok: false,
@@ -36,11 +36,29 @@ async function fetchFailure(error, timedOut, path) {
     networkErrorType: safeFetchErrorType(error),
   };
   // فقط پس از شکست اتصال دستیار، یک GET بی‌هزینه و بدون دادهٔ پرونده برای سنجش دسترسی API اجرا می‌شود.
-  if (path === '/api/ai/assistant' && !timedOut) result.apiProbe = await probeApiHealth();
+  if (probe && path === '/api/ai/assistant' && !timedOut) result.apiProbe = await probeApiHealth();
   return result;
 }
 
-export async function postJson(path, payload, { timeoutMs = 15000 } = {}) {
+// قطع منقطع اتصال (TypeError) با چند تلاش مجدد کوتاه جبران می‌شود؛ تایم‌اوت و خطای HTTP تکرار نمی‌شوند.
+function isRetryableNetworkFailure(result) {
+  return Boolean(result?.networkError) && !result.timeoutError && result.networkErrorType === 'TypeError';
+}
+
+async function withNetworkRetries(run, networkRetries) {
+  let result = await run(networkRetries === 0);
+  for (let i = 0; i < networkRetries && isRetryableNetworkFailure(result); i += 1) {
+    await new Promise(resolve => setTimeout(resolve, 800 * (i + 1)));
+    result = await run(i === networkRetries - 1);
+  }
+  return result;
+}
+
+export function postJson(path, payload, { timeoutMs = 15000, networkRetries = 0 } = {}) {
+  return withNetworkRetries(lastAttempt => postJsonOnce(path, payload, timeoutMs, lastAttempt), networkRetries);
+}
+
+async function postJsonOnce(path, payload, timeoutMs, probe) {
   const controller = new AbortController();
   let timedOut = false;
   const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs);
@@ -60,14 +78,18 @@ export async function postJson(path, payload, { timeoutMs = 15000 } = {}) {
     }
     return { status: res.status, ok: res.ok, data, url: res.url, redirected: res.redirected, allow: res.headers.get('allow'), contentType: res.headers.get('content-type') };
   } catch (error) {
-    return await fetchFailure(error, timedOut, path);
+    return await fetchFailure(error, timedOut, path, probe);
   } finally {
     clearTimeout(timer);
   }
 }
 
 /** ارسال FormData (فایل‌ها). هدر Content-Type را مرورگر با مرز (boundary) خودش می‌گذارد. */
-export async function postForm(path, formData, { timeoutMs = 60000 } = {}) {
+export function postForm(path, formData, { timeoutMs = 60000, networkRetries = 0 } = {}) {
+  return withNetworkRetries(lastAttempt => postFormOnce(path, formData, timeoutMs, lastAttempt), networkRetries);
+}
+
+async function postFormOnce(path, formData, timeoutMs, probe) {
   const controller = new AbortController();
   let timedOut = false;
   const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs);
@@ -87,7 +109,7 @@ export async function postForm(path, formData, { timeoutMs = 60000 } = {}) {
     }
     return { status: res.status, ok: res.ok, data };
   } catch (error) {
-    return fetchFailure(error, timedOut);
+    return fetchFailure(error, timedOut, undefined, probe);
   } finally {
     clearTimeout(timer);
   }
