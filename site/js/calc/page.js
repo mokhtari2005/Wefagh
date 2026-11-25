@@ -751,7 +751,7 @@ const TOOL_VISUALS = {
 
 function calculatorStyles() {
   if (document.querySelector('link[data-calculator-styles]')) return;
-  const link = h('link', { rel: 'stylesheet', href: 'css/calculators.css?v=20261119-text-a4' });
+  const link = h('link', { rel: 'stylesheet', href: 'css/calculators.css?v=20261125-rtl-legal-notes-1' });
   link.setAttribute('data-calculator-styles', 'true');
   document.head.append(link);
 }
