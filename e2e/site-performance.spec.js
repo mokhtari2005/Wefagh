@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 const pages = [
   { name: 'home', url: '/?perf=home#/', ready: '#hero-title' },
   { name: 'regional-calculator', url: '/?perf=regional#/calculators/regional', ready: '.regional-value-tool' },
-  { name: 'legal-consultation', url: '/?perf=consult#/assistant/consult', ready: '.ai-workbench-intro h1' },
+  { name: 'legal-consultation', url: '/?perf=consult#/assistant/consult', ready: '.assistant h1' },
 ];
 
 test('اندازه‌گیری زمان آماده‌شدن واقعی صفحات اصلی در سایت منتشرشده', async ({ page }) => {
