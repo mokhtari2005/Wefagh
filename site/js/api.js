@@ -1,5 +1,22 @@
 // فراخوانی API. همهٔ درخواست‌ها هم‌مبدأ هستند (/api) و کوکی همراه‌شان می‌شود.
 
+// فقط نام‌های شناخته‌شدهٔ خطا برای عیب‌یابی برگردانده می‌شوند؛ پیام خام ممکن است دادهٔ حساس داشته باشد.
+function safeFetchErrorType(error) {
+  const name = error && typeof error.name === 'string' ? error.name : '';
+  return ['TypeError', 'AbortError', 'NetworkError', 'SecurityError'].includes(name) ? name : 'OtherError';
+}
+
+function fetchFailure(error, timedOut) {
+  return {
+    status: 0,
+    ok: false,
+    data: null,
+    networkError: true,
+    timeoutError: timedOut,
+    networkErrorType: safeFetchErrorType(error),
+  };
+}
+
 export async function postJson(path, payload, { timeoutMs = 15000 } = {}) {
   const controller = new AbortController();
   let timedOut = false;
@@ -19,8 +36,8 @@ export async function postJson(path, payload, { timeoutMs = 15000 } = {}) {
       data = null;
     }
     return { status: res.status, ok: res.ok, data, url: res.url, redirected: res.redirected, allow: res.headers.get('allow'), contentType: res.headers.get('content-type') };
-  } catch {
-    return { status: 0, ok: false, data: null, networkError: true, timeoutError: timedOut };
+  } catch (error) {
+    return fetchFailure(error, timedOut);
   } finally {
     clearTimeout(timer);
   }
@@ -46,8 +63,8 @@ export async function postForm(path, formData, { timeoutMs = 60000 } = {}) {
       data = null;
     }
     return { status: res.status, ok: res.ok, data };
-  } catch {
-    return { status: 0, ok: false, data: null, networkError: true, timeoutError: timedOut };
+  } catch (error) {
+    return fetchFailure(error, timedOut);
   } finally {
     clearTimeout(timer);
   }
@@ -72,8 +89,8 @@ export async function getJson(path, { timeoutMs = 15000 } = {}) {
       data = null;
     }
     return { status: res.status, ok: res.ok, data };
-  } catch {
-    return { status: 0, ok: false, data: null, networkError: true, timeoutError: timedOut };
+  } catch (error) {
+    return fetchFailure(error, timedOut);
   } finally {
     clearTimeout(timer);
   }
@@ -87,7 +104,8 @@ export async function getHealth() {
 /** PATCH/DELETE با همان قرارداد پاسخ getJson/postJson. */
 export async function sendJson(method, path, payload, { timeoutMs = 15000 } = {}) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let timedOut = false;
+  const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs);
   try {
     const init = {
       method,
@@ -107,8 +125,8 @@ export async function sendJson(method, path, payload, { timeoutMs = 15000 } = {}
       data = null;
     }
     return { status: res.status, ok: res.ok, data };
-  } catch {
-    return { status: 0, ok: false, data: null, networkError: true, timeoutError: timedOut };
+  } catch (error) {
+    return fetchFailure(error, timedOut);
   } finally {
     clearTimeout(timer);
   }

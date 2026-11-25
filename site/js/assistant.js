@@ -1267,6 +1267,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
         res.data?.stage ? `مرحله: ${res.data.stage}` : '',
         res.data?.errorType ? `نوع: ${res.data.errorType}` : '',
         res.data?.errorCode ? `زیرکد: ${res.data.errorCode}` : '',
+        res.networkErrorType ? `نوع خطای ارتباط: ${res.networkErrorType}` : '',
         res.status ? `HTTP ${res.status}` : '',
         res.data === null && res.status ? 'پاسخ غیر JSON' : '',
       ].filter(Boolean).join(' · ');
