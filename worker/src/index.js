@@ -31,7 +31,7 @@ import { handleDiagnostics } from './diagnostics.js';
 import { handleDiagnosticRepair } from './diagnostic-repair.js';
 import { handleDiagnosticSelfTest } from './diagnostic-self-test.js';
 import { runScheduledBackup, handleBackupStatus } from './backups.js';
-import { handleVisitorAnalytics } from './visitor-analytics.js';
+import { handleVisitorAnalytics, cleanupStaleVisitors } from './visitor-analytics.js';
 import { handleCommunity } from './community.js';
 import { handleClassroom } from './classroom.js';
 import { handleClassroomRecording, purgeExpiredClassroomRecordings } from './classroom-recordings.js';
@@ -259,6 +259,7 @@ export default {
       ctx.waitUntil(collectLegalNews(env).catch((err) => console.error(JSON.stringify({ where: 'media.news.cron', error: err?.name || 'Error' }))));
     }
     if (event.cron === '*/30 * * * *') {
+      ctx.waitUntil(cleanupStaleVisitors(env).catch((err) => console.error(JSON.stringify({ where: 'visitor-analytics.cleanup', error: err?.name || 'Error' }))));
       ctx.waitUntil(sendDueReminders(env).catch((err) => console.error(JSON.stringify({ where: 'telegram.cron', error: err?.name || 'Error' }))));
       ctx.waitUntil(createDueNotifications(env).catch((err) => console.error(JSON.stringify({ where: 'notifications.cron', error: err?.name || 'Error' }))));
 
