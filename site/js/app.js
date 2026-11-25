@@ -3,6 +3,7 @@ import { NAV, VALUES, ABOUT_SECTIONS } from './pages.js?v=20261120-classroom-ins
 import { formatShamsi } from './shamsi.js';
 import { parseHash } from './route.js';
 import { icon, mountIcons } from './icons.js';
+import { ACADEMY_TOOLS } from './academy-tools.js';
 
 /** بارگذاری ماژول‌های سنگین فقط وقتی بخش مربوط به صفحه نزدیک دید کاربر شد. */
 const lazyObserver = 'IntersectionObserver' in window
@@ -164,13 +165,15 @@ function pageHome() {
     ]),
   ]);
 
-  const quick = lazy(async () => {
-    const { ACADEMY_TOOLS } = await import('./academy.js?v=20261119-media-nav-title-2');
-    return h('section', { class: 'quick-section', 'aria-label': 'ابزارهای آکادمی' }, [
-      h('div', { class: 'quick-grid' }, ACADEMY_TOOLS.map((item) =>
-        h('a', { class: 'quick-tile', href: item.href }, [h('span', { class: 'quick-icon', 'aria-hidden': 'true' }, [icon(item.icon, { size: 24 })]), h('span', { text: item.href === '#/community' ? 'تالار گفتگو' : item.title })]))),
-    ]);
-  }, { defer: true, placeholderMinHeight: '13rem' });
+  // میان‌برهای اصلی آکادمی در اولین رندر صفحهٔ خانه حاضرند؛
+  // آن‌ها را به IntersectionObserver و اسکرول کاربر وابسته نمی‌کنیم.
+  const quick = h('section', { class: 'quick-section', 'aria-label': 'ابزارهای آکادمی' }, [
+    h('div', { class: 'quick-grid' }, ACADEMY_TOOLS.map((item) =>
+      h('a', { class: 'quick-tile', href: item.href }, [
+        h('span', { class: 'quick-icon', 'aria-hidden': 'true' }, [icon(item.icon, { size: 24 })]),
+        h('span', { text: item.href === '#/community' ? 'تالار گفتگو' : item.title }),
+      ]))),
+  ]);
 
   const lower = h('section', { class: 'dashboard-lower' }, [
     h('article', { class: 'panel quote-panel' }, [
@@ -244,7 +247,7 @@ function pageHome() {
       // شکست دریافت پروفایل نباید رندر یا سایر بخش‌های صفحهٔ اصلی را مختل کند.
       console.warn('Home profile could not be loaded.', error);
     });
-  root.append(profileSpot, hero, calendarSection, quick, stats, lower, cta);
+  root.append(profileSpot, hero, quick, calendarSection, stats, lower, cta);
   return root;
 }
 
