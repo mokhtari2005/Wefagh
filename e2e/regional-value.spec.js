@@ -4,13 +4,18 @@ test('regional calculator loads official Tehran 1405 blocks and applies Tehran b
   await page.goto('/#/calculators/regional');
   await expect(page.locator('#rv-city')).toBeVisible();
 
-  await page.locator('#rv-city').selectOption('tehran');
-  await expect(page.locator('#rv-province')).toHaveValue('تهران');
+  await expect(page.locator('#rv-province')).toHaveValue('fars');
+  await expect(page.locator('#rv-city')).toHaveValue('shiraz');
+  await page.locator('#rv-province').selectOption('tehran');
+  await expect(page.locator('#rv-city')).toHaveValue('tehran');
+  await expect(page.locator('#rv-city option')).toHaveText(['تهران']);
   await expect(page.locator('#rv-zone option')).toHaveCount(22);
   await expect(page.locator('#rv-access option[value="landlocked"]')).toHaveCount(0);
-  await page.locator('#rv-city').selectOption('shiraz');
+  await page.locator('#rv-province').selectOption('fars');
+  await expect(page.locator('#rv-city')).toHaveValue('shiraz');
   await expect(page.locator('#rv-access option[value="landlocked"]')).toHaveCount(1);
-  await page.locator('#rv-city').selectOption('tehran');
+  await page.locator('#rv-province').selectOption('tehran');
+  await expect(page.locator('#rv-city')).toHaveValue('tehran');
   await expect(page.locator('#rv-access option[value="landlocked"]')).toHaveCount(0);
 
   await page.locator('#rv-zone').selectOption('22');
