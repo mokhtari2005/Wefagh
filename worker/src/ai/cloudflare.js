@@ -34,7 +34,7 @@ export async function generateWorkersAIText(env, {
     if (parts.some(part => typeof part?.text !== 'string' || Object.keys(part).some(key => key !== 'text'))) {
       throw providerError('AI_ZERO_COST_UNSUPPORTED_CONTENT');
     }
-    const content = parts.map(part => part.text).join('\\n');
+    const content = parts.map(part => part.text).join('\n');
     if (content.trim()) messages.push({ role, content });
   }
   let result;
