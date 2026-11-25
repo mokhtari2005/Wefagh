@@ -361,18 +361,23 @@ export function regionalValueTool() {
     else if (mapCanvas.querySelector('.regional-map-offline')) showMapFallback();
     mapStatus.textContent = `موقعیت ملک را روی نقشه ${tehran ? 'تهران' : 'شیراز'} تعیین کنید.`;
   }
-  city.el.addEventListener('change',syncCity);
   zone.el.addEventListener('change',updateBlocks); block.el.addEventListener('change',showRate); updateBlocks();
 
   const landUse = select('rv-land-use','کاربری عرصه',Object.entries(LAND_LABEL).map(([k,v])=>[k,v]));
   const landArea = input('rv-land-area','مساحت عرصه (مترمربع)');
   const width = input('rv-width','عرض معبر مورد استفاده (متر)', '12');
-  const access = select('rv-access','وضعیت دسترسی ملک',[
-    ['normal','دسترسی مستقیم از معبر انتخاب‌شده'],
-    ['multi','دو بر یا بیشتر؛ معبر با ارزش بالاتر انتخاب شده'],
-    ['landlocked','فاقد راه عبور مستقل؛ دارای حق عبور از ملک مجاور (۶۰٪)'],
-    ['highway','مجاور بزرگراه، اتوبان، مسیل، راه‌آهن یا نهر؛ دسترسی از معبر دیگر'],
-  ]);
+  const access = select('rv-access','وضعیت دسترسی ملک',[]);
+  function syncAccessOptions() {
+    const options = [
+      ['normal','دسترسی مستقیم از معبر انتخاب‌شده'],
+      ['multi','دو بر یا بیشتر؛ معبر با ارزش بالاتر انتخاب شده'],
+      ...(city.el.value === 'tehran' ? [] : [['landlocked','فاقد راه عبور مستقل؛ دارای حق عبور از ملک مجاور (ضریب ۶۰٪ طبق دفترچه شیراز)']]),
+      ['highway','مجاور بزرگراه، اتوبان، مسیل، راه‌آهن یا نهر؛ دسترسی از معبر دیگر'],
+    ];
+    access.el.replaceChildren(...options.map(([value,label])=>h('option',{value,text:label})));
+  }
+  syncAccessOptions();
+  city.el.addEventListener('change', () => { syncCity(); syncAccessOptions(); });
   const landFields=[landUse.node,landArea.node,width.node,access.node];
 
   const buildingToggle=select('rv-building','وضعیت اعیانی',[
@@ -421,7 +426,7 @@ export function regionalValueTool() {
     const cap=use==='residential'?20:30;
     const appliedWidth=Math.min(road,cap);
     const widthFactor=1+(appliedWidth-12)*(commercial?.03:.02);
-    let accessFactor=access.el.value==='landlocked'?.6:1;
+    let accessFactor=city.el.value === 'tehran' ? 1 : access.el.value === 'landlocked' ? .6 : 1;
     const landRate=base*widthFactor*accessFactor;
     const landTotal=landRate*area;
     let buildingTotal=0, buildingRate=0, ageFactor=1, floorFactor=1, stageFactor=1, parkingTotal=0;
@@ -497,7 +502,7 @@ export function regionalValueTool() {
       h('div',{class:'amount-block'},[h('span',{class:'amount-label',text:'جمع ارزش عرصه و اعیانی'}),h('strong',{class:'amount-value',text:money(total)})]),
       h('dl',{class:'facts'},facts.map(([k,v])=>h('div',{class:'regional-fact-item'},[h('dt',{text:k}),h('dd',{text:v})]))),
       h('p',{class:'muted',text:city.el.value === 'tehran' ? 'مبنای محاسبه: دفترچه ارزش معاملاتی املاک مناطق ۲۲گانه شهر تهران، مصوب کمیسیون تقویم املاک موضوع ماده ۶۴ قانون مالیات‌های مستقیم، لازم‌الاجرا از ۱۴۰۵/۰۱/۰۱؛ جداول بلوک‌ها و ضوابط اجرایی.' : 'مبنای محاسبه: دفترچه ارزش معاملاتی ۱۴۰۵ اداره کل امور مالیاتی فارس، صفحات ۱۴ تا ۱۶ و جدول بلوک‌های شیراز، صفحات ۲۰ تا ۲۳۵.'}),
-      h('p',{class:'muted',text:city.el.value === 'tehran' ? 'فضاهای غیرمسقف و مشاعات منظور نشده‌اند. در املاک چندبر، بالاترین ارزش معبرِ دارای حق عبور ملاک است. عرض مبنای جدول ۱۲ متر است؛ افزایش ضریب برای هر متر مازاد یا کسری طبق ضوابط رسمی اعمال می‌شود. پارکینگ و انباری واحدهای مسکونی در ارزش اعیانی منظور نمی‌شود.' : 'فضاهای غیرمسقف و مشاعات منظور نشده‌اند. در املاک چندبر، معبر دارای راه عبور با بالاترین ارزش مبناست. اگر ملک مجاور بزرگراه یا مسیل است اما دسترسی از معبر دیگری دارد، عرض و نرخ همان معبر دسترسی را وارد کنید.'}),
+      h('p',{class:'muted',text:city.el.value === 'tehran' ? 'فضاهای غیرمسقف و مشاعات منظور نشده‌اند. در املاک چندبر، بالاترین ارزش معبرِ دارای حق عبور ملاک است. عرض مبنای جدول ۱۲ متر است؛ افزایش یا کاهش ضریب برای هر متر مازاد یا کسری طبق ضوابط رسمی اعمال می‌شود. دفترچه تهران ضریب کاهشی ۶۰٪ برای ملک فاقد راه عبور مستقل را پیش‌بینی نکرده است؛ بنابراین چنین ضریبی اعمال نمی‌شود. پارکینگ و انباری واحدهای مسکونی در ارزش اعیانی منظور نمی‌شود.' : 'فضاهای غیرمسقف و مشاعات منظور نشده‌اند. در املاک چندبر، معبر دارای راه عبور با بالاترین ارزش مبناست. اگر ملک مجاور بزرگراه یا مسیل است اما دسترسی از معبر دیگری دارد، عرض و نرخ همان معبر دسترسی را وارد کنید.'}),
       h('p',{class:'notice',text:'این خروجی ارزش معاملاتی مالیاتی است، نه قیمت روز بازار یا قیمت کارشناسی ملک. پیش از استفاده رسمی، بلوک و کاربری را با سند و موقعیت دقیق ملک تطبیق دهید.'}),
       h('footer',{class:'regional-report-footer',text:'آکادمی وکالت شهرام مختاری | mokhtari.ir — گزارش تولیدشده از سامانه محاسبات ارزش معاملاتی'}),
       h('div',{class:'regional-report-actions'},[
