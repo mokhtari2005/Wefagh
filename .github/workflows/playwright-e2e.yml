@@ -1,0 +1,61 @@
+name: Playwright browser tests
+
+on:
+  push:
+    branches:
+      - chore/install-playwright-e2e
+    paths:
+      - 'e2e/**'
+      - 'playwright.config.js'
+      - 'package.json'
+      - '.github/workflows/playwright-e2e.yml'
+  pull_request:
+    paths:
+      - 'e2e/**'
+      - 'playwright.config.js'
+      - 'package.json'
+      - '.github/workflows/playwright-e2e.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: playwright-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install project dependencies
+        run: npm install
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser tests against the live site
+        env:
+          CI: true
+          PLAYWRIGHT_BASE_URL: https://mokhtari.ir
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
