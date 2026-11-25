@@ -11,7 +11,7 @@ import { AiError, aiConfigured, transcribeAudio, synthesizeLongSpeech } from './
 import { generateTextWithFallback, stripResponseFormatting } from './fallback.js';
 import { openaiConfigured } from './openai.js';
 import { groqConfigured } from './groq.js';
-import { reviewWithWorkersAI, workersAiConfigured, workersAiReviewEnabled } from './cloudflare.js';
+import { reviewWithWorkersAI, workersAiConfigured, workersAiPrimaryEnabled, workersAiReviewEnabled } from './cloudflare.js';
 import { clampReply } from './speech.js';
 import { reviewLegalDraft, groqReviewNotes } from './groq.js';
 import { AttachmentError, ATTACHMENT_LIMITS, processAttachments, buildUserParts, summarizeAttachments } from './attachments.js';
@@ -608,7 +608,7 @@ async function assistant(request, env) {
     // نام اشخاص، شرح وقایع و شماره پرونده نیز به موتور جست‌وجو ارسال نمی‌شوند.
     let webResearch = null;
     let webResearchContext = '';
-    if (['consult', 'litigation', 'draft', 'analyze', 'research'].includes(mode)) {
+    if (['consult', 'litigation', 'draft', 'analyze', 'research'].includes(mode) && env?.AI_BILLING_MODE !== 'zero') {
       stage = 'legal_web_search';
       webResearch = await searchLegalAuthorities(env, legalSearchText);
       if (webResearch.status === 'searched') {
@@ -636,6 +636,9 @@ async function assistant(request, env) {
           'این نتیجه به معنای نبودن قانون یا رأی نیست. از خالی گذاشتن مستند خودداری کن: اگر حکم قانونی شناخته‌شده و شماره ماده را با اطمینان واقعی می‌دانی، آن را با توضیح دقیق دامنه و انطباق بیاور؛ در غیر این صورت از منابع معتبر دیگری که در دسترس‌اند برای یافتن مستند جایگزین استفاده کن. هیچ شماره، متن، رأی یا تاریخ را نساز و ادعای مشاهده منبع رسمی نکن.',
         ].join('\n');
       }
+    } else if (['consult', 'litigation', 'draft', 'analyze', 'research'].includes(mode)) {
+      webResearch = { status: 'disabled_zero_cost_mode', sources: [], routesTried: [] };
+      webResearchContext = 'برای جلوگیری از فراخوانی سرویس جست‌وجوی مبتنی بر Gemini، جست‌وجوی برخط در حالت صفرهزینه اجرا نشد. بانک داخلی قوانین و آرای تأییدشده همچنان مبنای بازیابی است؛ نبود نتیجه در بانک به‌معنای نبودن مستند قانونی نیست.';
     }
     stage = 'primary_model_generation';
     const generationMode = mode;
@@ -837,7 +840,7 @@ export async function handleAi(request, env, path) {
 async function routeAi(request, env, path) {
   if (path === '/api/ai/status') {
     if (request.method !== 'GET') return fail('METHOD_NOT_ALLOWED', 405);
-    return json({ ok: true, configured: openaiConfigured(env) || aiConfigured(env) || groqConfigured(env), providers: { openai: openaiConfigured(env), gemini: aiConfigured(env), groq: groqConfigured(env), cloudflareWorkersAI: workersAiConfigured(env), googleSearchGrounding: aiConfigured(env) } });
+    return json({ ok: true, configured: openaiConfigured(env) || aiConfigured(env) || groqConfigured(env) || workersAiPrimaryEnabled(env), providers: { openai: openaiConfigured(env), gemini: aiConfigured(env), groq: groqConfigured(env), cloudflareWorkersAI: workersAiPrimaryEnabled(env), cloudflareWorkersAIBinding: workersAiConfigured(env), googleSearchGrounding: env?.AI_BILLING_MODE !== 'zero' && aiConfigured(env) } });
   }
   if (path === '/api/ai/speech') return speech(request, env);
   if (path === '/api/ai/transcribe') return transcribe(request, env);
