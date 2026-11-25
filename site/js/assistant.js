@@ -502,6 +502,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
         sendAll.disabled = true;
         try {
           await send();
+          if (sendAll.isConnected && composerText.value) sendAll.disabled = false;
         } catch (error) {
           sendAll.disabled = false;
           status.textContent = 'ارسال پاسخ‌ها انجام نشد؛ پاسخ‌های انتخاب‌شده حفظ شده‌اند. دوباره تلاش کنید.';
@@ -581,10 +582,15 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       h('span', { class: 'ai-role', text: 'دستیار' }),
       h('div', { class: 'ai-text pre-wrap', text: m.text }),
     ];
-    const questionOptions = Array.isArray(m.questionOptions) ? m.questionOptions : [];
-    const seenQuestionKeys = new Set(questionOptions
-      .filter((item) => item && typeof item.question === 'string')
-      .map((item) => questionKey(item.question)));
+    const rawQuestionOptions = Array.isArray(m.questionOptions) ? m.questionOptions : [];
+    const seenQuestionKeys = new Set();
+    const questionOptions = rawQuestionOptions.filter((item) => {
+      if (!item || typeof item.question !== 'string') return false;
+      const key = questionKey(item.question);
+      if (!key || seenQuestionKeys.has(key)) return false;
+      seenQuestionKeys.add(key);
+      return true;
+    });
     const freeQuestions = (Array.isArray(m.questions) ? m.questions : []).filter((question) => {
       if (typeof question !== 'string' || !question.trim()) return false;
       const key = questionKey(question);
