@@ -26,5 +26,6 @@ export function installVisitorTracking() {
   ping();
   window.addEventListener('hashchange', ping);
   document.addEventListener('visibilitychange', ping);
-  window.setInterval(ping, 30000);
+  // آنلاین‌بودن با بازهٔ دو دقیقه‌ای سرور سازگار است؛ heartbeat هر ۶۰ ثانیه کافی است.
+  window.setInterval(ping, 60000);
 }
