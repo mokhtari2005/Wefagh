@@ -327,6 +327,7 @@ async function speech(request, env) {
   const auth = await authorized(request, env);
   if (auth.error) return auth.error;
   if (request.method !== 'POST') return fail('METHOD_NOT_ALLOWED', 405);
+  if (env?.AI_BILLING_MODE === 'zero') return fail('AI_ZERO_COST_AUDIO_DISABLED', 503);
   const parsed = await readBody(request);
   if (parsed.error) return parsed.error;
   const text = cleanText(parsed.body?.text, LIMITS.speechChars);
@@ -356,6 +357,7 @@ async function transcribe(request, env) {
     auth = await authorized(request, env);
   }
   if (auth.error) return auth.error;
+  if (env?.AI_BILLING_MODE === 'zero') return fail('AI_ZERO_COST_AUDIO_DISABLED', 503);
   const parsed = await readBody(request, LIMITS.audioBytes + 4096);
   if (parsed.error) return parsed.error;
   const mimeType = AUDIO_TYPES.includes(parsed.body?.mimeType) ? parsed.body.mimeType : null;
