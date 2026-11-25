@@ -680,7 +680,10 @@ async function assistant(request, env) {
         ].slice(0, 3)
       : [];
     // برای حفظ محرمانگی، در صورت وجود پیوست، پیش‌نویس حاوی محتوای استخراج‌شده به ارائه‌دهندهٔ سوم ارسال نمی‌شود.
-    if (attachments.length) {
+    if (env?.AI_BILLING_MODE === 'zero') {
+      reviewStatus = 'skipped_zero_cost';
+      notes.push('بازبینی مستقل مبتنی بر API پولی در حالت صفرهزینه اجرا نشد.');
+    } else if (attachments.length) {
       reviewStatus = 'skipped_attachments';
     } else if (provider === 'groq') {
       reviewStatus = 'skipped_fallback';
