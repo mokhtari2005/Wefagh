@@ -49,6 +49,47 @@ test('legal guidance is right-aligned across all calculator pages', async ({ pag
     await expect(guidance).toBeVisible();
     await expect(guidance).toHaveCSS('direction', 'rtl');
     await expect(guidance).toHaveCSS('text-align', 'right');
+
+    // Verify the browser actually requested the refreshed calculator module
+    // and attached the cache-busted stylesheet, not a previously cached module.
+    await expect.poll(async () => page.locator('link[data-calculator-styles]').getAttribute('href')).toContain('20261125-rtl-legal-notes-1');
+
+    // Exercise the shared list, notice and muted-text rules in the actual
+    // calculator workspace on every calculator route.
+    const rtlRules = await page.locator('.calculator-workspace').evaluate((workspace) => {
+      const sample = document.createElement('div');
+      sample.innerHTML = '<div class="tool-out"><ul><li>آزمون راست‌چین فهرست</li></ul></div><div class="notice">هشدار آزمون</div><p class="muted">متن راهنمای آزمون</p>';
+      workspace.append(sample);
+      const list = sample.querySelector('ul');
+      const item = sample.querySelector('li');
+      const notice = sample.querySelector('.notice');
+      const muted = sample.querySelector('.muted');
+      const listStyle = getComputedStyle(list);
+      const markerStyle = getComputedStyle(item, '::marker');
+      const values = {
+        listDirection: listStyle.direction,
+        listTextAlign: listStyle.textAlign,
+        listPaddingRight: parseFloat(listStyle.paddingRight),
+        listStylePosition: listStyle.listStylePosition,
+        markerDirection: markerStyle.direction,
+        noticeDirection: getComputedStyle(notice).direction,
+        noticeTextAlign: getComputedStyle(notice).textAlign,
+        mutedDirection: getComputedStyle(muted).direction,
+        mutedTextAlign: getComputedStyle(muted).textAlign,
+      };
+      sample.remove();
+      return values;
+    });
+    expect(rtlRules.listDirection, `list direction for ${tool}`).toBe('rtl');
+    expect(rtlRules.listTextAlign, `list alignment for ${tool}`).toBe('right');
+    expect(rtlRules.listPaddingRight, `list marker space for ${tool}`).toBeGreaterThan(0);
+    expect(rtlRules.listStylePosition, `list marker position for ${tool}`).toBe('outside');
+    expect(rtlRules.markerDirection, `list marker direction for ${tool}`).toBe('rtl');
+    expect(rtlRules.noticeDirection, `notice direction for ${tool}`).toBe('rtl');
+    expect(rtlRules.noticeTextAlign, `notice alignment for ${tool}`).toBe('right');
+    expect(rtlRules.mutedDirection, `muted text direction for ${tool}`).toBe('rtl');
+    expect(rtlRules.mutedTextAlign, `muted text alignment for ${tool}`).toBe('right');
+
     const iconOnRight = await guidance.evaluate((node) => {
       const icon = node.firstElementChild.getBoundingClientRect();
       const text = node.lastElementChild.getBoundingClientRect();
