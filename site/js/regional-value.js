@@ -1,5 +1,5 @@
 import { SHIRAZ_BLOCKS } from './calc/shiraz-1405-data.js';
-import { TEHRAN_BLOCKS } from './calc/tehran-1405-data.js';
+import { TEHRAN_BLOCKS, TEHRAN_BUILDING_RATES } from './calc/tehran-1405-data.js';
 import { getJson } from './api.js';
 import { createA4TextReport } from './calc/report.js?v=20261121-mla-brand-1';
 import { buildFormModel } from './calc/forms.js?v=20261121-mla-brand-1';
@@ -26,12 +26,6 @@ const BUILDING_RATE = {
   residential: { concrete: 9300000, other: 3300000 },
   service: { concrete: 7140000, other: 2720000 },
   agriculture: { concrete: 3750000, other: 1250000 },
-};
-const TEHRAN_BUILDING_RATE = {
-  commercial: { concrete: 52030000, other: 32640000 },
-  residential: { concrete: 29680000, other: 11900000 },
-  service: { concrete: 23750000, other: 9560000 },
-  agriculture: { concrete: 9200000, other: 2930000 },
 };
 const LAND_LABEL = {
   residential: 'مسکونی', commercial: 'تجاری', administrative: 'اداری',
@@ -446,7 +440,7 @@ export function regionalValueTool() {
       if(!Number.isFinite(bArea)||bArea<=0||!Number.isFinite(count)||count<1||!Number.isFinite(years)||years<0||!Number.isFinite(pArea)||pArea<0){
         out.replaceChildren(h('div',{class:'notice',role:'alert',text:'مساحت زیربنا، تعداد طبقات، قدمت و مساحت پارکینگ را بررسی کنید.'}));return;
       }
-      buildingRate=(city.el.value === 'tehran' ? TEHRAN_BUILDING_RATE : BUILDING_RATE)[bu][structureKey];
+      buildingRate=(city.el.value === 'tehran' ? TEHRAN_BUILDING_RATES : BUILDING_RATE)[bu][structureKey];
       if(bu==='commercial'){
         const level=Math.abs(Number(floor.el.value));
         floorFactor=1-Math.min(level*0.10,.30);
