@@ -1,5 +1,64 @@
 // بازبین مستقل جایگزین از طریق Cloudflare Workers AI؛ بدون کلید API جداگانه.
-export const CLOUDFLARE_REVIEW_MODEL = '@cf/qwen/qwen3.8-27b';
+export const CLOUDFLARE_TEXT_MODEL = '@cf/zai-org/glm-4.7-flash';
+export const CLOUDFLARE_REVIEW_MODEL = '@cf/zai-org/glm-4.7-flash';
+
+export function workersAiPrimaryEnabled(env) {
+  return env?.AI_BILLING_MODE === 'zero' &&
+    env?.WORKERS_AI_PRIMARY_ENABLED === 'true' &&
+    Boolean(env?.AI && typeof env.AI.run === 'function');
+}
+
+export function workersAiReviewEnabled(env) {
+  return env?.AI_BILLING_MODE === 'zero' &&
+    env?.WORKERS_AI_REVIEW_ENABLED === 'true' &&
+    Boolean(env?.AI && typeof env.AI.run === 'function');
+}
+
+function providerError(code) {
+  return Object.assign(new Error(code), { name: 'AiError', code, status: 503 });
+}
+
+/** تولید متن فقط از Workers AI؛ ورودی چندرسانه‌ای عمداً رد می‌شود. */
+export async function generateWorkersAIText(env, {
+  system = '', contents = [], maxOutputTokens = 2048, json = false, schema = null,
+} = {}) {
+  if (!workersAiPrimaryEnabled(env)) throw providerError('AI_ZERO_COST_PROVIDER_DISABLED');
+  const messages = [{ role: 'system', content: [
+    String(system || ''),
+    json ? 'خروجی فقط یک شیء JSON معتبر مطابق ساختار خواسته‌شده باشد؛ متن پیرامونی یا Markdown اضافه نکن.' : '',
+    schema ? 'ساختار مورد انتظار: ' + JSON.stringify(schema) : '',
+  ].filter(Boolean).join('\\n\\n') }];
+  for (const item of Array.isArray(contents) ? contents : []) {
+    const role = item?.role === 'model' || item?.role === 'assistant' ? 'assistant' : 'user';
+    const parts = Array.isArray(item?.parts) ? item.parts : [];
+    if (parts.some(part => typeof part?.text !== 'string' || Object.keys(part).some(key => key !== 'text'))) {
+      throw providerError('AI_ZERO_COST_UNSUPPORTED_CONTENT');
+    }
+    const content = parts.map(part => part.text).join('\\n');
+    if (content.trim()) messages.push({ role, content });
+  }
+  let result;
+  try {
+    result = await env.AI.run(CLOUDFLARE_TEXT_MODEL, {
+      messages,
+      max_tokens: Math.max(256, Math.min(Number(maxOutputTokens) || 2048, 6000)),
+      temperature: 0.2,
+    });
+  } catch {
+    throw providerError('AI_ZERO_COST_PROVIDER_ERROR');
+  }
+  const text = typeof result === 'string' ? result
+    : typeof result?.response === 'string' ? result.response
+      : typeof result?.result?.response === 'string' ? result.result.response
+        : typeof result?.choices?.[0]?.message?.content === 'string' ? result.choices[0].message.content : '';
+  if (!text.trim()) throw providerError('AI_ZERO_COST_EMPTY');
+  if (!json) return { text: text.trim(), provider: 'cloudflare', model: CLOUDFLARE_TEXT_MODEL, truncated: false };
+  const stripped = text.trim().replace(/^\x60{3}(?:json)?\\s*/i, '').replace(/\\s*\x60{3}$/, '');
+  let data;
+  try { data = JSON.parse(stripped); } catch { throw providerError('AI_ZERO_COST_INVALID_JSON'); }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw providerError('AI_ZERO_COST_INVALID_JSON');
+  return { text: text.trim(), data, provider: 'cloudflare', model: CLOUDFLARE_TEXT_MODEL, truncated: false };
+}
 
 export function workersAiConfigured(env) {
   return Boolean(env?.AI && typeof env.AI.run === 'function');
@@ -64,6 +123,7 @@ function parseResult(raw, source) {
 }
 
 export async function reviewWithWorkersAI(env, { mode, docType, question, draft }) {
+  if (!workersAiReviewEnabled(env)) return { status: 'disabled' };
   if (!workersAiConfigured(env)) return { status: 'not_configured' };
   const userText = clean(question, 3000);
   const draftText = clean(draft, 7000);
@@ -102,6 +162,7 @@ export async function reviewWithWorkersAI(env, { mode, docType, question, draft 
 export function workersAiReviewNotes(result) {
   if (result?.status !== 'reviewed') {
     const messages = {
+      disabled: 'بازبینی سوم Cloudflare غیرفعال است؛ برای جلوگیری از مصرف ناخواسته اجرا نشد.',
       not_configured: 'بازبینی سوم Cloudflare فعال نیست؛ اتصال AI در تنظیمات Worker تعریف نشده است.',
       invalid_input: 'بازبینی سوم انجام نشد؛ متن پیش‌نویس کافی نبود.',
       quota_exceeded: 'سهمیه رایگان روزانه Cloudflare Workers AI تمام شده است؛ بازبینی سوم انجام نشد.',
