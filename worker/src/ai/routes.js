@@ -11,7 +11,7 @@ import { AiError, aiConfigured, transcribeAudio, synthesizeLongSpeech } from './
 import { generateTextWithFallback, stripResponseFormatting } from './fallback.js';
 import { openaiConfigured } from './openai.js';
 import { groqConfigured } from './groq.js';
-import { reviewWithWorkersAI, workersAiConfigured } from './cloudflare.js';
+import { reviewWithWorkersAI, workersAiConfigured, workersAiReviewEnabled } from './cloudflare.js';
 import { clampReply } from './speech.js';
 import { reviewLegalDraft, groqReviewNotes } from './groq.js';
 import { AttachmentError, ATTACHMENT_LIMITS, processAttachments, buildUserParts, summarizeAttachments } from './attachments.js';
@@ -716,13 +716,13 @@ async function assistant(request, env) {
       } else {
         notes.push(...groqReviewNotes(review).slice(0, 3));
       }
-      if (mode === 'draft' && workersAiConfigured(env)) {
+      if (mode === 'draft' && workersAiReviewEnabled(env) && workersAiConfigured(env)) {
         stage = 'cloudflare_workers_ai_review';
         const thirdReview = await reviewWithWorkersAI(env, { mode, docType, question: message, draft: text });
         if (thirdReview.status === 'reviewed') notes.push('بازبینی تکمیلی انجام شد.');
       }
     }
-    if (!attachments.length && mode === 'draft' && provider === 'groq' && workersAiConfigured(env)) {
+    if (!attachments.length && mode === 'draft' && provider === 'groq' && workersAiReviewEnabled(env) && workersAiConfigured(env)) {
       stage = 'cloudflare_workers_ai_review';
       const thirdReview = await reviewWithWorkersAI(env, { mode, docType, question: message, draft: text });
       if (thirdReview.status === 'reviewed') notes.push('بازبینی تکمیلی انجام شد.');
