@@ -81,6 +81,12 @@ jobs:
           PLAYWRIGHT_BASE_URL: https://mokhtari.ir
         run: npx playwright test e2e/site-smoke.spec.js
 
+      - name: Measure real page readiness and resource timings on production
+        env:
+          CI: true
+          PLAYWRIGHT_BASE_URL: https://mokhtari.ir
+        run: npx playwright test e2e/site-performance.spec.js
+
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
