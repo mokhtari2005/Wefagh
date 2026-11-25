@@ -18,8 +18,9 @@ const lazyObserver = 'IntersectionObserver' in window
     }, { rootMargin: '480px 0px' })
   : null;
 
-function lazy(fn, { defer = false, timeoutMs = 20000 } = {}) {
-  const holder = h('div', {}, [h('p', { class: 'loading', role: 'status', text: 'در حال بارگذاری…' })]);
+function lazy(fn, { defer = false, timeoutMs = 20000, placeholderMinHeight = '8rem' } = {}) {
+  // رزرو فضا برای محتوای تنبل‌بارگذاری‌شونده مانع جابه‌جایی ناگهانی بخش‌های پایین صفحه می‌شود.
+  const holder = h('div', { class: 'lazy-content-placeholder', style: `min-height: ${placeholderMinHeight}`, 'aria-busy': 'true' }, [h('p', { class: 'loading', role: 'status', text: 'در حال بارگذاری…' })]);
   let started = false;
   const load = () => {
     if (started) return;
@@ -29,8 +30,14 @@ function lazy(fn, { defer = false, timeoutMs = 20000 } = {}) {
       timer = setTimeout(() => reject(new Error('page_load_timeout')), timeoutMs);
     });
     Promise.race([Promise.resolve().then(fn), timeout])
-      .then((node) => holder.replaceChildren(node))
+      .then((node) => {
+        holder.replaceChildren(node);
+        holder.style.minHeight = '';
+        holder.removeAttribute('aria-busy');
+      })
       .catch(() => {
+        holder.style.minHeight = '';
+        holder.removeAttribute('aria-busy');
         started = false;
         const retry = h('button', { class: 'btn secondary', type: 'button', text: 'تلاش دوباره' });
         retry.addEventListener('click', load);
@@ -163,7 +170,7 @@ function pageHome() {
       h('div', { class: 'quick-grid' }, ACADEMY_TOOLS.map((item) =>
         h('a', { class: 'quick-tile', href: item.href }, [h('span', { class: 'quick-icon', 'aria-hidden': 'true' }, [icon(item.icon, { size: 24 })]), h('span', { text: item.href === '#/community' ? 'تالار گفتگو' : item.title })]))),
     ]);
-  }, { defer: true });
+  }, { defer: true, placeholderMinHeight: '13rem' });
 
   const lower = h('section', { class: 'dashboard-lower' }, [
     h('article', { class: 'panel quote-panel' }, [
@@ -187,9 +194,9 @@ function pageHome() {
   const calendarSection = h('section', { class: 'home-calendar', 'aria-label': 'تقویم و مواعد پیش‌رو' }, [
     h('article', { class: 'panel deadline-panel' }, [
       h('div', { class: 'section-heading' }, [h('h2', { class: 'block-title', text: 'موعدهای پیش‌رو' }), h('a', { href: '#/deadlines', text: 'مشاهدهٔ تقویم کامل ‹' })]),
-      lazy(async () => { const { upcomingCard } = await import('./deadlines.js'); return upcomingCard(); }, { defer: true }),
+      lazy(async () => { const { upcomingCard } = await import('./deadlines.js'); return upcomingCard(); }, { defer: true, placeholderMinHeight: '11rem' }),
     ]),
-    lazy(async () => { const { shamsiCalendar } = await import('./calendar.js'); return shamsiCalendar({ onSelect: (iso) => { window.location.hash = `#/deadlines?date=${encodeURIComponent(iso)}`; } }); }, { defer: true }),
+    lazy(async () => { const { shamsiCalendar } = await import('./calendar.js'); return shamsiCalendar({ onSelect: (iso) => { window.location.hash = `#/deadlines?date=${encodeURIComponent(iso)}`; } }); }, { defer: true, placeholderMinHeight: '22rem' }),
   ]);
   const profileSpot = h('section', { class: 'home-profile-spot', hidden: '' });
   fetch('/api/me', { credentials: 'same-origin', headers: { Accept: 'application/json' }, cache: 'no-store' })
