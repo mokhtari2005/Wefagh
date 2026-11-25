@@ -45,6 +45,7 @@ export async function generateWorkersAIText(env, {
       messages,
       max_tokens: Math.max(256, Math.min(Number(maxOutputTokens) || 2048, 6000)),
       temperature: 0.2,
+      ...(json ? { response_format: { type: 'json_object' } } : {}),
     });
   } catch {
     throw providerError('AI_ZERO_COST_PROVIDER_ERROR');
