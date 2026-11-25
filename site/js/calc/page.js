@@ -11,7 +11,7 @@ import { indexedDelayDamage, planDelayPeriod, periodLabel, periodKeyOfIso } from
 import { computeAttorneyForm, RULE as ATTORNEY_RULE } from './attorney-form.js?v=20261121-attorney-2';
 import { buildFormModel, registerReport, getReportBuilder, tierSection, tierTableRows } from './forms.js?v=20261121-mla-brand-1';
 import { icon } from '../icons.js?v=20261119-2';
-import { regionalValueTool } from '../regional-value.js?v=20261125-tehran-1405';
+import { regionalValueTool } from '../regional-value.js?v=20261125-province-city-hierarchy-1';
 import { createA4TextReport } from './report.js?v=20261121-pdf-a4-1';
 
 function h(tag, attrs = {}, children = []) {
@@ -751,7 +751,7 @@ const TOOL_VISUALS = {
 
 function calculatorStyles() {
   if (document.querySelector('link[data-calculator-styles]')) return;
-  const link = h('link', { rel: 'stylesheet', href: 'css/calculators.css?v=20261119-text-a4' });
+  const link = h('link', { rel: 'stylesheet', href: 'css/calculators.css?v=20261125-rtl-legal-notes-1' });
   link.setAttribute('data-calculator-styles', 'true');
   document.head.append(link);
 }

@@ -412,3 +412,61 @@
   body:has(.calculator-detail-page) .tool-out .no-print { display:none!important; }
   * { -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; }
 }
+
+
+/* یکسان‌سازی راست‌چین توضیحات، هشدارها و ملاحظات حقوقی در همه محاسبه‌گرها */
+.calculator-detail-page .calculator-hero-copy,
+.calculator-detail-page .calculator-hero-copy p,
+.calculator-detail-page .calculator-guidance,
+.calculator-detail-page .calculator-guidance > span,
+.calculator-detail-page .calculator-workspace .muted,
+.calculator-detail-page .calculator-workspace .notice,
+.calculator-detail-page .calculator-workspace .tool-out,
+.calculator-detail-page .calculator-workspace .tool-out p,
+.calculator-detail-page .calculator-workspace .tool-out li,
+.calculator-detail-page .regional-value-tool > p,
+.calculator-detail-page .regional-value-tool .regional-result p,
+.calculator-disclaimer,
+.calculator-disclaimer p {
+  direction: rtl !important;
+  text-align: right !important;
+  unicode-bidi: plaintext;
+}
+
+/* آیکون/نشان راهنما و هشدار در سمت راست متن قرار می‌گیرد. */
+.calculator-detail-page .calculator-guidance,
+.calculator-disclaimer {
+  flex-direction: row !important;
+  justify-content: flex-start;
+}
+.calculator-detail-page .calculator-guidance > svg,
+.calculator-disclaimer > svg {
+  order: 0;
+  flex: 0 0 auto;
+  margin-inline: 0 2px;
+}
+
+/* نشانه‌های فهرست در سمت راست و هم‌راستا با متن فارسی باشند. */
+.calculator-detail-page .calculator-workspace .tool-out ul,
+.calculator-detail-page .calculator-workspace .tool-out ol,
+.calculator-detail-page .calculator-workspace .notice ul,
+.calculator-detail-page .calculator-workspace .notice ol,
+.calculator-detail-page .calculator-workspace .muted ul,
+.calculator-detail-page .calculator-workspace .muted ol {
+  direction: rtl !important;
+  text-align: right !important;
+  padding-inline-start: 1.35em !important;
+  padding-inline-end: 0 !important;
+  list-style-position: outside;
+}
+.calculator-detail-page .calculator-workspace .tool-out li,
+.calculator-detail-page .calculator-workspace .notice li,
+.calculator-detail-page .calculator-workspace .muted li {
+  direction: rtl !important;
+  text-align: right !important;
+}
+.calculator-detail-page .calculator-workspace .tool-out li::marker,
+.calculator-detail-page .calculator-workspace .notice li::marker,
+.calculator-detail-page .calculator-workspace .muted li::marker {
+  direction: rtl;
+}
