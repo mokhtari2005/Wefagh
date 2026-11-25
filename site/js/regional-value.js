@@ -54,13 +54,11 @@ export function regionalValueTool() {
     h('h2', { text: 'محاسبه ارزش منطقه‌ای املاک' }),
     h('p', { class: 'muted', text: 'بر اساس جداول رسمی ارزش معاملاتی سال ۱۴۰۵؛ شامل ارزش عرصه و اعیانی.' })
   );
-  const city = select('rv-city', 'شهر', [['shiraz','شیراز'],['tehran','تهران']]);
+  const province = select('rv-province', 'استان', [['fars','فارس'],['tehran','تهران']]);
+  const city = select('rv-city', 'شهر', [['shiraz','شیراز']]);
   const zone = select('rv-zone', 'منطقه شهرداری / مالیاتی', Array.from({length:11},(_,i)=>[String(i+1),`منطقه ${fa(i+1)}`]));
   const block = select('rv-block', 'بلوک مالیاتی', []);
   const blockRate = h('p', { class: 'muted', role: 'status' });
-  const province = input('rv-province', 'استان', 'فارس');
-  province.el.value = 'فارس';
-  province.el.readOnly = true;
   const activeBlocks = () => city.el.value === 'tehran' ? TEHRAN_BLOCKS : SHIRAZ_BLOCKS;
   const addressEl = h('textarea', { id: 'rv-address', rows: '2', inputmode: 'text', autocomplete: 'street-address', autocapitalize: 'sentences', spellcheck: 'true' });
   addressEl.style.cssText = 'width:100%;min-height:76px;resize:vertical;';
@@ -350,8 +348,8 @@ export function regionalValueTool() {
     blockRate.textContent = row ? `ارزش پایه هر مترمربع — مسکونی: ${money(row[2])} | تجاری: ${money(row[3])} | اداری: ${money(row[4])}` : '';
   }
   function syncCity() {
-    const tehran = city.el.value === 'tehran';
-    province.el.value = tehran ? 'تهران' : 'فارس';
+    const tehran = province.el.value === 'tehran';
+    city.el.replaceChildren(h('option', { value: tehran ? 'tehran' : 'shiraz', text: tehran ? 'تهران' : 'شیراز' }));
     const count = tehran ? 22 : 11;
     zone.el.replaceChildren(...Array.from({length:count},(_,i)=>h('option',{value:String(i+1),text:`منطقه ${fa(i+1)}`})));
     zone.el.value = '1';
@@ -367,6 +365,15 @@ export function regionalValueTool() {
     } else if (mapCanvas.querySelector('.regional-map-offline')) showMapFallback();
     mapStatus.textContent = `موقعیت ملک را روی نقشه ${tehran ? 'تهران' : 'شیراز'} تعیین کنید.`;
   }
+  province.el.addEventListener('change', () => {
+    syncCity();
+    syncAccessOptions();
+  });
+  city.el.addEventListener('change', () => {
+    province.el.value = city.el.value === 'tehran' ? 'tehran' : 'fars';
+    syncCity();
+    syncAccessOptions();
+  });
   zone.el.addEventListener('change',updateBlocks); block.el.addEventListener('change',showRate); updateBlocks();
 
   const landUse = select('rv-land-use','کاربری عرصه',Object.entries(LAND_LABEL).map(([k,v])=>[k,v]));
@@ -383,7 +390,7 @@ export function regionalValueTool() {
     access.el.replaceChildren(...options.map(([value,label])=>h('option',{value,text:label})));
   }
   syncAccessOptions();
-  city.el.addEventListener('change', () => { syncCity(); syncAccessOptions(); });
+
   const landFields=[landUse.node,landArea.node,width.node,access.node];
 
   const buildingToggle=select('rv-building','وضعیت اعیانی',[
