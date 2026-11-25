@@ -62,6 +62,7 @@ test('zero-cost mode uses only mocked Workers AI and parses structured JSON', as
 test('Workers AI rejects non-text attachments instead of silently sending them to another provider', async () => {
   const env = {
     AI_BILLING_MODE: 'zero',
+    WORKERS_AI_FREE_PLAN_CONFIRMED: 'true',
     WORKERS_AI_PRIMARY_ENABLED: 'true',
     AI: { run: async () => { throw new Error('must not run'); } },
   };
