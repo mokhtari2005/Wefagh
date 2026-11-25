@@ -68,7 +68,7 @@ test('صفحهٔ نخست تا آماده‌شدن تصویر شاخص و فون
     if (image && !image.complete) await image.decode();
   });
   const result = await snapshot(page, 'home-desktop-full-visual-readiness', startedAt, responses);
-  expect(result.heroImage?.naturalWidth || 1).toBeGreaterThan(0);
+  expect(result.heroImage?.naturalWidth).toBeGreaterThan(0);
 });
 
 test('صفحهٔ نخست تا آماده‌شدن محتوای اصلی — موبایل و 4G', async ({ page }) => {
@@ -92,7 +92,12 @@ test('صفحهٔ نخست تا آماده‌شدن محتوای اصلی — م�
   const response = await page.goto('/?real-readiness=home-mobile#/', { waitUntil: 'domcontentloaded', timeout: 30000 });
   expect(response?.status()).toBeLessThan(400);
   await expect(page.locator('.home-dashboard .hero-banner h1')).toBeVisible({ timeout: 15000 });
-  const result = await snapshot(page, 'home-mobile-4g-content-readiness', startedAt, responses);
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    const image = document.querySelector('.hero-bg');
+    if (image && !image.complete) await image.decode();
+  });
+  const result = await snapshot(page, 'home-mobile-4g-full-visual-readiness', startedAt, responses);
   expect(result.readyMs).toBeLessThan(15000);
   await client.detach();
 });
@@ -122,7 +127,7 @@ test('صفحهٔ دستیار: منوی اصلی و آماده‌شدن مشاو
   const consultState = await page.evaluate(() => ({
     workspaceReady: Boolean(document.querySelector('.assistant .ai-shell')),
     loginRequired: Boolean(document.querySelector('.assistant .notice a[href="#/account"]')),
-    composerVisible: Boolean(document.querySelector('.assistant .ai-composer textarea')),
+    composerVisible: Boolean(document.querySelector('.assistant .ai-composer .ai-input')),
   }));
   const result = await snapshot(page, 'assistant-consult-access-and-workspace', consultStart, apiResponses.map((x) => ({
     path: x.path, status: x.status,
