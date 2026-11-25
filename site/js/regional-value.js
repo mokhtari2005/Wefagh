@@ -357,8 +357,14 @@ export function regionalValueTool() {
     zone.el.value = '1';
     updateBlocks();
     defaultPoint = tehran ? [35.6892,51.3890] : [29.5918,52.5837];
-    if (regionalMap) regionalMap.setView(defaultPoint, 12);
-    else if (mapCanvas.querySelector('.regional-map-offline')) showMapFallback();
+    coordinates.el.value = '';
+    address.el.value = '';
+    postalCode.el.value = '';
+    postalSearchStatus.textContent = '';
+    if (regionalMap) {
+      regionalMap.setView(defaultPoint, 12);
+      regionalMarker?.setLatLng(defaultPoint);
+    } else if (mapCanvas.querySelector('.regional-map-offline')) showMapFallback();
     mapStatus.textContent = `موقعیت ملک را روی نقشه ${tehran ? 'تهران' : 'شیراز'} تعیین کنید.`;
   }
   zone.el.addEventListener('change',updateBlocks); block.el.addEventListener('change',showRate); updateBlocks();
