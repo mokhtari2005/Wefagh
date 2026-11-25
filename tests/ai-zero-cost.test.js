@@ -33,14 +33,15 @@ test('zero-cost mode fails closed and never calls paid providers when Workers AI
 test('Workers AI primary requires both zero-cost mode and an explicit feature flag', () => {
   const binding = { run: async () => ({ response: '{}' }) };
   assert.equal(workersAiPrimaryEnabled({ AI: binding }), false);
-  assert.equal(workersAiPrimaryEnabled({ AI_BILLING_MODE: 'zero', AI: binding }), false);
-  assert.equal(workersAiPrimaryEnabled({ AI_BILLING_MODE: 'zero', WORKERS_AI_PRIMARY_ENABLED: 'true', AI: binding }), true);
+  assert.equal(workersAiPrimaryEnabled({ AI_BILLING_MODE: 'zero', WORKERS_AI_PRIMARY_ENABLED: 'true', AI: binding }), false);
+  assert.equal(workersAiPrimaryEnabled({ AI_BILLING_MODE: 'zero', WORKERS_AI_FREE_PLAN_CONFIRMED: 'true', WORKERS_AI_PRIMARY_ENABLED: 'true', AI: binding }), true);
 });
 
 test('zero-cost mode uses only mocked Workers AI and parses structured JSON', async () => {
   const calls = [];
   const env = {
     AI_BILLING_MODE: 'zero',
+    WORKERS_AI_FREE_PLAN_CONFIRMED: 'true',
     WORKERS_AI_PRIMARY_ENABLED: 'true',
     AI: {
       run: async (model, options) => {
