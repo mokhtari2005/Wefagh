@@ -2,6 +2,7 @@
 import { generateOpenAIText, openaiConfigured } from './openai.js';
 import { generateText } from './gemini.js';
 import { generateGroqText, groqConfigured } from './groq.js';
+import { generateWorkersAIText, workersAiPrimaryEnabled } from './cloudflare.js';
 
 const FAILOVER_CODES = new Set([
   'AI_NETWORK_ERROR', 'AI_PROVIDER_ERROR', 'AI_PROVIDER_BAD_RESPONSE',
@@ -57,6 +58,15 @@ export async function generateTextWithFallback(env, prompt, {
   allowOpenAI = true,
   allowGroq = true,
 } = {}) {
+  // حالت صفرهزینه: هیچ درخواست پولی به OpenAI/Gemini/Groq ارسال نمی‌شود.
+  // Workers AI فقط با feature flag صریح فعال می‌شود؛ در غیر این صورت fail-closed.
+  if (env?.AI_BILLING_MODE === 'zero') {
+    if (!workersAiPrimaryEnabled(env)) {
+      throw Object.assign(new Error('AI_ZERO_COST_PROVIDER_DISABLED'), { code: 'AI_ZERO_COST_PROVIDER_DISABLED', status: 503 });
+    }
+    return cleanProviderResult(await generateWorkersAIText(env, prompt));
+  }
+
   let openaiFailure = null;
 
   if (allowOpenAI && openaiConfigured(env)) {

@@ -114,6 +114,7 @@ async function compareGroq(env, prompt) {
 
 /** فقط برای مدیر: دو ارائه‌دهنده با ورودی یکسان، هم‌زمان و بدون ذخیره‌سازی آزمایش می‌شوند. */
 export async function compareAiProviders(request, env) {
+  if (env?.AI_BILLING_MODE === 'zero') return json({ ok: false, error: 'AI_ZERO_COST_MODE' }, 503);
   if (request.method !== 'POST') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'POST' });
   const parsed = await readJsonBody(request);
   if (parsed.error) return parsed.error;

@@ -11,7 +11,7 @@ import { AiError, aiConfigured, transcribeAudio, synthesizeLongSpeech } from './
 import { generateTextWithFallback, stripResponseFormatting } from './fallback.js';
 import { openaiConfigured } from './openai.js';
 import { groqConfigured } from './groq.js';
-import { reviewWithWorkersAI, workersAiConfigured } from './cloudflare.js';
+import { reviewWithWorkersAI, workersAiConfigured, workersAiReviewEnabled } from './cloudflare.js';
 import { clampReply } from './speech.js';
 import { reviewLegalDraft, groqReviewNotes } from './groq.js';
 import { AttachmentError, ATTACHMENT_LIMITS, processAttachments, buildUserParts, summarizeAttachments } from './attachments.js';
@@ -327,6 +327,7 @@ async function speech(request, env) {
   const auth = await authorized(request, env);
   if (auth.error) return auth.error;
   if (request.method !== 'POST') return fail('METHOD_NOT_ALLOWED', 405);
+  if (env?.AI_BILLING_MODE === 'zero') return fail('AI_ZERO_COST_AUDIO_DISABLED', 503);
   const parsed = await readBody(request);
   if (parsed.error) return parsed.error;
   const text = cleanText(parsed.body?.text, LIMITS.speechChars);
@@ -356,6 +357,7 @@ async function transcribe(request, env) {
     auth = await authorized(request, env);
   }
   if (auth.error) return auth.error;
+  if (env?.AI_BILLING_MODE === 'zero') return fail('AI_ZERO_COST_AUDIO_DISABLED', 503);
   const parsed = await readBody(request, LIMITS.audioBytes + 4096);
   if (parsed.error) return parsed.error;
   const mimeType = AUDIO_TYPES.includes(parsed.body?.mimeType) ? parsed.body.mimeType : null;
@@ -680,7 +682,10 @@ async function assistant(request, env) {
         ].slice(0, 3)
       : [];
     // برای حفظ محرمانگی، در صورت وجود پیوست، پیش‌نویس حاوی محتوای استخراج‌شده به ارائه‌دهندهٔ سوم ارسال نمی‌شود.
-    if (attachments.length) {
+    if (env?.AI_BILLING_MODE === 'zero') {
+      reviewStatus = 'skipped_zero_cost';
+      notes.push('بازبینی مستقل مبتنی بر API پولی در حالت صفرهزینه اجرا نشد.');
+    } else if (attachments.length) {
       reviewStatus = 'skipped_attachments';
     } else if (provider === 'groq') {
       reviewStatus = 'skipped_fallback';
@@ -716,13 +721,13 @@ async function assistant(request, env) {
       } else {
         notes.push(...groqReviewNotes(review).slice(0, 3));
       }
-      if (mode === 'draft' && workersAiConfigured(env)) {
+      if (mode === 'draft' && workersAiReviewEnabled(env) && workersAiConfigured(env)) {
         stage = 'cloudflare_workers_ai_review';
         const thirdReview = await reviewWithWorkersAI(env, { mode, docType, question: message, draft: text });
         if (thirdReview.status === 'reviewed') notes.push('بازبینی تکمیلی انجام شد.');
       }
     }
-    if (!attachments.length && mode === 'draft' && provider === 'groq' && workersAiConfigured(env)) {
+    if (!attachments.length && mode === 'draft' && provider === 'groq' && workersAiReviewEnabled(env) && workersAiConfigured(env)) {
       stage = 'cloudflare_workers_ai_review';
       const thirdReview = await reviewWithWorkersAI(env, { mode, docType, question: message, draft: text });
       if (thirdReview.status === 'reviewed') notes.push('بازبینی تکمیلی انجام شد.');
