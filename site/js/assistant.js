@@ -1262,7 +1262,15 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       const fallbackInfo = res.data?.fallbackCode
         ? ` مسیر جایگزین Groq نیز موفق نشد: ${res.data.fallbackCode}${res.data.fallbackStatus ? ` · HTTP ${res.data.fallbackStatus}` : ''}.`
         : (sent.length ? ' به‌دلیل وجود پیوست، برای حفظ محرمانگی فایل به ارائه‌دهنده دیگری ارسال نشد.' : '');
-      status.textContent = `${errorText(code)}${which} (کد: ${code}${res.data?.providerStatus ? ` · HTTP ${res.data.providerStatus}` : ''}${res.data?.providerReason ? ` ${res.data.providerReason}` : ''}${res.data?.reason ? ` · ${res.data.reason}` : ''})${fallbackInfo} متن و پیوست‌های شما حفظ شد.`;
+      // وقتی پاسخ JSON نبوده یا فقط AI_UNAVAILABLE آمده، مرحله و نوع خطا و وضعیت HTTP پاسخ برای عیب‌یابی نمایش داده می‌شود.
+      const tech = [
+        res.data?.stage ? `مرحله: ${res.data.stage}` : '',
+        res.data?.errorType ? `نوع: ${res.data.errorType}` : '',
+        res.data?.errorCode ? `زیرکد: ${res.data.errorCode}` : '',
+        res.status ? `HTTP ${res.status}` : '',
+        res.data === null && res.status ? 'پاسخ غیر JSON' : '',
+      ].filter(Boolean).join(' · ');
+      status.textContent = `${errorText(code)}${which} (کد: ${code}${res.data?.providerStatus ? ` · HTTP ${res.data.providerStatus}` : ''}${res.data?.providerReason ? ` ${res.data.providerReason}` : ''}${res.data?.reason ? ` · ${res.data.reason}` : ''}${tech ? ` · ${tech}` : ''})${fallbackInfo} متن و پیوست‌های شما حفظ شد.`;
       renderLog();
       if (voiceMode) setVoiceState('ready', 'ارسال گفتار ناموفق بود؛ متن حفظ شده است. برای تلاش دوباره «شروع صحبت» را بزنید.');
       return;
