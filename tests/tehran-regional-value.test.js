@@ -6,6 +6,10 @@ test('دفترچه تهران ۱۴۰۵ شامل ۲۲ منطقه و ۲۲۷ بلو
   assert.equal(TEHRAN_BLOCKS.length, 227);
   assert.deepEqual([...new Set(TEHRAN_BLOCKS.map(x => x[0]))], Array.from({length:22}, (_, i) => i + 1));
   assert.equal(new Set(TEHRAN_BLOCKS.map(x => x[1])).size, 227);
+  assert.deepEqual(
+    Array.from({length:22}, (_, i) => TEHRAN_BLOCKS.filter(x => x[0] === i + 1).length),
+    [23,19,16,19,20,16,8,5,4,3,9,16,4,5,11,7,6,9,8,8,6,5]
+  );
 });
 
 test('نرخ‌های بلوک‌های تهران با جدول رسمی ۱۴۰۵ منطبق‌اند', () => {
