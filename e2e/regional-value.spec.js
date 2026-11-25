@@ -3,6 +3,8 @@ import { test, expect } from '@playwright/test';
 test('regional calculator loads official Tehran 1405 blocks and applies Tehran building rules', async ({ page }) => {
   await page.goto('/#/calculators/regional');
   await expect(page.locator('#rv-city')).toBeVisible();
+  await expect(page.locator('.calculator-guidance')).toHaveCSS('direction', 'rtl');
+  await expect(page.locator('.calculator-guidance')).toHaveCSS('text-align', 'right');
 
   await expect(page.locator('#rv-province')).toHaveValue('fars');
   await expect(page.locator('#rv-city')).toHaveValue('shiraz');
@@ -36,4 +38,22 @@ test('regional calculator loads official Tehran 1405 blocks and applies Tehran b
   await expect(page.locator('.regional-result')).toContainText('پارکینگ و انباری واحدهای مسکونی در ارزش اعیانی منظور نمی‌شود');
   await expect(page.locator('.regional-result .amount-value')).toContainText('۱۴٬۸۳۲٬۵۲۰٬۰۰۰ ریال');
   await expect(page.locator('.regional-result')).toContainText('لازم‌الاجرا از ۱۴۰۵/۰۱/۰۱');
+  await expect(page.locator('.regional-result .notice')).toHaveCSS('direction', 'rtl');
+  await expect(page.locator('.regional-result .notice')).toHaveCSS('text-align', 'right');
+});
+
+test('legal guidance is right-aligned across all calculator pages', async ({ page }) => {
+  for (const tool of ['regional', 'court', 'attorney', 'delay']) {
+    await page.goto(`/#/calculators/${tool}`);
+    const guidance = page.locator('.calculator-guidance');
+    await expect(guidance).toBeVisible();
+    await expect(guidance).toHaveCSS('direction', 'rtl');
+    await expect(guidance).toHaveCSS('text-align', 'right');
+    const iconOnRight = await guidance.evaluate((node) => {
+      const icon = node.firstElementChild.getBoundingClientRect();
+      const text = node.lastElementChild.getBoundingClientRect();
+      return icon.right >= text.right;
+    });
+    expect(iconOnRight, `guidance icon should be at the right for ${tool}`).toBeTruthy();
+  }
 });
