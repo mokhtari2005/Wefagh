@@ -127,7 +127,7 @@ function pageHome() {
   const root = h('div', { class: 'home-dashboard' });
 
   const hero = h('section', { class: 'hero-banner', 'aria-labelledby': 'hero-title' }, [
-    h('img', { class: 'hero-bg', src: 'assets/images/legal-hero.webp', alt: '', width: '1200', height: '400', loading: 'eager' }),
+    h('img', { class: 'hero-bg', src: 'assets/images/legal-hero.webp', alt: '', width: '1200', height: '400', loading: 'eager', fetchpriority: 'high', decoding: 'async' }),
     h('div', { class: 'hero-copy' }, [
       h('h1', { id: 'hero-title' }, [document.createTextNode('به '), h('span', { class: 'accent', text: 'آکادمی وکالت شهرام مختاری' }), document.createTextNode(' خوش آمدید')]),
       h('p', { class: 'hero-sub', text: 'مسیر حرفه‌ای شدن در وکالت؛ از آموزش تا تجربه' }),
@@ -345,13 +345,13 @@ const ROUTES = {
   '/community': () => lazy(async () => (await import('./community.js?v=20261119-community-title-fix-4')).communityPage()),
   '/cases': () => lazy(async () => (await import('./cases.js')).casesPage()),
   '/moot-court': (params) => lazy(async () => (await import('./moot.js')).mootCourtPage(params)),
-  '/assistant': () => lazy(async () => (await import('./assistant-forms.js?v=20261123-assistant-loading-fix-1')).assistantMenuPage()),
-  '/assistant/documents': () => lazy(async () => (await import('./assistant-forms.js?v=20261122-legal-workbench-1')).assistantDocumentsMenuPage()),
-  '/assistant/consult': (params) => lazy(async () => (await import('./assistant.js?v=20261126-net-retry-1')).assistantPage(params)),
-  '/assistant/litigation': (params) => lazy(async () => (await import('./assistant.js?v=20261126-net-retry-1')).assistantPage({ ...params, mode: 'litigation' })),
-  '/assistant/research': (params) => lazy(async () => (await import('./assistant.js?v=20261126-net-retry-1')).assistantPage({ ...params, mode: 'research' })),
+  '/assistant': () => lazy(async () => (await import('./assistant-forms.js?v=20261126-assistant-config-split-1')).assistantMenuPage()),
+  '/assistant/documents': () => lazy(async () => (await import('./assistant-forms.js?v=20261126-assistant-config-split-1')).assistantDocumentsMenuPage()),
+  '/assistant/consult': (params) => lazy(async () => (await import('./assistant.js?v=20261126-assistant-config-split-1')).assistantPage(params)),
+  '/assistant/litigation': (params) => lazy(async () => (await import('./assistant.js?v=20261126-assistant-config-split-1')).assistantPage({ ...params, mode: 'litigation' })),
+  '/assistant/research': (params) => lazy(async () => (await import('./assistant.js?v=20261126-assistant-config-split-1')).assistantPage({ ...params, mode: 'research' })),
   '/voice-typing': () => lazy(async () => (await import('./voice-typing.js')).voiceTypingPage()),
-  '/assistant/history': () => lazy(async () => (await import('./assistant.js?v=20261126-net-retry-1')).assistantHistoryPage()),
+  '/assistant/history': () => lazy(async () => (await import('./assistant.js?v=20261126-assistant-config-split-1')).assistantHistoryPage()),
   '/moot-court/hearing': (params) => lazy(async () => (await import('./moot-ai.js?v=20261119-stop-speaker-1')).courtRoomPage(params)),
   '/moot-court/cases': (params) => lazy(async () => (await import('./moot-cases.js')).casePickerPage(params)),
   '/calculators': (params) => lazy(async () => (await import('./calc/page.js?v=20261125-rtl-legal-notes-2')).calculatorsPage(params)),
@@ -410,7 +410,7 @@ function render() {
   let content;
   const planned = NAV.find((n) => n.path === path && n.status === 'planned');
   if (ROUTES[path]) content = ROUTES[path](params);
-  else if (path.startsWith('/assistant/doc/')) content = lazy(async () => (await import('./assistant-forms.js?v=20261119-forms-1')).assistantDocumentPage({ type: decodeURIComponent(path.slice('/assistant/doc/'.length)) }));
+  else if (path.startsWith('/assistant/doc/')) content = lazy(async () => (await import('./assistant-forms.js?v=20261126-assistant-config-split-1')).assistantDocumentPage({ type: decodeURIComponent(path.slice('/assistant/doc/'.length)) }));
   else if (path.startsWith('/cases/')) content = lazy(async () => (await import('./cases.js')).casesPage(decodeURIComponent(path.slice('/cases/'.length))));
   else if (path.startsWith('/media/')) content = lazy(async () => (await import('./media.js')).articlePage(decodeURIComponent(path.slice('/media/'.length))));
   else if (path.startsWith('/academy/')) content = lazy(async () => (await import('./academy.js?v=20261119-media-nav-title-2')).academyCourse(decodeURIComponent(path.slice('/academy/'.length))));
