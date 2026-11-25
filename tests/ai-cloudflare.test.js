@@ -48,7 +48,7 @@ test('zero-cost mode calls GLM through mocked binding and never falls back to pa
     return { response: JSON.stringify({ status: 'need_info', questions: ['تاریخ قرارداد چیست؟'], notes: [], text: '' }) };
   });
   const result = await generateTextWithFallback(env, prompt);
-  assert.equal(result.provider, 'cloudflare_workers_ai');
+  assert.equal(result.provider, 'cloudflare');
   assert.equal(result.model, CLOUDFLARE_TEXT_MODEL);
   assert.equal(result.data.status, 'need_info');
   assert.deepEqual(result.data.questions, ['تاریخ قرارداد چیست؟']);
@@ -81,7 +81,7 @@ test('Workers AI rejects attachments rather than silently sending them to a paid
   await assert.rejects(generateWorkersAIText(env, {
     ...prompt,
     contents: [{ role: 'user', parts: [{ text: 'فایل' }, { inlineData: { mimeType: 'image/png', data: 'AA==' } }] }],
-  }), error => error.code === 'WORKERS_AI_UNSUPPORTED_CONTENT');
+  }), error => error.code === 'AI_ZERO_COST_UNSUPPORTED_CONTENT');
 });
 
 test('Workers AI review is disabled by default and performs no inference', async () => {
