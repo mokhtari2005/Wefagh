@@ -4,12 +4,14 @@ export const CLOUDFLARE_REVIEW_MODEL = '@cf/zai-org/glm-4.7-flash';
 
 export function workersAiPrimaryEnabled(env) {
   return env?.AI_BILLING_MODE === 'zero' &&
+    env?.WORKERS_AI_FREE_PLAN_CONFIRMED === 'true' &&
     env?.WORKERS_AI_PRIMARY_ENABLED === 'true' &&
     Boolean(env?.AI && typeof env.AI.run === 'function');
 }
 
 export function workersAiReviewEnabled(env) {
   return env?.AI_BILLING_MODE === 'zero' &&
+    env?.WORKERS_AI_FREE_PLAN_CONFIRMED === 'true' &&
     env?.WORKERS_AI_REVIEW_ENABLED === 'true' &&
     Boolean(env?.AI && typeof env.AI.run === 'function');
 }
