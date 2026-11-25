@@ -14,7 +14,7 @@ async function enableGuestAssistant(page) {
   await page.route('**/api/ai/status', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
-    body: JSON.stringify({ configured: true, providers: { openai: true, gemini: true, groq: true } }),
+    body: JSON.stringify({ configured: true, providers: { openai: false, gemini: false, groq: false, cloudflareWorkersAI: true, cloudflareWorkersAIBinding: true } }),
   }));
 }
 
