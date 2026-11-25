@@ -27,7 +27,7 @@ export async function generateWorkersAIText(env, {
     String(system || ''),
     json ? 'خروجی فقط یک شیء JSON معتبر مطابق ساختار خواسته‌شده باشد؛ متن پیرامونی یا Markdown اضافه نکن.' : '',
     schema ? 'ساختار مورد انتظار: ' + JSON.stringify(schema) : '',
-  ].filter(Boolean).join('\\n\\n') }];
+  ].filter(Boolean).join('\n\n') }];
   for (const item of Array.isArray(contents) ? contents : []) {
     const role = item?.role === 'model' || item?.role === 'assistant' ? 'assistant' : 'user';
     const parts = Array.isArray(item?.parts) ? item.parts : [];
