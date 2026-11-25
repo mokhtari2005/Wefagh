@@ -6,8 +6,28 @@ function safeFetchErrorType(error) {
   return ['TypeError', 'AbortError', 'NetworkError', 'SecurityError'].includes(name) ? name : 'OtherError';
 }
 
-function fetchFailure(error, timedOut) {
-  return {
+async function probeApiHealth() {
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 4000);
+  try {
+    const response = await fetch('/api/health', {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    return { status: response.ok ? 'reachable' : 'http_error', httpStatus: response.status };
+  } catch {
+    return { status: timedOut ? 'timeout' : 'unreachable' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchFailure(error, timedOut, path) {
+  const result = {
     status: 0,
     ok: false,
     data: null,
@@ -15,6 +35,9 @@ function fetchFailure(error, timedOut) {
     timeoutError: timedOut,
     networkErrorType: safeFetchErrorType(error),
   };
+  // فقط پس از شکست اتصال دستیار، یک GET بی‌هزینه و بدون دادهٔ پرونده برای سنجش دسترسی API اجرا می‌شود.
+  if (path === '/api/ai/assistant' && !timedOut) result.apiProbe = await probeApiHealth();
+  return result;
 }
 
 export async function postJson(path, payload, { timeoutMs = 15000 } = {}) {
@@ -37,7 +60,7 @@ export async function postJson(path, payload, { timeoutMs = 15000 } = {}) {
     }
     return { status: res.status, ok: res.ok, data, url: res.url, redirected: res.redirected, allow: res.headers.get('allow'), contentType: res.headers.get('content-type') };
   } catch (error) {
-    return fetchFailure(error, timedOut);
+    return await fetchFailure(error, timedOut, path);
   } finally {
     clearTimeout(timer);
   }
