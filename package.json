@@ -15,6 +15,11 @@
     "dev:local-api": "node scripts/local-dev/devserver.mjs",
     "smoke:api": "node scripts/local-dev/smoke.mjs",
     "check:migrations": "node scripts/check-migrations.mjs",
-    "deploy:worker": "npx wrangler d1 migrations apply wefagh-db --remote --config worker/wrangler.toml && npx wrangler deploy --config worker/wrangler.toml"
+    "deploy:worker": "npx wrangler d1 migrations apply wefagh-db --remote --config worker/wrangler.toml && npx wrangler deploy --config worker/wrangler.toml",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1"
   }
 }
