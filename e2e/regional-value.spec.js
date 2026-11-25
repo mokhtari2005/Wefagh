@@ -7,6 +7,11 @@ test('regional calculator loads official Tehran 1405 blocks and applies Tehran b
   await page.locator('#rv-city').selectOption('tehran');
   await expect(page.locator('#rv-province')).toHaveValue('تهران');
   await expect(page.locator('#rv-zone option')).toHaveCount(22);
+  await expect(page.locator('#rv-access option[value="landlocked"]')).toHaveCount(0);
+  await page.locator('#rv-city').selectOption('shiraz');
+  await expect(page.locator('#rv-access option[value="landlocked"]')).toHaveCount(1);
+  await page.locator('#rv-city').selectOption('tehran');
+  await expect(page.locator('#rv-access option[value="landlocked"]')).toHaveCount(0);
 
   await page.locator('#rv-zone').selectOption('22');
   await expect(page.locator('#rv-block option')).toHaveCount(5);
