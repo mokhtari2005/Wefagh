@@ -507,7 +507,7 @@ export function regionalValueTool() {
         (()=>{const snapshot=mapCanvas.cloneNode(true);snapshot.removeAttribute('id');snapshot.classList.add('regional-report-map');snapshot.setAttribute('aria-label','نقشه موقعیت ملک در گزارش');return snapshot;})()
       ]),
       h('dl',{class:'regional-report-details'},[
-        h('dt',{text:'استان و شهر'}),h('dd',{text:`${province.el.value}، ${city.el.selectedOptions?.[0]?.textContent || city.el.value}`}),
+        h('dt',{text:'استان و شهر'}),h('dd',{text:`${province.el.selectedOptions?.[0]?.textContent || ''}، ${city.el.selectedOptions?.[0]?.textContent || city.el.value}`}),
         h('dt',{text:'کد پستی'}),h('dd',{text:postalCode.el.value || 'درج نشده'}),
         h('dt',{text:'مختصات جغرافیایی'}),h('dd',{text:coordinates.el.value || 'روی نقشه تعیین نشده'})
       ]),
