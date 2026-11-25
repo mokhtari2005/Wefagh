@@ -247,7 +247,7 @@ function pageHome() {
       // شکست دریافت پروفایل نباید رندر یا سایر بخش‌های صفحهٔ اصلی را مختل کند.
       console.warn('Home profile could not be loaded.', error);
     });
-  root.append(profileSpot, hero, quick, calendarSection, stats, lower, cta);
+  root.append(profileSpot, hero, calendarSection, quick, stats, lower, cta);
   return root;
 }
 
