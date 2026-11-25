@@ -53,7 +53,7 @@ export async function generateWorkersAIText(env, {
         : typeof result?.choices?.[0]?.message?.content === 'string' ? result.choices[0].message.content : '';
   if (!text.trim()) throw providerError('AI_ZERO_COST_EMPTY');
   if (!json) return { text: text.trim(), provider: 'cloudflare', model: CLOUDFLARE_TEXT_MODEL, truncated: false };
-  const stripped = text.trim().replace(/^\x60{3}(?:json)?\\s*/i, '').replace(/\\s*\x60{3}$/, '');
+  const stripped = text.trim().replace(/^\x60{3}(?:json)?\s*/i, '').replace(/\s*\x60{3}$/, '');
   let data;
   try { data = JSON.parse(stripped); } catch { throw providerError('AI_ZERO_COST_INVALID_JSON'); }
   if (!data || typeof data !== 'object' || Array.isArray(data)) throw providerError('AI_ZERO_COST_INVALID_JSON');
