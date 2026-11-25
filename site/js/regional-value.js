@@ -1,4 +1,5 @@
 import { SHIRAZ_BLOCKS } from './calc/shiraz-1405-data.js';
+import { TEHRAN_BLOCKS, TEHRAN_BUILDING_RATES } from './calc/tehran-1405-data.js';
 import { getJson } from './api.js';
 import { createA4TextReport } from './calc/report.js?v=20261121-mla-brand-1';
 import { buildFormModel } from './calc/forms.js?v=20261121-mla-brand-1';
@@ -50,18 +51,17 @@ function numeric(el) {
 export function regionalValueTool() {
   const root = h('section', { class: 'tool regional-value-tool', id: 'calc-regional-value' });
   root.append(
-    h('h2', { text: 'محاسبه ارزش معاملاتی املاک شهر شیراز' }),
-    h('p', { class: 'muted', text: 'بر اساس دفترچه ارزش معاملاتی سال ۱۴۰۵ اداره کل امور مالیاتی فارس؛ شامل ارزش عرصه و اعیانی.' })
+    h('h2', { text: 'محاسبه ارزش منطقه‌ای املاک' }),
+    h('p', { class: 'muted', text: 'بر اساس جداول رسمی ارزش معاملاتی سال ۱۴۰۵؛ شامل ارزش عرصه و اعیانی.' })
   );
-  const zone = select('rv-zone', 'منطقه شهرداری / مالیاتی شیراز', Array.from({length:11},(_,i)=>[String(i+1),`منطقه ${fa(i+1)}`]));
-  const block = select('rv-block', 'بلوک', []);
+  const city = select('rv-city', 'شهر', [['shiraz','شیراز'],['tehran','تهران']]);
+  const zone = select('rv-zone', 'منطقه شهرداری / مالیاتی', Array.from({length:11},(_,i)=>[String(i+1),`منطقه ${fa(i+1)}`]));
+  const block = select('rv-block', 'بلوک مالیاتی', []);
   const blockRate = h('p', { class: 'muted', role: 'status' });
   const province = input('rv-province', 'استان', 'فارس');
-  const city = input('rv-city', 'شهر', 'شیراز');
   province.el.value = 'فارس';
-  city.el.value = 'شیراز';
   province.el.readOnly = true;
-  city.el.readOnly = true;
+  const activeBlocks = () => city.el.value === 'tehran' ? TEHRAN_BLOCKS : SHIRAZ_BLOCKS;
   const addressEl = h('textarea', { id: 'rv-address', rows: '2', inputmode: 'text', autocomplete: 'street-address', autocapitalize: 'sentences', spellcheck: 'true' });
   addressEl.style.cssText = 'width:100%;min-height:76px;resize:vertical;';
   const address = { el: addressEl, node: h('div', { class: 'field' }, [h('label', { for: 'rv-address', text: 'نشانی دقیق ملک' }), addressEl]) };
@@ -78,7 +78,7 @@ export function regionalValueTool() {
   coordinates.el.readOnly = false;
   coordinates.el.placeholder = 'پس از انتخاب روی نقشه، مختصات اینجا ثبت می‌شود؛ در صورت نیاز دستی وارد کنید.';
   const mapStatus = h('p', { class: 'muted regional-map-status', role: 'status', text: 'برای تعیین موقعیت، روی نقشه کلیک کنید یا نشانگر را جابه‌جا کنید.' });
-  const mapCanvas = h('div', { id: 'rv-map', class: 'regional-property-map', role: 'application', 'aria-label': 'نقشه تعیین موقعیت ملک در شیراز' });
+  const mapCanvas = h('div', { id: 'rv-map', class: 'regional-property-map', role: 'application', 'aria-label': 'نقشه تعیین موقعیت ملک' });
   const locateMeButton = h('button', { type: 'button', class: 'btn secondary regional-locate-me', text: '◎ نمایش موقعیت فعلی من' });
   const locationFields = h('section', { class: 'regional-location-fields' }, [
     h('h3', { text: 'موقعیت و نشانی ملک' }),
@@ -89,7 +89,7 @@ export function regionalValueTool() {
   ]);
   let regionalMap = null;
   let regionalMarker = null;
-  const defaultPoint = [29.5918, 52.5837];
+  let defaultPoint = [29.5918, 52.5837];
   function loadScript(url) {
     return new Promise((resolve, reject) => {
       const script = document.createElement('script');
@@ -105,7 +105,8 @@ export function regionalValueTool() {
     mapCanvas.replaceChildren();
     regionalMap = null;
     regionalMarker = null;
-    const panel = h('div', { class: 'regional-map-offline', role: 'img', 'aria-label': 'نمای شماتیک شهر شیراز؛ نقشه آنلاین در دسترس نیست' });
+    const cityLabel = city.el.selectedOptions?.[0]?.textContent || city.el.value;
+    const panel = h('div', { class: 'regional-map-offline', role: 'img', 'aria-label': `نمای شماتیک شهر ${cityLabel}؛ نقشه آنلاین در دسترس نیست` });
     panel.innerHTML = `
       <svg viewBox="0 0 900 430" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
         <defs>
@@ -124,7 +125,7 @@ export function regionalValueTool() {
         <path d="M90 -20L260 460M380 -20L490 460M690 -20L760 460M-20 110L920 160M-20 250L920 300" fill="none" stroke="#fff" stroke-width="13"/>
         <path d="M90 -20L260 460M380 -20L490 460M690 -20L760 460M-20 110L920 160M-20 250L920 300" fill="none" stroke="#d6cbb2" stroke-width="2"/>
         <g fill="#587c65" font-family="Tahoma,sans-serif" font-size="18" opacity=".9">
-          <text x="450" y="82" text-anchor="middle">شیراز</text>
+          <text x="450" y="82" text-anchor="middle">${cityLabel}</text>
           <text x="170" y="205" text-anchor="middle" font-size="14">نمای شماتیک محدوده شهری</text>
           <text x="690" y="365" text-anchor="middle" font-size="14">برای موقعیت دقیق، مختصات را وارد کنید</text>
         </g>
@@ -141,6 +142,7 @@ export function regionalValueTool() {
     const svg = panel.querySelector('svg');
     svg.style.cssText = 'display:block;width:100%;height:100%;min-height:220px;flex:1 1 auto;';
     const caption = panel.querySelector('.regional-map-offline-caption');
+    caption.textContent = `نمای شماتیک ${cityLabel} — این تصویر نقشهٔ ثبتی یا دارای مقیاس نیست.`;
     caption.style.cssText = 'padding:7px 10px;text-align:center;font:12px/1.7 Tahoma,sans-serif;color:#52685c;background:#f8faf6;border-top:1px solid #d6e0d5;';
     mapCanvas.append(panel);
     coordinates.el.readOnly = false;
@@ -339,25 +341,49 @@ export function regionalValueTool() {
     }
   });
   function updateBlocks() {
-    const rows = SHIRAZ_BLOCKS.filter(x=>x[0]===Number(zone.el.value));
+    const rows = activeBlocks().filter(x=>x[0]===Number(zone.el.value));
     block.el.replaceChildren(...rows.map(x=>h('option',{value:x[1],text:`بلوک ${x[1]}`})));
     showRate();
   }
   function showRate() {
-    const row = SHIRAZ_BLOCKS.find(x=>x[0]===Number(zone.el.value)&&x[1]===block.el.value);
+    const row = activeBlocks().find(x=>x[0]===Number(zone.el.value)&&x[1]===block.el.value);
     blockRate.textContent = row ? `ارزش پایه هر مترمربع — مسکونی: ${money(row[2])} | تجاری: ${money(row[3])} | اداری: ${money(row[4])}` : '';
+  }
+  function syncCity() {
+    const tehran = city.el.value === 'tehran';
+    province.el.value = tehran ? 'تهران' : 'فارس';
+    const count = tehran ? 22 : 11;
+    zone.el.replaceChildren(...Array.from({length:count},(_,i)=>h('option',{value:String(i+1),text:`منطقه ${fa(i+1)}`})));
+    zone.el.value = '1';
+    updateBlocks();
+    defaultPoint = tehran ? [35.6892,51.3890] : [29.5918,52.5837];
+    coordinates.el.value = '';
+    address.el.value = '';
+    postalCode.el.value = '';
+    postalSearchStatus.textContent = '';
+    if (regionalMap) {
+      regionalMap.setView(defaultPoint, 12);
+      regionalMarker?.setLatLng(defaultPoint);
+    } else if (mapCanvas.querySelector('.regional-map-offline')) showMapFallback();
+    mapStatus.textContent = `موقعیت ملک را روی نقشه ${tehran ? 'تهران' : 'شیراز'} تعیین کنید.`;
   }
   zone.el.addEventListener('change',updateBlocks); block.el.addEventListener('change',showRate); updateBlocks();
 
   const landUse = select('rv-land-use','کاربری عرصه',Object.entries(LAND_LABEL).map(([k,v])=>[k,v]));
   const landArea = input('rv-land-area','مساحت عرصه (مترمربع)');
   const width = input('rv-width','عرض معبر مورد استفاده (متر)', '12');
-  const access = select('rv-access','وضعیت دسترسی ملک',[
-    ['normal','دسترسی مستقیم از معبر انتخاب‌شده'],
-    ['multi','دو بر یا بیشتر؛ معبر با ارزش بالاتر انتخاب شده'],
-    ['landlocked','فاقد راه عبور مستقل؛ دارای حق عبور از ملک مجاور (۶۰٪)'],
-    ['highway','مجاور بزرگراه، اتوبان، مسیل، راه‌آهن یا نهر؛ دسترسی از معبر دیگر'],
-  ]);
+  const access = select('rv-access','وضعیت دسترسی ملک',[]);
+  function syncAccessOptions() {
+    const options = [
+      ['normal','دسترسی مستقیم از معبر انتخاب‌شده'],
+      ['multi','دو بر یا بیشتر؛ معبر با ارزش بالاتر انتخاب شده'],
+      ...(city.el.value === 'tehran' ? [] : [['landlocked','فاقد راه عبور مستقل؛ دارای حق عبور از ملک مجاور (ضریب ۶۰٪ طبق دفترچه شیراز)']]),
+      ['highway','مجاور بزرگراه، اتوبان، مسیل، راه‌آهن یا نهر؛ دسترسی از معبر دیگر'],
+    ];
+    access.el.replaceChildren(...options.map(([value,label])=>h('option',{value,text:label})));
+  }
+  syncAccessOptions();
+  city.el.addEventListener('change', () => { syncCity(); syncAccessOptions(); });
   const landFields=[landUse.node,landArea.node,width.node,access.node];
 
   const buildingToggle=select('rv-building','وضعیت اعیانی',[
@@ -386,7 +412,7 @@ export function regionalValueTool() {
   for(const f of [landArea.el,width.el,buildingArea.el,stories.el,age.el,parking.el]) numeric(f);
 
   const out=h('div',{class:'tool-out'});
-  const form=h('form',{class:'form regional-value-form',novalidate:'', 'aria-label':'محاسبه ارزش معاملاتی ملک در شیراز'},[
+  const form=h('form',{class:'form regional-value-form',novalidate:'', 'aria-label':'محاسبه ارزش منطقه‌ای ملک'},[
     locationFields,
     h('h3',{text:'۱. مشخصات عرصه'}),zone.node,block.node,blockRate,...landFields,
     h('h3',{text:'۲. مشخصات اعیانی'}),buildingWrap,
@@ -395,7 +421,7 @@ export function regionalValueTool() {
   ]);
   form.addEventListener('submit',async e=>{
     e.preventDefault();
-    const row=SHIRAZ_BLOCKS.find(x=>x[0]===Number(zone.el.value)&&x[1]===block.el.value);
+    const row=activeBlocks().find(x=>x[0]===Number(zone.el.value)&&x[1]===block.el.value);
     const area=parse(landArea.el.value), road=parse(width.el.value);
     if(!row||!Number.isFinite(area)||area<=0||!Number.isFinite(road)||road<=0){
       out.replaceChildren(h('div',{class:'notice',role:'alert',text:'منطقه، بلوک، مساحت عرصه و عرض معبر را به‌درستی وارد کنید.'}));return;
@@ -406,12 +432,12 @@ export function regionalValueTool() {
     const cap=use==='residential'?20:30;
     const appliedWidth=Math.min(road,cap);
     const widthFactor=1+(appliedWidth-12)*(commercial?.03:.02);
-    let accessFactor=access.el.value==='landlocked'?.6:1;
+    let accessFactor=city.el.value === 'tehran' ? 1 : access.el.value === 'landlocked' ? .6 : 1;
     const landRate=base*widthFactor*accessFactor;
     const landTotal=landRate*area;
     let buildingTotal=0, buildingRate=0, ageFactor=1, floorFactor=1, stageFactor=1, parkingTotal=0;
     const facts=[
-      ['منطقه و بلوک',`منطقه ${fa(row[0])}، بلوک ${row[1]}`],
+      ['منطقه و بلوک مالیاتی',`منطقه ${fa(row[0])}، بلوک ${row[1]}`],
       ['ارزش پایه عرصه در هر مترمربع',money(base)],
       ['عرض معبر مبنای اعمال ضریب',`${fa(road)} متر (اعمال تا سقف ${fa(cap)} متر)`],
       ['ضریب عرض معبر',`${fa(widthFactor*100)}٪`],
@@ -425,7 +451,7 @@ export function regionalValueTool() {
       if(!Number.isFinite(bArea)||bArea<=0||!Number.isFinite(count)||count<1||!Number.isFinite(years)||years<0||!Number.isFinite(pArea)||pArea<0){
         out.replaceChildren(h('div',{class:'notice',role:'alert',text:'مساحت زیربنا، تعداد طبقات، قدمت و مساحت پارکینگ را بررسی کنید.'}));return;
       }
-      buildingRate=BUILDING_RATE[bu][structureKey];
+      buildingRate=(city.el.value === 'tehran' ? TEHRAN_BUILDING_RATES : BUILDING_RATE)[bu][structureKey];
       if(bu==='commercial'){
         const level=Math.abs(Number(floor.el.value));
         floorFactor=1-Math.min(level*0.10,.30);
@@ -436,7 +462,7 @@ export function regionalValueTool() {
       stageFactor=({complete:1,foundation:.1,frame:.3,rough:.5,finish:.8})[stage.el.value];
       const unit=buildingRate*floorFactor*ageFactor*stageFactor;
       buildingTotal=unit*bArea;
-      parkingTotal=pArea*(buildingRate*.5)*ageFactor*stageFactor;
+      parkingTotal=(city.el.value === 'tehran' && bu === 'residential' ? 0 : pArea*(buildingRate*.5)*ageFactor*stageFactor);
       facts.push(
         ['ارزش پایه هر مترمربع اعیانی',money(buildingRate)],
         ['ضریب طبقات',`${fa(floorFactor*100)}٪`],
@@ -474,15 +500,15 @@ export function regionalValueTool() {
         (()=>{const snapshot=mapCanvas.cloneNode(true);snapshot.removeAttribute('id');snapshot.classList.add('regional-report-map');snapshot.setAttribute('aria-label','نقشه موقعیت ملک در گزارش');return snapshot;})()
       ]),
       h('dl',{class:'regional-report-details'},[
-        h('dt',{text:'استان و شهر'}),h('dd',{text:`${province.el.value}، ${city.el.value}`}),
+        h('dt',{text:'استان و شهر'}),h('dd',{text:`${province.el.value}، ${city.el.selectedOptions?.[0]?.textContent || city.el.value}`}),
         h('dt',{text:'کد پستی'}),h('dd',{text:postalCode.el.value || 'درج نشده'}),
         h('dt',{text:'مختصات جغرافیایی'}),h('dd',{text:coordinates.el.value || 'روی نقشه تعیین نشده'})
       ]),
       h('div',{class:'result-head'},[h('h3',{text:'ارزش معاملاتی برآوردشده ملک'})]),
       h('div',{class:'amount-block'},[h('span',{class:'amount-label',text:'جمع ارزش عرصه و اعیانی'}),h('strong',{class:'amount-value',text:money(total)})]),
       h('dl',{class:'facts'},facts.map(([k,v])=>h('div',{class:'regional-fact-item'},[h('dt',{text:k}),h('dd',{text:v})]))),
-      h('p',{class:'muted',text:'مبنای محاسبه: دفترچه ارزش معاملاتی ۱۴۰۵ اداره کل امور مالیاتی فارس، صفحات ۱۴ تا ۱۶ و جدول بلوک‌های شیراز، صفحات ۲۰ تا ۲۳۵.'}),
-      h('p',{class:'muted',text:'فضاهای غیرمسقف و مشاعات منظور نشده‌اند. در املاک چندبر، معبر دارای راه عبور با بالاترین ارزش مبناست. اگر ملک مجاور بزرگراه یا مسیل است اما دسترسی از معبر دیگری دارد، عرض و نرخ همان معبر دسترسی را وارد کنید.'}),
+      h('p',{class:'muted',text:city.el.value === 'tehran' ? 'مبنای محاسبه: دفترچه ارزش معاملاتی املاک مناطق ۲۲گانه شهر تهران، مصوب کمیسیون تقویم املاک موضوع ماده ۶۴ قانون مالیات‌های مستقیم، لازم‌الاجرا از ۱۴۰۵/۰۱/۰۱؛ جداول بلوک‌ها و ضوابط اجرایی.' : 'مبنای محاسبه: دفترچه ارزش معاملاتی ۱۴۰۵ اداره کل امور مالیاتی فارس، صفحات ۱۴ تا ۱۶ و جدول بلوک‌های شیراز، صفحات ۲۰ تا ۲۳۵.'}),
+      h('p',{class:'muted',text:city.el.value === 'tehran' ? 'فضاهای غیرمسقف و مشاعات منظور نشده‌اند. در املاک چندبر، بالاترین ارزش معبرِ دارای حق عبور ملاک است. عرض مبنای جدول ۱۲ متر است؛ افزایش یا کاهش ضریب برای هر متر مازاد یا کسری طبق ضوابط رسمی اعمال می‌شود. دفترچه تهران ضریب کاهشی ۶۰٪ برای ملک فاقد راه عبور مستقل را پیش‌بینی نکرده است؛ بنابراین چنین ضریبی اعمال نمی‌شود. پارکینگ و انباری واحدهای مسکونی در ارزش اعیانی منظور نمی‌شود.' : 'فضاهای غیرمسقف و مشاعات منظور نشده‌اند. در املاک چندبر، معبر دارای راه عبور با بالاترین ارزش مبناست. اگر ملک مجاور بزرگراه یا مسیل است اما دسترسی از معبر دیگری دارد، عرض و نرخ همان معبر دسترسی را وارد کنید.'}),
       h('p',{class:'notice',text:'این خروجی ارزش معاملاتی مالیاتی است، نه قیمت روز بازار یا قیمت کارشناسی ملک. پیش از استفاده رسمی، بلوک و کاربری را با سند و موقعیت دقیق ملک تطبیق دهید.'}),
       h('footer',{class:'regional-report-footer',text:'آکادمی وکالت شهرام مختاری | mokhtari.ir — گزارش تولیدشده از سامانه محاسبات ارزش معاملاتی'}),
       h('div',{class:'regional-report-actions'},[

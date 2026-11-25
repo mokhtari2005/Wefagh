@@ -5,6 +5,7 @@ on:
     branches:
       - chore/install-playwright-e2e
       - test/assistant-consultation-flow
+      - feat/tehran-regional-property-value-1405
     paths:
       - 'e2e/**'
       - 'playwright.config.js'
@@ -67,6 +68,12 @@ jobs:
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:8080
           RUN_LIVE_AI_E2E: '0'
         run: npx playwright test e2e/assistant-consultation.spec.js
+
+      - name: Run Tehran and city-specific regional calculator tests against this branch
+        env:
+          CI: true
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:8080
+        run: npx playwright test e2e/regional-value.spec.js
 
       - name: Run public-site smoke tests against production
         env:
