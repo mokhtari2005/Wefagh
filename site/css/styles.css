@@ -3469,6 +3469,10 @@ main.container > :not(.home-dashboard) .notice h2 { margin-top: 0; }
 
 /* PWA installation links live in the footer, never in the responsive header. */
 .pwa-install-links { display:grid; gap:.55rem; width:100%; padding:.9rem 0; border-top:1px solid rgba(255,255,255,.16); }
+.pwa-install-title { color: #111; }
+.pwa-platform-icon { display: grid; place-items: center; background: #e5d8c3; color: #111; }
+.pwa-platform-icon svg { display: block; width: 25px; height: 25px; color: #111; }
+#pwa-install-ios { color: #111; background: #fffdf8; border-color: #8d8170; }
 .pwa-install-title { color:var(--bone); font-size:.9rem; }
 .pwa-install-actions { display:flex; flex-wrap:wrap; gap:.65rem; }
 .pwa-install-link { display:inline-flex; align-items:center; gap:.65rem; min-width:190px; padding:.55rem .85rem; border:1px solid rgba(255,255,255,.22); border-radius:12px; background:rgba(255,255,255,.07); color:var(--bone); text-align:right; font:inherit; cursor:pointer; }
@@ -4153,6 +4157,14 @@ body.classroom-fullscreen-fallback { overflow:hidden; }
 .ai-review-panel { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--sand-line); border-radius: 12px; background: var(--bone); }
 .ai-review-panel[hidden] { display: none; }
 .ai-review-panel-title { display: block; margin-bottom: 8px; color: var(--assistant-navy); font-size: .92rem; }
+
+.ai-sources-panel { margin-top: 12px; padding: 10px 12px; border: 1px solid var(--sand-line); border-radius: 12px; background: var(--paper); }
+.ai-sources-panel summary { cursor: pointer; color: var(--assistant-navy); font-weight: 700; }
+.ai-sources-list { display: grid; gap: 12px; margin: 12px 0 0; padding-inline-start: 1.35rem; }
+.ai-source-item { display: grid; gap: 4px; min-width: 0; }
+.ai-source-meta { color: var(--ink-soft); font-size: .82rem; line-height: 1.7; }
+.ai-source-excerpt { margin: 2px 0; color: var(--ink-soft); font-size: .88rem; line-height: 1.8; overflow-wrap: anywhere; }
+.ai-source-link { justify-self: start; font-size: .88rem; text-decoration: underline; text-underline-offset: 3px; }
 
 
 /* گردش کار مرحله‌ای تنظیم سند حقوقی */

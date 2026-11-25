@@ -51,7 +51,7 @@ test('HTML اصلی بدون style attribute است (سازگار با CSP)', ()
 });
 
 test('فایل‌های CSS و JS اصلی در HTML بارگذاری می‌شوند', () => {
-  assert.match(html, /href="css\/styles\.css"/);
+  assert.match(html, /href="css\/styles\.css(?:\?[^"]*)?"/);
   assert.match(html, /src="js\/app\.js(?:\?[^"]*)?"/);
 });
 

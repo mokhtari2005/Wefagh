@@ -58,7 +58,7 @@ export const CONTRACT_TYPES = Object.freeze([
 ]);
 export const MODES = [['consult', 'مشاوره حقوقی'], ['analyze', 'تحلیل حقوقی پرونده'], ['litigation', 'میز محاکمه هوشمند'], ['research', 'تحقیق و راستی‌آزمایی حقوقی'], ['review', 'بررسی و اصلاح متن']];
 
-export const ASSISTANT_NOTICE = 'این ابزار آموزشی و پیش‌نویس‌ساز است. خروجی آن پیش از استفاده در پرونده واقعی باید توسط وکیل با قوانین و مقررات جاری و رویه معتبر تطبیق داده شود. اطلاعات و پیوست‌های انتخاب‌شده برای تولید پاسخ به سرویس هوش مصنوعی ارسال می‌شوند؛ پیش از ارسال، اطلاعات محرمانه و هویتی غیرضروری را حذف یا ناشناس کنید.';
+export const ASSISTANT_NOTICE = 'این ابزار آموزشی و پیش‌نویس‌ساز است. خروجی آن پیش از استفاده در پرونده واقعی باید توسط وکیل با قوانین و مقررات جاری و رویه معتبر تطبیق داده شود. پیام‌های متنی برای تولید پاسخ به جی‌پی‌تی ارسال می‌شوند و در صورت نبودن یا اختلال آن، به جمینای منتقل می‌شوند. در صورت فعال بودن بازبینی مستقل، متن درخواست و پیش‌نویس ممکن است برای ارزیابی به گروک ارسال شود. فایل‌های پیوست برای پردازش به جمینای ارسال می‌شوند و در مسیر فعلی به جی‌پی‌تی یا بازبین گروک فرستاده نمی‌شوند. پیش از ارسال، اطلاعات محرمانه و هویتی غیرضروری را حذف یا ناشناس کنید.';
 
 const MESSAGE_LIMIT = 6000;
 
@@ -134,7 +134,7 @@ export const ATTACH_TYPES = Object.freeze({
 });
 export const ATTACH_ACCEPT = Object.keys(ATTACH_TYPES).map((e) => `.${e}`).join(',');
 const TEXT_EXTS = new Set(['txt', 'md', 'csv']);
-export const ATTACH_PRIVACY_NOTE = 'فایل‌های پیوست برای تحلیل به سرویس هوش مصنوعی (Gemini) فرستاده می‌شوند و در تاریخچه ذخیره نمی‌شوند. پیش از ارسال، نام و مشخصات هویتی موکل و اطلاعات محرمانه را حذف یا ناشناس کنید.';
+export const ATTACH_PRIVACY_NOTE = 'پیوست‌ها برای تحلیل به جمینای فرستاده می‌شوند و در تاریخچه گفت‌وگو ذخیره نمی‌شوند. پیام‌های متنی برای تولید پاسخ به جی‌پی‌تی ارسال می‌شوند و در زمان اختلال ممکن است به جمینای منتقل شوند. در صورت فعال بودن بازبینی مستقل، متن درخواست و پیش‌نویس ممکن است به گروک ارسال شود؛ فایل‌های پیوست به جی‌پی‌تی یا گروک فرستاده نمی‌شوند. پیش از ارسال، نام و مشخصات هویتی موکل و اطلاعات محرمانه غیرضروری را حذف یا ناشناس کنید.';
 
 export function fileExt(name) {
   const m = /\.([A-Za-z0-9]{1,5})$/.exec(String(name ?? '').trim());
@@ -244,14 +244,26 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     const res = await getJson(`/api/ai/threads/${encodeURIComponent(id)}/messages`);
     if (!res.ok) { status.textContent = 'بازیابی گفت‌وگو انجام نشد.'; return; }
     history.length = 0;
-    for (const m of res.data?.messages || []) history.push({ role: m.role === 'ai' ? 'ai' : 'user', text: m.content });
+    for (const m of res.data?.messages || []) {
+      const role = m.role === 'ai' ? 'ai' : 'user';
+      const metadata = role === 'ai' && m.metadata && typeof m.metadata === 'object' ? m.metadata : {};
+      history.push({ role, text: m.content, ...metadata });
+    }
     threadId = Number(id);
+    const latest = history.at(-1);
+    if (latest?.role === 'ai') {
+      if (MODES.some(([value]) => value === latest.mode) || latest.mode === 'draft') mode = latest.mode;
+      if (latest.docType && DOC_TYPES.some(([value]) => value === latest.docType)) docSelect.value = latest.docType;
+      syncMode();
+      acceptBtn.hidden = !(mode === 'consult' && latest.status === 'ready' && !(latest.questions || []).length && latest.text.length >= 120);
+    } else {
+      acceptBtn.hidden = true;
+    }
     renderLog({ revealLatest: true });
-    acceptBtn.hidden = true;
-    status.textContent = 'گفت‌وگو بازیابی شد. برای تأیید نتیجه، ابتدا از دستیار بخواهید جمع‌بندی نهایی مشاوره را ارائه کند.';
+    status.textContent = 'گفت‌وگو و وضعیت پرسش‌های تکمیلی بازیابی شد. می‌توانید پاسخ‌های باقی‌مانده را ادامه دهید یا نتیجه مشاوره را تأیید کنید.';
   }
 
-  async function persistTurn(userText, aiText) {
+  async function persistTurn(userText, aiText, metadata = {}) {
     if (guestMode) return true; // تاریخچهٔ مهمان فقط در حافظهٔ همین صفحه می‌ماند.
     if (!threadId) {
       const created = await postJson('/api/ai/threads', { title: userText.slice(0, 60) });
@@ -259,7 +271,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       threadId = created.data.thread.id;
     }
     const a = await postJson(`/api/ai/threads/${threadId}/messages`, { role: 'user', content: userText });
-    const b = await postJson(`/api/ai/threads/${threadId}/messages`, { role: 'ai', content: aiText });
+    const b = await postJson(`/api/ai/threads/${threadId}/messages`, { role: 'ai', content: aiText, metadata });
     return a.ok && b.ok;
   }
 
@@ -455,6 +467,9 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
           submit.addEventListener('click', () => { const value = free.value.trim(); if (value) setAnswer(value); else free.focus(); });
           root.append(h('div', { class: 'ai-question-free' }, [free, submit]));
         }
+        const skip = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'فعلاً از پاسخ به این پرسش می‌گذرم' });
+        skip.addEventListener('click', () => setAnswer('فعلاً اطلاعاتی برای پاسخ به این پرسش ندارم یا مایل به پاسخ‌گویی نیستم.'));
+        root.append(skip);
         if (answeredCount > 0 && current > 0) {
           const back = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'پرسش قبلی' });
           back.addEventListener('click', () => { current = (current - 1 + items.length) % items.length; render(); });
@@ -560,6 +575,21 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     ];
     // فقط آخرین پاسخ دستیار قابل پاسخ‌گویی است؛ پرسش‌های قبلی در تاریخچه بسته می‌مانند.
     if (questionItems.length && isLatest) children.push(questionStepper(questionItems));
+    if (Array.isArray(m.sources) && m.sources.length) {
+      const sourceItems = m.sources.slice(0, 8).map((source) => {
+        const details = [
+          h('strong', { text: source.title || 'منبع حقوقی' }),
+          h('small', { class: 'ai-source-meta', text: [source.type, source.domain, source.status].filter(Boolean).join(' · ') }),
+        ];
+        if (source.excerpt) details.push(h('p', { class: 'ai-source-excerpt', text: source.excerpt }));
+        if (source.url) details.push(h('a', { class: 'ai-source-link', href: source.url, target: '_blank', rel: 'noopener noreferrer', text: 'مشاهده منبع' }));
+        return h('li', { class: 'ai-source-item' }, details);
+      });
+      children.push(h('details', { class: 'ai-sources-panel' }, [
+        h('summary', { text: `مستندات بازیابی‌شده (${Math.min(m.sources.length, 8)})` }),
+        h('ol', { class: 'ai-sources-list' }, sourceItems),
+      ]));
+    }
     if (reviewPanel) children.push(reviewPanel);
     if (m.notes?.length) children.push(h('ul', {
       class: 'ai-notes',
@@ -1243,14 +1273,29 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     history.push({ role: 'user', text: userText });
     const reply = summarizeReply(res.data, mode);
     const responseNotes = [...(res.data.notes || [])];
-    history.push({ role: 'ai', text: reply, notes: responseNotes, reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null, reviewStatus: typeof res.data.reviewStatus === 'string' ? res.data.reviewStatus : null, reviewFollowups: Array.isArray(res.data.reviewFollowups) ? res.data.reviewFollowups : [], questionOptions: Array.isArray(res.data.questionOptions) ? res.data.questionOptions : [], questions: Array.isArray(res.data.questions) ? res.data.questions : [], suggestedDocType: typeof res.data.suggestedDocType === 'string' ? res.data.suggestedDocType : '', knownFields: res.data.knownFields && typeof res.data.knownFields === 'object' ? res.data.knownFields : {}, documentDraft: mode === 'draft' && res.data.status === 'ready' && !(res.data.questions || []).length, docType: mode === 'draft' ? docSelect.value : null });
+    const aiMetadata = {
+      mode,
+      status: res.data.status,
+      notes: responseNotes,
+      sources: Array.isArray(res.data.sources) ? res.data.sources : [],
+      reviewReport: res.data.reviewReport && typeof res.data.reviewReport === 'object' ? res.data.reviewReport : null,
+      reviewStatus: typeof res.data.reviewStatus === 'string' ? res.data.reviewStatus : null,
+      reviewFollowups: Array.isArray(res.data.reviewFollowups) ? res.data.reviewFollowups : [],
+      questionOptions: Array.isArray(res.data.questionOptions) ? res.data.questionOptions : [],
+      questions: Array.isArray(res.data.questions) ? res.data.questions : [],
+      suggestedDocType: typeof res.data.suggestedDocType === 'string' ? res.data.suggestedDocType : '',
+      knownFields: res.data.knownFields && typeof res.data.knownFields === 'object' ? res.data.knownFields : {},
+      documentDraft: mode === 'draft' && res.data.status === 'ready' && !(res.data.questions || []).length,
+      docType: mode === 'draft' ? docSelect.value : null,
+    };
+    history.push({ role: 'ai', text: reply, ...aiMetadata });
     composerText.value = '';
     counter.textContent = `0 / ${MESSAGE_LIMIT}`;
     attachments = [];
     renderAttachments();
     renderLog({ revealLatest: true });
     if (mode === 'draft' && reply.trim() && res.data.status !== 'need_info') showDraftResult(reply, docSelect.value);
-    const saved = await persistTurn(userText, reply).catch(() => false);
+    const saved = await persistTurn(userText, reply, aiMetadata).catch(() => false);
     if (mode === 'consult' && voiceMode) speakReply(reply);
     // گزینه ورود به تنظیم سند فقط با اعلام آمادگی صریح سرور، بدون سؤال باز و با جمع‌بندی واقعی ظاهر می‌شود.
     if (mode === 'consult' && res.data.status === 'ready' && !(res.data.questions || []).length && reply.trim().length >= 120) acceptBtn.hidden = false;

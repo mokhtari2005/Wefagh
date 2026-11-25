@@ -46,6 +46,7 @@ async function setup() {
   db.exec(migration('0001_init.sql'));
   db.exec(migration('0002_auth.sql'));
   db.exec(migration('0010_assistant_threads.sql'));
+  db.exec(migration('0038_assistant_message_metadata.sql'));
   const env = { DB: d1Like(db) };
   const cookies = {};
   for (const name of ['الف', 'ب']) {
@@ -80,11 +81,34 @@ test('ساخت گفت‌وگو، افزودن پیام و بازیابی ترت�
   const id = created.thread.id;
 
   for (const [role, content] of [['user', 'سلام'], ['ai', 'پاسخ'], ['user', 'ادامه']]) {
-    const r = await worker.fetch(req(`/api/ai/threads/${id}/messages`, { method: 'POST', body: { role, content }, cookie: cookies['الف'] }), env);
+    const metadata = role === 'ai' ? {
+      mode: 'consult',
+      status: 'need_info',
+      questionOptions: [{ question: 'سمت شما چیست؟', options: ['خواهان', 'خوانده'], allowOther: true }],
+      knownFields: { partyOneName: 'نام نمونه', injectedField: 'نباید ذخیره شود' },
+      sources: [{ type: 'قانون', title: 'قانون مدنی ـ ماده ۱۰', url: 'https://qavanin.ir/law', domain: 'qavanin.ir', status: 'تأییدشده' }, { type: 'نتیجه جست‌وجو', title: 'پیوند نامعتبر', url: 'javascript:alert(1)' }],
+      privateField: 'نباید ذخیره شود',
+    } : undefined;
+    const r = await worker.fetch(req(`/api/ai/threads/${id}/messages`, { method: 'POST', body: { role, content, metadata }, cookie: cookies['الف'] }), env);
     assert.equal(r.status, 201);
   }
   const msgs = await (await worker.fetch(req(`/api/ai/threads/${id}/messages`, { cookie: cookies['الف'] }), env)).json();
   assert.deepEqual(msgs.messages.map((m) => [m.role, m.content]), [['user', 'سلام'], ['ai', 'پاسخ'], ['user', 'ادامه']]);
+  assert.equal(msgs.messages[1].metadata.mode, 'consult');
+  assert.equal(msgs.messages[1].metadata.status, 'need_info');
+  assert.deepEqual(msgs.messages[1].metadata.questionOptions[0].options, ['خواهان', 'خوانده']);
+  assert.deepEqual(msgs.messages[1].metadata.knownFields, { partyOneName: 'نام نمونه' });
+  assert.equal(msgs.messages[1].metadata.sources[0].url, 'https://qavanin.ir/law');
+  assert.equal(msgs.messages[1].metadata.sources[1].url, '');
+  assert.equal('privateField' in msgs.messages[1].metadata, false);
+
+  const longPersianReply = 'متن حقوقی طولانی '.repeat(700);
+  const longReply = await worker.fetch(req(`/api/ai/threads/${id}/messages`, {
+    method: 'POST',
+    body: { role: 'ai', content: longPersianReply, metadata: { mode: 'consult', status: 'ready' } },
+    cookie: cookies['الف'],
+  }), env);
+  assert.equal(longReply.status, 201, 'پاسخ فارسی بزرگ‌تر از سقف عمومی JSON باید در تاریخچه ذخیره شود');
 
   const list = await (await worker.fetch(req('/api/ai/threads', { cookie: cookies['الف'] }), env)).json();
   assert.equal(list.threads.length, 1);
@@ -121,12 +145,4 @@ test('حذف گفت‌وگو، پیام‌های آن را هم پاک می‌ک
   assert.equal((await worker.fetch(req(`/api/ai/threads/${id}`, { method: 'DELETE', cookie: cookies['الف'] }), env)).status, 200);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM assistant_messages').get().n, 0);
   assert.equal((await worker.fetch(req(`/api/ai/threads/${id}`, { cookie: cookies['الف'] }), env)).status, 404);
-});
-
-test('هشدار استناد: شماره ماده یا رأی در پاسخ دستیار علامت می‌خورد، متن عادی نه', async () => {
-  const { citationWarnings, CITATION_WARNING } = await import('../worker/src/ai/routes.js');
-  assert.deepEqual(citationWarnings('بر اساس ماده ۱۲۳ قانون مدنی ...'), [CITATION_WARNING]);
-  assert.deepEqual(citationWarnings('رأی شماره 1400 دادگاه'), [CITATION_WARNING]);
-  assert.deepEqual(citationWarnings('قانون مدنی در این موضوع مرجع است و مهلت پاسخ مشخص است.'), []);
-  assert.deepEqual(citationWarnings(''), []);
 });

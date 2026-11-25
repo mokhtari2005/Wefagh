@@ -1,7 +1,7 @@
 // تست مسیر واقعی ایمیل ثبت‌نام (Resend) و ابزارهای مدیریتی حساب؛ بدون شبکهٔ واقعی.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
 import worker from '../worker/src/index.js';
@@ -28,7 +28,7 @@ function d1Like(db) {
 function setup(extra = {}) {
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON;');
-  for (const f of ['0001_init.sql','0002_auth.sql','0008_registration_profile.sql','0014_member_identity.sql']) db.exec(migration(f));
+  for (const f of readdirSync(join(here, '..', 'worker', 'migrations')).filter((name) => /^\d{4}_.*\.sql$/u.test(name)).sort()) db.exec(migration(f));
   const sent = [];
   const env = { DB: d1Like(db), PUBLIC_BASE_URL: 'https://mokhtari.ir', ADMIN_EMAIL: 'admin@example.com', mailer: async (msg) => { sent.push(msg); }, ...extra };
   return { db, env, sent };
@@ -42,8 +42,16 @@ async function call(env, path, { method = 'POST', body, cookie } = {}) {
 async function loginAs(env, sent, email) {
   const user = { email, password: 'رمز-امن-۱۴۰۵', displayName: 'کاربر آزمایشی' };
   await call(env, '/api/auth/register', { body: user });
-  const token = sent.at(-1).text.match(/token=([A-Za-z0-9_-]+)/)[1];
+  const verificationEmail = [...sent].reverse().find((message) =>
+    [message?.text, message?.html, message?.body].some((value) => typeof value === 'string' && /token=/.test(value))
+  );
+  const verificationBody = [verificationEmail?.text, verificationEmail?.html, verificationEmail?.body]
+    .filter((value) => typeof value === 'string').join('\\n');
+  const token = verificationBody.match(/token=([A-Za-z0-9_-]+)/)?.[1];
+  assert.ok(token, 'لینک تأیید باید در ایمیل تأیید ثبت‌نام وجود داشته باشد');
   await call(env, '/api/auth/verify-email', { body: { token } });
+  const row = await env.DB.prepare('SELECT id FROM users WHERE email = ?1').bind(email).first();
+  if (row?.id) await env.DB.prepare("UPDATE users SET status='active', membership_status='approved' WHERE id = ?1").bind(row.id).run();
   const res = await call(env, '/api/auth/login', { body: { email, password: user.password } });
   return `wefagh_session=${/wefagh_session=([^;]+)/.exec(res.headers.get('set-cookie'))[1]}`;
 }
@@ -116,24 +124,33 @@ test('ارسال مجدد مدیریتی در دورهٔ محدودیت، درخ
 
 test('تشخیص هوش مصنوعی: فقط مدیر؛ نتیجهٔ مدل اصلی و جایگزین بدون افشای کلید', { skip }, async () => {
   const original = globalThis.fetch;
-  globalThis.fetch = async (url) => (String(url).includes('gemini-2.5-flash:')
-    ? new Response(JSON.stringify({ error: { status: 'PERMISSION_DENIED', message: 'secret detail' } }), { status: 403 })
-    : new Response(JSON.stringify({ candidates: [] }), { status: 200 }));
+
   try {
-    const { env, sent } = setup({ GEMINI_API_KEY: 'AIza-test-key-0123456789', GEMINI_TEXT_MODEL: 'gemini-2.5-flash' });
+    const { env, sent } = setup({ OPENAI_API_KEY: 'sk-test-openai-key-0123456789abcdef', GEMINI_API_KEY: 'AIza-test-key-0123456789', GEMINI_TEXT_MODEL: 'gemini-2.5-flash', RESEND_API_KEY: 're_test_key_1234567890' });
     assert.equal((await call(env, '/api/admin/ai/status', { method: 'GET' })).status, 401);
     const user = await loginAs(env, sent, 'user@example.com');
     assert.equal((await call(env, '/api/admin/ai/status', { method: 'GET', cookie: user })).status, 403);
     const admin = await loginAs(env, sent, 'admin@example.com');
+  globalThis.fetch = async (url) => {
+    const target = String(url);
+    if (target.includes('api.openai.com')) return new Response(JSON.stringify({ error: { message: 'secret detail' } }), { status: 403 });
+    if (target.includes('gemini-2.5-flash:')) return new Response(JSON.stringify({ error: { status: 'PERMISSION_DENIED', message: 'secret detail' } }), { status: 403 });
+    return new Response(JSON.stringify({ candidates: [] }), { status: 200 });
+  };
     const res = await call(env, '/api/admin/ai/status', { method: 'GET', cookie: admin });
     const text = await res.text();
     const body = JSON.parse(text);
     assert.equal(body.configured, true);
-    const [primary, fallback] = body.models;
+    const [primary, geminiPrimary, fallback] = body.models;
+    assert.equal(primary.provider, 'openai');
     assert.equal(primary.role, 'اصلی');
     assert.equal(primary.ok, false);
+    assert.equal(primary.code, 'AI_KEY_REJECTED');
     assert.equal(primary.httpStatus, 403);
-    assert.equal(primary.reason, 'PERMISSION_DENIED');
+    assert.equal(geminiPrimary.provider, 'gemini');
+    assert.equal(geminiPrimary.ok, false);
+    assert.equal(geminiPrimary.httpStatus, 403);
+    assert.equal(geminiPrimary.reason, 'PERMISSION_DENIED');
     assert.equal(fallback.ok, true);
     assert.ok(!text.includes('AIza-test-key') && !text.includes('secret detail'));
   } finally {

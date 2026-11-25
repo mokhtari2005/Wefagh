@@ -9,6 +9,7 @@ import { registrationRequired } from '../access.js';
 import { handleThreads } from './threads.js';
 import { AiError, aiConfigured, transcribeAudio, synthesizeLongSpeech } from './gemini.js';
 import { generateTextWithFallback, stripResponseFormatting } from './fallback.js';
+import { openaiConfigured } from './openai.js';
 import { groqConfigured } from './groq.js';
 import { reviewWithWorkersAI, workersAiConfigured } from './cloudflare.js';
 import { clampReply } from './speech.js';
@@ -16,7 +17,7 @@ import { reviewLegalDraft, groqReviewNotes } from './groq.js';
 import { AttachmentError, ATTACHMENT_LIMITS, processAttachments, buildUserParts, summarizeAttachments } from './attachments.js';
 import {
   ASSISTANT_DOC_TYPES, ASSISTANT_MODES, ASSISTANT_SCHEMA, MOOT_EVAL_SCHEMA,
-  HEARING_ROLES, HEARING_STAGES, mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt,
+  HEARING_ROLES, HEARING_STAGES, mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt, LEGAL_DISCLAIMER,
 } from './prompts.js';
 
 export const SPEAKERS = Object.freeze({ judge: 'قاضی', plaintiff: 'وکیل خواهان', defendant: 'وکیل خوانده', clerk: 'منشی دادگاه', user: 'شرکت‌کننده' });
@@ -32,6 +33,80 @@ export const LIMITS = Object.freeze({
   assistantChars: 6000,
   callsPerMinute: 60,
 });
+
+
+function safeEvidenceUrl(value) {
+  if (typeof value !== 'string' || !value.trim()) return '';
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' || (url.port && url.port !== '443') || url.username || url.password) return '';
+    return url.href;
+  } catch {
+    return '';
+  }
+}
+
+/** منابع بازیابی‌شده را با تفکیک منبع داخلیِ تأییدشده و سرنخ جست‌وجو به رابط کاربر می‌دهد. */
+export function buildEvidenceSources({ legalArticles = [], judicialAuthorities = [], webSources = [] } = {}) {
+  const output = [];
+  const seen = new Set();
+  const add = (source) => {
+    if (!source?.title || output.length >= 8) return;
+    const key = source.url || source.title;
+    if (seen.has(key)) return;
+    seen.add(key);
+    output.push({
+      type: String(source.type || 'منبع حقوقی').slice(0, 40),
+      title: String(source.title).replaceAll(String.fromCharCode(10), ' ').replaceAll(String.fromCharCode(13), ' ').slice(0, 220),
+      url: safeEvidenceUrl(source.url),
+      domain: String(source.domain || '').slice(0, 120),
+      status: String(source.status || '').slice(0, 140),
+      excerpt: String(source.excerpt || '').replaceAll(String.fromCharCode(10), ' ').replaceAll(String.fromCharCode(13), ' ').split(' ').filter(Boolean).join(' ').slice(0, 260),
+    });
+  };
+
+  for (const article of (Array.isArray(legalArticles) ? legalArticles : []).slice(0, 3)) {
+    const title = [article.lawTitle, article.articleNumber ? 'ماده ' + article.articleNumber : '', article.heading].filter(Boolean).join(' ـ ');
+    add({
+      type: 'قانون یا مقرره',
+      title: title || 'مستند قانونی تأییدشده',
+      url: article.sourceUrl,
+      domain: article.sourceName,
+      status: 'متن ماده در بانک حقوقی با وضعیت تأییدشده بازیابی شد',
+      excerpt: article.body,
+    });
+  }
+
+  for (const authority of (Array.isArray(judicialAuthorities) ? judicialAuthorities : []).slice(0, 3)) {
+    const title = [authority.lawTypeLabel || 'سند قضایی', authority.lawTitle, authority.documentNumber ? 'شماره ' + authority.documentNumber : ''].filter(Boolean).join(' ـ ');
+    add({
+      type: 'رأی یا نظریه قضایی',
+      title: title || 'مستند قضایی تأییدشده',
+      url: authority.officialSourceUrl || authority.sourceUrl || authority.articleStatusSourceUrl,
+      domain: authority.issuingAuthority || authority.sourceName,
+      status: 'سند و متن آن در بانک حقوقی با وضعیت تأییدشده بازیابی شد',
+      excerpt: authority.body,
+    });
+  }
+
+  for (const source of (Array.isArray(webSources) ? webSources : []).slice(0, 4)) {
+    const pageStatus = source.pageTextStatus === 'official_domain_page_text_retrieved'
+      ? 'متن صفحه از دامنه رسمی بازیابی شد؛ اعتبار جاری جداگانه باید کنترل شود'
+      : source.pageTextStatus === 'not_primary_source_domain'
+        ? 'سرنخ جست‌وجو؛ دامنه رسمی احراز نشد'
+        : 'سرنخ جست‌وجو؛ متن رسمی کامل بازیابی نشد';
+    add({
+      type: 'نتیجه جست‌وجوی برخط',
+      title: source.title || source.domain || 'نتیجه جست‌وجو',
+      url: source.uri,
+      domain: source.domain,
+      status: pageStatus,
+      excerpt: source.supportedClaim,
+    });
+  }
+  return output;
+}
+
 
 const DIFFICULTIES = ['beginner', 'intermediate', 'advanced'];
 const AUDIO_TYPES = ['audio/webm', 'audio/mp4', 'audio/ogg', 'audio/wav'];
@@ -359,7 +434,7 @@ const normalizeLegalDigits = (value) => String(value).replace(/[۰-۹]/g, (digit
 function resolveKnownLegalPlaceholders(text, legalArticles = []) {
   if (typeof text !== 'string' || !text.includes('[شماره نیازمند تطبیق با متن رسمی]')) return text;
   const available = new Set(legalArticles.map((item) =>
-    `${String(item.lawTitle || '').replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')}::${normalizeLegalDigits(item.articleNumber)}`));
+    String(item.lawTitle || '').replace(/[يى]/g, 'ی').replace(/ك/g, 'ک') + '::' + normalizeLegalDigits(item.articleNumber)));
   return text.replace(/\[شماره نیازمند تطبیق با متن رسمی\]/gu, (placeholder, offset, whole) => {
     const leftMarks = ['\n', '۔', '.', '؟'].map((mark) => whole.lastIndexOf(mark, offset - 1));
     const left = Math.max(...leftMarks);
@@ -372,16 +447,17 @@ function resolveKnownLegalPlaceholders(text, legalArticles = []) {
     else if (law.includes('قانون اجرای احکام مدنی') && /(?:باطل|بلااثر|بلااثری|بطلان)/u.test(law)) candidate = ['قانون اجرای احکام مدنی', '56', '۵۶'];
     else if (law.includes('قانون آیین دادرسی') && /(?:غیرمنقول|محل وقوع)/u.test(law)) candidate = ['قانون آیین دادرسی', '12', '۱۲'];
     if (!candidate) return placeholder;
-    const lawEntry = [...available].some((entry) => entry.endsWith(`::${candidate[1]}`) && (candidate[0] === 'قانون اجرای احکام مدنی' ? entry.startsWith('قانون اجرای احکام مدنی::') : entry.startsWith('قانون آیین دادرسی')));
+    const lawEntry = [...available].some((entry) => entry.endsWith('::' + candidate[1]) && (candidate[0] === 'قانون اجرای احکام مدنی' ? entry.startsWith('قانون اجرای احکام مدنی::') : entry.startsWith('قانون آیین دادرسی')));
     return lawEntry ? candidate[2] : placeholder;
   });
 }
 
 export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedContext = '') {
-  if (typeof text !== 'string' || !text) return { text: text || '', changed: false };
+  if (typeof text !== 'string' || !text) return { text: text || '', changed: false, flagged: false };
   const resolved = resolveKnownLegalPlaceholders(text, legalArticles);
   const allowed = new Set(legalArticles.map((item) => normalizeLegalDigits(item.articleNumber)));
   let changed = resolved !== text;
+  let flagged = false;
   let guarded = resolved.replace(/(?:ماده|مواد)\s*([۰-۹0-9]+(?:(?:\s*(?:،|,|و|تا|الی|[-–])\s*)[۰-۹0-9]+)*)/gu, (match, sequence) => {
     const numbers = sequence.match(/[۰-۹0-9]+/g) || [];
     const range = /(?:تا|الی|[-–])/.test(sequence);
@@ -393,6 +469,7 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
       : values.some((number) => !allowed.has(number));
     if (!unsupported) return match;
     changed = true;
+    flagged = true;
     return 'ماده [شماره نیازمند تطبیق با متن رسمی]';
   });
   guarded = guarded.replace(/([۰-۹0-9]{1,3})\s*(روز|ماه|هفته|سال)/gu, (match) => {
@@ -400,14 +477,20 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
     const source = normalizeLegalDigits(verifiedContext).replace(/\s+/g, ' ');
     if (source.includes(normalizedMatch)) return match;
     changed = true;
+    flagged = true;
     return '[مدت نیازمند تطبیق با منبع رسمی]';
   });
+  if (/ماده‌ای که شماره آن احراز نشده/gu.test(guarded)) {
+    guarded = guarded.replace(/ماده‌ای که شماره آن احراز نشده/gu, 'شماره ماده تأییدنشده');
+    changed = true;
+    flagged = true;
+  }
   guarded = guarded
-    .replace(/ماده\s*\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'ماده‌ای که شماره آن احراز نشده از')
-    .replace(/\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'ماده‌ای که شماره آن احراز نشده از')
-    .replace(/\[مدت نیازمند تطبیق با منبع رسمی\]/gu, 'مهلت قانونی در منبع تأییدشده احراز نشد');
+    .replace(/ماده\s*\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده تأییدنشده')
+    .replace(/\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده تأییدنشده')
+    .replace(/\[مدت نیازمند تطبیق با منبع رسمی\]/gu, 'مدت نیازمند تطبیق با منبع رسمی');
   if (guarded !== text) changed = true;
-  return { text: guarded, changed };
+  return { text: guarded, changed, flagged };
 }
 
 const DEFAULT_ATTACHMENT_MESSAGE = 'پیوست‌ها را بر اساس نوع کار و نوع سند انتخاب‌شده بررسی کن.';
@@ -552,29 +635,21 @@ async function assistant(request, env) {
         ].join('\n');
       }
     }
-    stage = 'gemini_generation';
-    const generationMode = mode === 'litigation' ? 'consult' : mode;
-    let data;
-    let truncated = false;
-    let provider = 'gemini';
-    {
-      const generated = await generateTextWithFallback(env, {
-        system: [assistantSystemPrompt({ mode: generationMode, docType, hasAttachments: attachments.length > 0, legalContext }), webResearchContext].filter(Boolean).join('\n\n'),
-        contents,
-        // توکن‌های «تفکر» مدل هم از این سقف کم می‌شوند؛ سقف پایین باعث قطع شدن پیش‌نویس‌های فارسی می‌شد.
-        maxOutputTokens: generationMode === 'consult' ? 5500 : 6000,
-        // برای پاسخ تعاملی، Gemini اصلی حداکثر ۲۰ ثانیه و مدل جایگزین ۱۲ ثانیه فرصت دارد؛
-        // پس از دو شکست، مسیر Groq فعال می‌شود و یک تلاش سومِ تکراری روی Gemini تأخیر نمی‌سازد.
-        timeoutMs: 20_000,
-        fallbackTimeoutMs: 12_000,
-        json: true,
-        schema: ASSISTANT_SCHEMA,
-      // فایل‌های PDF و تصویر به‌صورت inlineData به Gemini می‌رسند؛ ارسال ناخواستهٔ محتوای پیوست به سرویس ثالث ممنوع است.
-      }, { allowGroq: attachments.length === 0 });
-      data = generated.data;
-      truncated = generated.truncated;
-      provider = generated.provider;
-    }
+    stage = 'primary_model_generation';
+    const generationMode = mode;
+    const generated = await generateTextWithFallback(env, {
+      system: [assistantSystemPrompt({ mode: generationMode, docType, hasAttachments: attachments.length > 0, legalContext }), webResearchContext].filter(Boolean).join('\n\n'),
+      contents,
+      // توکن‌های «تفکر» مدل هم از این سقف کم می‌شوند؛ سقف پایین باعث قطع شدن پیش‌نویس‌های فارسی می‌شد.
+      maxOutputTokens: generationMode === 'consult' ? 5500 : 6000,
+      timeoutMs: 30_000,
+      fallbackTimeoutMs: 12_000,
+      json: true,
+      schema: ASSISTANT_SCHEMA,
+    }, { allowOpenAI: attachments.length === 0, allowGroq: attachments.length === 0 });
+    const data = generated.data;
+    const truncated = generated.truncated;
+    const provider = generated.provider || 'gemini';
     const questions = Array.isArray(data.questions) ? data.questions.filter((q) => typeof q === 'string').slice(0, 5) : [];
     const questionOptions = mode === 'consult' && Array.isArray(data.questionOptions) ? data.questionOptions.filter((item) => item && typeof item.question === 'string' && Array.isArray(item.options)).slice(0, 3).map((item) => ({ question: item.question.slice(0, 500), options: item.options.filter((option) => typeof option === 'string').slice(0, 8).map((option) => option.slice(0, 180)), allowOther: item.allowOther !== false })).filter((item) => item.options.length > 0) : [];
     const allowedDraftFields = ["partyOneName","partyOneAddress","partyTwoName","partyTwoAddress","court","caseNumber","caseStage","additionalDetails","contractSubject","contractAmount","contractDuration","incidentDate","incidentPlace","evidenceSummary","issuingCourt","judgmentNumber","judgmentDate","notificationDate","executionCaseNumber","enforcementStage","enforcementCaseNumber","disputedAction","noticeSubject","responseDeadline"];
@@ -583,13 +658,15 @@ async function assistant(request, env) {
       for (const key of allowedDraftFields) if (typeof data.knownFields[key] === 'string') knownFields[key] = data.knownFields[key].trim().slice(0, 1200);
     }
     const notes = Array.isArray(data.notes) ? data.notes.filter((n) => typeof n === 'string').slice(0, 10) : [];
-    if (provider === 'groq') notes.push('به‌دلیل اختلال سرویس اصلی، پاسخ با مسیر جایگزین تولید شد.');
+    if (provider === 'groq') notes.push('به‌دلیل در دسترس نبودن مدل اصلی و مسیر جایگزین نخست، پاسخ با مسیر پشتیبان تولید شد.');
+    if (provider === 'gemini' && attachments.length === 0) notes.push('مدل اصلی GPT در دسترس نبود یا کلید آن روی سرور فعال نشده بود؛ پاسخ با مدل جایگزین تهیه شد.');
     if (legalBankUnavailable) notes.push('بانک قوانین در این درخواست پاسخ نداد؛ پاسخ بدون استناد به مواد ثبت‌شده در بانک تهیه شد و استنادها باید جداگانه بررسی شوند.');
     const rawText = typeof data.text === 'string' ? data.text : '';
     const guardedText = guardUnverifiedLegalClaims(rawText, promptArticles, legalContext);
     let text = guardedText.text;
+    if (guardedText.flagged) notes.push('برخی استنادها یا مهلت‌های عددی در متن اولیه فاقد پشتوانه احرازپذیر بودند و با هشدار مشخص جایگزین شدند.');
     if (webResearch?.status === 'searched' && webResearch.sources.length) {
-      text += '\n\n## منابع وبی بازیابی‌شده برای پیگیری و راستی‌آزمایی\n' + webResearch.sources.map((source, index) => (index + 1) + '. [' + source.title + '](' + source.uri + ') — ' + source.domain).join('\n');
+      text += '\n\nمنابع وبی بازیابی‌شده برای پیگیری و راستی‌آزمایی:\n' + webResearch.sources.slice(0, 8).map((source, index) => (index + 1) + '. ' + source.title + ' — ' + source.uri + ' (' + source.domain + ')').join('\n');
       notes.push('جست‌وجوی وب با Google Search انجام شد. منابع زیر سرنخ تحقیق‌اند و به‌معنای تأیید رسمی متن قانون، اعتبار رأی یا جاری‌بودن مقرره نیستند.');
     }
     if (truncated) notes.push('پاسخ به‌دلیل طول زیاد کامل نشد. برای ادامه بنویسید «ادامه بده».');
@@ -656,6 +733,7 @@ async function assistant(request, env) {
 
     return json({
       ok: true,
+      disclaimer: LEGAL_DISCLAIMER,
       status: data.status === 'need_info' ? 'need_info' : 'ready',
       questions,
       questionOptions,
@@ -664,8 +742,9 @@ async function assistant(request, env) {
       text,
       notes,
       ...(reviewReport ? { reviewReport } : {}),
-      ...(reviewFollowups.length ? { reviewFollowups } : {}),
+      reviewFollowups: reviewFollowups,
       reviewStatus,
+      sources: buildEvidenceSources({ legalArticles, judicialAuthorities, webSources: webResearch?.sources || [] }),
       attachments: summarizeAttachments(attachments),
     });
   } catch (err) {
@@ -753,7 +832,7 @@ export async function handleAi(request, env, path) {
 async function routeAi(request, env, path) {
   if (path === '/api/ai/status') {
     if (request.method !== 'GET') return fail('METHOD_NOT_ALLOWED', 405);
-    return json({ ok: true, configured: aiConfigured(env) || groqConfigured(env), providers: { gemini: aiConfigured(env), groq: groqConfigured(env), cloudflareWorkersAI: workersAiConfigured(env), googleSearchGrounding: aiConfigured(env) } });
+    return json({ ok: true, configured: openaiConfigured(env) || aiConfigured(env) || groqConfigured(env), providers: { openai: openaiConfigured(env), gemini: aiConfigured(env), groq: groqConfigured(env), cloudflareWorkersAI: workersAiConfigured(env), googleSearchGrounding: aiConfigured(env) } });
   }
   if (path === '/api/ai/speech') return speech(request, env);
   if (path === '/api/ai/transcribe') return transcribe(request, env);

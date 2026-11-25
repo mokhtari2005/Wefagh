@@ -193,7 +193,7 @@ export async function adminPage() {
     if (g) lines.push(`بازبین Groq: ${g.hint}${g.httpStatus ? ` [HTTP ${g.httpStatus}]` : ''}${g.ms ? ` · ${g.ms}ms` : ''}${g.models ? ` · ${g.models.map((m) => `${m.id}: ${m.available ? 'موجود' : 'نامشخص'}`).join('، ')}` : ''}`);
     const bad = !r.data.configured || (r.data.models || []).every((m) => !m.ok);
     aiNotice.className = `form-status${bad ? ' err' : ' ok'}`;
-    aiNotice.textContent = r.data.configured ? lines.join(' | ') : `GEMINI_API_KEY در Worker تعریف نشده است.${g ? ` | بازبین Groq: ${g.hint}` : ''}`;
+    aiNotice.textContent = r.data.configured ? lines.join(' | ') : `هیچ مسیر تولید پاسخ فعالی نیست؛ OPENAI_API_KEY یا GEMINI_API_KEY را در Worker ثبت کنید.${g ? ` | بازبین Groq: ${g.hint}` : ''}`;
   });
   const aiLegalTestButton = el('button', { class: 'btn secondary', type: 'button', text: 'اجرای آزمون واقعی بانک قوانین و بازبین Groq' });
   const aiLegalTestNotice = el('p', { class: 'form-status', role: 'status' });
@@ -201,7 +201,7 @@ export async function adminPage() {
   aiLegalTestButton.addEventListener('click', async () => {
     aiLegalTestButton.disabled = true;
     aiLegalTestNotice.className = 'form-status';
-    aiLegalTestNotice.textContent = 'در حال اجرای پرسش حقوقی از مسیر واقعی Gemini، بازیابی بانک و بازبینی Groq… ممکن است تا یک دقیقه طول بکشد.';
+    aiLegalTestNotice.textContent = 'در حال اجرای پرسش حقوقی با GPT (و در صورت اختلال Gemini)، بازیابی بانک و بازبینی Groq… ممکن است تا دو دقیقه طول بکشد.';
     aiLegalTestResults.replaceChildren();
     try {
       const r = await postJson('/api/admin/ai/legal-bank-test', {}, { timeoutMs: 120000 });
@@ -224,8 +224,8 @@ export async function adminPage() {
       ]));
       aiLegalTestResults.append(el('section', { class: 'card' }, bankChildren));
       aiLegalTestResults.append(el('section', { class: 'card' }, [
-        el('h3', { text: `پاسخ Gemini${d.gemini.model ? ` · ${d.gemini.model}` : ''}` }),
-        el('pre', { class: 'admin-ai-compare-output', text: d.gemini.text }),
+        el('h3', { text: `پاسخ ${d.primary.provider === 'openai' ? 'GPT' : d.primary.provider === 'gemini' ? 'Gemini' : d.primary.provider}${d.primary.model ? ` · ${d.primary.model}` : ''}` }),
+        el('pre', { class: 'admin-ai-compare-output', text: d.primary.text }),
       ]));
       const groqChildren = [el('h3', { text: `بازبینی مستقل Groq · ${d.groq.status}${d.groq.model ? ` · ${d.groq.model}` : ''}` })];
       for (const line of (d.groq.details || [])) groqChildren.push(el('p', { text: line }));
@@ -253,7 +253,7 @@ export async function adminPage() {
     aiNotice,
 
     el('h3', { text: 'آزمون یک‌مرحله‌ای بانک قوانین و بازبین مستقل' }),
-    el('p', { class: 'muted', text: 'با یک دکمه، پرسش ثابت از Gemini پاسخ می‌گیرد؛ مواد تأییدشده از بانک بازیابی می‌شوند و متن پاسخ برای بازبینی به Groq می‌رود. نتیجه، مواد پیدا‌شده و گزارش بازبین همین‌جا نمایش داده می‌شود و در سایت ذخیره نمی‌شود. برای اجرای آزمون، متن پرسش و مواد بازیابی‌شده به سرویس‌های مربوط ارسال خواهند شد.' }),
+    el('p', { class: 'muted', text: 'با یک دکمه، پرسش ثابت ابتدا با GPT پاسخ می‌گیرد و در صورت اختلال به Gemini منتقل می‌شود؛ مواد تأییدشده از بانک بازیابی می‌شوند و متن پاسخ برای بازبینی به Groq می‌رود. نتیجه، مواد پیدا‌شده و گزارش بازبین همین‌جا نمایش داده می‌شود و در سایت ذخیره نمی‌شود. برای اجرای آزمون، متن پرسش و مواد بازیابی‌شده به سرویس‌های مربوط ارسال خواهند شد.' }),
     el('div', { class: 'row' }, [aiLegalTestButton]),
     aiLegalTestNotice,
     aiLegalTestResults,
@@ -823,7 +823,7 @@ export async function adminPage() {
     diagnosticsSelfTest.textContent = 'در حال اجرای آزمون‌ها…';
     diagnosticsTestResults.replaceChildren();
     diagnosticsNotice.className = 'form-status';
-    diagnosticsNotice.textContent = 'در حال بررسی اعتبارسنجی، D1، Gemini و دسترسی خواندن GitHub…';
+    diagnosticsNotice.textContent = 'در حال بررسی اعتبارسنجی، D1، GPT، Gemini و دسترسی خواندن GitHub…';
     try {
       const result = await postJson('/api/admin/diagnostics/self-test', {}, { timeoutMs: 60000 });
       if (!result.ok) {
