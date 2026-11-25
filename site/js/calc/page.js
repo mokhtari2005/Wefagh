@@ -11,7 +11,7 @@ import { indexedDelayDamage, planDelayPeriod, periodLabel, periodKeyOfIso } from
 import { computeAttorneyForm, RULE as ATTORNEY_RULE } from './attorney-form.js?v=20261121-attorney-2';
 import { buildFormModel, registerReport, getReportBuilder, tierSection, tierTableRows } from './forms.js?v=20261121-mla-brand-1';
 import { icon } from '../icons.js?v=20261119-2';
-import { regionalValueTool } from '../regional-value.js?v=20261119-address-textarea-1';
+import { regionalValueTool } from '../regional-value.js?v=20261125-tehran-1405';
 import { createA4TextReport } from './report.js?v=20261121-pdf-a4-1';
 
 function h(tag, attrs = {}, children = []) {
@@ -655,8 +655,8 @@ function attorneyTool(id) {
 
 const TOOL_PAGES = {
   regional: {
-    title: 'ارزش منطقه‌ای املاک شیراز',
-    intro: 'محاسبه ارزش معاملاتی عرصه و اعیانی بر اساس بلوک‌های مناطق یازده‌گانه شیراز و دفترچه سال ۱۴۰۵.',
+    title: 'ارزش منطقه‌ای املاک',
+    intro: 'محاسبه ارزش معاملاتی عرصه و اعیانی بر اساس بلوک‌های رسمی شیراز و تهران و جداول سال ۱۴۰۵.',
     build: () => regionalValueTool(),
   },
   court: {
@@ -743,7 +743,7 @@ function toolToolbar(section) {
 }
 
 const TOOL_VISUALS = {
-  regional: { icon: 'map-pin', eyebrow: 'ارزش معاملاتی املاک', accent: 'blue', short: 'ارزش عرصه و اعیانی بر اساس بلوک شیراز' },
+  regional: { icon: 'map-pin', eyebrow: 'ارزش معاملاتی املاک', accent: 'blue', short: 'ارزش عرصه و اعیانی بر اساس بلوک رسمی شهر' },
   court: { icon: 'landmark', eyebrow: 'هزینه‌ها و دادرسی', accent: 'teal', short: 'برآورد هزینه‌های قانونی طرح دعوا' },
   attorney: { icon: 'briefcase', eyebrow: 'تعرفه وکالت', accent: 'gold', short: 'محاسبه تعرفه و فوق‌العاده‌های وکیل' },
   delay: { icon: 'chart', eyebrow: 'دین و تعهدات', accent: 'blue', short: 'محاسبه خسارت بر پایه شاخص‌های ماهانه' },
