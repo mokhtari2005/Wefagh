@@ -3,7 +3,7 @@ import { NAV, VALUES, ABOUT_SECTIONS } from './pages.js?v=20261120-classroom-ins
 import { formatShamsi } from './shamsi.js';
 import { parseHash } from './route.js';
 import { icon, mountIcons } from './icons.js';
-import { ACADEMY_TOOLS } from './academy.js?v=20261119-media-nav-title-2';
+import { ACADEMY_TOOLS } from './academy-tools.js';
 
 /** بارگذاری ماژول‌های سنگین فقط وقتی بخش مربوط به صفحه نزدیک دید کاربر شد. */
 const lazyObserver = 'IntersectionObserver' in window
