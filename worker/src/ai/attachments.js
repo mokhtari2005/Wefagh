@@ -285,7 +285,10 @@ export async function extractBinaryAttachmentsWithWorkersAI(env, files, attachme
       throw new AttachmentError('AI_ZERO_COST_ATTACHMENT_EXTRACTION_FAILED', 503, attachment.name);
     }
     const { base64: _base64, mime: _mime, ...metadata } = attachment;
-    output.push({ ...metadata, ...clampText(result.data.trim()) });
+    const extracted = attachment.kind === 'image'
+      ? 'شرح تولیدشدهٔ ماشینی از تصویر؛ رونویسی دقیق متن، اعداد و دست‌نوشته‌ها تضمین نمی‌شود و باید با اصل تصویر تطبیق داده شود.\\n' + result.data.trim()
+      : result.data.trim();
+    output.push({ ...metadata, ...clampText(extracted) });
   }
   return output;
 }
