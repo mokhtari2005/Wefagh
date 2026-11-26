@@ -260,32 +260,75 @@ export async function handleLegalBank(request, env, path) {
 
 // برای تزریق به زمینهٔ مدل فقط مواد تأییدشده برگردانده می‌شوند.
 export async function findVerifiedLegalArticles(db, query) {
-  // از واژگان معنادار حقوقی و مترادف‌های موضوعی استفاده کن؛ شش واژه نخست جمله ممکن است فقط ضمیر و فعل باشند.
-  const terms = legalSearchTerms(query).slice(0, 12);
-  if (!terms.length) return [];
-  const where = terms.map((_,i)=>`(a.body LIKE ?${i+1} OR a.article_number LIKE ?${i+1} OR l.title LIKE ?${i+1})`).join(' OR ');
+  const text = String(query || '').normalize('NFKC')
+    .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+  const explicitReferences = extractExplicitLegalReferences(text).slice(0, 12);
   const legalTypes = ['law','regulation','bylaw','circular','executive_circular','executive_regulation','treaty'];
-  const typePlaceholders = legalTypes.map((_,i)=>`?${terms.length+i+1}`).join(',');
-  const scoreStart = terms.length + legalTypes.length;
-  const score = terms.map((_,i)=>`(CASE WHEN a.body LIKE ?${scoreStart+i+1} OR a.article_number LIKE ?${scoreStart+i+1} OR l.title LIKE ?${scoreStart+i+1} THEN 1 ELSE 0 END)`).join(' + ');
-  const termBindings = terms.map(t=>`%${t}%`);
-  const bindings = [...termBindings, ...legalTypes, ...termBindings];
-  const result = await db.prepare(`SELECT l.title AS lawTitle,l.source_name AS sourceName,l.source_url AS sourceUrl,a.article_number AS articleNumber,a.heading,a.body
+  const typePlaceholders = legalTypes.map((_, i) => `?${i + 1}`).join(',');
+  const selectSql = `SELECT l.title AS lawTitle,l.source_name AS sourceName,l.source_url AS sourceUrl,
+      a.article_number AS articleNumber,a.heading,a.body
     FROM legal_articles a JOIN legal_laws l ON l.id=a.law_id
-    WHERE l.status='verified' AND a.status='verified' AND l.law_type IN (${typePlaceholders}) AND (${where})
-    ORDER BY (${score}) DESC,l.title,a.id LIMIT 8`).bind(...bindings).all();
-  return result.results || [];
-}
+    WHERE l.status='verified' AND a.status='verified'
+      AND l.law_type IN (${typePlaceholders})`;
 
+  // استناد صریح «ماده + نام قانون» باید پیش از جست‌وجوی واژگانی بازیابی شود؛
+  // در غیر این صورت هشت نتیجهٔ مشابه ممکن است مادهٔ دقیق مورد سؤال را کنار بزند.
+  let exactResults = [];
+  if (explicitReferences.length) {
+    const conditions = [];
+    const bindings = [...legalTypes];
+    for (const reference of explicitReferences) {
+      const number = String(reference.articleNumber || '').normalize('NFKC')
+        .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+        .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+        .replace(/\s+/g, ' ').trim();
+      if (!number) continue;
+      const persianNumber = number.replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
+      const offset = bindings.length;
+      conditions.push(`(l.title LIKE ?${offset + 1} AND a.article_number IN (?${offset + 2},?${offset + 3}))`);
+      bindings.push(`%${reference.lawTitle}%`, number, persianNumber);
+    }
+    if (conditions.length) {
+      const result = await db.prepare(`${selectSql} AND (${conditions.join(' OR ')})
+        ORDER BY l.title,a.article_number LIMIT 12`).bind(...bindings).all();
+      exactResults = result.results || [];
+    }
+  }
+
+  const terms = legalSearchTerms(text).slice(0, 12);
+  if (!terms.length) return exactResults.slice(0, 8);
+  const where = terms.map((_, i) => `(a.body LIKE ?${i + 1} OR a.article_number LIKE ?${i + 1} OR l.title LIKE ?${i + 1})`).join(' OR ');
+  const scoreStart = terms.length + legalTypes.length;
+  const score = terms.map((_, i) => `(CASE WHEN a.body LIKE ?${scoreStart + i + 1} OR a.article_number LIKE ?${scoreStart + i + 1} OR l.title LIKE ?${scoreStart + i + 1} THEN 1 ELSE 0 END)`).join(' + ');
+  const termBindings = terms.map((term) => `%${term}%`);
+  const bindings = [...termBindings, ...legalTypes, ...termBindings];
+  const result = await db.prepare(`SELECT l.title AS lawTitle,l.source_name AS sourceName,l.source_url AS sourceUrl,
+      a.article_number AS articleNumber,a.heading,a.body
+    FROM legal_articles a JOIN legal_laws l ON l.id=a.law_id
+    WHERE l.status='verified' AND a.status='verified' AND l.law_type IN (${legalTypes.map((_, i) => `?${terms.length + i + 1}`).join(',')})
+      AND (${where})
+    ORDER BY (${score}) DESC,l.title,a.id LIMIT 8`).bind(...bindings).all();
+
+  const seen = new Set();
+  return [...exactResults, ...(result.results || [])].filter((article) => {
+    const number = String(article.articleNumber || '').normalize('NFKC')
+      .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).trim();
+    const key = `${article.lawTitle || ''}::${number}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 8);
+}
 
 export function extractExplicitLegalReferences(query) {
   const text = String(query || '');
   const refs = [];
-  const re = /(?:ماده|مواد)\s*([۰-۹0-9]+(?:\s*(?:،|,|و|تا|الی|[-–])\s*[۰-۹0-9]+)*)\s*(?:از\s*)?(قانون\s+[^،؛\n.]{3,100})/gu;
+  const re = /(?:ماده|مواد)\s*([۰-۹0-9]+(?:\s*(?:مکرر|مكرر))?(?:\s*(?:،|,|و|تا|الی|[-–])\s*[۰-۹0-9]+(?:\s*(?:مکرر|مكرر))?)*)\s*(?:از\s*)?(قانون\s+[^،؛\n.]{3,100})/gu;
   for (const match of text.matchAll(re)) {
-    const numbers = (match[1].match(/[۰-۹0-9]+/g) || []).map((n) =>
-      n.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))));
-    const lawTitle = match[2].split(/\s+(?:باید|است|می|مورد|برای|که|را|در|با|به|درباره|راجع|خریدار|فروشنده|خواهان|خوانده|موکل|پرونده|موضوع)(?:\s|$)/u)[0].trim().replace(/\s+/g, ' ');
+    const numbers = (match[1].match(/[۰-۹0-9]+(?:\s*(?:مکرر|مكرر))?/g) || []).map((n) =>
+      n.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/مكرر/g, 'مکرر').replace(/\s+/g, ' ').trim());
+    const lawTitle = match[2].split(/\s+(?:باید|است|می|مورد|برای|که|را|در|با|به|درباره|راجع|خریدار|فروشنده|خواهان|خوانده|موکل|پرونده|موضوع|قابل|بررسی|استناد|اعمال|مستند|مرتبط|مربوط)(?:\s|$)/u)[0].trim().replace(/\s+/g, ' ');
     for (const articleNumber of numbers) refs.push({ lawTitle, articleNumber });
   }
   const seen = new Set();
