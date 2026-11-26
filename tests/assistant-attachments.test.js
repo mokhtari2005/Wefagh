@@ -225,6 +225,65 @@ async function multipart(env, { fields = {}, files = [], cookie, path = '/api/ai
   return worker.fetch(new Request(`${BASE}${path}`, { method: 'POST', headers, body: buf }), env);
 }
 
+test('API: zero-cost PDF uses guarded Workers AI extraction before text-only generation', async () => {
+  const { env, cookie } = await setup();
+  const modelCalls = [];
+  const conversionCalls = [];
+  env.AI_BILLING_MODE = 'zero';
+  env.WORKERS_AI_FREE_PLAN_CONFIRMED = 'true';
+  env.WORKERS_AI_PRIMARY_ENABLED = 'true';
+  env.WORKERS_AI_ATTACHMENT_EXTRACTION_ENABLED = 'true';
+  env.AI = {
+    run: async (model, options) => {
+      modelCalls.push({ model, options });
+      return { response: JSON.stringify({ status: 'ready', questions: [], notes: [], text: 'خلاصه رأی بر اساس متن استخراج‌شده.' }) };
+    },
+    toMarkdown: async (file) => {
+      conversionCalls.push({ name: file.name, type: file.blob.type, size: file.blob.size });
+      return { format: 'markdown', data: 'متن استخراج‌شده از رأی PDF؛ خواهان: علی' };
+    },
+  };
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error('zero-cost attachment flow must not call external HTTP'); };
+  try {
+    const response = await multipart(env, {
+      cookie,
+      fields: { mode: 'analyze', docType: 'appeal', message: 'این رأی را بررسی کن', history: '[]' },
+      files: [{ name: 'رأی.pdf', type: 'application/pdf', bytes: pdf() }],
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.ok, true);
+    assert.equal(conversionCalls.length, 1);
+    assert.equal(conversionCalls[0].type, 'application/pdf');
+    assert.equal(modelCalls.length, 1);
+    const userParts = modelCalls[0].options.messages.at(-1).content;
+    assert.match(userParts, /متن استخراج‌شده از رأی PDF/);
+    assert.equal(body.attachments[0].kind, 'pdf');
+    assert.equal(body.reviewStatus, 'skipped_zero_cost');
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('API: zero-cost binary attachment extraction is disabled by default and fails before inference', async () => {
+  const { env, cookie } = await setup();
+  let modelCalls = 0;
+  env.AI_BILLING_MODE = 'zero';
+  env.WORKERS_AI_FREE_PLAN_CONFIRMED = 'true';
+  env.WORKERS_AI_PRIMARY_ENABLED = 'true';
+  env.AI = {
+    run: async () => { modelCalls++; return { response: '{}' }; },
+    toMarkdown: async () => { throw new Error('must remain disabled'); },
+  };
+  const response = await multipart(env, {
+    cookie,
+    fields: { mode: 'analyze', message: 'رأی را بررسی کن' },
+    files: [{ name: 'رأی.pdf', type: 'application/pdf', bytes: pdf() }],
+  });
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, 'AI_ZERO_COST_ATTACHMENT_EXTRACTION_DISABLED');
+  assert.equal(modelCalls, 0);
+});
+
 test('API: DOCX، PDF و تصویر همزمان — متن DOCX استخراج، PDF و تصویر inlineData، نوع سند در دستور سیستمی', async () => {
   const { env, cookie } = await setup();
   const g = mockGemini();
