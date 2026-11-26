@@ -249,6 +249,50 @@ function toBase64(bytes) {
   return btoa(s);
 }
 
+/**
+ * استخراج متن PDF و تصویر با سرویس بومی Markdown Conversion در Workers AI.
+ * این مسیر فقط با فعال‌سازی صریح فراخوانی می‌شود؛ هیچ سرویس خارجی یا کلید API به کار نمی‌رود.
+ * @param {object} env Worker environment containing the AI binding
+ * @param {Array<{name:string,type:string,bytes:Uint8Array}>} files validated upload bytes
+ * @param {Array<object>} attachments output from processAttachments
+ */
+export async function extractBinaryAttachmentsWithWorkersAI(env, files, attachments) {
+  if (!env?.AI || typeof env.AI.toMarkdown !== 'function') {
+    throw new AttachmentError('AI_ZERO_COST_ATTACHMENT_EXTRACTION_UNAVAILABLE', 503);
+  }
+  const output = [];
+  for (let index = 0; index < attachments.length; index += 1) {
+    const attachment = attachments[index];
+    if (!attachment.base64 || !['pdf', 'image'].includes(attachment.kind)) {
+      output.push(attachment);
+      continue;
+    }
+    const file = files[index];
+    if (!file?.bytes || !attachment.mime) {
+      throw new AttachmentError('AI_ZERO_COST_ATTACHMENT_EXTRACTION_FAILED', 503, attachment.name);
+    }
+    let converted;
+    try {
+      converted = await env.AI.toMarkdown({
+        name: attachment.name,
+        blob: new Blob([file.bytes], { type: attachment.mime }),
+      }, { conversionOptions: { output: { format: 'markdown' } } });
+    } catch {
+      throw new AttachmentError('AI_ZERO_COST_ATTACHMENT_EXTRACTION_FAILED', 503, attachment.name);
+    }
+    const result = Array.isArray(converted) ? converted[0] : converted;
+    if (!result || result.format === 'error' || typeof result.data !== 'string' || !result.data.trim()) {
+      throw new AttachmentError('AI_ZERO_COST_ATTACHMENT_EXTRACTION_FAILED', 503, attachment.name);
+    }
+    const { base64: _base64, mime: _mime, ...metadata } = attachment;
+    const extracted = attachment.kind === 'image'
+      ? 'شرح تولیدشدهٔ ماشینی از تصویر؛ رونویسی دقیق متن، اعداد و دست‌نوشته‌ها تضمین نمی‌شود و باید با اصل تصویر تطبیق داده شود.\\n' + result.data.trim()
+      : result.data.trim();
+    output.push({ ...metadata, ...clampText(extracted) });
+  }
+  return output;
+}
+
 /** همهٔ فایل‌ها را پردازش می‌کند؛ شمار و حجم کل را هم می‌سنجد. */
 export async function processAttachments(files) {
   if (files.length > ATTACHMENT_LIMITS.files) throw new AttachmentError('TOO_MANY_FILES', 422);

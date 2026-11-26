@@ -5,7 +5,7 @@ import worker from '../worker/src/index.js';
 import { createTestDb } from './helpers/d1-sqlite.js';
 import { hashToken } from '../worker/src/auth/token.js';
 import {
-  ATTACHMENT_LIMITS, AttachmentError, processAttachment, processAttachments, extractDocxText, docxXmlToText,
+  ATTACHMENT_LIMITS, AttachmentError, processAttachment, processAttachments, extractBinaryAttachmentsWithWorkersAI, extractDocxText, docxXmlToText,
   sniffKind, extensionOf, safeFileName, buildUserParts, SUPPORTED_EXTENSIONS,
 } from '../worker/src/ai/attachments.js';
 import { assistantSystemPrompt } from '../worker/src/ai/prompts.js';
@@ -111,6 +111,36 @@ test('MIME عمومی یا خالی پذیرفته می‌شود و PDF/تصوی
   }
 });
 
+test('Workers AI Markdown Conversion extracts PDF and image content without retaining inline base64', async () => {
+  const files = [
+    { name: 'رأی.pdf', type: 'application/pdf', bytes: pdf() },
+    { name: 'مدرک.png', type: 'image/png', bytes: png() },
+    { name: 'متن.docx', type: '', bytes: docx() },
+  ];
+  const attachments = await processAttachments(files);
+  const calls = [];
+  const env = { AI: { toMarkdown: async (input, options) => {
+    calls.push({ name: input.name, type: input.blob.type, options });
+    return { format: 'markdown', data: input.name.endsWith('.pdf') ? '# متن رأی\nخواهان: علی' : 'شرح تصویری مدرک' };
+  } } };
+  const result = await extractBinaryAttachmentsWithWorkersAI(env, files, attachments);
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls.map((call) => call.type), ['application/pdf', 'image/png']);
+  assert.equal(result[0].text, '# متن رأی\nخواهان: علی');
+  assert.match(result[1].text, /رونویسی دقیق متن/);\n  assert.match(result[1].text, /شرح تصویری مدرک/);
+  assert.equal(result[0].truncated, false);
+  assert.equal(result[1].truncated, false);
+  assert.equal(result[2].text.includes('دادخواست مطالبهٔ وجه'), true);
+  assert.ok(result.every((item) => !Object.hasOwn(item, 'base64')));
+});
+
+test('Workers AI extraction fails closed on missing binding or failed conversion', async () => {
+  const files = [{ name: 'رأی.pdf', type: 'application/pdf', bytes: pdf() }];
+  const attachments = await processAttachments(files);
+  await rejects(extractBinaryAttachmentsWithWorkersAI({}, files, attachments), 'AI_ZERO_COST_ATTACHMENT_EXTRACTION_UNAVAILABLE');
+  await rejects(extractBinaryAttachmentsWithWorkersAI({ AI: { toMarkdown: async () => ({ format: 'error', error: 'unsupported' }) } }, files, attachments), 'AI_ZERO_COST_ATTACHMENT_EXTRACTION_FAILED');
+});
+
 test('PDF رمزگذاری‌شده با پیام مشخص رد می‌شود', async () => {
   const enc = new Uint8Array(Buffer.from('%PDF-1.7\ntrailer<</Encrypt 5 0 R/Root 1 0 R>>\n%%EOF'));
   await rejects(processAttachment({ name: 'a.pdf', type: '', bytes: enc }), 'PDF_ENCRYPTED');
@@ -196,6 +226,65 @@ async function multipart(env, { fields = {}, files = [], cookie, path = '/api/ai
   if (cookie) headers.cookie = cookie;
   return worker.fetch(new Request(`${BASE}${path}`, { method: 'POST', headers, body: buf }), env);
 }
+
+test('API: zero-cost PDF uses guarded Workers AI extraction before text-only generation', async () => {
+  const { env, cookie } = await setup();
+  const modelCalls = [];
+  const conversionCalls = [];
+  env.AI_BILLING_MODE = 'zero';
+  env.WORKERS_AI_FREE_PLAN_CONFIRMED = 'true';
+  env.WORKERS_AI_PRIMARY_ENABLED = 'true';
+  env.WORKERS_AI_ATTACHMENT_EXTRACTION_ENABLED = 'true';
+  env.AI = {
+    run: async (model, options) => {
+      modelCalls.push({ model, options });
+      return { response: JSON.stringify({ status: 'ready', questions: [], notes: [], text: 'خلاصه رأی بر اساس متن استخراج‌شده.' }) };
+    },
+    toMarkdown: async (file) => {
+      conversionCalls.push({ name: file.name, type: file.blob.type, size: file.blob.size });
+      return { format: 'markdown', data: 'متن استخراج‌شده از رأی PDF؛ خواهان: علی' };
+    },
+  };
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error('zero-cost attachment flow must not call external HTTP'); };
+  try {
+    const response = await multipart(env, {
+      cookie,
+      fields: { mode: 'analyze', docType: 'appeal', message: 'این رأی را بررسی کن', history: '[]' },
+      files: [{ name: 'رأی.pdf', type: 'application/pdf', bytes: pdf() }],
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.ok, true);
+    assert.equal(conversionCalls.length, 1);
+    assert.equal(conversionCalls[0].type, 'application/pdf');
+    assert.equal(modelCalls.length, 1);
+    const userParts = modelCalls[0].options.messages.at(-1).content;
+    assert.match(userParts, /متن استخراج‌شده از رأی PDF/);
+    assert.equal(body.attachments[0].kind, 'pdf');
+    assert.equal(body.reviewStatus, 'skipped_zero_cost');
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('API: zero-cost binary attachment extraction is disabled by default and fails before inference', async () => {
+  const { env, cookie } = await setup();
+  let modelCalls = 0;
+  env.AI_BILLING_MODE = 'zero';
+  env.WORKERS_AI_FREE_PLAN_CONFIRMED = 'true';
+  env.WORKERS_AI_PRIMARY_ENABLED = 'true';
+  env.AI = {
+    run: async () => { modelCalls++; return { response: '{}' }; },
+    toMarkdown: async () => { throw new Error('must remain disabled'); },
+  };
+  const response = await multipart(env, {
+    cookie,
+    fields: { mode: 'analyze', message: 'رأی را بررسی کن' },
+    files: [{ name: 'رأی.pdf', type: 'application/pdf', bytes: pdf() }],
+  });
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, 'AI_ZERO_COST_ATTACHMENT_EXTRACTION_DISABLED');
+  assert.equal(modelCalls, 0);
+});
 
 test('API: DOCX، PDF و تصویر همزمان — متن DOCX استخراج، PDF و تصویر inlineData، نوع سند در دستور سیستمی', async () => {
   const { env, cookie } = await setup();
