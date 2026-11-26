@@ -486,6 +486,20 @@ function legalTitleMatches(citationTitle, recordTitle) {
   return aliases.some(([alias, canonical]) => citation.includes(alias) && record.includes(canonical));
 }
 
+function replaceUnsupportedLegalSentences(value, pattern, isSupported, replacement, markChanged) {
+  return value.replace(/[^.!؟؛\n]+[.!؟؛]?/gu, (segment) => {
+    if (!pattern.test(segment) || isSupported(segment)) return segment;
+    markChanged();
+    return replacement;
+  });
+}
+
+function normalizeGuardEvidence(value) {
+  return normalizeLegalDigits(String(value || '').normalize('NFKC'))
+    .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')
+    .replace(/[\s\u200c]+/g, ' ').trim();
+}
+
 export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedContext = '') {
   if (typeof text !== 'string' || !text) return { text: text || '', changed: false, flagged: false };
   const resolved = resolveKnownLegalPlaceholders(text, legalArticles);
@@ -529,19 +543,68 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
     flagged = true;
     return 'شماره ماده تأییدنشده';
   });
-  guarded = guarded.replace(/([۰-۹0-9]{1,3})\s*(روز|ماه|هفته|سال)/gu, (match) => {
-    const normalizedMatch = normalizeLegalDigits(match).replace(/\s+/g, ' ');
-    const source = normalizeLegalDigits(verifiedContext).replace(/\s+/g, ' ');
-    if (source.includes(normalizedMatch)) return match;
-    changed = true;
-    flagged = true;
-    return '[مدت نیازمند تطبیق با منبع رسمی]';
-  });
-  if (/ماده‌ای که شماره آن احراز نشده/gu.test(guarded)) {
-    guarded = guarded.replace(/ماده‌ای که شماره آن احراز نشده/gu, 'شماره ماده تأییدنشده');
-    changed = true;
-    flagged = true;
-  }
+  const source = normalizeGuardEvidence(verifiedContext);
+  const markGuarded = () => { changed = true; flagged = true; };
+
+  // جای‌نگهدار استناد نامعتبر نباید در پاسخ نهایی باقی بماند.
+  guarded = replaceUnsupportedLegalSentences(
+    guarded,
+    /(?:شماره\s+ماده\s+تأییدنشده|ماده\s+تأییدنشده|شماره\s+ماده\s+نامشخص)/u,
+    () => false,
+    'مستند قانونی این گزاره در منابع تأییدشده این درخواست احراز نشد.',
+    markGuarded,
+  );
+
+  // مهلت‌های نوشته‌شده با حروف نیز باید در منبع احراز شوند.
+  guarded = replaceUnsupportedLegalSentences(
+    guarded,
+    /(?:[۰-۹0-9]{1,3}|یک|دو|سه|چهار|پنج|شش|هفت|هشت|نه|ده|یازده|دوازده|پانزده|بیست|سی|چهل|پنجاه|شصت|نود|صد)\s*(?:روز|ماه|هفته|سال)/u,
+    (segment) => {
+      const match = normalizeGuardEvidence(segment).match(/(?:[۰-۹0-9]{1,3}|یک|دو|سه|چهار|پنج|شش|هفت|هشت|نه|ده|یازده|دوازده|پانزده|بیست|سی|چهل|پنجاه|شصت|نود|صد)\s*(?:روز|ماه|هفته|سال)/u);
+      return Boolean(match && source.includes(match[0]));
+    },
+    'مدت و مبدأ مهلت قانونی در منابع تأییدشده این درخواست احراز نشد.',
+    markGuarded,
+  );
+
+  // نصاب مالی و صلاحیت مرجع، ادعاهایی مستقل‌اند و با وجود ماده‌ای دیگر تأیید نمی‌شوند.
+  guarded = replaceUnsupportedLegalSentences(
+    guarded,
+    /[۰-۹0-9]+\s*(?:میلیون|میلیارد)\s*(?:تومان|ریال)/u,
+    (segment) => {
+      const match = normalizeGuardEvidence(segment).match(/[۰-۹0-9]+\s*(?:میلیون|میلیارد)\s*(?:تومان|ریال)/u);
+      return Boolean(match && source.includes(match[0]));
+    },
+    'نصاب مالی قانونی در منابع تأییدشده این درخواست احراز نشد.',
+    markGuarded,
+  );
+  guarded = replaceUnsupportedLegalSentences(
+    guarded,
+    /(?:دادگاه\s+صلح|شورای\s+حل\s+اختلاف|شوراهای\s+حل\s+اختلاف)/u,
+    (segment) => {
+      const claim = normalizeGuardEvidence(segment);
+      const sourceHasCompetence = /صلاحیت|مرجع رسیدگی|رسیدگی/u.test(source);
+      return sourceHasCompetence && (claim.includes('دادگاه صلح') ? source.includes('دادگاه صلح') : /شورای حل اختلاف/u.test(source));
+    },
+    'مرجع صالح رسیدگی در منابع تأییدشده این درخواست احراز نشد.',
+    markGuarded,
+  );
+
+  // قطع خدمات و اجرائیه ثبتی فقط با مستند اختصاصی ماده ۱۰ مکرر پذیرفته می‌شوند.
+  guarded = replaceUnsupportedLegalSentences(
+    guarded,
+    /(?:قطع\s+(?:خدمات|انشعاب)|عدم\s+ارائه\s+خدمات)\s*(?:مشترک)?/u,
+    () => source.includes('ماده ۱۰ مکرر') && /قطع خدمات|عدم ارائه خدمات/u.test(source),
+    'شرایط و امکان قطع خدمات مشترک در منبع تأییدشده این درخواست احراز نشد.',
+    markGuarded,
+  );
+  guarded = replaceUnsupportedLegalSentences(
+    guarded,
+    /(?:اجرائیه|اجرای\s+ثبت).{0,80}(?:اداره\s+ثبت|ثبت\s+اسناد)/u,
+    () => source.includes('ماده ۱۰ مکرر') && source.includes('اداره ثبت') && source.includes('اجرائیه'),
+    'مبنای درخواست اجرائیه ثبتی در منابع تأییدشده این درخواست احراز نشد.',
+    markGuarded,
+  );
   guarded = guarded.replace(/\[مدت نیازمند تطبیق با منبع رسمی\]/gu, 'مدت نیازمند تطبیق با منبع رسمی');
   if (guarded !== text) changed = true;
   return { text: guarded, changed, flagged };
