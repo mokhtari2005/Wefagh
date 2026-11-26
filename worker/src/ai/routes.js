@@ -543,7 +543,7 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
     flagged = true;
     return 'شماره ماده تأییدنشده';
   });
-  const source = normalizeGuardEvidence(verifiedContext);
+  const source = normalizeGuardEvidence([verifiedContext, ...(Array.isArray(legalArticles) ? legalArticles.map((item) => `${item?.lawTitle || ''} ماده ${item?.articleNumber || ''} ${item?.body || ''}`) : [])].join('\n'));
   const markGuarded = () => { changed = true; flagged = true; };
 
   // جای‌نگهدار استناد نامعتبر نباید در پاسخ نهایی باقی بماند.
