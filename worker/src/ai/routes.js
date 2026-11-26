@@ -601,7 +601,7 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
   guarded = replaceUnsupportedLegalSentences(
     guarded,
     /(?:اجرائیه|اجرای\s+ثبت).{0,80}(?:اداره\s+ثبت|ثبت\s+اسناد)/u,
-    () => source.includes('ماده ۱۰ مکرر') && source.includes('اداره ثبت') && source.includes('اجرائیه'),
+    () => source.includes('ماده 10 مکرر') && source.includes('اداره ثبت') && source.includes('اجرائیه'),
     'مبنای درخواست اجرائیه ثبتی در منابع تأییدشده این درخواست احراز نشد.',
     markGuarded,
   );
