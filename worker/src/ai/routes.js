@@ -14,7 +14,7 @@ import { groqConfigured } from './groq.js';
 import { reviewWithWorkersAI, workersAiConfigured, workersAiPrimaryEnabled, workersAiReviewEnabled, workersAiReviewNotes } from './cloudflare.js';
 import { clampReply } from './speech.js';
 import { reviewLegalDraft, groqReviewNotes } from './groq.js';
-import { AttachmentError, ATTACHMENT_LIMITS, processAttachments, buildUserParts, summarizeAttachments } from './attachments.js';
+import { AttachmentError, ATTACHMENT_LIMITS, processAttachments, extractBinaryAttachmentsWithWorkersAI, buildUserParts, summarizeAttachments } from './attachments.js';
 import {
   ASSISTANT_DOC_TYPES, ASSISTANT_MODES, ASSISTANT_SCHEMA, MOOT_EVAL_SCHEMA,
   HEARING_ROLES, HEARING_STAGES, mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt, LEGAL_DISCLAIMER,
@@ -605,6 +605,12 @@ async function assistant(request, env) {
   let attachments = [];
   try {
     attachments = await processAttachments(files);
+    if (env?.AI_BILLING_MODE === 'zero' && attachments.some((item) => item.base64)) {
+      if (env?.WORKERS_AI_ATTACHMENT_EXTRACTION_ENABLED !== 'true' || !workersAiPrimaryEnabled(env)) {
+        throw new AttachmentError('AI_ZERO_COST_ATTACHMENT_EXTRACTION_DISABLED', 503);
+      }
+      attachments = await extractBinaryAttachmentsWithWorkersAI(env, files, attachments);
+    }
   } catch (err) {
     if (err instanceof AttachmentError) return fail(err.code, err.status, err.file ? { file: err.file } : {});
     throw err;
