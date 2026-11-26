@@ -34,7 +34,8 @@ test('مشاوره مرحله‌ای پرسش تکمیلی می‌پرسد و س
           ok: true,
           status: 'need_info',
           text: 'برای انتخاب مسیر حقوقی مناسب، ابتدا باید وضعیت قرارداد روشن شود.',
-          questions: [' آیا توافق یا قرارداد کتبی میان طرفین وجود دارد ؟ '],
+          // همان موضوع پرسش انتخابی با عبارت‌بندی متفاوت؛ نباید کادر پاسخ دستی جداگانه بسازد.
+          questions: ['آیا میان طرفین قرارداد مکتوبی تنظیم شده است؟'],
           questionOptions: [{
             question: 'آیا توافق یا قرارداد کتبی میان طرفین وجود دارد؟',
             options: ['بله', 'خیر'],
@@ -72,6 +73,7 @@ test('مشاوره مرحله‌ای پرسش تکمیلی می‌پرسد و س
   await page.getByRole('button', { name: 'ارسال پیام' }).click();
 
   await expect(page.getByText('آیا توافق یا قرارداد کتبی میان طرفین وجود دارد؟')).toBeVisible();
+  await expect(page.getByText('آیا میان طرفین قرارداد مکتوبی تنظیم شده است؟')).toHaveCount(0);
   await expect(page.getByRole('textbox', { name: 'پاسخ آزاد به این پرسش' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'خیر', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'بله', exact: true }).click();
