@@ -333,15 +333,14 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
   const pendingTitle = h('strong', { class: 'ai-pending-title', text: 'در حال آماده‌سازی پاسخ حقوقی…' });
   const pendingElapsed = h('span', { class: 'ai-progress-elapsed', text: 'زمان سپری‌شده: ۰:۰۰' });
   const pendingRemaining = h('span', { class: 'ai-progress-remaining', text: 'زمان تخمینی باقی‌مانده: ۱:۳۰' });
-  const pendingTrack = h('div', { class: 'ai-progress-ring', role: 'progressbar', 'aria-label': 'درصد زمان سپری‌شده از برآورد پردازش', 'aria-valuemin': '0', 'aria-valuemax': '95', 'aria-valuenow': '0' });
+  const pendingTrack = h('div', { class: 'ai-progress-track', role: 'progressbar', 'aria-label': 'درصد زمان سپری‌شده از برآورد پردازش', 'aria-valuemin': '0', 'aria-valuemax': '95', 'aria-valuenow': '0' });
+  const pendingFill = h('div', { class: 'ai-progress-fill' });
   const pendingPercent = h('span', { class: 'ai-progress-percent', text: '۰٪' });
-  pendingTrack.append(pendingPercent);
+  pendingTrack.append(pendingFill);
   const pending = h('div', { class: 'ai-pending', role: 'status', 'aria-live': 'polite' }, [
     pendingTitle,
-    h('div', { class: 'ai-progress-layout' }, [
-      pendingTrack,
-      h('div', { class: 'ai-progress-meta' }, [pendingElapsed, pendingRemaining]),
-    ]),
+    pendingTrack,
+    h('div', { class: 'ai-progress-meta' }, [pendingElapsed, pendingRemaining, pendingPercent]),
   ]);
   pending.hidden = true;
   const ESTIMATED_TOTAL_MS = 90_000; // برآورد تقریبی تولید پاسخ به‌علاوه بازبینی مستقل
@@ -368,8 +367,8 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
         ? 'در حال تکمیل پاسخ…'
         : 'پردازش بیشتر از برآورد زمان برده است.';
     const percent = Math.min(95, Math.floor((elapsed / ESTIMATED_TOTAL_MS) * 95));
-    pendingTrack.style.background = `conic-gradient(var(--teal) ${percent}%, #e8e2d5 ${percent}% 100%)`;
-    pendingPercent.textContent = `${percent.toLocaleString('fa-IR')}٪`;
+    pendingFill.style.width = `${percent}%`;
+    pendingPercent.textContent = `پیشرفت برآوردی: ${percent.toLocaleString('fa-IR')}٪`;
     pendingTrack.setAttribute('aria-valuenow', String(percent));
   }
   function startPendingProgress() {
