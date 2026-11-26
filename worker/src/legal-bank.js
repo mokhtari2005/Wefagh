@@ -324,10 +324,10 @@ export async function findVerifiedLegalArticles(db, query) {
 export function extractExplicitLegalReferences(query) {
   const text = String(query || '');
   const refs = [];
-  const re = /(?:ماده|مواد)\s*([۰-۹0-9]+(?:\s*(?:،|,|و|تا|الی|[-–])\s*[۰-۹0-9]+)*)\s*(?:از\s*)?(قانون\s+[^،؛\n.]{3,100})/gu;
+  const re = /(?:ماده|مواد)\s*([۰-۹0-9]+(?:\s*(?:مکرر|مكرر))?(?:\s*(?:،|,|و|تا|الی|[-–])\s*[۰-۹0-9]+(?:\s*(?:مکرر|مكرر))?)*)\s*(?:از\s*)?(قانون\s+[^،؛\n.]{3,100})/gu;
   for (const match of text.matchAll(re)) {
-    const numbers = (match[1].match(/[۰-۹0-9]+/g) || []).map((n) =>
-      n.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))));
+    const numbers = (match[1].match(/[۰-۹0-9]+(?:\s*(?:مکرر|مكرر))?/g) || []).map((n) =>
+      n.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/مكرر/g, 'مکرر').replace(/\s+/g, ' ').trim());
     const lawTitle = match[2].split(/\s+(?:باید|است|می|مورد|برای|که|را|در|با|به|درباره|راجع|خریدار|فروشنده|خواهان|خوانده|موکل|پرونده|موضوع|قابل|بررسی|استناد|اعمال|مستند|مرتبط|مربوط)(?:\s|$)/u)[0].trim().replace(/\s+/g, ' ');
     for (const articleNumber of numbers) refs.push({ lawTitle, articleNumber });
   }
