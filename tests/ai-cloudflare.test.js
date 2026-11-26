@@ -145,3 +145,64 @@ test('assistant keeps interactive need_info flow in zero-cost mode without Gemin
     globalThis.fetch = originalFetch;
   }
 });
+
+
+test('zero-cost assistant runs the explicitly enabled Workers AI reviewer after draft generation', async () => {
+  const calls = [];
+  const db = {
+    prepare(sql) {
+      return {
+        bind() {
+          return {
+            first: async () => sql.includes('FROM sessions')
+              ? { id: 7, email: 'user@example.com', display_name: 'کاربر' }
+              : null,
+            all: async () => ({ results: [] }),
+            run: async () => ({ success: true }),
+          };
+        },
+      };
+    },
+  };
+  const env = enabledEnv(async (model, options) => {
+    calls.push({ model, options });
+    if (calls.length === 1) {
+      return { response: JSON.stringify({
+        status: 'ready', questions: [], notes: [],
+        text: 'پیش‌نویس دادخواست برای مطالبه وجه قرارداد.',
+      }) };
+    }
+    return { response: JSON.stringify({
+      risk: 'medium',
+      summary: 'یک بازبینی ماشینی انجام شد.',
+      issues: [{ severity: 'medium', category: 'ابهام', observation: 'تاریخ قرارداد مشخص نیست.', recommendation: 'تاریخ قرارداد درج شود.' }],
+      citations: [],
+    }) };
+  });
+  env.DB = db;
+  env.WORKERS_AI_REVIEW_ENABLED = 'true';
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error('zero-cost review must not call external HTTP services'); };
+  try {
+    const request = new Request('https://mokhtari.ir/api/ai/assistant', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: 'wefagh_session=test-session' },
+      body: JSON.stringify({
+        mode: 'draft', docType: 'petition',
+        message: 'دادخواست مطالبه وجه قرارداد را تنظیم کن.',
+        history: [],
+      }),
+    });
+    const response = await worker.fetch(request, env);
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.reviewStatus, 'reviewed');
+    assert.equal(body.reviewReport.summary, 'یک بازبینی ماشینی انجام شد.');
+    assert.equal(body.reviewReport.issues.length, 1);
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].model, CLOUDFLARE_TEXT_MODEL);
+    assert.equal(calls[1].model, '@cf/zai-org/glm-4.7-flash');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
