@@ -515,6 +515,7 @@ export async function findVerifiedJudicialAuthorities(db, query) {
     const rows = result.results || [];
     const wantedNumbers = new Set(numberMatches);
     return rows.filter((row) => {
+      if (!typeList.includes(row.lawType)) return false;
       if (!wantedNumbers.has(normalizeJudicialIdentifier(row.documentNumber))) return false;
       if (requestedDate && normalizeJudicialDate(row.documentDate) !== requestedDate) return false;
       if (authorityHints.length) {
