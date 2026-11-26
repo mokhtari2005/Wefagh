@@ -366,7 +366,7 @@ const ROUTES = {
 
 /** دسترسی سریع موبایل: مسیرهای پرکاربرد در ابتدای هر صفحه. */
 function mobileQuickAccess(path) {
-  if (path === '/' || path === '/moot-court/hearing') return null;
+  if (path === '/moot-court/hearing') return null;
   const calculatorLinks = [
     { icon: 'landmark', title: 'ارزش منطقه‌ای', href: '#/calculators/regional' },
     { icon: 'landmark', title: 'هزینه دادرسی', href: '#/calculators/court' },
@@ -374,6 +374,7 @@ function mobileQuickAccess(path) {
     { icon: 'calculator', title: 'تأخیر تأدیه', href: '#/calculators/delay' },
   ];
   const generalLinks = [
+    { icon: 'users', title: 'تالار گفتگو', href: '#/community' },
     { icon: 'graduation-cap', title: 'آکادمی', href: '#/academy' },
     { icon: 'scale', title: 'دستیار وکیل', href: '#/assistant' },
     { icon: 'calculator', title: 'محاسبه‌گرها', href: '#/calculators' },
