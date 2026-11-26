@@ -640,7 +640,7 @@ test('بازیابی آرای وحدت رویه و نظریات مشورتی ف�
   assert.equal(found[0].lawType, 'supreme_court_unified_precedent');
   assert.ok(captured.sql.includes("l.status='verified' AND a.status='verified'"));
   assert.ok(captured.sql.includes('l.law_type IN'));
-  assert.ok(captured.sql.includes('l.document_number LIKE'));
+  assert.ok(captured.sql.includes('l.document_number IN'));
 });
 
 test('پرس‌وجوی حقوقی امن، آرای وحدت رویه و نظریات مشورتی را هم جست‌وجو می‌کند', () => {
