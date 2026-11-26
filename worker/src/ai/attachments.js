@@ -286,7 +286,7 @@ export async function extractBinaryAttachmentsWithWorkersAI(env, files, attachme
     }
     const { base64: _base64, mime: _mime, ...metadata } = attachment;
     const extracted = attachment.kind === 'image'
-      ? 'شرح تولیدشدهٔ ماشینی از تصویر؛ رونویسی دقیق متن، اعداد و دست‌نوشته‌ها تضمین نمی‌شود و باید با اصل تصویر تطبیق داده شود.\\n' + result.data.trim()
+      ? 'شرح تولیدشدهٔ ماشینی از تصویر؛ رونویسی دقیق متن، اعداد و دست‌نوشته‌ها تضمین نمی‌شود و باید با اصل تصویر تطبیق داده شود.\n' + result.data.trim()
       : result.data.trim();
     output.push({ ...metadata, ...clampText(extracted) });
   }
