@@ -32,7 +32,7 @@ test('بازیابی قضایی فقط رکوردهای دارای متن کام
   assert.equal(found[0].lawType, 'supreme_court_unified_precedent');
   assert.match(captured.sql, /l.status='verified' AND a.status='verified'/);
   assert.match(captured.sql, /l.law_type IN/);
-  assert.match(captured.sql, /l.document_number LIKE/);
+  assert.match(captured.sql, /l.document_number IN/);
   assert.ok(captured.bindings.length > 0);
 });
 
@@ -243,4 +243,75 @@ test('ورود سند قضایی بدون فراداده هویتی یا پیو�
   const data = await response.json();
   assert.equal(response.status, 422);
   assert.equal(data.error, 'JUDICIAL_METADATA_REQUIRED');
+});
+
+
+test('شماره رأی دقیق است و با شماره طولانی‌تر اشتباه گرفته نمی‌شود؛ تاریخ و مرجع نیز کنترل می‌شوند', async () => {
+  const exact = {
+    lawType: 'supreme_court_unified_precedent',
+    documentNumber: '۸۵۸',
+    documentDate: '۱۴۰۳/۰۸/۱۵',
+    issuingAuthority: 'هیأت عمومی دیوان عالی کشور',
+    lawTitle: 'رأی وحدت رویه شماره ۸۵۸',
+  };
+  const db = {
+    prepare(sql) {
+      return { bind(...bindings) {
+        return { all: async () => {
+          assert.match(sql, /l\.document_number IN/);
+          assert.match(sql, /l\.document_date IN/);
+          assert.match(sql, /l\.issuing_authority LIKE/);
+          assert.match(sql, /l\.status='verified' AND a\.status='verified'/);
+          assert.ok(bindings.includes('858'));
+          return { results: [
+            exact,
+            { ...exact, documentNumber: '۸۵۸۱' },
+            { ...exact, documentDate: '۱۴۰۳/۰۸/۱۶' },
+            { ...exact, issuingAuthority: 'هیأت عمومی دیوان عدالت اداری' },
+          ] };
+        } };
+      } };
+    },
+  };
+  const found = await findVerifiedJudicialAuthorities(
+    db,
+    'رأی وحدت رویه شماره ۸۵۸ مورخ ۱۴۰۳/۰۸/۱۵ هیأت عمومی دیوان عالی کشور',
+  );
+  assert.deepEqual(found, [exact]);
+});
+
+test('شماره نظریه مشورتی فقط از نوع نظریه مشورتی بازیابی می‌شود', async () => {
+  let captured;
+  const advisory = { lawType: 'judicial_advisory_opinion', documentNumber: '7/1403/32', documentDate: '1403/03/06' };
+  const db = {
+    prepare(sql) {
+      return { bind(...bindings) {
+        captured = { sql, bindings };
+        return { all: async () => ({ results: [
+          advisory,
+          { ...advisory, lawType: 'supreme_court_unified_precedent' },
+        ] }) };
+      } };
+    },
+  };
+  const found = await findVerifiedJudicialAuthorities(db, 'نظریه مشورتی شماره ۷/۱۴۰۳/۳۲');
+  assert.ok(captured.bindings.includes('judicial_advisory_opinion'));
+  assert.ok(!captured.bindings.includes('supreme_court_unified_precedent'));
+  assert.deepEqual(found, [advisory]);
+});
+
+test('در جست‌وجوی موضوعی بدون شماره، بازیابی متنی اسناد تأییدشده حفظ می‌شود', async () => {
+  let captured;
+  const db = {
+    prepare(sql) {
+      return { bind(...bindings) {
+        captured = { sql, bindings };
+        return { all: async () => ({ results: [{ lawTitle: 'رأی مرتبط', body: 'متن رأی' }] }) };
+      } };
+    },
+  };
+  const found = await findVerifiedJudicialAuthorities(db, 'رأی وحدت رویه درباره توقیف مال');
+  assert.match(captured.sql, /a\.body LIKE/);
+  assert.doesNotMatch(captured.sql, /l\.document_number IN/);
+  assert.equal(found.length, 1);
 });
