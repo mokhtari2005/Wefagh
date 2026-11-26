@@ -11,7 +11,7 @@ import { AiError, aiConfigured, transcribeAudio, synthesizeLongSpeech } from './
 import { generateTextWithFallback, stripResponseFormatting } from './fallback.js';
 import { openaiConfigured } from './openai.js';
 import { groqConfigured } from './groq.js';
-import { reviewWithWorkersAI, workersAiConfigured, workersAiPrimaryEnabled, workersAiReviewEnabled } from './cloudflare.js';
+import { reviewWithWorkersAI, workersAiConfigured, workersAiPrimaryEnabled, workersAiReviewEnabled, workersAiReviewNotes } from './cloudflare.js';
 import { clampReply } from './speech.js';
 import { reviewLegalDraft, groqReviewNotes } from './groq.js';
 import { AttachmentError, ATTACHMENT_LIMITS, processAttachments, buildUserParts, summarizeAttachments } from './attachments.js';
@@ -737,8 +737,22 @@ async function assistant(request, env) {
       : [];
     // برای حفظ محرمانگی، در صورت وجود پیوست، پیش‌نویس حاوی محتوای استخراج‌شده به ارائه‌دهندهٔ سوم ارسال نمی‌شود.
     if (env?.AI_BILLING_MODE === 'zero') {
-      reviewStatus = 'skipped_zero_cost';
-      notes.push('بازبینی مستقل مبتنی بر API پولی در حالت صفرهزینه اجرا نشد.');
+      // در حالت صفرهزینه فقط بازبین داخلی Workers AI و فقط با فعال‌سازی صریح اجرا می‌شود.
+      // کلیدهای Gemini/Groq یا سرویس‌های بیرونی در این شاخه فراخوانی نمی‌شوند.
+      if (workersAiReviewEnabled(env) && workersAiConfigured(env)) {
+        stage = 'cloudflare_workers_ai_review';
+        const independentReview = await reviewWithWorkersAI(env, { mode, docType, question: message, draft: text });
+        reviewStatus = independentReview.status || 'provider_error';
+        if (independentReview.status === 'reviewed') {
+          reviewReport = independentReview.review;
+          notes.push(...workersAiReviewNotes(independentReview).slice(0, 4));
+        } else {
+          notes.push(...workersAiReviewNotes(independentReview).slice(0, 2));
+        }
+      } else {
+        reviewStatus = 'skipped_zero_cost';
+        notes.push('بازبینی مستقل اجرا نشد؛ بازبین داخلی فقط با فعال‌سازی صریح تنظیم مربوط در حالت صفرهزینه قابل استفاده است.');
+      }
     } else if (attachments.length) {
       reviewStatus = 'skipped_attachments';
     } else if (provider === 'groq') {
