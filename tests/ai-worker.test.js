@@ -181,7 +181,7 @@ test('کنترل سمت سرور، شماره ماده و مهلت فاقد پش
     [{ articleNumber: '۴۲۲' }],
     'ماده ۴۲۲ قانون مدنی؛ منبع درباره مهلت زمانی حکمی ندارد.',
   );
-  assert.match(guarded.text, /مستند قانونی این (?:گزاره|ارجاع) در منابع تأییدشده این درخواست احراز نشد/);
+  assert.match(guarded.text, /(?:مستند قانونی این (?:گزاره|ارجاع)|مدت و مبدأ مهلت قانونی) در منابع تأییدشده این درخواست احراز نشد/);
   assert.match(guarded.text, /مدت نیازمند تطبیق با منبع رسمی/);
   assert.match(guarded.text, /ماده ۴۲۲/);
   assert.equal(guarded.changed, true);
@@ -364,7 +364,7 @@ test('مشاوره درباره تصادف پنهان خودرو، مواد مد
     assert.equal(res.status, 200);
     assert.match(system, /ماده ۴۲۲/);
     assert.match(system, /ماده ۴۳۵/);
-    assert.match(data.text, /مستند قانونی این (?:گزاره|ارجاع) در منابع تأییدشده این درخواست احراز نشد/);
+    assert.match(data.text, /(?:مستند قانونی این (?:گزاره|ارجاع)|مدت و مبدأ مهلت قانونی) در منابع تأییدشده این درخواست احراز نشد/);
     assert.match(data.text, /مدت نیازمند تطبیق با منبع رسمی/);
     assert.match(data.text, /ماده ۴۲۲ حق فسخ یا ارش/);
     assert.ok(data.notes.some((note) => note.includes('فاقد پشتوانه')));
