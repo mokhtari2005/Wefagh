@@ -5,7 +5,7 @@ import worker from '../worker/src/index.js';
 import { createTestDb } from './helpers/d1-sqlite.js';
 import { hashToken } from '../worker/src/auth/token.js';
 import {
-  ATTACHMENT_LIMITS, AttachmentError, processAttachment, processAttachments, extractDocxText, docxXmlToText,
+  ATTACHMENT_LIMITS, AttachmentError, processAttachment, processAttachments, extractBinaryAttachmentsWithWorkersAI, extractDocxText, docxXmlToText,
   sniffKind, extensionOf, safeFileName, buildUserParts, SUPPORTED_EXTENSIONS,
 } from '../worker/src/ai/attachments.js';
 import { assistantSystemPrompt } from '../worker/src/ai/prompts.js';
@@ -109,6 +109,34 @@ test('MIME عمومی یا خالی پذیرفته می‌شود و PDF/تصوی
     assert.equal(r.mime, mime);
     assert.ok(r.base64.length > 0);
   }
+});
+
+test('Workers AI Markdown Conversion extracts PDF and image content without retaining inline base64', async () => {
+  const files = [
+    { name: 'رأی.pdf', type: 'application/pdf', bytes: pdf() },
+    { name: 'مدرک.png', type: 'image/png', bytes: png() },
+    { name: 'متن.docx', type: '', bytes: docx() },
+  ];
+  const attachments = await processAttachments(files);
+  const calls = [];
+  const env = { AI: { toMarkdown: async (input, options) => {
+    calls.push({ name: input.name, type: input.blob.type, options });
+    return { format: 'markdown', data: input.name.endsWith('.pdf') ? '# متن رأی\nخواهان: علی' : 'شرح تصویری مدرک' };
+  } } };
+  const result = await extractBinaryAttachmentsWithWorkersAI(env, files, attachments);
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls.map((call) => call.type), ['application/pdf', 'image/png']);
+  assert.equal(result[0].text, '# متن رأی\nخواهان: علی');
+  assert.equal(result[1].text, 'شرح تصویری مدرک');
+  assert.equal(result[2].text.includes('دادخواست مطالبهٔ وجه'), true);
+  assert.ok(result.every((item) => !Object.hasOwn(item, 'base64')));
+});
+
+test('Workers AI extraction fails closed on missing binding or failed conversion', async () => {
+  const files = [{ name: 'رأی.pdf', type: 'application/pdf', bytes: pdf() }];
+  const attachments = await processAttachments(files);
+  await rejects(extractBinaryAttachmentsWithWorkersAI({}, files, attachments), 'AI_ZERO_COST_ATTACHMENT_EXTRACTION_UNAVAILABLE');
+  await rejects(extractBinaryAttachmentsWithWorkersAI({ AI: { toMarkdown: async () => ({ format: 'error', error: 'unsupported' }) } }, files, attachments), 'AI_ZERO_COST_ATTACHMENT_EXTRACTION_FAILED');
 });
 
 test('PDF رمزگذاری‌شده با پیام مشخص رد می‌شود', async () => {
