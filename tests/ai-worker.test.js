@@ -190,6 +190,29 @@ test('کنترل سمت سرور، شماره ماده و مهلت فاقد پش
   assert.equal(safe.changed, false);
 });
 
+test('پاسخ شارژ ساختمان: جای‌نگهدار استناد، مهلت، نصاب مالی و صلاحیت بی‌منبع به کاربر نمایش داده نمی‌شود', () => {
+  const draft = [
+    'طبق شماره ماده تأییدنشده قانون تملک آپارتمان‌ها، مالک و مستأجر ملزم به پرداخت شارژ هستند.',
+    'پس از گذشت مهلت ده روزه، هیئت‌مدیره می‌تواند خدمات مشترک را قطع کند.',
+    'در صورت عدم پرداخت، درخواست اجرائیه از اداره ثبت مطرح می‌شود.',
+    'اختلاف در دادگاه صلح رسیدگی می‌شود مگر اینکه مبلغ از ۲۰۰ میلیون تومان بیشتر باشد.',
+    'شوراهای حل اختلاف نیز صلاحیت رسیدگی دارند.',
+  ].join(' ');
+  const guarded = guardUnverifiedLegalClaims(draft, [], '');
+  assert.equal(guarded.flagged, true);
+  assert.doesNotMatch(guarded.text, /شماره ماده تأییدنشده|ده روزه|۲۰۰ میلیون تومان|دادگاه صلح|شوراهای حل اختلاف|اجرائیه از اداره ثبت|خدمات مشترک را قطع/u);
+  assert.match(guarded.text, /مستند قانونی این گزاره/u);
+  assert.match(guarded.text, /مدت و مبدأ مهلت قانونی/u);
+  assert.match(guarded.text, /نصاب مالی قانونی/u);
+
+  const supportedContext = 'ماده ۱۰ مکرر قانون تملک آپارتمان‌ها: مهلت ده روز؛ قطع خدمات مشترک؛ درخواست صدور اجرائیه از اداره ثبت. قانون جاری: دادگاه صلح مرجع رسیدگی و دارای صلاحیت است؛ نصاب ۲۰۰ میلیون تومان.';
+  const supported = guardUnverifiedLegalClaims(draft, [], supportedContext);
+  assert.match(supported.text, /ده روزه/u);
+  assert.match(supported.text, /دادگاه صلح/u);
+  assert.match(supported.text, /۲۰۰ میلیون تومان/u);
+  assert.match(supported.text, /اجرائیه از اداره ثبت/u);
+});
+
 test('مسیر دستیار از ورود تا پاسخ ساخت‌یافته (با Gemini ساختگی) کامل کار می‌کند', async () => {
   const modelJson = { status: 'ready', questions: [], text: 'پیش‌نویس آزمایشی [جای خالی: نام موکل]', notes: ['بررسی شود'] };
   await withFetch(async (url, init) => {
