@@ -593,8 +593,8 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
   // قطع خدمات و اجرائیه ثبتی فقط با مستند اختصاصی ماده ۱۰ مکرر پذیرفته می‌شوند.
   guarded = replaceUnsupportedLegalSentences(
     guarded,
-    /(?:قطع\s+(?:خدمات|انشعاب)|عدم\s+ارائه\s+خدمات)\s*(?:مشترک)?/u,
-    () => source.includes('ماده ۱۰ مکرر') && /قطع خدمات|عدم ارائه خدمات/u.test(source),
+    /(?:قطع\s+(?:خدمات|انشعاب)|(?:خدمات|انشعاب)\s*(?:مشترک)?[^.!؟؛\n]{0,30}قطع|عدم\s+ارائه\s+خدمات)\s*(?:مشترک)?/u,
+    () => source.includes('ماده 10 مکرر') && /قطع خدمات|عدم ارائه خدمات/u.test(source),
     'شرایط و امکان قطع خدمات مشترک در منبع تأییدشده این درخواست احراز نشد.',
     markGuarded,
   );
