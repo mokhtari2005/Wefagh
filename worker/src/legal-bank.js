@@ -328,7 +328,7 @@ export function extractExplicitLegalReferences(query) {
   for (const match of text.matchAll(re)) {
     const numbers = (match[1].match(/[۰-۹0-9]+/g) || []).map((n) =>
       n.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))));
-    const lawTitle = match[2].split(/\s+(?:باید|است|می|مورد|برای|که|را|در|با|به|درباره|راجع|خریدار|فروشنده|خواهان|خوانده|موکل|پرونده|موضوع)(?:\s|$)/u)[0].trim().replace(/\s+/g, ' ');
+    const lawTitle = match[2].split(/\s+(?:باید|است|می|مورد|برای|که|را|در|با|به|درباره|راجع|خریدار|فروشنده|خواهان|خوانده|موکل|پرونده|موضوع|قابل|بررسی|استناد|اعمال|مستند|مرتبط|مربوط)(?:\s|$)/u)[0].trim().replace(/\s+/g, ' ');
     for (const articleNumber of numbers) refs.push({ lawTitle, articleNumber });
   }
   const seen = new Set();
