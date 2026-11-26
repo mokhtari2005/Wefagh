@@ -415,7 +415,7 @@ function normalizeJudicialIdentifier(value) {
     .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')
     .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
     .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
-    .replace(/[／⁄∕\\-–—]/g, '/')
+    .replace(/[／⁄∕]/g, '/').replace(/[-–—]/g, '/')
     .replace(/[\s\u0640]/g, '')
     .replace(/\/+/g, '/').replace(/^\/|\/$/g, '');
 }
