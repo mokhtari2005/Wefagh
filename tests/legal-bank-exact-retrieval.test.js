@@ -65,3 +65,10 @@ test('در نبود استناد صریح، جست‌وجوی واژگانی ق�
   assert.doesNotMatch(db.calls[0].sql, /a\.article_number IN/u);
   assert.equal(results[0], keywordArticle);
 });
+
+test('شماره مواد مکرر در استناد صریح حفظ می‌شود', () => {
+  const refs = extractExplicitLegalReferences('ماده ۱۰ مکرر قانون تملک آپارتمان‌ها قابل اعمال است.');
+  assert.deepEqual(refs, [
+    { lawTitle: 'قانون تملک آپارتمان‌ها', articleNumber: '10 مکرر' },
+  ]);
+});
