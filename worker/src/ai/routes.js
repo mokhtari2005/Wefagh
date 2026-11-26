@@ -454,25 +454,80 @@ function resolveKnownLegalPlaceholders(text, legalArticles = []) {
   });
 }
 
+function normalizeLegalTitle(value) {
+  return String(value || '').normalize('NFKC')
+    .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')
+    .replace(/[\s\u200c]+/g, ' ').trim().toLowerCase();
+}
+
+function citationLawTitle(text, offset, length) {
+  const leftMarks = ['\n', '۔', '.', '؟', '؛'].map((mark) => text.lastIndexOf(mark, offset - 1));
+  const left = Math.max(...leftMarks) + 1;
+  const rightMarks = ['\n', '۔', '.', '؟', '؛'].map((mark) => text.indexOf(mark, offset + length)).filter((index) => index >= 0);
+  const right = rightMarks.length ? Math.min(...rightMarks) : Math.min(text.length, offset + length + 140);
+  const sentence = text.slice(left, right);
+  const matches = [...sentence.matchAll(/(?:قانون|آیین[\u200c\s-]*نامه|تصویب[\u200c\s-]*نامه|بخشنامه)\s+[^،؛,.؟\n]{2,120}/gu)];
+  if (!matches.length) return '';
+  const citationPosition = offset - left;
+  const nearest = matches.sort((a, b) =>
+    Math.abs((a.index ?? 0) - citationPosition) - Math.abs((b.index ?? 0) - citationPosition))[0];
+  return String(nearest[0] || '').replace(/\s+(?:مقرر|بیان|اعلام|تصریح|تجویز|پیش[\u200c\s-]*بینی|است|باشد|می[\u200c\s-]*کند|می[\u200c\s-]*شود)\b[\s\S]*$/u, '').trim();
+}
+
+function legalTitleMatches(citationTitle, recordTitle) {
+  const citation = normalizeLegalTitle(citationTitle);
+  const record = normalizeLegalTitle(recordTitle);
+  if (!citation || !record) return false;
+  if (record.includes(citation) || citation.includes(record)) return true;
+  const aliases = [
+    ['قانون آیین دادرسی مدنی', 'قانون آیین دادرسی دادگاه های عمومی و انقلاب در امور مدنی'],
+    ['قانون ثبت', 'قانون ثبت اسناد و املاک'],
+  ];
+  return aliases.some(([alias, canonical]) => citation.includes(alias) && record.includes(canonical));
+}
+
 export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedContext = '') {
   if (typeof text !== 'string' || !text) return { text: text || '', changed: false, flagged: false };
   const resolved = resolveKnownLegalPlaceholders(text, legalArticles);
-  const allowed = new Set(legalArticles.map((item) => normalizeLegalDigits(item.articleNumber)));
   let changed = resolved !== text;
   let flagged = false;
-  let guarded = resolved.replace(/(?:ماده|مواد)\s*([۰-۹0-9]+(?:(?:\s*(?:،|,|و|تا|الی|[-–])\s*)[۰-۹0-9]+)*)/gu, (match, sequence) => {
+  let guarded = resolved.replace(/(?:ماده|مواد)\s*([۰-۹0-9]+(?:(?:\s*(?:،|,|و|تا|الی|[-–])\s*)[۰-۹0-9]+)*)/gu, (match, sequence, offset) => {
     const numbers = sequence.match(/[۰-۹0-9]+/g) || [];
     const range = /(?:تا|الی|[-–])/.test(sequence);
     const values = numbers.map(normalizeLegalDigits);
-    const unsupported = range && values.length === 2
-      ? (Number(values[1]) >= Number(values[0]) && Number(values[1]) - Number(values[0]) <= 100
-        ? Array.from({ length: Number(values[1]) - Number(values[0]) + 1 }, (_, i) => String(Number(values[0]) + i)).some((number) => !allowed.has(number))
-        : true)
-      : values.some((number) => !allowed.has(number));
+    const citationTitle = citationLawTitle(resolved, offset, match.length);
+    const recordsFor = (number) => legalArticles.filter((item) => normalizeLegalDigits(item.articleNumber) === number);
+    let unsupported = false;
+    if (range && values.length === 2) {
+      const start = Number(values[0]), end = Number(values[1]);
+      if (end < start || end - start > 100) unsupported = true;
+      else {
+        const lawCandidates = citationTitle
+          ? legalArticles.filter((item) => legalTitleMatches(citationTitle, item.lawTitle))
+          : [];
+        const candidateTitles = new Set((citationTitle ? lawCandidates : legalArticles).map((item) => normalizeLegalTitle(item.lawTitle)));
+        unsupported = !candidateTitles.size || (!citationTitle && candidateTitles.size !== 1);
+        if (!unsupported) {
+          const selectedTitle = [...candidateTitles][0];
+          for (let number = start; number <= end; number += 1) {
+            if (!recordsFor(String(number)).some((item) => normalizeLegalTitle(item.lawTitle) === selectedTitle)) {
+              unsupported = true;
+              break;
+            }
+          }
+        }
+      }
+    } else {
+      unsupported = values.some((number) => {
+        const matches = recordsFor(number);
+        if (citationTitle) return !matches.some((item) => legalTitleMatches(citationTitle, item.lawTitle));
+        return new Set(matches.map((item) => normalizeLegalTitle(item.lawTitle))).size !== 1;
+      });
+    }
     if (!unsupported) return match;
     changed = true;
     flagged = true;
-    return 'ماده [شماره نیازمند تطبیق با متن رسمی]';
+    return 'شماره ماده تأییدنشده';
   });
   guarded = guarded.replace(/([۰-۹0-9]{1,3})\s*(روز|ماه|هفته|سال)/gu, (match) => {
     const normalizedMatch = normalizeLegalDigits(match).replace(/\s+/g, ' ');
@@ -487,14 +542,10 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
     changed = true;
     flagged = true;
   }
-  guarded = guarded
-    .replace(/ماده\s*\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده تأییدنشده')
-    .replace(/\[شماره نیازمند تطبیق با متن رسمی\]/gu, 'شماره ماده تأییدنشده')
-    .replace(/\[مدت نیازمند تطبیق با منبع رسمی\]/gu, 'مدت نیازمند تطبیق با منبع رسمی');
+  guarded = guarded.replace(/\[مدت نیازمند تطبیق با منبع رسمی\]/gu, 'مدت نیازمند تطبیق با منبع رسمی');
   if (guarded !== text) changed = true;
   return { text: guarded, changed, flagged };
 }
-
 const DEFAULT_ATTACHMENT_MESSAGE = 'پیوست‌ها را بر اساس نوع کار و نوع سند انتخاب‌شده بررسی کن.';
 /** ورودی دستیار: JSON (بدون پیوست) یا multipart/form-data (با پیوست). فایل‌ها هرگز در لاگ یا تاریخچه ذخیره نمی‌شوند. */
 async function readAssistantInput(request) {
