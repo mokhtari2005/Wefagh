@@ -554,13 +554,18 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       seenQuestionKeys.add(key);
       return true;
     });
-    const freeQuestions = (Array.isArray(m.questions) ? m.questions : []).filter((question) => {
-      if (typeof question !== 'string' || !question.trim()) return false;
-      const key = questionKey(question);
-      if (!key || seenQuestionKeys.has(key)) return false;
-      seenQuestionKeys.add(key);
-      return true;
-    });
+    // اگر مدل برای مشاوره پرسش‌های انتخابی ساخته است، فهرست پرسش‌های متنیِ موازی
+    // نمایش داده نمی‌شود؛ این دو خروجی غالباً یک موضوع را با عبارت‌بندی متفاوت تکرار می‌کنند.
+    // پرسش‌های دستی فقط وقتی نمایش داده می‌شوند که هیچ پرسش انتخابی وجود نداشته باشد.
+    const freeQuestions = questionOptions.length
+      ? []
+      : (Array.isArray(m.questions) ? m.questions : []).filter((question) => {
+        if (typeof question !== 'string' || !question.trim()) return false;
+        const key = questionKey(question);
+        if (!key || seenQuestionKeys.has(key)) return false;
+        seenQuestionKeys.add(key);
+        return true;
+      });
     const questionItems = [
       ...questionOptions.filter((item) => item && typeof item.question === 'string').map((item) => ({
         question: item.question,
