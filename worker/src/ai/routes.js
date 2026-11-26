@@ -541,7 +541,7 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
     if (!unsupported) return match;
     changed = true;
     flagged = true;
-    return 'شماره ماده تأییدنشده';
+    return 'مستند قانونی این ارجاع در منابع تأییدشده این درخواست احراز نشد';
   });
   const source = normalizeGuardEvidence([verifiedContext, ...(Array.isArray(legalArticles) ? legalArticles.map((item) => `${item?.lawTitle || ''} ماده ${item?.articleNumber || ''} ${item?.body || ''}`) : [])].join('\n'));
   const markGuarded = () => { changed = true; flagged = true; };
