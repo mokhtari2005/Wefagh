@@ -32,7 +32,7 @@ test('بازیابی قضایی فقط رکوردهای دارای متن کام
   assert.equal(found[0].lawType, 'supreme_court_unified_precedent');
   assert.match(captured.sql, /l.status='verified' AND a.status='verified'/);
   assert.match(captured.sql, /l.law_type IN/);
-  assert.match(captured.sql, /l.document_number LIKE/);
+  assert.match(captured.sql, /l.document_number IN/);
   assert.ok(captured.bindings.length > 0);
 });
 
@@ -258,10 +258,10 @@ test('شماره رأی دقیق است و با شماره طولانی‌تر �
     prepare(sql) {
       return { bind(...bindings) {
         return { all: async () => {
-          assert.match(sql, /l\\.document_number IN/);
-          assert.match(sql, /l\\.document_date IN/);
-          assert.match(sql, /l\\.issuing_authority LIKE/);
-          assert.match(sql, /l\\.status='verified' AND a\\.status='verified'/);
+          assert.match(sql, /l\.document_number IN/);
+          assert.match(sql, /l\.document_date IN/);
+          assert.match(sql, /l\.issuing_authority LIKE/);
+          assert.match(sql, /l\.status='verified' AND a\.status='verified'/);
           assert.ok(bindings.includes('858'));
           return { results: [
             exact,
@@ -311,7 +311,7 @@ test('در جست‌وجوی موضوعی بدون شماره، بازیابی �
     },
   };
   const found = await findVerifiedJudicialAuthorities(db, 'رأی وحدت رویه درباره توقیف مال');
-  assert.match(captured.sql, /a\\.body LIKE/);
-  assert.doesNotMatch(captured.sql, /l\\.document_number IN/);
+  assert.match(captured.sql, /a\.body LIKE/);
+  assert.doesNotMatch(captured.sql, /l\.document_number IN/);
   assert.equal(found.length, 1);
 });
