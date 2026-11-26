@@ -62,6 +62,12 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:8080/ > /dev/null
 
+      - name: Verify lightweight assistant menu and homepage critical assets
+        env:
+          CI: true
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:8080
+        run: npx playwright test e2e/startup-performance.spec.js
+
       - name: Verify homepage academy shortcuts on desktop and mobile
         env:
           CI: true

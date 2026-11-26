@@ -2,7 +2,7 @@ import { h } from './dom.js';
 import { icon } from './icons.js';
 import { getJson, postJson } from './api.js';
 import { aiStatus, errorText } from './ai-client.js';
-import { CONTRACT_TYPES, ASSISTANT_NOTICE } from './assistant.js';
+import { CONTRACT_TYPES, ASSISTANT_NOTICE } from './assistant-config.js';
 
 const DOCS = [
  ['petition','دادخواست','file-text','تنظیم دادخواست حقوقی، خواسته و دلایل'],
