@@ -128,6 +128,8 @@ test('Workers AI Markdown Conversion extracts PDF and image content without reta
   assert.deepEqual(calls.map((call) => call.type), ['application/pdf', 'image/png']);
   assert.equal(result[0].text, '# متن رأی\nخواهان: علی');
   assert.equal(result[1].text, 'شرح تصویری مدرک');
+  assert.equal(result[0].truncated, false);
+  assert.equal(result[1].truncated, false);
   assert.equal(result[2].text.includes('دادخواست مطالبهٔ وجه'), true);
   assert.ok(result.every((item) => !Object.hasOwn(item, 'base64')));
 });
