@@ -541,9 +541,9 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
     if (!unsupported) return match;
     changed = true;
     flagged = true;
-    return 'شماره ماده تأییدنشده';
+    return 'مستند قانونی این ارجاع در منابع تأییدشده این درخواست احراز نشد';
   });
-  const source = normalizeGuardEvidence(verifiedContext);
+  const source = normalizeGuardEvidence([verifiedContext, ...(Array.isArray(legalArticles) ? legalArticles.map((item) => `${item?.lawTitle || ''} ماده ${item?.articleNumber || ''} ${item?.body || ''}`) : [])].join('\n'));
   const markGuarded = () => { changed = true; flagged = true; };
 
   // جای‌نگهدار استناد نامعتبر نباید در پاسخ نهایی باقی بماند.
@@ -555,11 +555,12 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
     markGuarded,
   );
 
-  // مهلت‌های نوشته‌شده با حروف نیز باید در منبع احراز شوند.
+  // مهلت‌های نوشته‌شده با حروف نیز باید در منبع احراز شوند؛ مدت‌های صرفاً توصیفی پرونده حذف نمی‌شوند.
   guarded = replaceUnsupportedLegalSentences(
     guarded,
     /(?:[۰-۹0-9]{1,3}|یک|دو|سه|چهار|پنج|شش|هفت|هشت|نه|ده|یازده|دوازده|پانزده|بیست|سی|چهل|پنجاه|شصت|نود|صد)\s*(?:روز|ماه|هفته|سال)/u,
     (segment) => {
+      if (!/(?:مهلت|ظرف|از تاریخ ابلاغ|پس از گذشت|قابل اعتراض|اعتراض|پرداخت|تجدیدنظر|واخواهی|ابلاغ)/u.test(segment)) return true;
       const match = normalizeGuardEvidence(segment).match(/(?:[۰-۹0-9]{1,3}|یک|دو|سه|چهار|پنج|شش|هفت|هشت|نه|ده|یازده|دوازده|پانزده|بیست|سی|چهل|پنجاه|شصت|نود|صد)\s*(?:روز|ماه|هفته|سال)/u);
       return Boolean(match && source.includes(match[0]));
     },
@@ -573,7 +574,8 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
     /[۰-۹0-9]+\s*(?:میلیون|میلیارد)\s*(?:تومان|ریال)/u,
     (segment) => {
       const match = normalizeGuardEvidence(segment).match(/[۰-۹0-9]+\s*(?:میلیون|میلیارد)\s*(?:تومان|ریال)/u);
-      return Boolean(match && source.includes(match[0]));
+      if (!/(?:نصاب|صلاحیت|دادگاه|مرجع|بیشتر از|کمتر از|بیش از|تا سقف|مگر)/u.test(segment)) return true;
+      return Boolean(match && source.includes(match[0]) && /دادگاه/u.test(source) && /صلاحیت|مرجع رسیدگی/u.test(source));
     },
     'نصاب مالی قانونی در منابع تأییدشده این درخواست احراز نشد.',
     markGuarded,
@@ -587,6 +589,28 @@ export function guardUnverifiedLegalClaims(text, legalArticles = [], verifiedCon
       return sourceHasCompetence && (claim.includes('دادگاه صلح') ? source.includes('دادگاه صلح') : /شورای حل اختلاف/u.test(source));
     },
     'مرجع صالح رسیدگی در منابع تأییدشده این درخواست احراز نشد.',
+    markGuarded,
+  );
+
+  guarded = replaceUnsupportedLegalSentences(
+    guarded,
+    /(?:مالک|مستأجر|استفاده‌کننده).{0,70}(?:ملزم|موظف|مسئول).{0,70}(?:شارژ|هزینه‌های مشترک|هزینه مشترک)|(?:شارژ|هزینه‌های مشترک|هزینه مشترک).{0,70}(?:بر عهده|به عهده).{0,50}(?:مالک|مستأجر|استفاده‌کننده)/u,
+    () => source.includes('قانون تملک آپارتمان') && source.includes('ماده 4') && source.includes('مالک'),
+    'مبنای دقیق مسئولیت مالک یا استفاده‌کننده در منابع تأییدشده این درخواست احراز نشد.',
+    markGuarded,
+  );
+  guarded = replaceUnsupportedLegalSentences(
+    guarded,
+    /(?:هزینه‌های مشترک|هزینه مشترک|شارژ).{0,100}(?:مساحت|متراژ|ارزش ساختمان|سهم هر واحد)/u,
+    () => source.includes('قانون تملک آپارتمان') && source.includes('ماده 4'),
+    'مبنای قانونی شیوه تقسیم هزینه‌های مشترک در منابع تأییدشده این درخواست احراز نشد.',
+    markGuarded,
+  );
+  guarded = replaceUnsupportedLegalSentences(
+    guarded,
+    /(?:انتقال|معامله|فروش).{0,70}مال توقیف‌شده.{0,70}(?:باطل|بلااثر|غیرنافذ)/u,
+    () => source.includes('قانون اجرای احکام مدنی') && source.includes('ماده 56'),
+    'اثر حقوقی انتقال مال توقیف‌شده در منبع تأییدشده این درخواست احراز نشد.',
     markGuarded,
   );
 

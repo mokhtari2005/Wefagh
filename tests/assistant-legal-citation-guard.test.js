@@ -21,7 +21,7 @@ const laborArticle = {
 test('شماره ماده موجود در قانون دیگر، استناد به قانون مدنی را تأیید نمی‌کند', () => {
   const result = guardUnverifiedLegalClaims('به موجب ماده ۵۶ قانون مدنی، انتقال باطل است.', [executionArticle]);
   assert.equal(result.flagged, true);
-  assert.match(result.text, /شماره ماده تأییدنشده/);
+  assert.match(result.text, /مستند قانونی این ارجاع در منابع تأییدشده این درخواست احراز نشد/);
   assert.doesNotMatch(result.text, /ماده ۵۶ قانون مدنی/);
 });
 
@@ -34,7 +34,7 @@ test('استناد صریح با نام قانون درست، حتی با شما
 test('استناد بدون نام قانون و با شماره مشترک میان چند قانون، تأیید نمی‌شود', () => {
   const result = guardUnverifiedLegalClaims('مطابق ماده ۱۰، قرارداد معتبر است.', [civilArticle, laborArticle]);
   assert.equal(result.flagged, true);
-  assert.match(result.text, /شماره ماده تأییدنشده/);
+  assert.match(result.text, /مستند قانونی این ارجاع در منابع تأییدشده این درخواست احراز نشد/);
 });
 
 test('استناد بدون نام قانون فقط وقتی حفظ می‌شود که در زمینه بازیابی‌شده به یک قانون یکتا تعلق داشته باشد', () => {
