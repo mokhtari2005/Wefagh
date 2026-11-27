@@ -1001,9 +1001,27 @@ async function ekhtebarAnswer(request, env) {
 export async function handleAi(request, env, path) {
   // شناسه درخواست برای تطبیق گزارش مرورگر با گزارش امن Worker؛ هیچ محتوای پرونده‌ای ثبت نمی‌شود.
   const requestId = aiRequestId(request);
+  const startedAt = Date.now();
+  const isAssistantRequest = path === '/api/ai/assistant';
+  const attemptValue = request.headers.get('x-client-request-attempt') || '';
+  const attempt = /^[1-3]$/.test(attemptValue) ? Number(attemptValue) : 1;
+  if (isAssistantRequest) {
+    console.info(JSON.stringify({ where: 'ai_transport', event: 'received', requestId, attempt, method: request.method }));
+  }
   try {
-    return withAiRequestId(await routeAi(request, env, path), requestId);
+    const response = withAiRequestId(await routeAi(request, env, path), requestId);
+    if (isAssistantRequest) {
+      console.info(JSON.stringify({
+        where: 'ai_transport', event: 'completed', requestId, attempt,
+        status: response?.status || 0, elapsedMs: Date.now() - startedAt,
+      }));
+    }
+    return response;
   } catch (err) {
+    if (isAssistantRequest) {
+      const errorType = typeof err?.name === 'string' && /^[A-Za-z][A-Za-z0-9]{0,39}$/.test(err.name) ? err.name : 'Error';
+      console.error(JSON.stringify({ where: 'ai_transport', event: 'thrown', requestId, attempt, error: errorType, elapsedMs: Date.now() - startedAt }));
+    }
     return withAiRequestId(aiFailure(err, 'router', requestId), requestId);
   }
 }
