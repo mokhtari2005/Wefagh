@@ -52,6 +52,10 @@ def probe():
         if robots_response.status_code in (401, 403, 429):
             report.update(status="blocked", reason="robots_http_" + str(robots_response.status_code))
             return report
+        report["robots_status"] = robots_response.status_code
+        if robots_response.status_code not in (200, 404):
+            report.update(status="blocked", reason="robots_http_" + str(robots_response.status_code))
+            return report
         if robots_response.status_code == 200:
             robots = RobotFileParser()
             robots.set_url(BASE + "robots.txt")
@@ -60,7 +64,8 @@ def probe():
                 report.update(status="disallowed_by_robots")
                 return report
 
-        params = {"size": "1000", "PageNumber": "1", "SortColumn": "APPROVEDATE", "SortDesc": "True"}
+        # Start with the same small, unfiltered request used by the public search client.
+        params = {"size": "25"}
         url = BASE + "?" + urlencode(params)
         response = requests.get(url, headers={
             "User-Agent": USER_AGENT,
@@ -85,11 +90,17 @@ def probe():
         count = re.search(r"(?:تعداد\s*یافته\s*ها|تعداد\s*یافته‌ها|تعداد\s*نتایج)\s*[:：]?\s*([0-9,٬]+)", plain)
         parser = ResultLinks()
         parser.feed(html)
+        title_match = re.search(r"<title[^>]*>(.*?)</title>", html, re.I | re.S)
         report.update(
             status="accessible" if parser.ids or count else "accessible_unparsed",
             result_count=int(re.sub(r"[,٬]", "", count.group(1))) if count else None,
             first_page_ids=len(parser.ids),
             page_selector_options=parser.page_options,
+            page_title=re.sub(r"\s+", " ", title_match.group(1)).strip()[:200] if title_match else None,
+            has_result_count_marker="تعداد یافته ها" in html,
+            body_preview=plain[:1200],
+            content_type=response.headers.get("Content-Type"),
+            content_length=response.headers.get("Content-Length"),
         )
         return report
     except requests.RequestException as exc:
