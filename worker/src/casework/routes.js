@@ -83,14 +83,14 @@ function fileKind(name, declared) {
   if (!allowed[ext].includes(mime)) return null;
   return { ext, mime };
 }
-function signatureOk(bytes, ext) {
+function signatureOk(bytes, ext, generated = false) {
   const starts = (...values) => values.every((v,i) => bytes[i] === v);
   if (ext === 'pdf') return bytes.length > 5 && new TextDecoder().decode(bytes.slice(0,5)) === '%PDF-';
   if (ext === 'png') return starts(0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a);
   if (ext === 'jpg' || ext === 'jpeg') return starts(0xff,0xd8,0xff);
   if (ext === 'webp') return bytes.length > 12 && new TextDecoder().decode(bytes.slice(0,4)) === 'RIFF' && new TextDecoder().decode(bytes.slice(8,12)) === 'WEBP';
   if (ext === 'docx') return starts(0x50,0x4b,0x03,0x04);
-  if (ext === 'doc') return starts(0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1);
+  if (ext === 'doc') return starts(0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1) || (generated && /^\\s*<!doctype html|^\\s*<html/i.test(new TextDecoder().decode(bytes.slice(0,256))));
   return ext === 'txt' || ext === 'rtf';
 }
 async function listCases(env, userId, url) {
@@ -216,14 +216,14 @@ async function uploadDocument(request,env,userId,caseId) {
   const length=Number(request.headers.get('content-length')||0);
   if(length>MAX_FILE_BYTES) return fail('FILE_TOO_LARGE',413);
   const bytes=new Uint8Array(await request.arrayBuffer());
-  if(!bytes.length||bytes.length>MAX_FILE_BYTES||!signatureOk(bytes,kind.ext)) return fail('INVALID_FILE_CONTENT',422);
+  if(!bytes.length||bytes.length>MAX_FILE_BYTES||!signatureOk(bytes,kind.ext,request.headers.get('x-source-kind')==='generated')) return fail('INVALID_FILE_CONTENT',422);
   const serviceId=request.headers.get('x-service-id')||null;
   if(serviceId){const service=await ownService(env,userId,serviceId);if(!service||service.case_id!==caseId)return fail('SERVICE_NOT_FOUND',404);}
   const documentType=request.headers.get('x-document-type')||'attachment';
   if(!DOCUMENT_TYPES.has(documentType))return fail('INVALID_DOCUMENT_TYPE',422);
   const sourceKind=request.headers.get('x-source-kind')||'upload';
   if(!['upload','generated'].includes(sourceKind))return fail('INVALID_SOURCE_KIND',422);
-  if(sourceKind==='generated'&&kind.ext!=='txt')return fail('INVALID_GENERATED_DOCUMENT_TYPE',422);
+  if(sourceKind==='generated'&&!['txt','doc'].includes(kind.ext))return fail('INVALID_GENERATED_DOCUMENT_TYPE',422);
   const versionOf=request.headers.get('x-version-of')||'';
   let versionGroup=id(),versionNumber=1,parentId=null;
   if(versionOf){
