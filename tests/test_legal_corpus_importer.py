@@ -65,20 +65,40 @@ class LegalCorpusImporterTests(unittest.TestCase):
             {"slug": "changed-law", "contentSha256": "c" * 64},
         ]
         existing = [
-            {"slug": "same-law", "content_sha256": "b" * 64},
-            {"slug": "changed-law", "content_sha256": "d" * 64},
+            {"slug": "same-law", "content_sha256": "b" * 64, "status": "needs_review", "protected_articles": 0},
+            {"slug": "changed-law", "content_sha256": "d" * 64, "status": "needs_review", "protected_articles": 0},
+            {"slug": "protected-law", "content_sha256": "e" * 64, "status": "verified", "protected_articles": 0},
+            {"slug": "rehash-law", "content_sha256": None, "status": "needs_review", "protected_articles": 0},
         ]
-        new_docs, changed_docs, unchanged = importer.partition_document_updates(docs, existing)
+        docs.extend([
+            {"slug": "protected-law", "contentSha256": "f" * 64},
+            {"slug": "rehash-law", "contentSha256": "g" * 64},
+        ])
+        new_docs, refreshable, protected, unchanged = importer.partition_document_updates(docs, existing)
         self.assertEqual([doc["slug"] for doc in new_docs], ["new-law"])
-        self.assertEqual([(doc["slug"], old_hash) for doc, old_hash in changed_docs], [("changed-law", "d" * 64)])
+        self.assertEqual([(doc["slug"], old_hash) for doc, old_hash in refreshable], [
+            ("changed-law", "d" * 64), ("rehash-law", None)
+        ])
+        self.assertEqual([(doc["slug"], old_hash) for doc, old_hash in protected], [("protected-law", "e" * 64)])
         self.assertEqual(unchanged, 1)
 
-    def test_automatic_updates_are_review_queued_not_overwritten(self):
+    def test_automatic_updates_preserve_verified_documents_and_refresh_only_unverified(self):
         migration = (MODULE_PATH.parent.parent / "worker" / "migrations" / "0039_legal_document_update_queue.sql").read_text(encoding="utf-8")
         self.assertIn("proposed_payload_json", migration)
         self.assertIn("previous_sha256", migration)
         self.assertIn("UNIQUE(slug, proposed_sha256)", migration)
         self.assertIn("DEFAULT 'needs_review'", migration)
+        statements = importer.refresh_statements({
+            "slug":"sample-law","title":"قانون نمونه","lawType":"law","sourceName":"اختبار",
+            "sourceUrl":"https://www.ekhtebar.ir/sample/","notes":"needs review",
+            "officialSourceUrl":"","discoverySourceUrl":"https://www.ekhtebar.ir/sample/",
+            "contentSha256":"a"*64,"articles":[{"number":"1","heading":"ماده ۱","body":"متن"}]
+        })
+        combined = "\n".join(sql for sql,_ in statements)
+        self.assertIn("status='needs_review'", combined)
+        self.assertIn("NOT EXISTS", combined)
+        self.assertIn("p.status IN ('verified','amended','repealed')", combined)
+        self.assertIn("review_status='accepted'", combined)
 
     def test_priority_coverage_distinguishes_present_missing_and_repealed(self):
         manifest = {
