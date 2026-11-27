@@ -298,24 +298,38 @@ function pageNotFound() {
 
 function pageAccount(params) {
   return lazy(async () => {
-    const { loginForm, registerForm, accountPanel } = await import('./account.js');
+    const { loginForm, registerForm, forgotPasswordForm, accountPanel } = await import('./account.js?v=20261127-password-recovery-visibility-2');
     const wrap = h('div');
     const area = h('div', { role: 'region', 'aria-live': 'polite' });
     wrap.append(area);
     const showLogin = () => {
       area.replaceChildren(
         h('h1', { text: 'ورود به حساب' }),
-        loginForm({ onSuccess: () => { window.location.hash = '#/account'; render(); } })
+        loginForm({ onSuccess: () => { window.location.hash = '#/account'; render(); } }),
+        h('p', { class: 'account-recovery-entry' }, [
+          h('a', { href: '#/account?mode=forgot', text: 'رمز عبور را فراموش کرده‌اید؟' }),
+        ])
       );
+    };
+    const showForgot = () => {
+      area.replaceChildren(h('h1', { text: 'بازیابی رمز عبور' }), forgotPasswordForm());
     };
     const showRegister = () => {
       area.replaceChildren(h('h1', { text: 'ثبت‌نام' }), registerForm({ onLoginLink: showLogin }));
     };
     if (params.mode === 'register') { showRegister(); return wrap; }
+    if (params.mode === 'forgot') { showForgot(); return wrap; }
     area.replaceChildren(h('p', { class: 'loading', text: 'در حال بررسی…' }));
     const panel = await accountPanel({ onLogout: () => render() });
     if (panel) area.replaceChildren(panel); else showLogin();
     return wrap;
+  });
+}
+
+function pageResetPassword(params) {
+  return lazy(async () => {
+    const { resetPasswordForm } = await import('./account.js?v=20261127-password-recovery-1');
+    return h('div', {}, [h('h1', { text: 'تعیین رمز عبور جدید' }), resetPasswordForm(params.token || '')]);
   });
 }
 
@@ -332,6 +346,7 @@ const ROUTES = {
   '/contact': () => pageContact(),
   '/account': (params) => pageAccount(params),
   '/verify': (params) => pageVerify(params),
+  '/reset-password': (params) => pageResetPassword(params),
   '/academy': () => lazy(async () => (await import('./academy.js?v=20261119-media-nav-title-2')).academyList()),
   '/academy/courses': () => lazy(async () => (await import('./academy.js?v=20261119-media-nav-title-2')).academyCoursesPage()),
   '/courses': () => lazy(async () => (await import('./academy.js?v=20261119-media-nav-title-2')).academyCoursesPage()),

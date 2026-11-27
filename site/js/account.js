@@ -97,6 +97,60 @@ export function loginForm({ onSuccess, onRegister }) {
 // فرم ثبت‌نام چندمرحله‌ای در register.js است.
 export { registerForm } from './register.js';
 
+/** فرم درخواست لینک بازیابی رمز عبور. */
+export function forgotPasswordForm() {
+  const email = h('input', { type: 'email', name: 'email', autocomplete: 'email', dir: 'ltr', required: '' });
+  const status = h('p', { class: 'form-status', role: 'status', 'aria-live': 'polite' });
+  const submit = h('button', { class: 'btn', type: 'submit', text: 'ارسال لینک بازیابی' });
+  const form = h('form', { class: 'form', novalidate: '', 'aria-label': 'بازیابی رمز عبور' }, [
+    field('forgot-email', 'ایمیل حساب کاربری', email),
+    submit, status,
+    h('p', {}, [h('a', { href: '#/account', text: 'بازگشت به ورود' })]),
+  ]);
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!email.value.trim()) { setStatus(status, 'ایمیل را وارد کنید.', 'err'); return; }
+    submit.disabled = true; setStatus(status, 'در حال ارسال درخواست…');
+    const res = await postJson('/api/auth/request-password-reset', { email: email.value.trim() });
+    submit.disabled = false;
+    const errorText = messageFor(res.networkError ? 'NETWORK' : res.data?.error);
+    const diagnostic = !res.ok ? `\nکد پیگیری: ${res.requestId || 'نامشخص'}${res.status ? ` | HTTP ${res.status}` : ''}` : '';
+    setStatus(status, res.ok ? (res.data?.message || 'در صورت وجود حساب، لینک بازیابی ارسال می‌شود.') : `${errorText}${diagnostic}`, res.ok ? 'ok' : 'err');
+  });
+  return form;
+}
+
+/** فرم ثبت رمز جدید از طریق لینک ایمیل. */
+export function resetPasswordForm(token) {
+  const password = h('input', { type: 'password', name: 'password', autocomplete: 'new-password', minlength: '10', required: '' });
+  const confirm = h('input', { type: 'password', name: 'confirmPassword', autocomplete: 'new-password', minlength: '10', required: '' });
+  const status = h('p', { class: 'form-status', role: 'status', 'aria-live': 'polite' });
+  const submit = h('button', { class: 'btn', type: 'submit', text: 'ثبت رمز جدید' });
+  const form = h('form', { class: 'form', novalidate: '', 'aria-label': 'تعیین رمز جدید' }, [
+    field('reset-password', 'رمز جدید (حداقل ۱۰ نویسه)', password),
+    field('reset-confirm', 'تکرار رمز جدید', confirm),
+    submit, status,
+  ]);
+  if (!token) { submit.disabled = true; setStatus(status, messageFor('INVALID_TOKEN'), 'err'); }
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (password.value !== confirm.value) { setStatus(status, 'تکرار رمز با رمز جدید یکسان نیست.', 'err'); return; }
+    submit.disabled = true; setStatus(status, 'در حال تغییر رمز…');
+    const res = await postJson('/api/auth/reset-password', { token, password: password.value });
+    submit.disabled = false;
+    password.value = ''; confirm.value = '';
+    if (res.ok) {
+      setStatus(status, 'رمز عبور با موفقیت تغییر کرد. اکنون می‌توانید وارد شوید.', 'ok');
+      form.append(h('p', {}, [h('a', { class: 'btn', href: '#/account', text: 'ورود به حساب' })]));
+      submit.disabled = true;
+    } else {
+      setStatus(status, messageFor(res.networkError ? 'NETWORK' : res.data?.error), 'err');
+    }
+  });
+  return form;
+}
+
+
 // ---------- تأیید ایمیل (از لینک ایمیل) ----------
 export async function verifyPanel(token) {
   const wrap = h('div', {}, [h('h1', { text: 'تأیید ایمیل' })]);
