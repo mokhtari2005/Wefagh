@@ -820,8 +820,14 @@ async function assistant(request, env) {
       for (const key of allowedDraftFields) if (typeof data.knownFields[key] === 'string') knownFields[key] = data.knownFields[key].trim().slice(0, 1200);
     }
     const notes = Array.isArray(data.notes) ? data.notes.filter((n) => typeof n === 'string').slice(0, 10) : [];
-    if (provider === 'groq') notes.push('به‌دلیل در دسترس نبودن مدل اصلی و مسیر جایگزین نخست، پاسخ با مسیر پشتیبان تولید شد.');
-    if (provider === 'gemini' && attachments.length === 0) notes.push('مدل اصلی GPT در دسترس نبود یا کلید آن روی سرور فعال نشده بود؛ پاسخ با مدل جایگزین تهیه شد.');
+    if (env.AI_BILLING_MODE === 'zero') {
+      if (provider === 'gemini') notes.push('پاسخ با Gemini 3.5 Flash-Lite در مسیر رایگان تهیه شد.');
+      if (provider === 'groq') notes.push('Gemini در دسترس نبود؛ پاسخ با مدل رایگان Groq تهیه شد.');
+      if (provider === 'cloudflare') notes.push('Gemini و Groq در دسترس نبودند؛ پاسخ با مسیر رایگان Cloudflare تهیه شد.');
+    } else {
+      if (provider === 'groq') notes.push('به‌دلیل در دسترس نبودن مدل اصلی و مسیر جایگزین نخست، پاسخ با مسیر پشتیبان تولید شد.');
+      if (provider === 'gemini' && attachments.length === 0) notes.push('مدل اصلی GPT در دسترس نبود یا کلید آن روی سرور فعال نشده بود؛ پاسخ با مدل جایگزین تهیه شد.');
+    }
     if (legalBankUnavailable) notes.push('بانک قوانین در این درخواست پاسخ نداد؛ پاسخ بدون استناد به مواد ثبت‌شده در بانک تهیه شد و استنادها باید جداگانه بررسی شوند.');
     const rawText = typeof data.text === 'string' ? data.text : '';
     const guardedText = guardUnverifiedLegalClaims(rawText, promptArticles, legalContext);

@@ -116,15 +116,19 @@ test('confirmed Gemini free tier is the zero-cost primary and uses only Gemini 3
   }
 });
 
-test('Gemini free-tier quota failure does not retry Gemini 3.8 or call another provider', async () => {
+test('Gemini quota exhaustion fails over to Groq Free without trying Gemini 3.8 or OpenAI', async () => {
   const originalFetch = globalThis.fetch;
   const calls = [];
-  let workersCalls = 0;
-  globalThis.fetch = async (url) => {
-    calls.push(String(url));
-    return new Response(JSON.stringify({ error: { status: 'RESOURCE_EXHAUSTED' } }), {
-      status: 429, headers: { 'content-type': 'application/json' },
-    });
+  globalThis.fetch = async (url, init = {}) => {
+    calls.push({ url: String(url), body: init.body ? JSON.parse(init.body) : null });
+    if (String(url).includes('generativelanguage.googleapis.com')) {
+      return new Response(JSON.stringify({ error: { status: 'RESOURCE_EXHAUSTED' } }), {
+        status: 429, headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({ status: 'ready', text: 'پاسخ از مسیر پشتیبان رایگان.' }) } }],
+    }), { status: 200, headers: { 'content-type': 'application/json' } });
   };
   try {
     const env = {
@@ -132,14 +136,113 @@ test('Gemini free-tier quota failure does not retry Gemini 3.8 or call another p
       GEMINI_FREE_TIER_CONFIRMED: 'true',
       GEMINI_TEXT_MODEL: 'gemini-3.5-flash-lite',
       GEMINI_API_KEY: 'test-gemini-free-tier-key',
-      AI: { run: async () => { workersCalls += 1; return { response: '{}' }; } },
+      GROQ_FREE_TIER_CONFIRMED: 'true',
       GROQ_API_KEY: 'test-groq-key-0123456789',
       OPENAI_API_KEY: 'test-openai-key-0123456789',
+      AI: { run: async () => { throw new Error('Workers AI must not be called after Groq succeeds'); } },
     };
-    await assert.rejects(generateTextWithFallback(env, prompt), error => error?.code === 'AI_QUOTA');
+    const result = await generateTextWithFallback(env, prompt);
+    assert.equal(result.provider, 'groq');
+    assert.equal(result.fallbackFrom, 'gemini');
+    assert.equal(result.data.status, 'ready');
+    assert.equal(calls.length, 2);
+    assert.match(calls[0].url, /gemini-3\.5-flash-lite/);
+    assert.equal(calls.some(call => call.url.includes('gemini-3.8-flash')), false);
+    assert.match(calls[1].url, /api\.groq\.com/);
+    assert.equal(calls[1].body.model, 'openai/gpt-oss-120b');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('Groq falls back from 120B to 20B on quota, then returns the first successful free model', async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, init = {}) => {
+    calls.push({ url: String(url), body: init.body ? JSON.parse(init.body) : null });
+    if (String(url).includes('generativelanguage.googleapis.com')) {
+      return new Response(JSON.stringify({ error: { status: 'UNAVAILABLE' } }), { status: 503 });
+    }
+    if (calls.length === 2) return new Response(JSON.stringify({ error: { message: 'rate limit' } }), { status: 429 });
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({ status: 'ready', text: 'پاسخ از مدل دوم رایگان.' }) } }],
+    }), { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  try {
+    const result = await generateTextWithFallback({
+      AI_BILLING_MODE: 'zero',
+      GEMINI_FREE_TIER_CONFIRMED: 'true',
+      GEMINI_TEXT_MODEL: 'gemini-3.5-flash-lite',
+      GEMINI_API_KEY: 'test-gemini-free-tier-key',
+      GROQ_FREE_TIER_CONFIRMED: 'true',
+      GROQ_API_KEY: 'test-groq-key-0123456789',
+    }, prompt);
+    assert.equal(result.provider, 'groq');
+    assert.equal(result.model, 'openai/gpt-oss-20b');
+    assert.equal(calls.length, 3);
+    assert.equal(calls[1].body.model, 'openai/gpt-oss-120b');
+    assert.equal(calls[2].body.model, 'openai/gpt-oss-20b');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('Workers AI is the final free fallback when both Gemini and Groq are unavailable', async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  let workersCalls = 0;
+  globalThis.fetch = async (url) => {
+    calls.push(String(url));
+    return new Response(JSON.stringify({ error: { status: 'UNAVAILABLE' } }), { status: 503 });
+  };
+  try {
+    const result = await generateTextWithFallback({
+      AI_BILLING_MODE: 'zero',
+      GEMINI_FREE_TIER_CONFIRMED: 'true',
+      GEMINI_TEXT_MODEL: 'gemini-3.5-flash-lite',
+      GEMINI_API_KEY: 'test-gemini-free-tier-key',
+      GROQ_FREE_TIER_CONFIRMED: 'true',
+      GROQ_API_KEY: 'test-groq-key-0123456789',
+      WORKERS_AI_FREE_PLAN_CONFIRMED: 'true',
+      WORKERS_AI_PRIMARY_ENABLED: 'true',
+      AI: { run: async () => {
+        workersCalls += 1;
+        return { response: JSON.stringify({ status: 'ready', text: 'پاسخ از مسیر رایگان سوم.' }) };
+      } },
+    }, prompt);
+    assert.equal(result.provider, 'cloudflare');
+    assert.equal(result.fallbackFrom, 'groq');
+    assert.equal(workersCalls, 1);
+    assert.equal(calls.length, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('binary attachments never leave Gemini for Groq or Workers AI automatically', async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  let workersCalls = 0;
+  globalThis.fetch = async (url) => {
+    calls.push(String(url));
+    return new Response(JSON.stringify({ error: { status: 'UNAVAILABLE' } }), { status: 503 });
+  };
+  try {
+    await assert.rejects(generateTextWithFallback({
+      AI_BILLING_MODE: 'zero',
+      GEMINI_FREE_TIER_CONFIRMED: 'true',
+      GEMINI_TEXT_MODEL: 'gemini-3.5-flash-lite',
+      GEMINI_API_KEY: 'test-gemini-free-tier-key',
+      GROQ_FREE_TIER_CONFIRMED: 'true',
+      GROQ_API_KEY: 'test-groq-key-0123456789',
+      WORKERS_AI_FREE_PLAN_CONFIRMED: 'true',
+      WORKERS_AI_PRIMARY_ENABLED: 'true',
+      AI: { run: async () => { workersCalls += 1; return { response: '{}' }; } },
+    }, {
+      ...prompt,
+      contents: [{ role: 'user', parts: [{ text: 'بررسی تصویر' }, { inlineData: { mimeType: 'image/png', data: 'AA==' } }] }],
+    }), error => error?.code === 'AI_PROVIDER_ERROR');
     assert.equal(calls.length, 1);
-    assert.match(calls[0], /gemini-3\.5-flash-lite/);
-    assert.equal(calls.some(url => url.includes('gemini-3.8-flash')), false);
     assert.equal(workersCalls, 0);
   } finally {
     globalThis.fetch = originalFetch;
@@ -196,4 +299,33 @@ test('Workers AI quota exhaustion is not retried and never invokes another provi
     error => error?.code === 'AI_ZERO_COST_QUOTA',
   );
   assert.equal(calls, 1);
+});
+
+
+test('Gemini content blocks are not bypassed by switching providers', async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url) => {
+    calls.push(String(url));
+    return new Response(JSON.stringify({ promptFeedback: { blockReason: 'SAFETY' } }), {
+      status: 200, headers: { 'content-type': 'application/json' },
+    });
+  };
+  try {
+    await assert.rejects(generateTextWithFallback({
+      AI_BILLING_MODE: 'zero',
+      GEMINI_FREE_TIER_CONFIRMED: 'true',
+      GEMINI_TEXT_MODEL: 'gemini-3.5-flash-lite',
+      GEMINI_API_KEY: 'test-gemini-free-tier-key',
+      GROQ_FREE_TIER_CONFIRMED: 'true',
+      GROQ_API_KEY: 'test-groq-key-0123456789',
+      WORKERS_AI_FREE_PLAN_CONFIRMED: 'true',
+      WORKERS_AI_PRIMARY_ENABLED: 'true',
+      AI: { run: async () => { throw new Error('must not bypass a content block'); } },
+    }, prompt), error => error?.code === 'AI_BLOCKED');
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].includes('generativelanguage.googleapis.com'), true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
