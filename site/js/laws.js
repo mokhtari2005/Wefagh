@@ -14,7 +14,8 @@ const TYPE_LABELS = {
   advisory_opinion: 'نظریه مشورتی', guardian_council_opinion: 'نظر تفسیری شورای نگهبان',
   parliamentary_review_opinion: 'نظر رئیس مجلس', parliamentary_research: 'پژوهش حقوقی مجلس',
   judicial_circular: 'بخشنامه قضایی', judicial_decision: 'رأی قضایی',
-  judicial_session: 'نشست قضایی', bill: 'طرح و لایحه', other: 'سایر اسناد',
+  judicial_session: 'نشست قضایی', bill: 'طرح و لایحه', interpretive_law: 'قانون تفسیری و استفساریه',
+  expediency_council_resolution: 'مصوبه مجمع تشخیص مصلحت', fatwa: 'استفتاء و مسئله فقهی', other: 'سایر اسناد',
 };
 
 const h = (tag, attrs = {}, children = []) => {
@@ -234,13 +235,26 @@ export function legalBankPage() {
       const byType = new Map();
       for (const row of data.byType || []) byType.set(row.type, (byType.get(row.type) || 0) + Number(row.count || 0));
       const sum = (types) => types.reduce((total, type) => total + (byType.get(type) || 0), 0);
+      const byType = new Map();
+      const byTypeVerified = new Map();
+      for (const row of data.byType || []) {
+        byType.set(row.type, (byType.get(row.type) || 0) + Number(row.count || 0));
+        if (row.status === 'verified') byTypeVerified.set(row.type, (byTypeVerified.get(row.type) || 0) + Number(row.count || 0));
+      }
+      const sum = (types) => types.reduce((total, type) => total + (byType.get(type) || 0), 0);
       statsArea.replaceChildren(
-        statCard('قانون و معاهده', sum(['law','treaty']), fa(docs.verified) + ' تأییدشده', '§'),
-        statCard('آیین‌نامه و مقرره', sum(['bylaw','executive_regulation','executive_circular','circular','executive_resolution']), fa(docs.needsReview) + ' در حال بررسی', '▤'),
+        statCard('قانون', sum(['law']), fa(byTypeVerified.get('law') || 0) + ' تأییدشده', '§'),
+        statCard('آیین‌نامه و مقرره', sum(['bylaw','executive_regulation']), fa(sum(['executive_circular','circular','executive_resolution'])) + ' بخشنامه و مصوبه', '▤'),
         statCard('ماده و بخش ثبت‌شده', articles.total, fa(articles.verified) + ' دارای متن تأییدشده', '¶'),
-        statCard('آرای وحدت رویه', sum(['supreme_court_unified_precedent','supreme_court_insistence_precedent','administrative_court_unified_precedent']), 'دیوان عالی و دیوان عدالت اداری', '⚖'),
-        statCard('آرای هیئت عمومی', sum(['administrative_court_general_board','administrative_court_specialized_board']), 'دیوان عدالت اداری', '◈'),
-        statCard('نظریات مشورتی', sum(['judicial_advisory_opinion','advisory_opinion']), 'اداره کل حقوقی و سایر مراجع', '❞'),
+        statCard('رأی وحدت رویه دیوان عالی کشور', sum(['supreme_court_unified_precedent','supreme_court_insistence_precedent']), 'آرای وحدت رویه و اصراری', '⚖'),
+        statCard('رأی هیئت عمومی دیوان عدالت اداری', sum(['administrative_court_general_board','administrative_court_unified_precedent']), 'آرای هیئت عمومی و وحدت رویه', '◈'),
+        statCard('نظریه مشورتی اداره کل حقوقی', sum(['judicial_advisory_opinion','advisory_opinion']), 'نظریات و پاسخ‌های مشورتی', '❞'),
+        statCard('بخش مصوبه و بخشنامه', sum(['executive_resolution','executive_circular','judicial_circular','circular']), 'مصوبات و دستورالعمل‌ها', '▧'),
+        statCard('نظر تفسیری شورای نگهبان', sum(['guardian_council_opinion']), 'نظرات تفسیری و اعلام نظرها', '⚖'),
+        statCard('قانون تفسیری و استفساریه', sum(['interpretive_law']), 'قوانین و اسناد تفسیری', '§'),
+        statCard('مصوبه مجمع تشخیص مصلحت', sum(['expediency_council_resolution']), 'مصوبات ثبت‌شده مجمع', '◉'),
+        statCard('استفتاء و مسئله فقهی', sum(['fatwa']), 'پرسش‌ها و پاسخ‌های فقهی', '❖'),
+        statCard('سایر اسناد حقوقی', sum(['treaty','bill','general_policies','judicial_decision','judicial_session','parliamentary_review_opinion','parliamentary_research','other']), 'معاهدات، طرح‌ها و رویه قضایی', '▦'),
       );
       sourceArea.replaceChildren(
         h('div', { class: 'legal-bank-section-heading' }, [
