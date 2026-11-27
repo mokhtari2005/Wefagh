@@ -48,8 +48,11 @@ export function stripAssistantFooterBoilerplate(value) {
     'تا زمان ایجاد حق مطالبه، اقدام حقوقی نتیجه‌بخش نخواهد بود.',
   ];
   let text = value;
-  for (const sentence of unwanted) {
-    const escaped = sentence.replace(/[.*+?^${}()|[\]\\]/g, '\\export function reviewUnavailableMessage(status, notes = []) {');
+  for (const sentence of unwanted) text = text.split(sentence).join('');
+  return text.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+export function reviewUnavailableMessage(status, notes = []) {');
     text = text.replace(new RegExp('(?:^|\\n)\\s*' + escaped + '\\s*(?=\\n|$)', 'gu'), '');
   }
   return text.replace(/\\n{3,}/g, '\\n\\n').trim();
@@ -622,9 +625,10 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     if (reviewPanel) children.push(reviewPanel);
     const visibleNotes = (Array.isArray(m.notes) ? m.notes : []).filter((note) =>
       typeof note === 'string'
-      && !/پاسخ با (?:Gemini 3\\.5 Flash-Lite|مدل رایگان Groq|مسیر رایگان Cloudflare) در مسیر رایگان تهیه شد/u.test(note)
-      && !/بازبینی مستقل اجرا نشد؛ بازبین داخلی فقط با فعال/u.test(note)
-      && !/بازبینی مستقل اجرا نشد/u.test(note));
+      && !note.includes('Gemini 3.5 Flash-Lite در مسیر رایگان تهیه شد')
+      && !note.includes('پاسخ با مدل رایگان Groq تهیه شد')
+      && !note.includes('پاسخ با مسیر رایگان Cloudflare تهیه شد')
+      && !note.includes('بازبینی مستقل اجرا نشد'));
     if (visibleNotes.length) children.push(h('ul', {
       class: 'ai-notes',
       'aria-label': 'هشدارها و محدودیت‌های مهم',
