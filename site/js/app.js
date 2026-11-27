@@ -298,14 +298,17 @@ function pageNotFound() {
 
 function pageAccount(params) {
   return lazy(async () => {
-    const { loginForm, registerForm, forgotPasswordForm, accountPanel } = await import('./account.js');
+    const { loginForm, registerForm, forgotPasswordForm, accountPanel } = await import('./account.js?v=20261127-password-recovery-visibility-2');
     const wrap = h('div');
     const area = h('div', { role: 'region', 'aria-live': 'polite' });
     wrap.append(area);
     const showLogin = () => {
       area.replaceChildren(
         h('h1', { text: 'ورود به حساب' }),
-        loginForm({ onSuccess: () => { window.location.hash = '#/account'; render(); } })
+        loginForm({ onSuccess: () => { window.location.hash = '#/account'; render(); } }),
+        h('p', { class: 'account-recovery-entry' }, [
+          h('a', { href: '#/account?mode=forgot', text: 'رمز عبور را فراموش کرده‌اید؟' }),
+        ])
       );
     };
     const showForgot = () => {
