@@ -472,6 +472,7 @@ test('بازیابی رمز: لینک یک‌بارمصرف ایمیلی رمز 
 
   const requestReset = await call(env, '/api/auth/request-password-reset', { body: { email: validUser.email } });
   assert.equal(requestReset.status, 202);
+  assert.equal(sent.at(-1)?.from, 'Mokhtari Law Academy <edu@mokhtari.ir>');
   const resetToken = tokenFromMail(sent);
   assert.ok(resetToken);
   const newPassword = 'رمز-تازه-و-امن-۱۴۰۵';
@@ -492,4 +493,28 @@ test('درخواست بازیابی برای ایمیل ناموجود پاسخ 
   assert.equal(res.status, 202);
   assert.match((await res.json()).message, /اگر حسابی/);
   assert.equal(sent.length, 0);
+});
+
+
+test('بازیابی رمز پس از شکست ارسال ایمیل، بدون انتظار برای پایان مهلت، دوباره قابل درخواست است', { skip }, async () => {
+  const { env, sent } = setup();
+  await call(env, '/api/auth/register', { body: validUser });
+  await call(env, '/api/auth/verify-email', { body: { token: tokenFromMail(sent) } });
+  await approveMembership(env);
+  const deliver = env.mailer;
+  env.mailer = async () => { throw new Error('MAIL_TEMPORARY_FAILURE'); };
+  const originalError = console.error;
+  console.error = () => {};
+  let failed;
+  try {
+    failed = await call(env, '/api/auth/request-password-reset', { body: { email: validUser.email } });
+  } finally {
+    console.error = originalError;
+  }
+  assert.equal(failed.status, 503);
+  env.mailer = deliver;
+  const retried = await call(env, '/api/auth/request-password-reset', { body: { email: validUser.email } });
+  assert.equal(retried.status, 202);
+  assert.equal(sent.length, 2);
+  assert.equal(sent.at(-1)?.from, 'Mokhtari Law Academy <edu@mokhtari.ir>');
 });
