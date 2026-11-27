@@ -23,6 +23,20 @@ function logOutcome(where, outcome) {
   console.info(JSON.stringify({ where, outcome }));
 }
 
+function isConfiguredAdmin(env, email) {
+  return Boolean(env.ADMIN_EMAIL && normalizeEmail(env.ADMIN_EMAIL) === normalizeEmail(email));
+}
+
+/** حساب مدیر اصلی ممکن است پیش از تنظیم ADMIN_EMAIL ساخته شده باشد؛ نقش فقط پس از احراز رمز و ایمیل اعطا می‌شود. */
+async function ensureConfiguredAdminRole(db, userId, email, env) {
+  if (!isConfiguredAdmin(env, email)) return false;
+  const existing = await db.prepare("SELECT 1 AS allowed FROM user_roles WHERE user_id=?1 AND role='super_admin'").bind(userId).first();
+  if (!existing) {
+    await db.prepare("INSERT OR IGNORE INTO user_roles (user_id, role) VALUES (?1, 'super_admin')").bind(userId).run();
+  }
+  return true;
+}
+
 async function membershipApproved(db, userId) {
   try {
     const row = await db.prepare('SELECT membership_status FROM users WHERE id = ?1').bind(userId).first();
@@ -401,7 +415,9 @@ export async function login(request, env) {
   // پس از احراز رمز، وضعیت تأیید ایمیل مستقل از تصویب عضویت گزارش می‌شود.
   if (!user.email_verified_at) return json({ ok: false, error: 'EMAIL_NOT_VERIFIED' }, 403);
 
-  const membershipOk = await membershipApproved(env.DB, user.id);
+  // مدیر اصلیِ تعریف‌شده در تنظیمات سرور، حتی اگر حساب قدیمی باشد یا عضویت آن pending مانده باشد، پس از احراز رمز و ایمیل مجاز است.
+  const configuredAdmin = await ensureConfiguredAdminRole(env.DB, user.id, email, env);
+  const membershipOk = configuredAdmin || await membershipApproved(env.DB, user.id);
   if (!membershipOk) return json({ ok: false, error: 'INVALID_CREDENTIALS' }, 401);
 
   await env.DB
@@ -440,14 +456,22 @@ export async function currentUser(request, env) {
     .bind(await hashToken(token), nowIso)
     .first();
   if (!row) return null;
-  if (!(await membershipApproved(env.DB, row.id))) return null;
+  const configuredAdmin = isConfiguredAdmin(env, row.email);
+  if (!configuredAdmin && !(await membershipApproved(env.DB, row.id))) return null;
   let identity = {};
   try {
     identity = await env.DB.prepare('SELECT membership_no, professional_title, position FROM users WHERE id=?1').bind(row.id).first() || {};
   } catch (identityError) {
     if (!String(identityError?.message || '').includes('no such column')) throw identityError;
   }
-  const roleRows = await env.DB.prepare('SELECT role FROM user_roles WHERE user_id = ?1').bind(row.id).all();
+  let roleRows = await env.DB.prepare('SELECT role FROM user_roles WHERE user_id = ?1').bind(row.id).all();
+  let roles = (roleRows?.results || []).map((r) => r.role);
+  // ترمیم امن و خودکار حساب مدیر قدیمی؛ فقط ایمیل محرمانهٔ ADMIN_EMAIL می‌تواند این مسیر را فعال کند.
+  if (configuredAdmin && !roles.includes('super_admin')) {
+    await env.DB.prepare("INSERT OR IGNORE INTO user_roles (user_id, role) VALUES (?1, 'super_admin')").bind(row.id).run();
+    roleRows = await env.DB.prepare('SELECT role FROM user_roles WHERE user_id = ?1').bind(row.id).all();
+    roles = (roleRows?.results || []).map((r) => r.role);
+  }
   return {
     id: row.id,
     email: row.email,
@@ -455,7 +479,7 @@ export async function currentUser(request, env) {
     membershipNo: identity.membership_no || `MLA-${1999 + Number(row.id)}`,
     professionalTitle: identity.professional_title || '',
     position: identity.position || '',
-    roles: (roleRows?.results || []).map((r) => r.role),
+    roles,
   };
 }
 
