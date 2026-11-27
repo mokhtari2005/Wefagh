@@ -132,12 +132,18 @@ def build_documents(rows, revision):
             if digest in seen_bodies:
                 continue
             seen_bodies.add(digest)
-            number = article["number"] or ("بخش " + str(len(clean_articles) + 1))
-            if number in seen_numbers:
-                suffix = (article.get("entry") or digest)[:8]
-                number = number + " / " + suffix
-            seen_numbers.add(number)
-            clean_articles.append({"number": number[:120], "heading": article["heading"], "body": body})
+            base_number = article["number"] or ("بخش " + str(len(clean_articles) + 1))
+            candidate = base_number[:120]
+            if candidate in seen_numbers:
+                suffix = digest[:10]
+                candidate = base_number[:107] + " / " + suffix
+                counter = 1
+                while candidate in seen_numbers:
+                    suffix = digest[:7] + "-" + str(counter)
+                    candidate = base_number[:120 - len(suffix) - 3] + " / " + suffix
+                    counter += 1
+            seen_numbers.add(candidate)
+            clean_articles.append({"number": candidate, "heading": article["heading"], "body": body})
         doc["articles"] = clean_articles
         source = doc["source_url"] or DATASET_URL
         doc["slug"] = "iran-ir-" + hashlib.sha256(key.encode("utf-8")).hexdigest()[:24]
@@ -352,9 +358,13 @@ def run_import(dry_run=False):
         law_statements = [law_statement(doc) for doc in new_docs]
         send_statements(session, law_statements, report, "documents_inserted")
 
+        changed_slugs = {doc["slug"] for _, doc in changed_docs}
+        # Re-submit article rows for unchanged parent laws as an idempotent repair pass.
+        # D1's unique law_id/article_number index ignores rows already present and accepts missing ones.
+        article_docs = [doc for doc in documents if doc["slug"] not in changed_slugs]
         article_payload = []
         article_statements = []
-        for doc in new_docs:
+        for doc in article_docs:
             for article in doc["articles"]:
                 article_payload.append({
                     "slug": doc["slug"], "number": article["number"],
