@@ -69,6 +69,28 @@ class LegalCorpusImporterTests(unittest.TestCase):
         self.assertEqual(audit["verified"], 0)
         self.assertEqual(audit["documents"][1]["status"], "missing_from_source_mirror")
 
+    def test_priority_coverage_reports_domain_breakdown(self):
+        manifest = {
+            "documents": [
+                {"key": "civil", "title": "قانون مدنی", "domain": "civil", "priority": "core"},
+                {"key": "tax", "title": "قانون مالیات‌های مستقیم", "domain": "tax", "priority": "extended"},
+            ]
+        }
+        docs = [{"title": "قانون مدنی", "slug": "civil", "lawType": "law"}]
+        audit = importer.priority_coverage(docs, manifest)
+        self.assertEqual(audit["by_domain"]["civil"]["present_in_source_mirror"], 1)
+        self.assertEqual(audit["by_domain"]["tax"]["missing_from_source_mirror"], 1)
+        self.assertEqual(audit["by_domain"]["tax"]["verified"], 0)
+
+    def test_expanded_manifest_has_broad_domain_coverage(self):
+        manifest_path = MODULE_PATH.parent / "legal_priority_documents.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        keys = {item["key"] for item in manifest["documents"]}
+        domains = {item.get("domain") for item in manifest["documents"]}
+        self.assertGreaterEqual(len(keys), 100)
+        self.assertGreaterEqual(len(domains), 15)
+        self.assertTrue({"tax-direct", "vat", "official-registration-transactions", "landlord-1356", "landlord-1362", "landlord-1376", "patents", "clean-air"} <= keys)
+
     def test_priority_manifest_has_core_litigation_statutes(self):
         manifest_path = MODULE_PATH.parent / "legal_priority_documents.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
