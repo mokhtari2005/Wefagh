@@ -1,5 +1,5 @@
 // کارگاه‌های تکمیلی مهارت حرفه‌ای؛ هر کارگاه پنج درس، تمرین و آزمونک دارد.
-const lesson = (id, title, body) => ({ id, title, body });
+const lesson = (id, title, body) => ({ id, title, body: body + '\n\nدر اجرای این تمرین، واقعیت‌های مفروض را از داده‌های اثبات‌شده جدا کنید؛ سپس منبع، اقدام و نتیجه مورد انتظار را ثبت کنید. هر جا اطلاعات کافی نیست، خلأ را صریح بنویسید و از ساختن واقعیت یا استناد خودداری کنید. در پایان، خروجی را با معیارهای ارزیابی همین درس بازبینی و نکته‌های نیازمند اصلاح را یادداشت کنید.' });
 const course = (id, title, level, summary, lessons) => ({ id, format: 'workshop', status: 'published', title, level, summary, lessons });
 
 export const WORKSHOP_COURSES = Object.freeze([
