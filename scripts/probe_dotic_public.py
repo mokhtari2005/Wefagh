@@ -14,9 +14,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 from urllib.robotparser import RobotFileParser
+from html.parser import HTMLParser
 
 import requests
-from bs4 import BeautifulSoup
 
 BASE = "https://dotic.ir"
 SEARCH_URL = BASE + "/new-search/"
@@ -47,9 +47,59 @@ def check_robots(response, target_url: str, user_agent: str = USER_AGENT) -> dic
             "reason": "allowed_by_robots" if allowed else "disallowed_by_robots"}
 
 
+class _PageParser(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.title_parts = []
+        self.heading_parts = []
+        self.text_parts = []
+        self.anchors = []
+        self.media = []
+        self.in_title = False
+        self.in_heading = False
+        self.current_anchor = None
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == "title":
+            self.in_title = True
+        if tag in ("h1", "h2", "h3") and not self.heading_parts:
+            self.in_heading = True
+        if tag == "a":
+            self.current_anchor = {"href": attrs.get("href", ""), "text": ""}
+        if tag in ("iframe", "embed") and attrs.get("src"):
+            self.media.append(attrs["src"])
+        if tag == "object" and attrs.get("data"):
+            self.media.append(attrs["data"])
+
+    def handle_endtag(self, tag):
+        if tag == "title":
+            self.in_title = False
+        if tag in ("h1", "h2", "h3"):
+            self.in_heading = False
+        if tag == "a" and self.current_anchor is not None:
+            self.anchors.append(self.current_anchor)
+            self.current_anchor = None
+
+    def handle_data(self, data):
+        if not data:
+            return
+        self.text_parts.append(data)
+        if self.in_title:
+            self.title_parts.append(data)
+        if self.in_heading:
+            self.heading_parts.append(data)
+        if self.current_anchor is not None:
+            self.current_anchor["text"] += data
+
+    def parse(self, html):
+        self.feed(html)
+        return self
+
+
 def parse_search_page(html: str, page_url: str = SEARCH_URL) -> dict:
-    soup = BeautifulSoup(html, "html.parser")
-    text = soup.get_text(" ", strip=True)
+    page = _PageParser().parse(html)
+    text = " ".join(" ".join(page.text_parts).split())
     match = re.search(r"(\d[\d,]*)\s*-\s*(\d[\d,]*)\s+of\s+([\d,]+)", text, re.I)
     first = _integer(match.group(1)) if match else None
     last = _integer(match.group(2)) if match else None
@@ -57,7 +107,7 @@ def parse_search_page(html: str, page_url: str = SEARCH_URL) -> dict:
     page_size = (last - first + 1) if first is not None and last is not None else None
     page_count = math.ceil(total / page_size) if total and page_size else None
     urls = []
-    for anchor in soup.select("a[href]"):
+    for anchor in page.anchors:
         href = urljoin(page_url, anchor.get("href", ""))
         path = urlparse(href).path
         if re.fullmatch(r"/news/\d+/?", path) and href not in urls:
@@ -69,30 +119,30 @@ def parse_search_page(html: str, page_url: str = SEARCH_URL) -> dict:
         "page_size": page_size,
         "page_count": page_count,
         "sample_record_urls": urls[:15],
-        "page_title": soup.title.get_text(" ", strip=True) if soup.title else None,
+        "page_title": " ".join(page.title_parts).strip() or None,
     }
 
 
 def parse_detail_page(html: str, page_url: str = SAMPLE_URL) -> dict:
-    soup = BeautifulSoup(html, "html.parser")
-    heading = soup.find(["h1", "h2", "h3"])
-    title = heading.get_text(" ", strip=True) if heading else (
-        soup.title.get_text(" ", strip=True) if soup.title else None
-    )
-    text = soup.get_text(" ", strip=True)
+    page = _PageParser().parse(html)
+    title = " ".join(page.heading_parts).strip() or " ".join(page.title_parts).strip() or None
+    text = " ".join(" ".join(page.text_parts).split())
     date_match = re.search(r"تاریخ خبر\s*:\s*([^|]{5,50})", text)
     number_match = re.search(r"شماره\s+([0-9۰-۹٠-٩/.-]{2,40})", text)
     candidates = []
-    for tag in soup.select("a[href], iframe[src], embed[src], object[data]"):
-        attr = "href" if tag.name == "a" else ("data" if tag.name == "object" else "src")
-        href = tag.get(attr)
+    for tag in page.anchors:
+        href = tag.get("href")
         if not href:
             continue
         absolute = urljoin(page_url, href)
-        hint = (href + " " + tag.get_text(" ", strip=True)).lower()
+        hint = (href + " " + tag.get("text", "")).lower()
         if ".pdf" in hint or "download" in hint or "file" in hint or "دریافت متن کامل" in hint:
             if absolute not in candidates:
                 candidates.append(absolute)
+    for href in page.media:
+        absolute = urljoin(page_url, href)
+        if absolute not in candidates:
+            candidates.append(absolute)
     for raw in re.findall(r"""(?:https?:)?//[^"'\s<>]+|/[^"'\\s<>]+""", html):
         if ".pdf" in raw.lower():
             absolute = urljoin(page_url, raw)
