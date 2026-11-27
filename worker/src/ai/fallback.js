@@ -1,8 +1,13 @@
-// مسیر تولید پاسخ: GPT اصلی، Gemini جایگزین و Groq مسیر پشتیبان نهایی.
+// مسیر تولید پاسخ: در حالت صفرهزینه Gemini 3.5، سپس Groq Free و Workers AI Free؛ مسیر قدیمی پولی جدا و در این حالت غیرفعال است.
 import { generateOpenAIText, openaiConfigured } from './openai.js';
 import { generateText, aiConfigured } from './gemini.js';
 import { generateGroqText, groqConfigured } from './groq.js';
 import { generateWorkersAIText, workersAiPrimaryEnabled } from './cloudflare.js';
+
+const ZERO_COST_GEMINI_FAILOVER_CODES = new Set([
+  'AI_NETWORK_ERROR', 'AI_PROVIDER_ERROR', 'AI_PROVIDER_BAD_RESPONSE', 'AI_MODEL_UNAVAILABLE',
+  'AI_QUOTA', 'AI_NOT_CONFIGURED', 'AI_KEY_REJECTED', 'AI_EMPTY', 'AI_ZERO_COST_GEMINI_NOT_CONFIGURED',
+]);
 
 const FAILOVER_CODES = new Set([
   'AI_NETWORK_ERROR', 'AI_PROVIDER_ERROR', 'AI_PROVIDER_BAD_RESPONSE',
@@ -71,6 +76,8 @@ export async function generateTextWithFallback(env, prompt, {
           const result = await generateText(env, { ...prompt, allowModelFallback: false, useGoogleSearch: false });
           return cleanProviderResult({ ...result, provider: 'gemini' });
         } catch (error) {
+          // خطای مسدودسازی محتوا یا رد اعتبارسنجی نباید با تعویض مدل دور زده شود.
+          if (!ZERO_COST_GEMINI_FAILOVER_CODES.has(error?.code)) throw error;
           geminiFailure = error;
           console.warn(JSON.stringify({ where: 'ai.zero_cost_failover', from: 'gemini', reason: error?.code || 'GEMINI_FAILED' }));
         }
