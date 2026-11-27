@@ -233,9 +233,6 @@ export function legalBankPage() {
       const docs = data.totals && data.totals.documents || {};
       const articles = data.totals && data.totals.articles || {};
       const byType = new Map();
-      for (const row of data.byType || []) byType.set(row.type, (byType.get(row.type) || 0) + Number(row.count || 0));
-      const sum = (types) => types.reduce((total, type) => total + (byType.get(type) || 0), 0);
-      const byType = new Map();
       const byTypeVerified = new Map();
       for (const row of data.byType || []) {
         byType.set(row.type, (byType.get(row.type) || 0) + Number(row.count || 0));
