@@ -21,6 +21,38 @@ async function fingerprint(value) {
   return [...new Uint8Array(hash)].map((x) => x.toString(16).padStart(2, '0')).join('');
 }
 
+/** پیام خطا را برای ثبت عیب‌یابی پاک‌سازی می‌کند: بدون ایمیل، توکن یا رشتهٔ بلند و حداکثر ۱۶۰ نویسه. */
+export function sanitizeFaultMessage(value) {
+  return String(value ?? '')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/[^\s@]+@[^\s@]+/g, '[email]')
+    .replace(/[A-Za-z0-9_-]{24,}/g, '[token]')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 160);
+}
+
+/** ثبت بهترین‌تلاش خطای ۵۰۰ سمت سرور؛ هیچ‌گاه خودش خطا برنمی‌گرداند. */
+export async function recordServerFault(env, { route, error }) {
+  try {
+    if (!env?.DB) return;
+    const safeRoute = cleanRoute(route);
+    const code = cleanCode(error?.name ? `FAULT_${error.name}` : 'FAULT_ERROR');
+    const detail = sanitizeFaultMessage(error?.message);
+    const key = await fingerprint(['server-fault', safeRoute, code, detail].join('|'));
+    await env.DB.prepare(`INSERT INTO diagnostic_events (fingerprint, category, component, route, error_code, http_status, detail)
+      VALUES (?1, 'api', 'auth', ?2, ?3, 500, ?4)
+      ON CONFLICT(fingerprint) DO UPDATE SET
+        occurrences = MIN(diagnostic_events.occurrences + 1, 1000000),
+        last_seen = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+        status = CASE WHEN diagnostic_events.status = 'resolved' THEN 'open' ELSE diagnostic_events.status END,
+        resolved_at = NULL`)
+      .bind(key, safeRoute, code, detail).run();
+  } catch {
+    // ثبت عیب‌یابی نباید پاسخ اصلی را تغییر دهد.
+  }
+}
+
 export async function handleDiagnostics(request, env, path) {
   if (path === '/api/admin/diagnostics/manual-report') {
     if (request.method !== 'POST') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'POST' });
