@@ -118,7 +118,7 @@ async function renderProgress(area, course, user) {
     btn.addEventListener('click', async () => {
       btn.disabled = true;
       const r = await postJson('/api/academy/enroll', { courseId: course.id });
-      if (r.ok) await renderProgress(area, course);
+      if (r.ok) await renderProgress(area, course, user);
       else { btn.disabled = false; status.className = 'form-status err'; status.textContent = messageFor(r.networkError ? 'NETWORK' : r.data?.error); }
     });
     area.append(h('div', { class: 'notice' }, [h('p', { text: 'برای ذخیره تمرین‌ها و مشاهده کارنامه، ابتدا در این دوره ثبت‌نام کنید.' }), btn, status]), lessonsList(course, null));
