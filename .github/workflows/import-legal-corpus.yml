@@ -32,7 +32,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: legal-bank-bulk-import
+  group: cloudflare-worker-production
   cancel-in-progress: false
 
 jobs:
