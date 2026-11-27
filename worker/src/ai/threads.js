@@ -161,7 +161,7 @@ function fail(code, status, extra = {}) {
 }
 
 async function ownThread(env, userId, threadId) {
-  return env.DB.prepare('SELECT id, title, created_at, updated_at FROM assistant_threads WHERE id = ?1 AND user_id = ?2')
+  return env.DB.prepare('SELECT id, title, case_id, casework_service_id, created_at, updated_at FROM assistant_threads WHERE id = ?1 AND user_id = ?2')
     .bind(threadId, userId)
     .first();
 }
@@ -185,7 +185,7 @@ export async function handleThreads(request, env, path) {
   if (!threadId) {
     if (request.method === 'GET') {
       const rows = await env.DB
-        .prepare('SELECT id, title, created_at, updated_at FROM assistant_threads WHERE user_id = ?1 ORDER BY updated_at DESC LIMIT ?2')
+        .prepare('SELECT id, title, case_id, casework_service_id, created_at, updated_at FROM assistant_threads WHERE user_id = ?1 ORDER BY updated_at DESC LIMIT ?2')
         .bind(user.id, MAX_THREADS_LISTED)
         .all();
       return json({ ok: true, threads: rows?.results || [] });
@@ -194,10 +194,31 @@ export async function handleThreads(request, env, path) {
       const parsed = await readThreadJsonBody(request);
       if (parsed.error) return parsed.error;
       const title = cleanTitle(parsed.body?.title);
+      const caseId = typeof parsed.body?.caseId === 'string' ? parsed.body.caseId : '';
+      const serviceId = typeof parsed.body?.caseworkServiceId === 'string' ? parsed.body.caseworkServiceId : '';
+      if (caseId && !/^[0-9a-f-]{36}$/i.test(caseId)) return fail('INVALID_CASE', 422);
+      if (serviceId && !/^[0-9a-f-]{36}$/i.test(serviceId)) return fail('INVALID_SERVICE', 422);
+      if (caseId) {
+        const parent = await env.DB.prepare('SELECT id FROM case_records WHERE id=?1 AND user_id=?2 AND deleted_at IS NULL').bind(caseId, user.id).first();
+        if (!parent) return fail('CASE_NOT_FOUND', 404);
+      }
+      if (serviceId) {
+        const service = await env.DB.prepare('SELECT id FROM case_services WHERE id=?1 AND case_id=?2 AND user_id=?3').bind(serviceId, caseId, user.id).first();
+        if (!service) return fail('SERVICE_NOT_FOUND', 404);
+      }
+      if (serviceId && !caseId) return fail('CASE_REQUIRED_FOR_SERVICE', 422);
       const row = await env.DB
-        .prepare('INSERT INTO assistant_threads (user_id, title) VALUES (?1, ?2) RETURNING id, title, created_at, updated_at')
-        .bind(user.id, title)
+        .prepare('INSERT INTO assistant_threads (user_id, title, case_id, casework_service_id) VALUES (?1, ?2, ?3, ?4) RETURNING id, title, case_id, casework_service_id, created_at, updated_at')
+        .bind(user.id, title, caseId || null, serviceId || null)
         .first();
+      if (caseId) {
+        const now = new Date().toISOString();
+        await env.DB.prepare(`INSERT INTO case_timeline(case_id,user_id,service_id,event_type,title,details_json)
+          VALUES(?1,?2,?3,'assistant_thread_linked','گفت‌وگوی دستیار وکیل به پرونده متصل شد',?4)`)
+          .bind(caseId, user.id, serviceId || null, JSON.stringify({ threadId: row?.id })).run();
+        await env.DB.prepare('UPDATE case_records SET last_activity_at=?1,updated_at=?1 WHERE id=?2 AND user_id=?3')
+          .bind(now, caseId, user.id).run();
+      }
       return json({ ok: true, thread: row }, 201);
     }
     return fail('METHOD_NOT_ALLOWED', 405);
