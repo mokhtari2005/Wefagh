@@ -113,12 +113,12 @@ export async function handleLegalBank(request, env, path) {
     if (!doc) return json({ok:false,error:'NOT_FOUND'},404);
     if (doc.status!=='verified') return json({ok:true,document:doc,textAvailable:false,articles:[],message:'متن این سند هنوز برای انتشار عمومی تأیید نشده است.'});
     const offset=Math.max(0,Number.parseInt(url.searchParams.get('offset')||'0',10)||0);
-    const limit=Math.min(50,Math.max(1,Number.parseInt(url.searchParams.get('limit')||'30',10)||30));
+    const limit=Math.min(20,Math.max(1,Number.parseInt(url.searchParams.get('limit')||'20',10)||20));
     const result=await env.DB.prepare(`SELECT article_number AS number,heading,body
       FROM legal_articles WHERE law_id=?1 AND status='verified'
       ORDER BY id LIMIT ?2 OFFSET ?3`).bind(doc.id,limit+1,offset).all();
     const rows=result.results||[];
-    return json({ok:true,document:doc,textAvailable:true,articles:rows.slice(0,limit).map(a=>({...a,body:String(a.body||'').slice(0,20000)})),nextOffset:rows.length>limit?offset+limit:null});
+    return json({ok:true,document:doc,textAvailable:true,articles:rows.slice(0,limit).map(a=>({...a,body:String(a.body||'').slice(0,100000)})),nextOffset:rows.length>limit?offset+limit:null});
   }
   if (path === '/api/admin/legal-bank/list') {
     const access = await requireAdmin(request, env);
