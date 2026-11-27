@@ -6,7 +6,7 @@ import { findCourse } from '../worker/src/academy/catalog.js';
 import { lessonLearning } from '../worker/src/academy/learning.js';
 
 test('کارگاه‌های مهارت‌محور برای سه گروه مخاطب تعریف شده‌اند', () => {
-  assert.equal(WORKSHOPS.length, 12);
+  assert.equal(WORKSHOPS.length, 13);
   assert.equal(new Set(WORKSHOPS.map(item => item.id)).size, WORKSHOPS.length);
   assert.ok(WORKSHOPS.some(item => item.level.includes('دانشجو')));
   assert.ok(WORKSHOPS.some(item => item.level.includes('کارآموز')));
