@@ -237,7 +237,7 @@ async function uploadDocument(request,env,userId,caseId) {
   catch(error){ console.error(JSON.stringify({where:'casework.upload',error:error?.name||'Error'}));return fail('FILE_STORAGE_FAILED',502); }
   try {
     await env.DB.prepare(`INSERT INTO case_documents(id,case_id,service_id,user_id,display_name,original_name,document_type,source_kind,mime_type,size_bytes,storage_key,sha256,status,version_group_id,version_number,parent_document_id,description)
-      VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)`)
+      VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)`)
       .bind(documentId,caseId,serviceId,userId,name,name,documentType,sourceKind,mime,bytes.length,storageKey,shaHex,documentType==='draft'?'draft':'active',versionGroup,versionNumber,parentId,clean(request.headers.get('x-description'),2000)).run();
   } catch(error){
     console.error(JSON.stringify({where:'casework.metadata',error:error?.name||'Error',detail:String(error?.message||'').slice(0,180)}));
