@@ -46,6 +46,7 @@ test("legal corpus import defaults to laws and separates the regulations phase",
   assert.ok(importer.includes('PHASE_TYPES["all"] = PHASE_TYPES["laws"] | PHASE_TYPES["regulations"] | PHASE_TYPES["judicial"] | PHASE_TYPES["parliamentary"]'));
   assert.ok(importer.includes('"judicial": {'));
   assert.ok(importer.includes('"parliamentary": {"bill", "parliamentary_review_opinion"}'));
+  assert.ok(importer.includes('"parliamentary": {"bill", "parliamentary_review_opinion"}'));
   assert.ok(importer.includes("documents_excluded_by_phase"));
   assert.ok(importer.includes("phase_excluded_sample"));
   assert.ok(workflow.includes("default: all"));
