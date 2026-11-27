@@ -136,8 +136,9 @@ export default {
         return await handler(request, env);
       } catch (err) {
         // هر خطای پیش‌بینی‌نشده: پاسخ JSON امن و گزارش فنی بدون داده‌های کاربر.
-        logError(`route:${path}`, err);
-        return json({ ok: false, error: 'INTERNAL_ERROR' }, 500);
+        const requestId = request.headers.get('X-Client-Request-ID') || '';
+        logError(`route:${path}`, err, requestId);
+        return json({ ok: false, error: 'INTERNAL_ERROR', requestId: /^[A-Za-z0-9_-]{8,80}$/.test(requestId) ? requestId : null }, 500);
       }
     }
 
