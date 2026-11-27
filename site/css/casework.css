@@ -1,0 +1,96 @@
+/* Casework workspace: compact, mobile-first and consistent with the Academy theme. */
+.casework-page{max-width:1180px;margin:0 auto;padding:1rem;direction:rtl;color:var(--ink)}
+.casework-header,.casework-detail-heading,.casework-list-toolbar,.casework-panel-head,.casework-card-top,.casework-card-meta,.casework-actions{display:flex;align-items:center;justify-content:space-between;gap:.75rem}
+.casework-header{align-items:flex-start;margin:0 0 1.2rem}
+.casework-header h1,.casework-detail-heading h1{margin:.15rem 0;font-size:clamp(1.35rem,3vw,2rem)}
+.casework-header p{margin:.15rem 0}
+.casework-eyebrow{font-size:.82rem;color:var(--teal);font-weight:700}
+.casework-page button,.casework-page input,.casework-page select,.casework-page textarea{font:inherit}
+.casework-page input,.casework-page select,.casework-page textarea{width:100%;min-width:0;border:1px solid var(--sand-line);border-radius:12px;background:var(--paper);padding:.65rem .8rem;color:var(--ink)}
+.casework-page input:focus,.casework-page select:focus,.casework-page textarea:focus{outline:2px solid color-mix(in srgb,var(--teal) 35%,transparent);border-color:var(--teal)}
+.casework-create,.casework-panel{background:var(--paper);border:1px solid var(--sand-line);border-radius:18px;padding:1rem;margin:0 0 1rem;box-shadow:var(--shadow-sm)}
+.casework-create[hidden]{display:none}
+.casework-create h2,.casework-create h3{margin:.1rem 0 .8rem;font-size:1.1rem}
+.casework-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem}
+.casework-page label{display:grid;gap:.3rem;font-size:.9rem;font-weight:600}
+.casework-page label span{color:var(--ink-soft)}
+.casework-full{grid-column:1/-1}
+.casework-actions{justify-content:flex-start;flex-wrap:wrap;margin-top:.8rem}
+.casework-actions .btn,.casework-header .btn,.casework-panel-head>.btn{white-space:nowrap}
+.casework-metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.65rem;margin:0 0 1rem}
+.casework-metric{min-width:0;background:var(--paper);border:1px solid var(--sand-line);border-radius:14px;padding:.7rem .85rem;display:grid;gap:.1rem}
+.casework-metric-label,.casework-metric small{font-size:.78rem;color:var(--ink-soft)}
+.casework-metric strong{font-size:1.35rem;line-height:1.5;font-variant-numeric:tabular-nums}
+.casework-panel-head{margin-bottom:.8rem;flex-wrap:wrap}
+.casework-panel-head h2,.casework-list-toolbar h2{font-size:1.05rem;margin:0}
+.casework-list-toolbar{margin:.3rem 0 .5rem}
+.casework-filters,.casework-doc-tools{display:flex;gap:.5rem;flex-wrap:wrap}
+.casework-filters input{min-width:230px;flex:1}
+.casework-filters select{width:auto;min-width:140px}
+.casework-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem}
+.casework-card{display:block;min-width:0;text-decoration:none;color:inherit;background:var(--paper);border:1px solid var(--sand-line);border-radius:14px;padding:.85rem;transition:border-color .15s,transform .15s}
+.casework-card:hover{border-color:var(--teal);transform:translateY(-1px)}
+.casework-card-top{align-items:flex-start}
+.casework-card-top strong{overflow-wrap:anywhere}
+.casework-card p{margin:.35rem 0;font-size:.88rem}
+.casework-card-meta{justify-content:flex-start;flex-wrap:wrap;font-size:.76rem;color:var(--ink-soft);border-top:1px solid var(--sand-line);padding-top:.45rem;margin-top:.55rem}
+.casework-status{display:inline-flex;align-items:center;white-space:nowrap;border-radius:99px;padding:.15rem .55rem;background:#eee8dc;color:var(--ink-soft);font-size:.74rem}
+.casework-status-active,.casework-status-in_progress{background:#e5f1e9;color:#285c3a}
+.casework-status-waiting_upload,.casework-status-waiting_analysis{background:#fff1d9;color:#7c5319}
+.casework-status-ready_next{background:#e5f0f0;color:#245b58}
+.casework-status-completed{background:#e8eee9;color:#355a40}
+.casework-status-archived{background:#ececec;color:#626262}
+.casework-empty{grid-column:1/-1;padding:1rem;border:1px dashed var(--sand-line);border-radius:12px;text-align:center;color:var(--ink-soft);font-size:.9rem}
+.casework-detail-heading{justify-content:flex-start;flex-wrap:wrap;margin:.7rem 0}
+.casework-detail-heading h1{width:100%}
+.casework-back{display:inline-block;color:var(--teal);text-decoration:none;font-weight:600}
+.casework-meta-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem}
+.casework-meta-item{background:#faf7f0;border-radius:10px;padding:.6rem .75rem;min-width:0}
+.casework-meta-item small,.casework-document small,.casework-service-card small{color:var(--ink-soft);font-size:.78rem}
+.casework-meta-item p{margin:.15rem 0;overflow-wrap:anywhere}
+.casework-service-card{display:flex;align-items:center;justify-content:space-between;gap:.7rem;padding:.7rem;border:1px solid var(--sand-line);border-radius:12px;margin:.5rem 0}
+.casework-service-card>div{min-width:0}
+.casework-service-card strong,.casework-service-card small{display:block}
+.casework-service-card select{max-width:155px}
+.casework-documents{display:grid;gap:.55rem}
+.casework-doc-tools{margin-bottom:.7rem}
+.casework-doc-tools input{flex:1;min-width:180px}
+.casework-doc-tools select{width:auto;min-width:130px}
+.casework-document{display:grid;grid-template-columns:48px minmax(0,1fr);gap:.65rem;align-items:center;border:1px solid var(--sand-line);border-radius:12px;padding:.65rem}
+.casework-document-icon{width:44px;height:44px;border-radius:10px;background:#eee8dc;display:grid;place-items:center;font-size:.68rem;font-weight:800;color:var(--teal)}
+.casework-document-main{min-width:0;display:grid;gap:.15rem}
+.casework-document-main strong{overflow-wrap:anywhere}
+.casework-document-main small{overflow-wrap:anywhere}
+.casework-document-main p{margin:0;font-size:.82rem}
+.casework-doc-status{font-size:.72rem;color:var(--teal)}
+.casework-document-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:.35rem}
+.casework-document-actions button{font-size:.78rem;padding:.35rem .55rem}
+.casework-timeline{list-style:none;margin:0;padding:0 1rem 0 0;border-right:2px solid var(--sand-line)}
+.casework-timeline li{position:relative;padding:0 1rem .85rem 0;display:grid;gap:.1rem}
+.casework-timeline li:before{content:"";position:absolute;right:-1.38rem;top:.55rem;width:9px;height:9px;border-radius:50%;background:var(--teal);border:2px solid var(--paper)}
+.casework-timeline small{color:var(--ink-soft);font-size:.75rem}
+.casework-message{padding:.55rem .7rem;border-radius:10px;background:#e9f1e9;color:#285c3a}
+.casework-message.is-error{background:#fae9e6;color:#8a2e24}
+.casework-help{border:1px solid var(--sand-line);border-radius:16px;padding:1.2rem;max-width:min(520px,calc(100vw - 2rem));color:var(--ink);background:var(--paper)}
+.casework-help::backdrop{background:rgba(20,25,24,.45)}
+.casework-help h2{margin-top:0;font-size:1.1rem}
+.casework-help p{line-height:2}
+.casework-edit label{margin:.6rem 0}
+.casework-page .danger{color:var(--danger)}
+@media(max-width:760px){
+ .casework-page{padding:.65rem}
+ .casework-header{align-items:stretch;flex-direction:column}
+ .casework-header>.btn{align-self:flex-start}
+ .casework-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .casework-metrics .casework-metric:last-child:nth-child(odd){grid-column:1/-1}
+ .casework-cards{grid-template-columns:1fr}
+ .casework-form-grid,.casework-meta-grid{grid-template-columns:1fr}
+ .casework-full{grid-column:auto}
+ .casework-filters>*{width:100%;min-width:0}
+ .casework-service-card{align-items:flex-start;flex-wrap:wrap}
+ .casework-service-card select{max-width:none;width:100%}
+ .casework-document{grid-template-columns:40px minmax(0,1fr)}
+ .casework-document-icon{width:38px;height:38px}
+ .casework-document-actions button{flex:1 1 auto}
+ .casework-panel{padding:.8rem}
+}
