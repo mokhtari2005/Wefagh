@@ -4268,3 +4268,6 @@ body.classroom-fullscreen-fallback { overflow:hidden; }
 .legal-bank-source-links{display:flex;gap:1rem;flex-wrap:wrap;margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--border,#e5e7eb)}
 @media(max-width:760px){.legal-bank-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.legal-bank-search-form{grid-template-columns:1fr}.legal-bank-source-row{align-items:flex-start}.legal-bank-document{align-items:flex-start}.legal-bank-document-meta{white-space:normal}.legal-bank-detail-head{flex-direction:column-reverse;align-items:stretch}.legal-bank-detail-head>button{align-self:flex-start}}
 @media(max-width:420px){.legal-bank-stats{grid-template-columns:1fr}.legal-bank-stat{padding:.8rem}.legal-bank-source-date{text-align:right;align-items:flex-start}}
+
+.legal-bank-source-warning{color:#a43b35;font-weight:700}
+.legal-bank-source-ok{color:#2e6b45;font-weight:600}
