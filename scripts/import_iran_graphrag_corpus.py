@@ -221,7 +221,8 @@ def d1_batch(session, statements):
     endpoint = "https://api.cloudflare.com/client/v4/accounts/" + account + "/d1/database/" + DB_ID + "/query"
     response = session.post(endpoint, headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
                             json={"batch": statements}, timeout=180)
-    response.raise_for_status()
+    if response.status_code != 200:
+        raise RuntimeError(f"D1 batch HTTP {response.status_code}: {response.text[:1200]}")
     payload = response.json()
     if not payload.get("success") or any(not item.get("success", True) for item in payload.get("result", [])):
         raise RuntimeError("D1 rejected a legal corpus batch: " + json.dumps(payload.get("errors", []), ensure_ascii=False)[:1200])
@@ -306,9 +307,15 @@ def update_source_cursor(session, revision, error=None):
         params = [revision, SOURCE_KEY]
     response = session.post(endpoint, headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
                             json={"sql": sql, "params": params}, timeout=60)
-    response.raise_for_status()
+    if response.status_code != 200:
+        raise RuntimeError(f"D1 cursor update HTTP {response.status_code}: {response.text[:1200]}")
     if not response.json().get("success"):
         raise RuntimeError("Could not update the DOTIC snapshot source cursor")
+
+
+def is_d1_daily_write_quota_error(error):
+    message = str(error).lower()
+    return "7500" in message or "daily row write limit" in message
 
 
 def run_import(dry_run=False):
@@ -322,6 +329,16 @@ def run_import(dry_run=False):
         "shards": 0, "revision": None, "errors": [],
     }
     try:
+        prior_report = Path("artifacts/legal-bank-import-report.json")
+        if prior_report.exists():
+            try:
+                prior_status = json.loads(prior_report.read_text(encoding="utf-8")).get("status")
+            except Exception:
+                prior_status = None
+            if prior_status == "deferred_daily_write_quota":
+                report["status"] = "deferred_daily_write_quota"
+                report["errors"].append("Skipped because the preceding Ekhtbar import exhausted the shared D1 daily write quota.")
+                return report
         revision = get_revision(session)
         report["revision"] = revision
         if not dry_run:
@@ -391,6 +408,10 @@ def run_import(dry_run=False):
         update_source_cursor(session, revision)
         return report
     except Exception as exc:
+        if is_d1_daily_write_quota_error(exc):
+            report["status"] = "deferred_daily_write_quota"
+            report["errors"].append("Cloudflare D1 free-tier daily row-write quota exhausted; the unchanged source cursor is retained for the next scheduled retry.")
+            return report
         report["status"] = "failed"
         report["errors"].append(type(exc).__name__ + ": " + str(exc)[:1000])
         try:

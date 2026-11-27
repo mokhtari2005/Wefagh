@@ -1,9 +1,14 @@
 import unittest
 
-from scripts.import_iran_graphrag_corpus import build_documents, classify_title, normalize_url
+from scripts.import_iran_graphrag_corpus import build_documents, classify_title, normalize_url, is_d1_daily_write_quota_error
 
 
 class IranGraphRagCorpusImporterTests(unittest.TestCase):
+    def test_d1_free_tier_quota_error_is_recognized(self):
+        self.assertTrue(is_d1_daily_write_quota_error(RuntimeError("D1 batch HTTP 400: code 7500 daily row write limit")))
+        self.assertTrue(is_d1_daily_write_quota_error(RuntimeError("daily row write limit exceeded")))
+        self.assertFalse(is_d1_daily_write_quota_error(RuntimeError("database busy")))
+
     def test_statute_title_precedes_embedded_bylaw_reference(self):
         self.assertEqual(classify_title("قانون مدنی و آیین‌نامه‌های مرتبط"), "law")
         self.assertEqual(classify_title("آیین‌نامه اجرایی نمونه"), "bylaw")
