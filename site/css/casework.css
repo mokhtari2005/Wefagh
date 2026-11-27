@@ -96,3 +96,5 @@
 }
 
 .casework-trash-list{display:grid;gap:.55rem;max-height:60vh;overflow:auto}.casework-trash-item{display:flex;align-items:center;justify-content:space-between;gap:.7rem;border:1px solid var(--sand-line);border-radius:10px;padding:.6rem}.casework-trash-item strong,.casework-trash-item small{display:block;overflow-wrap:anywhere}.casework-trash-item small{color:var(--ink-soft);font-size:.78rem}
+
+.ai-case-link-panel{display:flex;align-items:end;gap:.6rem;flex-wrap:wrap;margin-top:.8rem;padding:.7rem;background:rgba(255,255,255,.55);border:1px solid var(--sand-line);border-radius:12px}.ai-case-link-panel label{display:grid;gap:.25rem;min-width:180px;flex:1;font-size:.8rem}.ai-case-link-panel select{width:100%;max-width:100%;border:1px solid var(--sand-line);border-radius:9px;padding:.45rem;background:var(--paper);font:inherit;color:var(--ink)}.ai-case-link-panel a{font-size:.8rem;color:var(--teal);white-space:nowrap}@media(max-width:640px){.ai-case-link-panel{align-items:stretch}.ai-case-link-panel label{min-width:100%}}
