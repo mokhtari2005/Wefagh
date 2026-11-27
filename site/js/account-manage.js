@@ -63,6 +63,10 @@ export function changePasswordForm() {
   const form = h('form', { class: 'form', novalidate: '', 'aria-label': 'تغییر رمز عبور' }, [
     h('h2', { text: 'تغییر رمز عبور' }),
     fieldWrap('cp-current', 'رمز عبور فعلی', current, currentErr),
+    h('p', { class: 'muted password-recovery-hint' }, [
+      document.createTextNode('رمز قبلی را در اختیار ندارید؟ '),
+      h('a', { href: '#/account?mode=forgot', text: 'بازیابی رمز از طریق ایمیل' }),
+    ]),
     fieldWrap('cp-new', 'رمز عبور جدید (حداقل ۱۰ نویسه)', next, nextErr),
     submit,
     status,
