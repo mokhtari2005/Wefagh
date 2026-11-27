@@ -1,6 +1,6 @@
 // مسیر تولید پاسخ: GPT اصلی، Gemini جایگزین و Groq مسیر پشتیبان نهایی.
 import { generateOpenAIText, openaiConfigured } from './openai.js';
-import { generateText } from './gemini.js';
+import { generateText, aiConfigured } from './gemini.js';
 import { generateGroqText, groqConfigured } from './groq.js';
 import { generateWorkersAIText, workersAiPrimaryEnabled } from './cloudflare.js';
 
@@ -58,9 +58,16 @@ export async function generateTextWithFallback(env, prompt, {
   allowOpenAI = true,
   allowGroq = true,
 } = {}) {
-  // حالت صفرهزینه: هیچ درخواست پولی به OpenAI/Gemini/Groq ارسال نمی‌شود.
-  // Workers AI فقط با feature flag صریح فعال می‌شود؛ در غیر این صورت fail-closed.
+  // حالت صفرهزینه: فقط یک provider صریحاً تأییدشده مجاز است؛ خطا به provider دیگری failover نمی‌شود.
   if (env?.AI_BILLING_MODE === 'zero') {
+    if (env?.GEMINI_FREE_TIER_CONFIRMED === 'true') {
+      if (!aiConfigured(env) || (env?.GEMINI_TEXT_MODEL || 'gemini-3.5-flash-lite') !== 'gemini-3.5-flash-lite') {
+        throw Object.assign(new Error('AI_ZERO_COST_GEMINI_NOT_CONFIGURED'), { code: 'AI_ZERO_COST_GEMINI_NOT_CONFIGURED', status: 503 });
+      }
+      const result = await generateText(env, { ...prompt, allowModelFallback: false, useGoogleSearch: false });
+      return cleanProviderResult({ ...result, provider: 'gemini' });
+    }
+    // تا زمان تأیید دستی وضعیت Free Tier گوگل، مسیر فعلی Workers AI حفظ می‌شود.
     if (!workersAiPrimaryEnabled(env)) {
       throw Object.assign(new Error('AI_ZERO_COST_PROVIDER_DISABLED'), { code: 'AI_ZERO_COST_PROVIDER_DISABLED', status: 503 });
     }

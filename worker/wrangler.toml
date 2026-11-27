@@ -38,6 +38,8 @@ head_sampling_rate = 1
 AI_BILLING_MODE = "zero"
 WORKERS_AI_FREE_PLAN_CONFIRMED = "true"
 WORKERS_AI_PRIMARY_ENABLED = "true"
+# Google AI Studio billing state must be verified before changing this to true.
+GEMINI_FREE_TIER_CONFIRMED = "false"
 WORKERS_AI_REVIEW_ENABLED = "false"
 OPENAI_TEXT_MODEL = "gpt-6.2-astra"
 OPENAI_REASONING_EFFORT = "medium"
