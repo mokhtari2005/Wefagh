@@ -13,7 +13,7 @@ export const NAV = [
   { id: 'calculators', path: '/calculators', title: 'محاسبه‌گرها' },
   { id: 'deadlines', path: '/deadlines', title: 'تقویم مواعد' },
   { id: 'media', path: '/media', title: 'رسانه و اندیشه' },
-  { id: 'laws', path: '/laws', title: 'بانک قوانین', status: 'planned', phase: 6 },
+  { id: 'laws', path: '/laws', title: 'بانک قوانین و مقررات' },
   { id: 'cooperative', path: '/cooperative', title: 'مشارکت صنفی', status: 'planned', phase: 7 },
   { id: 'contact', path: '/contact', title: 'تماس با ما' },
   { id: 'account', path: '/account', title: 'عضویت و حساب' },
