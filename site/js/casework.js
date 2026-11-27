@@ -275,7 +275,8 @@ export function caseworkDetailPage(caseId){
       metaItem('تاریخ تشکیل',date(c.createdAt)),metaItem('توضیحات',c.description||'—'),
     ]));
     serviceList.replaceChildren(...(current.services.length?current.services.map(s=>h('article',{class:'casework-service-card'},[
-      h('div',{},[h('strong',{text:s.title}),h('small',{text:SERVICE_TYPES.find(x=>x[0]===s.type)?.[1]||s.type}),h('p',{class:'muted',text:'ایجاد: '+date(s.createdAt)})]),
+      h('div',{},[h('strong',{text:s.title}),h('small',{text:SERVICE_TYPES.find(x=>x[0]===s.type)?.[1]||({assistant_consult:'مشاوره دستیار وکیل',assistant_analyze:'تحلیل پرونده با دستیار',assistant_litigation:'بازبینی حقوقی دستیار',assistant_research:'تحقیق حقوقی با دستیار',assistant_review:'بررسی متن با دستیار',assistant_draft:'تنظیم سند با دستیار'}[s.type]||s.type)}),h('p',{class:'muted',text:'ایجاد: '+date(s.createdAt)}),
+        s.threadId?h('a',{class:'btn secondary',href:'#/assistant/consult?thread='+encodeURIComponent(s.threadId),text:'بازکردن گفت‌وگو'}):null]),
       statusPill(s.status),
       h('select',{value:s.status},Object.entries(SERVICE_STATUS).map(([v,t])=>h('option',{value:v,text:t})))
     ])):[empty('هنوز خدمتی برای این پرونده ثبت نشده است.')]));
