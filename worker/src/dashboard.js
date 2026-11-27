@@ -29,13 +29,13 @@ export async function handleDashboard(request, env, path) {
 
   const enrolledIds = (enrollmentRows?.results || []).map((row) => row.course_id);
   const completed = new Set((progressRows?.results || []).map((row) => `${row.course_id}:${row.lesson_id}`));
-  const managedCourses = (managedCourseRows?.results || []).flatMap((row) => { try { const payload = JSON.parse(row.payload_json); return [{ id: row.slug, title: row.title, lessons: payload.lessons }]; } catch { return []; } });
+  const managedCourses = (managedCourseRows?.results || []).flatMap((row) => { try { const payload = JSON.parse(row.payload_json); return [{ id: row.slug, title: row.title, format: payload.format === 'workshop' ? 'workshop' : 'course', lessons: payload.lessons }]; } catch { return []; } });
   const allCourses = [...COURSES, ...managedCourses];
   const courses = enrolledIds.map((id) => {
     const course = allCourses.find((item) => item.id === id);
     if (!course) return null;
     const completedLessons = course.lessons.filter((lesson) => completed.has(`${course.id}:${lesson.id}`)).length;
-    return { id: course.id, title: course.title, completedLessons, totalLessons: course.lessons.length,
+    return { id: course.id, title: course.title, format: course.format || 'course', completedLessons, totalLessons: course.lessons.length,
       percent: Math.round((completedLessons / course.lessons.length) * 100) };
   }).filter(Boolean);
   const sessions = (mootRows?.results || []).map((row) => ({
@@ -48,6 +48,8 @@ export async function handleDashboard(request, env, path) {
 
   return json({ ok: true, summary: {
     enrolledCourseCount: courses.length,
+    workshopEnrollmentCount: courses.filter((course) => course.format === 'workshop').length,
+    completedWorkshopCount: courses.filter((course) => course.format === 'workshop' && course.completedLessons === course.totalLessons).length,
     completedLessonCount: courses.reduce((sum, course) => sum + course.completedLessons, 0),
     totalEnrolledLessons: courses.reduce((sum, course) => sum + course.totalLessons, 0),
     mootSessionCount: sessions.length,

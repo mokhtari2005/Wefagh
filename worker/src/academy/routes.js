@@ -60,7 +60,7 @@ async function publishedCourses(env) {
     return [];
   }
   return (rows?.results || []).flatMap((row) => {
-    try { const payload = JSON.parse(row.payload_json); return [{ id: row.slug, title: row.title, summary: row.summary, level: payload.level, lessons: payload.lessons, status: 'published' }]; } catch { return []; }
+    try { const payload = JSON.parse(row.payload_json); return [{ id: row.slug, title: row.title, summary: row.summary, level: payload.level, format: payload.format === 'workshop' ? 'workshop' : 'course', lessons: payload.lessons, status: 'published' }]; } catch { return []; }
   });
 }
 
@@ -75,7 +75,7 @@ async function getCourse(env, id) {
     if (row) {
       try {
         const payload = JSON.parse(row.payload_json);
-        return { id: row.slug, title: row.title, summary: row.summary, level: payload.level, lessons: payload.lessons, status: 'published' };
+        return { id: row.slug, title: row.title, summary: row.summary, level: payload.level, format: payload.format === 'workshop' ? 'workshop' : 'course', lessons: payload.lessons, status: 'published' };
       } catch {
         return null;
       }
@@ -123,7 +123,7 @@ export async function handleAcademy(request, env, path) {
     return json({
       ok: true,
       course: {
-        id: course.id, title: course.title, level: course.level, summary: course.summary,
+        id: course.id, title: course.title, level: course.level, summary: course.summary, format: course.format || 'course',
         status: course.status || 'published',
         lessons: course.lessons.map((l) => {
           const learning = lessonLearning(course.id, l.id);

@@ -1,9 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { WORKSHOPS, EXERCISES } from '../site/js/workshops.js';
+import { WORKSHOP_COURSES, WORKSHOP_ACTIVITIES } from '../worker/src/academy/workshop-courses.js';
+import { findCourse } from '../worker/src/academy/catalog.js';
+import { lessonLearning } from '../worker/src/academy/learning.js';
 
 test('کارگاه‌های مهارت‌محور برای سه گروه مخاطب تعریف شده‌اند', () => {
-  assert.equal(WORKSHOPS.length, 12);
+  assert.equal(WORKSHOPS.length, 13);
   assert.equal(new Set(WORKSHOPS.map(item => item.id)).size, WORKSHOPS.length);
   assert.ok(WORKSHOPS.some(item => item.level.includes('دانشجو')));
   assert.ok(WORKSHOPS.some(item => item.level.includes('کارآموز')));
@@ -24,4 +27,32 @@ test('هر کارگاه تمرین عملی، معیار ارزیابی و پی�
 test('عنوان دانشکده در محتوای قابل نمایش کارگاه‌ها استفاده نشده است', () => {
   const visible = JSON.stringify(WORKSHOPS) + JSON.stringify(EXERCISES);
   assert.equal(visible.includes('دانشکده'), false);
+});
+
+test('کارگاه‌های معرفی‌شده به محتوای تعاملی واقعی و قابل ثبت‌نام متصل‌اند', () => {
+  const linked = new Set(WORKSHOPS.flatMap(item => item.courseIds || []));
+  assert.ok(linked.size >= 8);
+  for (const id of linked) {
+    const course = findCourse(id);
+    assert.ok(course, 'محتوای کارگاه ' + id + ' در کاتالوگ نیست');
+    assert.equal(course.status, 'published');
+    assert.equal(course.format, 'workshop');
+    assert.equal(course.lessons.length, 5);
+    for (const lesson of course.lessons) {
+      const activity = lessonLearning(id, lesson.id);
+      assert.ok(activity, 'تمرین و آزمونک درس ' + id + '/' + lesson.id + ' موجود نیست');
+      assert.ok(activity.assignment.length > 20);
+      assert.ok(activity.rubric.length >= 4);
+      assert.equal(activity.quiz.options.length, 4);
+      assert.ok(activity.quiz.correctIndex >= 0 && activity.quiz.correctIndex < 4);
+    }
+  }
+});
+
+test('دوره‌های تازه کارگاه از داده و آزمونک سمت سرور تغذیه می‌شوند', () => {
+  assert.equal(WORKSHOP_COURSES.length, 7);
+  for (const course of WORKSHOP_COURSES) {
+    assert.equal(course.format, 'workshop');
+    assert.equal(WORKSHOP_ACTIVITIES[course.id].length, 5);
+  }
 });
