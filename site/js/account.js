@@ -116,7 +116,9 @@ export function forgotPasswordForm() {
     submit.disabled = true; setStatus(status, 'در حال ارسال درخواست…');
     const res = await postJson('/api/auth/request-password-reset', { email: email.value.trim() });
     submit.disabled = false;
-    setStatus(status, res.ok ? (res.data?.message || 'در صورت وجود حساب، لینک بازیابی ارسال می‌شود.') : messageFor(res.networkError ? 'NETWORK' : res.data?.error), res.ok ? 'ok' : 'err');
+    const errorText = messageFor(res.networkError ? 'NETWORK' : res.data?.error);
+    const diagnostic = !res.ok ? `\nکد پیگیری: ${res.requestId || 'نامشخص'}${res.status ? ` | HTTP ${res.status}` : ''}` : '';
+    setStatus(status, res.ok ? (res.data?.message || 'در صورت وجود حساب، لینک بازیابی ارسال می‌شود.') : `${errorText}${diagnostic}`, res.ok ? 'ok' : 'err');
   });
   return form;
 }
