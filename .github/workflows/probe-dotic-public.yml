@@ -1,0 +1,36 @@
+name: Probe official DOTIC public access
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "45 4 * * *"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/probe_dotic_public.py"
+      - "tests/test_dotic_public_probe.py"
+      - ".github/workflows/probe-dotic-public.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install probe dependencies
+        run: python -m pip install requests beautifulsoup4
+      - name: Test probe parsing and robots policy
+        run: python -m unittest tests.test_dotic_public_probe -v
+      - name: Probe public DOTIC endpoints
+        run: python scripts/probe_dotic_public.py --output artifacts/dotic-public-probe.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dotic-public-probe
+          path: artifacts/dotic-public-probe.json
+          retention-days: 14
