@@ -115,7 +115,7 @@ export async function generateTextWithFallback(env, prompt, {
     }
 
     if (groqFailure) throw groqFailure;
-    if (geminiFailure) throw geminiFailure;
+    if (env?.GEMINI_FREE_TIER_CONFIRMED === 'true' && geminiFailure) throw geminiFailure;
     throw Object.assign(new Error('AI_ZERO_COST_PROVIDER_DISABLED'), { code: 'AI_ZERO_COST_PROVIDER_DISABLED', status: 503 });
   }
 
