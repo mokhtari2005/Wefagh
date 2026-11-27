@@ -17,7 +17,8 @@ export function isDadrasSourceUrl(value) {
 
 export function parseDadrasSearchResults(value, limit = 5) {
   const raw = String(value || "").replace(/\r/g, "");
-  const blocks = raw.split(/\n(?=\d+\.\s)/u).slice(1);
+  const splitBlocks = raw.split(/\n(?=\d+\.\s)/u);
+  const blocks = /^\s*\d+\.\s/u.test(splitBlocks[0] || "") ? splitBlocks : splitBlocks.slice(1);
   const results = [];
   const seen = new Set();
   for (const block of blocks) {
