@@ -101,7 +101,7 @@ export function lessonLearning(courseId, lessonId) {
   }
   if (!item) return null;
   return {
-    assignment: item[4],
+    assignment: item[4] + ' پاسخ را مستند، مرحله‌به‌مرحله و با ذکر موارد نیازمند بررسی تنظیم کنید.',
     rubric: ['تشخیص دقیق مسئله و خواسته', 'استفاده از وقایع و ادله مرتبط', 'استدلال منظم و قابل پیگیری', 'بیان روشن و رعایت حدود قانونی'],
     quiz: { question: item[0], options: item[1], correctIndex: item[2], explanation: item[3] }
   };
