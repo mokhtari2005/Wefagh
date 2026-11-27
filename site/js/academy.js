@@ -265,6 +265,17 @@ function lessonsList(course, progress) {
         h('h3', { text: 'تمرین پرونده‌محور' }),
         h('p', { text: lesson.learning.assignment }),
         h('ul', { class: 'academy-rubric' }, lesson.learning.rubric.map((item) => h('li', { text: item }))),
+        ...(lesson.learning.practicalGuide ? [h('section', { class: 'academy-practical-guide' }, [
+          h('h3', { text: 'راهنمای ارزیابی مرحله ' + lesson.learning.practicalGuide.number + ' از ۵: ' + lesson.learning.practicalGuide.title }),
+          h('p', { text: lesson.learning.practicalGuide.objective }),
+          h('h4', { text: 'خروجی‌های قابل تحویل' }),
+          h('ul', {}, lesson.learning.practicalGuide.deliverables.map((item) => h('li', { text: item }))),
+          h('h4', { text: 'نقاط کنترل کیفیت' }),
+          h('ul', {}, lesson.learning.practicalGuide.checkpoints.map((item) => h('li', { text: item }))),
+          h('h4', { text: 'معیارهای ارزیابی این مرحله' }),
+          h('ul', {}, lesson.learning.practicalGuide.rubric.map((item) => h('li', { text: item }))),
+          h('p', { class: 'muted', text: 'چارچوب شایستگی‌های کل مسیر: ' + lesson.learning.practicalGuide.competencyFramework.map((item) => item.title).join(' · ') }),
+        ])] : []),
         h('h3', { text: 'آزمونک پایان درس' }),
         h('p', { text: lesson.learning.quiz.question })
       );

@@ -5,6 +5,7 @@ import { COURSES, courseSummaries, findCourse, findLesson, isPublicCourse } from
 import { lessonLearning } from './learning.js';
 import { handleAcademyExams } from './exam-routes.js';
 import { generateLessonLegalReview, gradeLessonResponse } from './legal-review.js';
+import { VERIFIED_CASE_STUDIES } from './case-studies.js';
 
 const MANAGER_ROLES = ['admin', 'super_admin', 'academy_manager'];
 const isManager = (user) => Boolean(user && Array.isArray(user.roles) && user.roles.some((r) => MANAGER_ROLES.includes(r)));
@@ -103,6 +104,10 @@ async function enrolledCourseIds(request, env) {
 }
 
 export async function handleAcademy(request, env, path) {
+  if (path === '/api/academy/case-studies') {
+    if (request.method !== 'GET') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'GET' });
+    return json({ ok: true, caseStudies: VERIFIED_CASE_STUDIES });
+  }
   if (path.startsWith('/api/academy/exams')) return handleAcademyExams(request, env, path);
   if (path === '/api/academy/courses') {
     if (request.method !== 'GET') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'GET' });
@@ -132,6 +137,7 @@ export async function handleAcademy(request, env, path) {
             learning: learning ? {
               assignment: learning.assignment,
               rubric: learning.rubric,
+              practicalGuide: learning.practicalGuide || null,
               quiz: { question: learning.quiz.question, options: learning.quiz.options },
             } : null,
           };

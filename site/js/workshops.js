@@ -97,6 +97,34 @@ export async function workshopsPage(id='') {
     } else if(!catalog.ok) {
       root.append(el('p',{class:'workshop-note',text:'فهرست درس‌های قابل ثبت‌نام در حال حاضر بارگذاری نشد؛ محتوای معرفی و تمرین این کارگاه در دسترس است.'}));
     }
+    if (current.id === 'case-analysis' || current.id === 'apprenticeship') {
+      const cases = await getJson('/api/academy/case-studies');
+      if (cases.ok && Array.isArray(cases.data.caseStudies) && cases.data.caseStudies.length) {
+        root.append(el('h2',{text:'مطالعات موردی مبتنی بر آرای منتشرشده'}));
+        root.append(el('p',{class:'workshop-note',text:'این موارد از آرای منتشرشده بازنویسی آموزشی شده‌اند؛ خلاصه‌ها جایگزین متن کامل رأی نیستند و نباید بدون بررسی قوانین جاری و وضعیت بعدی پرونده به پرونده واقعی تعمیم داده شوند.'}));
+        cases.data.caseStudies.forEach(item => {
+          const card=el('article',{class:'workshop-case-study'});
+          card.append(
+            el('h3',{text:item.title}),
+            el('p',{class:'workshop-case-meta',text:'دادنامه '+item.documentNumber+' · تاریخ '+item.date+' · '+item.court}),
+            el('h4',{text:'خلاصه روند و نتیجه'}),
+            el('p',{text:item.summary}),
+            el('h4',{text:'پرسش حقوقی'}),
+            el('p',{text:item.issue}),
+            el('h4',{text:'نتیجه در همین پرونده'}),
+            el('p',{text:item.holding}),
+            el('h4',{text:'تمرین‌های پیشنهادی'}),
+            el('ul',{},item.tasks.map(task=>el('li',{text:task}))),
+            el('h4',{text:'حدود استفاده از رأی'}),
+            el('ul',{},item.limits.map(note=>el('li',{text:note}))),
+            el('p',{},[el('a',{href:item.sourceUrl,target:'_blank',rel:'noopener noreferrer',text:'مشاهده متن رأی در سامانه ملی آرای قضایی'})])
+          );
+          root.append(card);
+        });
+      } else {
+        root.append(el('p',{class:'workshop-note',text:'مطالعات موردی مستند در حال حاضر بارگذاری نشد؛ تمرین‌های فرضی این کارگاه همچنان در دسترس‌اند.'}));
+      }
+    }
     const exercise=EXERCISES[current.id];
     if(exercise){
       root.append(el('h2',{text:'تمرین عملی کارگاه'}),el('section',{class:'workshop-exercise'},[

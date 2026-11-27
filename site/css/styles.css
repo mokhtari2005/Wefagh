@@ -4275,3 +4275,17 @@ body.classroom-fullscreen-fallback { overflow:hidden; }
 .legal-bank-external{border-style:dashed}
 .legal-bank-external>a{display:inline-flex;margin:.35rem 0 .6rem;color:var(--primary,#21436a);font-weight:700;text-decoration:underline;text-underline-offset:3px}
 .legal-bank-external .muted{font-size:.9rem}
+
+
+/* کارنامه و راهنمای مرحله‌ای کارآموزی */
+.academy-practical-guide{margin:1rem 0;padding:1rem;border:1px solid var(--border,#d9d2c5);border-radius:14px;background:var(--surface-soft,#f8f7f3)}
+.academy-practical-guide h3{margin:.15rem 0 .65rem;font-size:1rem}
+.academy-practical-guide h4{margin:.8rem 0 .35rem;font-size:.9rem}
+.academy-practical-guide ul{margin:.25rem 0;padding-inline-start:1.25rem}
+.academy-practical-guide li{margin:.25rem 0;line-height:1.8}
+.workshop-case-study{margin:1rem 0;padding:1rem;border:1px solid var(--border,#d9d2c5);border-radius:14px;background:var(--surface,#fff);overflow-wrap:anywhere}
+.workshop-case-study h3{margin:.1rem 0 .45rem;font-size:1.05rem}
+.workshop-case-study h4{margin:.85rem 0 .35rem;font-size:.9rem}
+.workshop-case-study p,.workshop-case-study li{line-height:1.9}
+.workshop-case-meta{font-size:.82rem;color:var(--ink-soft,#687078)}
+@media(max-width:640px){.academy-practical-guide,.workshop-case-study{padding:.8rem;border-radius:11px}.academy-practical-guide ul,.workshop-case-study ul{padding-inline-start:1rem}}

@@ -4,6 +4,9 @@ import { WORKSHOPS, EXERCISES } from '../site/js/workshops.js';
 import { WORKSHOP_COURSES, WORKSHOP_ACTIVITIES } from '../worker/src/academy/workshop-courses.js';
 import { findCourse } from '../worker/src/academy/catalog.js';
 import { lessonLearning } from '../worker/src/academy/learning.js';
+import { PRACTICAL_COMPETENCIES, getPracticalGuide } from '../worker/src/academy/practical-assessment.js';
+import { VERIFIED_CASE_STUDIES } from '../worker/src/academy/case-studies.js';
+import { handleAcademy } from '../worker/src/academy/routes.js';
 
 test('کارگاه‌های مهارت‌محور برای سه گروه مخاطب تعریف شده‌اند', () => {
   assert.equal(WORKSHOPS.length, 13);
@@ -55,4 +58,67 @@ test('دوره‌های تازه کارگاه از داده و آزمونک سم
     assert.equal(course.format, 'workshop');
     assert.equal(WORKSHOP_ACTIVITIES[course.id].length, 5);
   }
+});
+
+test('کارآموزی مجازی پنج مرحله عملی با خروجی و معیار ارزیابی مشخص دارد', () => {
+  assert.equal(PRACTICAL_COMPETENCIES.length, 7);
+  const course = findCourse('virtual-apprenticeship-workshop');
+  assert.ok(course);
+  for (let index = 1; index <= 5; index += 1) {
+    const lessonId = 'l' + index;
+    const guide = getPracticalGuide(course.id, lessonId);
+    const learning = lessonLearning(course.id, lessonId);
+    assert.ok(guide);
+    assert.equal(guide.number, index);
+    assert.ok(guide.deliverables.length >= 3);
+    assert.ok(guide.checkpoints.length >= 3);
+    assert.equal(guide.rubric.length, 4);
+    assert.equal(learning.practicalGuide.title, guide.title);
+    assert.equal(learning.rubric.length, 4);
+  }
+  assert.equal(getPracticalGuide('civil-litigation-practice', 'l1'), null);
+});
+
+test('بانک مطالعات موردی واقعی از سناریوهای فرضی جدا و به منبع قضایی پیوند دارد', () => {
+  assert.equal(VERIFIED_CASE_STUDIES.length, 8);
+  for (const item of VERIFIED_CASE_STUDIES) {
+    assert.ok(item.documentNumber);
+    assert.ok(item.date);
+    assert.ok(item.sourceUrl.startsWith('https://ara.jri.ac.ir/Judge/Text/'));
+    assert.ok(item.summary.length > 100);
+    assert.ok(item.limits.length >= 2);
+    assert.ok(item.tasks.length >= 2);
+  }
+});
+
+test('API مطالعات موردی عمومی، فقط‌خواندنی و بدون داده هویتی است', async () => {
+  const getResponse = await handleAcademy(new Request('https://example.test/api/academy/case-studies'), {}, '/api/academy/case-studies');
+  assert.equal(getResponse.status, 200);
+  const payload = await getResponse.json();
+  assert.equal(payload.ok, true);
+  assert.equal(payload.caseStudies.length, 8);
+  for (const item of payload.caseStudies) {
+    assert.ok(item.sourceUrl.startsWith('https://ara.jri.ac.ir/'));
+    assert.equal(Object.hasOwn(item, 'personName'), false);
+    assert.equal(Object.hasOwn(item, 'nationalId'), false);
+  }
+  const postResponse = await handleAcademy(new Request('https://example.test/api/academy/case-studies', { method: 'POST' }), {}, '/api/academy/case-studies');
+  assert.equal(postResponse.status, 405);
+});
+
+test('جزئیات کارگاه کارآموزی، راهنمای پنج مرحله را از API ارائه می‌کند', async () => {
+  const response = await handleAcademy(
+    new Request('https://example.test/api/academy/courses/virtual-apprenticeship-workshop'),
+    {},
+    '/api/academy/courses/virtual-apprenticeship-workshop'
+  );
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.ok, true);
+  assert.equal(payload.course.lessons.length, 5);
+  payload.course.lessons.forEach((lesson, index) => {
+    assert.equal(lesson.learning.practicalGuide.number, index + 1);
+    assert.ok(lesson.learning.practicalGuide.deliverables.length >= 3);
+    assert.equal(lesson.learning.practicalGuide.rubric.length, 4);
+  });
 });
