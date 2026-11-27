@@ -332,10 +332,11 @@ const ROUTES = {
   '/contact': () => pageContact(),
   '/account': (params) => pageAccount(params),
   '/verify': (params) => pageVerify(params),
-  '/academy': () => lazy(async () => (await import('./academy.js?v=20261119-media-nav-title-2')).academyList()),
-  '/academy/courses': () => lazy(async () => (await import('./academy.js?v=20261119-media-nav-title-2')).academyCoursesPage()),
-  '/courses': () => lazy(async () => (await import('./academy.js?v=20261119-media-nav-title-2')).academyCoursesPage()),
-  '/academy/exams': () => lazy(async () => (await import('./academy.js?v=20261119-media-nav-title-2')).academyExamsPage()),
+  '/academy': () => lazy(async () => (await import('./academy.js?v=20261127-apprenticeship-rubric-1')).academyList()),
+  '/academy/courses': () => lazy(async () => (await import('./academy.js?v=20261127-apprenticeship-rubric-1')).academyCoursesPage()),
+  '/academy/workshops': () => lazy(async () => (await import('./workshops.js?v=20261127-workshops-2')).workshopsPage()),
+  '/courses': () => lazy(async () => (await import('./academy.js?v=20261127-apprenticeship-rubric-1')).academyCoursesPage()),
+  '/academy/exams': () => lazy(async () => (await import('./academy.js?v=20261127-apprenticeship-rubric-1')).academyExamsPage()),
   '/academy/ekhtebar': () => lazy(async () => (await import('./ekhtebar.js')).ekhtebarPage()),
   '/dashboard': () => lazy(async () => (await import('./dashboard.js')).dashboardPage()),
   '/admin': () => lazy(async () => (await import('./admin.js?v=20261120-classroom-instructors-1')).adminPage()),
@@ -376,6 +377,7 @@ function mobileQuickAccess(path) {
   ];
   const generalLinks = [
     { icon: 'graduation-cap', title: 'آکادمی', href: '#/academy' },
+    { icon: 'book-open', title: 'کارگاه‌های آموزشی', href: '#/academy/workshops' },
     { icon: 'scale', title: 'دستیار وکیل', href: '#/assistant' },
     { icon: 'calculator', title: 'محاسبه‌گرها', href: '#/calculators' },
     { icon: 'calendar', title: 'تقویم مواعد', href: '#/deadlines' },
@@ -415,14 +417,15 @@ function render() {
   else if (path.startsWith('/assistant/doc/')) content = lazy(async () => (await import('./assistant-forms.js?v=20261126-assistant-config-split-1')).assistantDocumentPage({ type: decodeURIComponent(path.slice('/assistant/doc/'.length)) }));
   else if (path.startsWith('/cases/')) content = lazy(async () => (await import('./cases.js')).casesPage(decodeURIComponent(path.slice('/cases/'.length))));
   else if (path.startsWith('/media/')) content = lazy(async () => (await import('./media.js')).articlePage(decodeURIComponent(path.slice('/media/'.length))));
-  else if (path.startsWith('/academy/')) content = lazy(async () => (await import('./academy.js?v=20261119-media-nav-title-2')).academyCourse(decodeURIComponent(path.slice('/academy/'.length))));
+  else if (path.startsWith('/academy/workshops/')) content = lazy(async () => (await import('./workshops.js?v=20261127-workshops-2')).workshopsPage(decodeURIComponent(path.slice('/academy/workshops/'.length))));
+  else if (path.startsWith('/academy/')) content = lazy(async () => (await import('./academy.js?v=20261127-apprenticeship-rubric-1')).academyCourse(decodeURIComponent(path.slice('/academy/'.length))));
   else if (planned) content = pagePlanned(planned);
   else content = pageNotFound();
 
   document.body.classList.toggle('immersive', path === '/moot-court/hearing');
   const quickAccess = mobileQuickAccess(path);
   main.replaceChildren(...(quickAccess ? [quickAccess, content] : [content]));
-  const EXTRA_TITLES = { '/assistant/consult': 'مشاوره حقوقی', '/community': 'تالار گفتگو', '/admin': 'مدیریت محتوا', '/admin/traffic': 'پایش زنده بازدیدکنندگان', '/dashboard': 'داشبورد من', '/verify': 'تأیید ایمیل', '/moot-court': 'موت کورت', '/cases': 'بانک پرونده‌ها', '/laws': 'بانک قوانین و مقررات', '/assistant': 'دستیار هوشمند وکیل', '/assistant/documents': 'تنظیم اسناد', '/assistant/history': 'سوابق گفت‌وگوهای دستیار', '/academy/courses': 'دوره‌های آموزشی', '/courses': 'دوره‌های آموزشی', '/academy/exams': 'مرکز آزمون هوشمند', '/moot-court/hearing': 'اتاق دادگاه', '/moot-court/cases': 'انتخاب پرونده' };
+  const EXTRA_TITLES = { '/assistant/consult': 'مشاوره حقوقی', '/community': 'تالار گفتگو', '/admin': 'مدیریت محتوا', '/admin/traffic': 'پایش زنده بازدیدکنندگان', '/dashboard': 'داشبورد من', '/verify': 'تأیید ایمیل', '/moot-court': 'موت کورت', '/cases': 'بانک پرونده‌ها', '/laws': 'بانک قوانین و مقررات', '/assistant': 'دستیار هوشمند وکیل', '/assistant/documents': 'تنظیم اسناد', '/assistant/history': 'سوابق گفت‌وگوهای دستیار', '/academy/courses': 'دوره‌های آموزشی', '/courses': 'دوره‌های آموزشی', '/academy/exams': 'مرکز آزمون هوشمند', '/academy/workshops': 'کارگاه‌های آموزشی', '/moot-court/hearing': 'اتاق دادگاه', '/moot-court/cases': 'انتخاب پرونده' };
   const navTitle = NAV.find((n) => n.path === path)?.title;
   const title = navTitle ?? EXTRA_TITLES[path] ?? (path.startsWith('/academy/') ? 'آکادمی' : 'صفحه پیدا نشد');
   document.title = `${title} | آکادمی وکالت شهرام مختاری`;
