@@ -24,6 +24,12 @@ test('ارسال موفق: درخواست استاندارد Resend و فرست�
   assert.equal(body.subject, 'تأیید حساب وِفاق');
 });
 
+test('فرستندهٔ صریح درخواست بر تنظیم پیش‌فرض Resend اولویت دارد', async () => {
+  let payload;
+  await sendMail({ env, from: 'Mokhtari Law Academy <edu@mokhtari.ir>', to: 'user@example.com', subject: 'بازیابی رمز', text: 'لینک', fetchImpl: async (_url, options) => { payload = JSON.parse(options.body); return new Response('{}', { status: 200 }); } });
+  assert.equal(payload.from, 'Mokhtari Law Academy <edu@mokhtari.ir>');
+});
+
 test('اعتبارسنجی سربرگ فقط CR و LF واقعی را رد می‌کند، نه حروف r و n', async () => {
   let called = false;
   const ok = await sendMail({
