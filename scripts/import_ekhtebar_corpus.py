@@ -256,9 +256,31 @@ def priority_coverage(documents, manifest):
                 continue
             if any(title == alias or title.startswith(alias + " مصوب") or title.startswith(alias + " با اصلاحات") or title.startswith(alias + " (") for alias in aliases):
                 matches.append({"title": doc["title"], "slug": doc["slug"], "type": doc["lawType"]})
-        rows.append({"key": required["key"], "required_title": required["title"], "status": "present_in_source_mirror" if matches else "missing_from_source_mirror", "matches": matches[:5]})
+        rows.append({
+            "key": required["key"],
+            "required_title": required["title"],
+            "domain": required.get("domain", "general"),
+            "priority": required.get("priority", "core"),
+            "status": "present_in_source_mirror" if matches else "missing_from_source_mirror",
+            "matches": matches[:5],
+        })
     present = sum(1 for row in rows if row["status"] == "present_in_source_mirror")
-    return {"total_required": len(rows), "present_in_source_mirror": present, "missing_from_source_mirror": len(rows)-present, "verified": 0, "documents": rows}
+    by_domain = {}
+    for row in rows:
+        bucket = by_domain.setdefault(row["domain"], {"total": 0, "present_in_source_mirror": 0, "missing_from_source_mirror": 0, "verified": 0})
+        bucket["total"] += 1
+        if row["status"] == "present_in_source_mirror":
+            bucket["present_in_source_mirror"] += 1
+        else:
+            bucket["missing_from_source_mirror"] += 1
+    return {
+        "total_required": len(rows),
+        "present_in_source_mirror": present,
+        "missing_from_source_mirror": len(rows)-present,
+        "verified": 0,
+        "by_domain": by_domain,
+        "documents": rows,
+    }
 
 
 def main():
