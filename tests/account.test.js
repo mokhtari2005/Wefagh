@@ -113,7 +113,7 @@ async function registerAndLogin(env, sent, { email, phone }) {
 
 test('تغییر رمز: نیاز به ورود دارد', { skip }, async () => {
   const { env } = setup();
-  const res = await call(env, '/api/auth/change-password', { body: { currentPassword: OLD, newPassword: NEW } });
+  const res = await call(env, '/api/auth/change-password', { body: { newPassword: NEW } });
   assert.equal(res.status, 401);
 });
 
