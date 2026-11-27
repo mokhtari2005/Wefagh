@@ -4289,3 +4289,22 @@ body.classroom-fullscreen-fallback { overflow:hidden; }
 .workshop-case-study p,.workshop-case-study li{line-height:1.9}
 .workshop-case-meta{font-size:.82rem;color:var(--ink-soft,#687078)}
 @media(max-width:640px){.academy-practical-guide,.workshop-case-study{padding:.8rem;border-radius:11px}.academy-practical-guide ul,.workshop-case-study ul{padding-inline-start:1rem}}
+
+/* اتصال کارگاه‌ها به بانک پرونده و بایگانی تمرین مستقل */
+.academy-case-bank{margin:1rem 0;padding:1rem;border:1px solid var(--border,#d9d2c5);border-radius:14px;background:var(--surface-soft,#f8f7f3)}
+.academy-case-bank h3,.academy-case-bank h4{margin:.2rem 0 .6rem}
+.academy-case-bank-search,.academy-case-bank-pager{display:flex;gap:.55rem;align-items:center;flex-wrap:wrap;margin:.65rem 0}
+.academy-case-bank-search input{flex:1;min-width:180px}
+.academy-case-bank-results{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:.5rem;margin:.75rem 0}
+.academy-case-choice{padding:.7rem;text-align:right;border:1px solid var(--border,#d9d2c5);border-radius:10px;background:var(--surface,#fff);color:inherit;cursor:pointer}
+.academy-case-choice:hover{border-color:var(--primary,#21436a)}
+.academy-case-bank-detail{margin-top:.8rem}
+.academy-case-detail-body{padding:.85rem;border-radius:10px;background:var(--surface,#fff);overflow-wrap:anywhere}
+.academy-case-detail-body p,.academy-case-detail-body li{line-height:1.9}
+.academy-case-practice-history{margin-top:1rem;padding-top:.75rem;border-top:1px solid var(--border,#d9d2c5)}
+.academy-case-practice-item{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;padding:.65rem 0;border-bottom:1px solid var(--border,#d9d2c5)}
+.academy-case-practice-item p{flex-basis:100%;margin:.15rem 0;white-space:pre-wrap}
+@media(max-width:640px){.academy-case-bank{padding:.75rem}.academy-case-bank-search>*{width:100%}.academy-case-bank-pager{justify-content:space-between}}
+
+.academy-case-bank-disclosure>summary{cursor:pointer;font-weight:700;color:var(--primary,#21436a);padding:.25rem 0;list-style-position:inside}
+.academy-case-bank-disclosure[open]>summary{margin-bottom:.8rem}

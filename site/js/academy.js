@@ -3,6 +3,7 @@ import { getJson, postJson } from './api.js';
 import { icon } from './icons.js';
 import { messageFor } from './auth-messages.js';
 import { ACADEMY_TOOLS } from './academy-tools.js';
+import { academyCaseBank } from './academy-case-bank.js';
 export { ACADEMY_TOOLS } from './academy-tools.js';
 
 function h(tag, attrs = {}, children = []) {
@@ -89,7 +90,7 @@ export async function academyCourse(courseId) {
     h('h1', { text: course.title }),
     h('p', { class: 'muted', text: course.level }),
     h('p', { class: 'lead', text: course.summary }),
-    h('div', { class: 'notice', text: (course.format === 'workshop' ? 'روش کارگاه: ' : 'روش دوره: ') + 'درس را بخوانید، پرونده یا مسئله را تحلیل کنید، پاسخ کتبی بدهید و آزمونک را بگذرانید. قبولی در آزمونک، درس را در کارنامه شما ثبت می‌کند. پاسخ تشریحی نیز جداگانه با هوش مصنوعی و بر اساس معیارهای اعلام‌شده ارزیابی می‌شود؛ قبولی مستلزم پاسخ تستی صحیح و کسب حداقل ۶۰ از ۱۰۰ در پاسخ تشریحی است. برای حفظ محرمانگی، در تمرین‌ها فقط از اطلاعات فرضی یا بی‌نام‌سازی‌شده استفاده کنید و مشخصات موکل یا پرونده واقعی را وارد نکنید.' })
+    h('div', { class: 'notice', text: (course.format === 'workshop' ? 'روش کارگاه: ' : 'روش دوره: ') + 'درس را بخوانید، پرونده یا مسئله را تحلیل کنید، پاسخ کتبی بدهید و آزمونک را بگذرانید. قبولی در آزمونک، درس را در کارنامه شما ثبت می‌کند. پاسخ تشریحی نیز جداگانه با هوش مصنوعی و بر اساس معیارهای اعلام‌شده ارزیابی می‌شود؛ قبولی مستلزم پاسخ تستی صحیح و کسب حداقل ۶۰ از ۱۰۰ در پاسخ تشریحی است. برای حفظ محرمانگی، می‌توانید پرونده‌های منتشرشده بانک مشترک یا سناریوهای فرضی و بی‌نام را انتخاب کنید؛ اطلاعات هویتی محرمانه موکلان را وارد نکنید.' })
   );
   if (course.status === 'draft') {
     wrap.append(h('div', { class: 'notice', role: 'note' }, [h('p', { text: 'این دوره پیش‌نویس است. ثبت‌نام و دسترسی کاربران عادی به محتوا غیرفعال است.' })]));
@@ -134,7 +135,7 @@ async function renderProgress(area, course, user) {
     h('p', { class: 'muted', text: `${assessments.size} تمرین ثبت‌شده · قبولی هر آزمونک با پاسخ صحیح و ارائه تمرین کتبی ثبت می‌شود.` }),
   ]);
   area.append(summary, lessonsList(course, {
-    done, assessments,
+    done, assessments, user,
     onAssess: (lessonId, answerIndex, responseText, feedback) => submitAssessment(area, course, lessonId, answerIndex, responseText, feedback, done, assessments, summary, user),
   }));
   if (course.lessons.length && done.size === course.lessons.length) area.append(courseCertificateCard(user, course));
@@ -260,6 +261,7 @@ function lessonsList(course, progress) {
       h('h2', { text: `درس ${i + 1}: ${lesson.title}` }),
       h('p', { class: 'lesson-body pre-wrap', text: lesson.body }),
     ]);
+    if (course.format === 'workshop' && progress?.user) article.append(academyCaseBank(course.id, lesson.id));
     if (lesson.learning) {
       article.append(
         h('h3', { text: 'تمرین پرونده‌محور' }),
