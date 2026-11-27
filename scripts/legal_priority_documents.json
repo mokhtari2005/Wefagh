@@ -825,13 +825,6 @@
       "priority": "extended"
     },
     {
-      "key": "commercial-arbitration",
-      "title": "قانون داوری تجاری بین‌المللی",
-      "aliases": [],
-      "domain": "commercial",
-      "priority": "extended"
-    },
-    {
       "key": "foreign-investment",
       "title": "قانون تشویق و حمایت سرمایه‌گذاری خارجی",
       "aliases": [],
@@ -1011,13 +1004,6 @@
       "title": "قانون اصلاح قانون مبارزه با تأمین مالی تروریسم",
       "aliases": [],
       "domain": "criminal",
-      "priority": "extended"
-    },
-    {
-      "key": "public-contracts",
-      "title": "قانون برگزاری مناقصات",
-      "aliases": [],
-      "domain": "administrative",
       "priority": "extended"
     },
     {
