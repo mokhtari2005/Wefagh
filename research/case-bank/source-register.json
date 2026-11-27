@@ -2,7 +2,7 @@
   "schema_version": 1,
   "purpose": "پیش‌فهرست پژوهشی منابع رأی برای بانک تمرین دادرسی وِفاق؛ این فایل به‌تنهایی مجوز انتشار پرونده آموزشی نیست.",
   "collection_method": "جست‌وجوی وب و بررسی مستقیم صفحه رأی در سامانه ملی آرای قضایی؛ بدون استفاده از TinyFish.",
-  "review_status": "initial_source_check",
+  "review_status": "partial_training_review",
   "publication_status": "not_for_publication",
   "records": [
     {
@@ -22,7 +22,8 @@
       "source_page_checked": true,
       "duplicate_key": "ara.jri.ac.ir/Judge/Text/4639|9209970222900384",
       "training_candidate": true,
-      "notes": "صفحه رسمی شامل عنوان، شماره و تاریخ دادنامه و متن رأی بدوی قابل مشاهده است؛ پیش از تبدیل به سناریوی آموزشی، گردش پرونده و نتیجه نهایی باید جداگانه استخراج و تحلیل شود."
+      "notes": "متن رأی بدوی و تجدیدنظر در صفحه عمومی بررسی شد. نتیجه نهایی تجدیدنظر درباره صدور رأی خارج از خواسته در مطالعه موردی آموزشی جداگانه بازنویسی شده است؛ خلاصه آموزشی جایگزین متن کامل نیست.",
+      "training_status": "reviewed_for_training"
     },
     {
       "source_id": "ara-39412",
@@ -41,7 +42,8 @@
       "source_page_checked": true,
       "duplicate_key": "ara.jri.ac.ir/Judge/Text/39412|140291920009220359",
       "training_candidate": true,
-      "notes": "متن رأی تجدیدنظر و استدلال مربوط به وصف تجریدی چک در صفحه قابل مشاهده است."
+      "notes": "متن رأی تجدیدنظر و استدلال مربوط به وصف تجریدی چک و وضعیت دارنده با حسن نیت بررسی شد. مطالعه موردی آموزشی جداگانه تهیه شده و نباید به همه وضعیت‌های انتقال چک تعمیم داده شود.",
+      "training_status": "reviewed_for_training"
     },
     {
       "source_id": "ara-39386",
