@@ -38,8 +38,10 @@ head_sampling_rate = 1
 AI_BILLING_MODE = "zero"
 WORKERS_AI_FREE_PLAN_CONFIRMED = "true"
 WORKERS_AI_PRIMARY_ENABLED = "true"
-# Google AI Studio billing state must be verified before changing this to true.
-GEMINI_FREE_TIER_CONFIRMED = "false"
+# The AI Studio project was verified in the user's dashboard as Free Tier; use only Flash-Lite and never Google Search grounding.
+GEMINI_FREE_TIER_CONFIRMED = "true"
+# Groq fallback is restricted to the two models documented as available on its Free Plan.
+GROQ_FREE_TIER_CONFIRMED = "true"
 WORKERS_AI_REVIEW_ENABLED = "false"
 OPENAI_TEXT_MODEL = "gpt-6.2-astra"
 OPENAI_REASONING_EFFORT = "medium"
