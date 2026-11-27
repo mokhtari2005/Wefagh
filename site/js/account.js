@@ -50,6 +50,7 @@ export function loginForm({ onSuccess, onRegister }) {
     emailErr,
     field('login-password', 'رمز عبور', password),
     submit,
+    h('p', { class: 'password-recovery-link' }, [forgot]),
     status,
     h('p', {}, [
       h('a', { href: '#/account?mode=register', text: 'حساب ندارید؟ ثبت‌نام کنید' }),
