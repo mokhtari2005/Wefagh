@@ -27,7 +27,7 @@ import { handlePush } from './push/routes.js';
 import { sendDuePushReminders } from './push/reminders.js';
 import { sendDueEmailReminders } from './email/deadline-reminders.js';
 import { handleMapTiles } from './map-tiles.js';
-import { handleDiagnostics } from './diagnostics.js';
+import { handleDiagnostics, recordServerFault } from './diagnostics.js';
 import { handleDiagnosticRepair } from './diagnostic-repair.js';
 import { handleDiagnosticSelfTest } from './diagnostic-self-test.js';
 import { runScheduledBackup, handleBackupStatus } from './backups.js';
@@ -137,6 +137,7 @@ export default {
       } catch (err) {
         // هر خطای پیش‌بینی‌نشده: پاسخ JSON امن و گزارش فنی بدون داده‌های کاربر.
         console.error(JSON.stringify({ where: `route:${path}`, error: err?.name || 'Error' }));
+        await recordServerFault(env, { route: path, error: err });
         return json({ ok: false, error: 'INTERNAL_ERROR' }, 500);
       }
     }
