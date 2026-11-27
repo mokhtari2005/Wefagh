@@ -360,6 +360,7 @@ const ROUTES = {
   '/calculators/attorney': () => lazy(async () => (await import('./calc/page.js?v=20261125-rtl-legal-notes-2')).calculatorsPage({ tool: 'attorney' })),
   '/calculators/delay': () => lazy(async () => (await import('./calc/page.js?v=20261125-rtl-legal-notes-2')).calculatorsPage({ tool: 'delay' })),
   '/media': () => lazy(async () => (await import('./media.js')).mediaHome()),
+  '/laws': () => lazy(async () => (await import('./laws.js')).legalBankPage()),
   '/deadlines': (params) => lazy(async () => (await import('./deadlines.js')).deadlinesPage(params)),
 };
 
@@ -381,6 +382,7 @@ function mobileQuickAccess(path) {
     { icon: 'folder', title: 'پرونده‌ها', href: '#/cases' },
     { icon: 'mic', title: 'تایپ صوتی', href: '#/voice-typing' },
     { icon: 'newspaper', title: 'رسانه و اندیشه', href: '#/media' },
+    { icon: 'scale', title: 'بانک قوانین', href: '#/laws' },
   ];
   const items = path.startsWith('/calculators/') || path === '/calculators'
     ? calculatorLinks
@@ -420,7 +422,7 @@ function render() {
   document.body.classList.toggle('immersive', path === '/moot-court/hearing');
   const quickAccess = mobileQuickAccess(path);
   main.replaceChildren(...(quickAccess ? [quickAccess, content] : [content]));
-  const EXTRA_TITLES = { '/assistant/consult': 'مشاوره حقوقی', '/community': 'تالار گفتگو', '/admin': 'مدیریت محتوا', '/admin/traffic': 'پایش زنده بازدیدکنندگان', '/dashboard': 'داشبورد من', '/verify': 'تأیید ایمیل', '/moot-court': 'موت کورت', '/cases': 'بانک پرونده‌ها', '/assistant': 'دستیار هوشمند وکیل', '/assistant/documents': 'تنظیم اسناد', '/assistant/history': 'سوابق گفت‌وگوهای دستیار', '/academy/courses': 'دوره‌های آموزشی', '/courses': 'دوره‌های آموزشی', '/academy/exams': 'مرکز آزمون هوشمند', '/moot-court/hearing': 'اتاق دادگاه', '/moot-court/cases': 'انتخاب پرونده' };
+  const EXTRA_TITLES = { '/assistant/consult': 'مشاوره حقوقی', '/community': 'تالار گفتگو', '/admin': 'مدیریت محتوا', '/admin/traffic': 'پایش زنده بازدیدکنندگان', '/dashboard': 'داشبورد من', '/verify': 'تأیید ایمیل', '/moot-court': 'موت کورت', '/cases': 'بانک پرونده‌ها', '/laws': 'بانک قوانین و مقررات', '/assistant': 'دستیار هوشمند وکیل', '/assistant/documents': 'تنظیم اسناد', '/assistant/history': 'سوابق گفت‌وگوهای دستیار', '/academy/courses': 'دوره‌های آموزشی', '/courses': 'دوره‌های آموزشی', '/academy/exams': 'مرکز آزمون هوشمند', '/moot-court/hearing': 'اتاق دادگاه', '/moot-court/cases': 'انتخاب پرونده' };
   const navTitle = NAV.find((n) => n.path === path)?.title;
   const title = navTitle ?? EXTRA_TITLES[path] ?? (path.startsWith('/academy/') ? 'آکادمی' : 'صفحه پیدا نشد');
   document.title = `${title} | آکادمی وکالت شهرام مختاری`;
