@@ -64,6 +64,22 @@ class LegalCorpusImporterTests(unittest.TestCase):
         for path, title, expected in cases:
             self.assertEqual(importer.category_type(path, title), expected)
 
+    def test_interpretive_laws_fatwas_and_expediency_resolutions_are_classified(self):
+        cases = [
+            ("قانون تفسیر ماده ۱۰ قانون مدنی", "interpretive_law"),
+            ("استفساریه قانون مالیات‌های مستقیم", "interpretive_law"),
+            ("مصوبه مجمع تشخیص مصلحت نظام", "expediency_council_resolution"),
+            ("استفتاء درباره مسئله فقهی", "fatwa"),
+        ]
+        for title, expected in cases:
+            self.assertEqual(importer.classify(title), expected)
+
+    def test_expediency_council_category_uses_specific_resolution_type(self):
+        self.assertEqual(
+            importer.category_type("data/cats/مصوبات/example.md", "مصوبه مجمع تشخیص مصلحت نظام"),
+            "expediency_council_resolution",
+        )
+
     def test_full_text_judicial_opinion_is_not_split_into_fake_articles(self):
         markdown = """# نظریه مشورتی اداره کل حقوقی قوه قضائیه
 > منبع: https://www.ekhtebar.ir/sample-opinion/
