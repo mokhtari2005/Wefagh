@@ -51,6 +51,28 @@ class LegalCorpusImporterTests(unittest.TestCase):
         self.assertEqual(doc["articles"][0]["number"], "1")
         self.assertIn("شرایط تابعیت کشتی", doc["articles"][0]["body"])
 
+    def test_daily_change_detection_separates_new_changed_and_unchanged_documents(self):
+        docs = [
+            {"slug": "new-law", "contentSha256": "a" * 64},
+            {"slug": "same-law", "contentSha256": "b" * 64},
+            {"slug": "changed-law", "contentSha256": "c" * 64},
+        ]
+        existing = [
+            {"slug": "same-law", "content_sha256": "b" * 64},
+            {"slug": "changed-law", "content_sha256": "d" * 64},
+        ]
+        new_docs, changed_docs, unchanged = importer.partition_document_updates(docs, existing)
+        self.assertEqual([doc["slug"] for doc in new_docs], ["new-law"])
+        self.assertEqual([(doc["slug"], old_hash) for doc, old_hash in changed_docs], [("changed-law", "d" * 64)])
+        self.assertEqual(unchanged, 1)
+
+    def test_automatic_updates_are_review_queued_not_overwritten(self):
+        migration = (MODULE_PATH.parent.parent / "worker" / "migrations" / "0039_legal_document_update_queue.sql").read_text(encoding="utf-8")
+        self.assertIn("proposed_payload_json", migration)
+        self.assertIn("previous_sha256", migration)
+        self.assertIn("UNIQUE(slug, proposed_sha256)", migration)
+        self.assertIn("DEFAULT 'needs_review'", migration)
+
     def test_priority_coverage_distinguishes_present_missing_and_repealed(self):
         manifest = {
             "documents": [
