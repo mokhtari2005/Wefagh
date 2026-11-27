@@ -51,7 +51,7 @@ test('هر کاربر می‌تواند چند پرونده مستقل را در
     const created=await worker.fetch(req('/api/cases/workshop-practices',{method:'POST',cookie,body:{
       courseId:'civil-litigation-practice',lessonId:'l1',caseId,responseText:'تحلیل مستقل این پرونده آموزشی برای ارزیابی مهارت عملی کارآموز.'
     }}),env);
-    assert.equal(created.status,201);
+    assert.equal(created.status,201,JSON.stringify(await created.clone().json()));
   }
   const history=await worker.fetch(req('/api/cases/workshop-practices?courseId=civil-litigation-practice&lessonId=l1'),{...env});
   assert.equal(history.status,200);
