@@ -76,7 +76,7 @@ def classify(t):
     return "other"
 def find_official_source_url(raw):
     """Return only a directly embedded official URL; never relabel an Ekhtbar URL as official."""
-    matches = re.findall(r"https?://(?:www\\.)?(?:qavanin\\.ir|rrk\\.ir)/[^\\s\\]>)\\\"']*", raw, flags=re.IGNORECASE)
+    matches = re.findall(r"https?://(?:www[.]?)?(?:qavanin[.]ir|rrk[.]ir)/[^\s\"'<>)]*", raw, flags=re.IGNORECASE)
     for candidate in matches:
         candidate = candidate.rstrip(".,؛،)")
         if candidate.lower().startswith("https://"):
