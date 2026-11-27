@@ -82,6 +82,7 @@ export async function handleLegalBank(request, env, path) {
         conditions.push('('+terms.map(term=>{bindings.push('%'+term+'%');return `(l.title LIKE ?${bindings.length} OR l.document_number LIKE ?${bindings.length} OR l.subject LIKE ?${bindings.length})`;}).join(' OR ')+')');
       }
     }
+    if (!conditions.length) return json({ok:true,items:[],page,hasMore:false});
     bindings.push(limit+1,offset);
     const result=await env.DB.prepare(`SELECT l.id,l.slug,l.title,l.law_type AS lawType,l.status,
       l.document_number AS documentNumber,l.document_date AS documentDate,l.approved_date AS approvedDate,
