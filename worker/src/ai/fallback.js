@@ -58,20 +58,65 @@ export async function generateTextWithFallback(env, prompt, {
   allowOpenAI = true,
   allowGroq = true,
 } = {}) {
-  // حالت صفرهزینه: فقط یک provider صریحاً تأییدشده مجاز است؛ خطا به provider دیگری failover نمی‌شود.
+  // حالت صفرهزینه: زنجیرهٔ ثابت Gemini 3.5 → Groq Free → Workers AI Free.
+  // در این شاخه OpenAI و هر مدل/مسیر پولی مطلقاً فراخوانی نمی‌شوند.
   if (env?.AI_BILLING_MODE === 'zero') {
+    const hasInlineData = (Array.isArray(prompt?.contents) ? prompt.contents : [])
+      .some((item) => Array.isArray(item?.parts) && item.parts.some((part) => part && typeof part === 'object' && 'inlineData' in part));
+    let geminiFailure = null;
+
     if (env?.GEMINI_FREE_TIER_CONFIRMED === 'true') {
-      if (!aiConfigured(env) || (env?.GEMINI_TEXT_MODEL || 'gemini-3.5-flash-lite') !== 'gemini-3.5-flash-lite') {
-        throw Object.assign(new Error('AI_ZERO_COST_GEMINI_NOT_CONFIGURED'), { code: 'AI_ZERO_COST_GEMINI_NOT_CONFIGURED', status: 503 });
+      if (aiConfigured(env) && (env?.GEMINI_TEXT_MODEL || 'gemini-3.5-flash-lite') === 'gemini-3.5-flash-lite') {
+        try {
+          const result = await generateText(env, { ...prompt, allowModelFallback: false, useGoogleSearch: false });
+          return cleanProviderResult({ ...result, provider: 'gemini' });
+        } catch (error) {
+          geminiFailure = error;
+          console.warn(JSON.stringify({ where: 'ai.zero_cost_failover', from: 'gemini', reason: error?.code || 'GEMINI_FAILED' }));
+        }
+      } else {
+        geminiFailure = Object.assign(new Error('AI_ZERO_COST_GEMINI_NOT_CONFIGURED'), {
+          code: 'AI_ZERO_COST_GEMINI_NOT_CONFIGURED', status: 503,
+        });
       }
-      const result = await generateText(env, { ...prompt, allowModelFallback: false, useGoogleSearch: false });
-      return cleanProviderResult({ ...result, provider: 'gemini' });
+    } else {
+      geminiFailure = Object.assign(new Error('AI_ZERO_COST_GEMINI_DISABLED'), {
+        code: 'AI_ZERO_COST_GEMINI_DISABLED', status: 503,
+      });
     }
-    // تا زمان تأیید دستی وضعیت Free Tier گوگل، مسیر فعلی Workers AI حفظ می‌شود.
-    if (!workersAiPrimaryEnabled(env)) {
-      throw Object.assign(new Error('AI_ZERO_COST_PROVIDER_DISABLED'), { code: 'AI_ZERO_COST_PROVIDER_DISABLED', status: 503 });
+
+    let groqFailure = null;
+    if (allowGroq && !hasInlineData && env?.GROQ_FREE_TIER_CONFIRMED === 'true' && groqConfigured(env)) {
+      try {
+        const result = cleanProviderResult(await generateGroqText(env, prompt));
+        console.info(JSON.stringify({ where: 'ai.zero_cost_failover', from: 'gemini', to: 'groq', outcome: 'success', model: result?.model || 'unknown' }));
+        return { ...result, provider: 'groq', fallbackFrom: 'gemini', fallbackReason: geminiFailure?.code || 'GEMINI_UNAVAILABLE' };
+      } catch (error) {
+        groqFailure = error;
+        console.warn(JSON.stringify({ where: 'ai.zero_cost_failover', from: 'groq', reason: error?.code || 'GROQ_FAILED' }));
+      }
     }
-    return cleanProviderResult(await generateWorkersAIText(env, prompt));
+
+    // Workers AI فقط آخرین مسیر رایگان است؛ محتوای باینری هرگز بی‌اجازه به سرویس دیگری منتقل نمی‌شود.
+    if (!hasInlineData && workersAiPrimaryEnabled(env)) {
+      try {
+        const result = cleanProviderResult(await generateWorkersAIText(env, prompt));
+        return {
+          ...result,
+          provider: 'cloudflare',
+          fallbackFrom: groqFailure ? 'groq' : 'gemini',
+          fallbackReason: groqFailure?.code || geminiFailure?.code || 'FREE_PROVIDER_UNAVAILABLE',
+        };
+      } catch (error) {
+        console.error(JSON.stringify({ where: 'ai.zero_cost_failover', from: 'cloudflare_workers_ai', reason: error?.code || 'WORKERS_AI_FAILED' }));
+        // اگر همهٔ مسیرها شکست خوردند، آخرین خطای واقعی را برمی‌گردانیم تا کد سهمیه/اختلال گم نشود.
+        throw error;
+      }
+    }
+
+    if (groqFailure) throw groqFailure;
+    if (geminiFailure) throw geminiFailure;
+    throw Object.assign(new Error('AI_ZERO_COST_PROVIDER_DISABLED'), { code: 'AI_ZERO_COST_PROVIDER_DISABLED', status: 503 });
   }
 
   let openaiFailure = null;
