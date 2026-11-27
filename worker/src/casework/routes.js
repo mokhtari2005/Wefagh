@@ -133,8 +133,11 @@ async function getCase(env,userId,caseId) {
     env.DB.prepare('SELECT * FROM case_documents WHERE case_id=?1 AND user_id=?2 AND deleted_at IS NULL ORDER BY created_at DESC').bind(caseId,userId).all(),
     env.DB.prepare('SELECT id,service_id,document_id,event_type,title,details_json,created_at FROM case_timeline WHERE case_id=?1 AND user_id=?2 ORDER BY id DESC LIMIT 250').bind(caseId,userId).all(),
   ]);
-  return json({ok:true,case:caseDto(row),services:(services.results||[]).map(serviceDto),
-    documents:(documents.results||[]).map(documentDto),
+  const serviceRows=services.results||[], documentRows=documents.results||[];
+  const summaryRow={...row,service_count:serviceRows.length,document_count:documentRows.length,
+    upload_count:documentRows.filter(x=>x.source_kind==='upload').length,generated_count:documentRows.filter(x=>x.source_kind==='generated').length};
+  return json({ok:true,case:caseDto(summaryRow),services:serviceRows.map(serviceDto),
+    documents:documentRows.map(documentDto),
     timeline:(timeline.results||[]).map(x=>({...x,details:parseJson(x.details_json,{})}))});
 }
 async function updateCase(env,userId,caseId,body) {
