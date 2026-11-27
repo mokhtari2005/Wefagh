@@ -18,10 +18,11 @@ if os.getenv("GITHUB_TOKEN"): GH["Authorization"] = f"Bearer {os.environ['GITHUB
 IMPORT_PHASE = os.getenv("LEGAL_IMPORT_PHASE", "laws").strip().lower()
 PHASE_TYPES = {
     "laws": {"law", "treaty"},
-    "regulations": {"bylaw", "executive_regulation", "executive_circular"},
+    "regulations": {"bylaw", "executive_regulation", "executive_circular", "circular"},
 }
+PHASE_TYPES["all"] = PHASE_TYPES["laws"] | PHASE_TYPES["regulations"]
 if IMPORT_PHASE not in PHASE_TYPES:
-    raise SystemExit("LEGAL_IMPORT_PHASE must be one of: laws, regulations")
+    raise SystemExit("LEGAL_IMPORT_PHASE must be one of: laws, regulations, all")
 DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩","01234567890123456789")
 ARTICLE = re.compile(r"^\s*(?:#{1,6}\s*)?(ماده|اصل)\s*[\(（]?\s*([0-9۰-۹٠-٩]+(?:\s*(?:مکرر|الحاقی))?|[آ-ی‌]+(?:\s+و\s+[آ-ی‌]+)?)(?=\s*(?:[ـ\-–—:：]|[\)）]|$))\s*[\)）]?\s*(?:[ـ\-–—:：]\s*)?(.*)$")
 SINGLE = re.compile(r"^\s*(?:#{1,6}\s*)?ماده[\s‌ـ\-]*واحده\s*(?:[ـ\-–—:：]\s*)?(.*)$")
@@ -73,6 +74,16 @@ def classify(t):
     if "تصویب نامه" in text or "تصویب‌نامه" in text: return "executive_regulation"
     if "قانون" in text or "اساسی" in text: return "law"
     return "other"
+def find_official_source_url(raw):
+    """Return only a directly embedded official URL; never relabel an Ekhtbar URL as official."""
+    matches = re.findall(r"https?://(?:www\\.)?(?:qavanin\\.ir|rrk\\.ir)/[^\\s\\]>)\\\"']*", raw, flags=re.IGNORECASE)
+    for candidate in matches:
+        candidate = candidate.rstrip(".,؛،)")
+        if candidate.lower().startswith("https://"):
+            return candidate[:1200]
+    return ""
+
+
 def parse_doc(path, index):
     raw=get(RAW+path).text
     lines=raw.replace("\r\n","\n").replace("\r","\n").replace("\u200c"," ").split("\n")
@@ -89,6 +100,9 @@ def parse_doc(path, index):
     item=index.get(stem)
     if not source and item: source=item.get("url") or ""
     if not source: return None,"missing-source-url"
+    official_source_url = find_official_source_url(raw)
+    source_url = official_source_url or source
+    content_sha256 = hashlib.sha256(raw.encode("utf-8")).hexdigest()
     starts=[]
     for i,line in enumerate(lines):
         m=ARTICLE.match(line)
@@ -108,12 +122,23 @@ def parse_doc(path, index):
         seen.add(num); articles.append({"number":num,"heading":f"{kind} {num}","body":body})
     if not articles: return None,"no-valid-articles"
     slug="ekhtebar-"+hashlib.sha1(source.encode()).hexdigest()[:20]
-    return {"slug":slug,"title":title[:240],"lawType":classify(title),"sourceName":"پایگاه خبری اختبار (منبع ثانویه؛ نیازمند مقابله رسمی)","sourceUrl":source[:1000],"notes":"ورود خودکار از پیکره عمومی مبتنی بر اختبار؛ وضعیت اولیه needs_review؛ پیش از استناد باید متن و نسخه جاری با روزنامه رسمی یا سامانه ملی قوانین مقابله شود.","articles":articles},None
+    return {
+        "slug":slug,
+        "title":title[:240],
+        "lawType":classify(title),
+        "sourceName":"سامانه ملی قوانین و مقررات / روزنامه رسمی (پیوند مستقیم در سند)" if official_source_url else "پایگاه خبری اختبار (منبع ثانویه؛ نیازمند مقابله رسمی)",
+        "sourceUrl":source_url[:1200],
+        "officialSourceUrl":official_source_url,
+        "discoverySourceUrl":source[:1200],
+        "contentSha256":content_sha256,
+        "notes":"متن از پیکره عمومی مبتنی بر اختبار استخراج شده است؛ وضعیت اولیه needs_review. پیوند رسمی فقط در صورت وجود مستقیم در سند ثبت شده؛ در غیر این صورت باید متن و نسخه جاری با سامانه ملی قوانین و مقررات یا روزنامه رسمی مقابله شود.",
+        "articles":articles
+    },None
 
 def lit(v): return "'"+str(v).replace("'","''")+"'"
 def sql_for(d):
-    vals=[lit(d["slug"]),lit(d["title"]),lit(d["lawType"]),"NULL","NULL","NULL","NULL","'needs_review'",lit(d["sourceName"]),lit(d["sourceUrl"]),lit(d["notes"]),"NULL"]
-    law_sql=("INSERT OR IGNORE INTO legal_laws (slug,title,law_type,issuing_authority,approved_date,publication_date,effective_date,status,source_name,source_url,notes,created_by) VALUES ("+",".join(vals)+");")
+    vals=[lit(d["slug"]),lit(d["title"]),lit(d["lawType"]),"NULL","NULL","NULL","NULL","'needs_review'",lit(d["sourceName"]),lit(d["sourceUrl"]),lit(d["notes"]),"NULL",lit(d["officialSourceUrl"]) if d.get("officialSourceUrl") else "NULL",lit(d["discoverySourceUrl"]) if d.get("discoverySourceUrl") else "NULL",lit(d["contentSha256"]) if d.get("contentSha256") else "NULL"]
+    law_sql=("INSERT OR IGNORE INTO legal_laws (slug,title,law_type,issuing_authority,approved_date,publication_date,effective_date,status,source_name,source_url,notes,created_by,official_source_url,discovery_source_url,content_sha256) VALUES ("+",".join(vals)+");")
     statements=[(law_sql, [])]
 
     # Keep SQL text short: pass article JSON as bound parameters, not SQL literals.
@@ -278,7 +303,7 @@ def main():
     with open(os.path.join(os.path.dirname(__file__), "legal_priority_documents.json"), encoding="utf-8") as priority_file:
         priority_manifest=json.load(priority_file)
     priority_audit=priority_coverage([*docs, *phase_skipped], priority_manifest)
-    report={"priority_coverage":priority_audit,"source":"https://github.com/SaeedAqamiri/laws-mcp","index_source":"https://www.ekhtebar.ir/قوانین/","discovery_sources":discovery_sources,"files_found":len(files),"phase":IMPORT_PHASE,"documents_parsed":parsed_count,"documents_selected":len(docs),"documents_excluded_by_phase":len(phase_skipped),"documents_processed":done,"documents_inserted":inserted["laws"],"articles_inserted":inserted["articles"],"selected_type_counts":type_counts,"documents_skipped":skipped,"skip_reason_counts":skip_reason_counts,"database_audit":database_audit,"status":"needs_review","selected_types":sorted(PHASE_TYPES[IMPORT_PHASE]),"phase_excluded_sample":[{"slug":d["slug"],"title":d["title"],"type":d["lawType"]} for d in phase_skipped[:100]],"skip_sample":errors[:200]}
+    report={"priority_coverage":priority_audit,"source":"https://github.com/SaeedAqamiri/laws-mcp","index_source":"https://www.ekhtebar.ir/قوانین/","official_sources":["https://qavanin.ir/","https://www.rrk.ir/"],"discovery_sources":discovery_sources,"official_links_found":sum(1 for d in docs if d.get("officialSourceUrl")),"documents_without_direct_official_link":sum(1 for d in docs if not d.get("officialSourceUrl")),"files_found":len(files),"phase":IMPORT_PHASE,"documents_parsed":parsed_count,"documents_selected":len(docs),"documents_excluded_by_phase":len(phase_skipped),"documents_processed":done,"documents_inserted":inserted["laws"],"articles_inserted":inserted["articles"],"selected_type_counts":type_counts,"documents_skipped":skipped,"skip_reason_counts":skip_reason_counts,"database_audit":database_audit,"status":"needs_review","selected_types":sorted(PHASE_TYPES[IMPORT_PHASE]),"phase_excluded_sample":[{"slug":d["slug"],"title":d["title"],"type":d["lawType"]} for d in phase_skipped[:100]],"skip_sample":errors[:200]}
     with open("artifacts/legal-bank-import-report.json","w",encoding="utf-8") as f: json.dump(report,f,ensure_ascii=False,indent=2)
     print(json.dumps({k:v for k,v in report.items() if k!="skip_sample"},ensure_ascii=False))
 
