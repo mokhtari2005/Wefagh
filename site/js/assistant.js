@@ -6,7 +6,7 @@ import { getJson, postJson, postForm, sendJson } from './api.js';
 import { aiStatus, errorText, blobToBase64, pickRecordingMime, baseMime } from './ai-client.js';
 import { formatShamsi } from './shamsi.js';
 import { VOICE_GREETING_TEXT, VOICE_GREETING_AUDIO_SRC } from './voice-greeting.js';
-import { createDocumentWizard, downloadWordDocument, printDocumentPdf } from './assistant-workflow.js';
+import { createDocumentWizard, createWordDocumentBlob, downloadWordDocument, printDocumentPdf } from './assistant-workflow.js';
 import { CONTRACT_TYPES, ASSISTANT_NOTICE } from './assistant-config.js';
 export { CONTRACT_TYPES, ASSISTANT_NOTICE } from './assistant-config.js';
 
@@ -195,7 +195,7 @@ export function assistantPage(params = {}) {
     const initialMode = MODES.some(([value]) => value === params.mode) ? params.mode : 'consult';
     // همهٔ حالت‌ها مستقیماً در محیط یکپارچه باز می‌شوند؛ تایپ و گفت‌وگوی صوتی در همان صفحه در دسترس است.
     accessCheckStage = 'ساخت محیط گفت‌وگو';
-    body.replaceChildren(assistantWorkspace(guestMode ? null : params.thread, guestMode, 'smart', initialMode));
+    body.replaceChildren(assistantWorkspace(guestMode ? null : params.thread, guestMode, 'smart', initialMode, params.caseId || null));
   })().catch((error) => {
     const errorName = error instanceof Error ? error.name : 'UnknownError';
     const errorMessage = String(error instanceof Error ? error.message : error).replace(/\\s+/g, ' ').slice(0, 180);
@@ -220,7 +220,7 @@ function downloadText(text, name) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function assistantWorkspace(initialThread, guestMode = false, method = 'smart', initialMode = 'consult') {
+function assistantWorkspace(initialThread, guestMode = false, method = 'smart', initialMode = 'consult', initialCaseId = null) {
   const voiceAllowed = method === 'smart';
   const history = [];
   let busy = false;
@@ -229,6 +229,13 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
 
   // ---------- بازیابی یک گفت‌وگو (فهرست سوابق در صفحهٔ جدا: #/assistant/history) ----------
   async function loadThread(id) {
+    const threadInfo = await getJson(`/api/ai/threads/${encodeURIComponent(id)}`);
+    if (threadInfo.ok && threadInfo.data?.thread?.case_id) {
+      await loadCaseLinks(threadInfo.data.thread.case_id);
+      const linkedService = threadInfo.data.thread.casework_service_id || '';
+      serviceSelect.value = linkedService;
+      selectedServiceId = linkedService;
+    }
     const res = await getJson(`/api/ai/threads/${encodeURIComponent(id)}/messages`);
     if (!res.ok) { status.textContent = 'بازیابی گفت‌وگو انجام نشد.'; return; }
     history.length = 0;
@@ -238,6 +245,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       history.push({ role, text: m.content, ...metadata });
     }
     threadId = Number(id);
+    if (threadInfo.ok && threadInfo.data?.thread?.case_id) { caseSelect.disabled = true; serviceSelect.disabled = true; }
     const latest = history.at(-1);
     if (latest?.role === 'ai') {
       if (MODES.some(([value]) => value === latest.mode) || latest.mode === 'draft') mode = latest.mode;
@@ -254,9 +262,25 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
   async function persistTurn(userText, aiText, metadata = {}) {
     if (guestMode) return true; // تاریخچهٔ مهمان فقط در حافظهٔ همین صفحه می‌ماند.
     if (!threadId) {
-      const created = await postJson('/api/ai/threads', { title: userText.slice(0, 60) });
+      if (selectedCaseId && !selectedServiceId) {
+        const serviceTitle = ({consult:'مشاوره حقوقی',analyze:'تحلیل پرونده',litigation:'بازبینی حقوقی',research:'تحقیق حقوقی',review:'بررسی و اصلاح متن',draft:'تنظیم سند'})[mode] || 'خدمت دستیار وکیل';
+        const service = await postJson('/api/casework/cases/' + encodeURIComponent(selectedCaseId) + '/services', {
+          type: 'assistant_' + mode, title: serviceTitle + ' ـ ' + userText.slice(0, 55),
+        });
+        if (!service.ok || !service.data?.service?.id) return false;
+        selectedServiceId = service.data.service.id;
+        serviceSelect.append(h('option', { value: selectedServiceId, text: service.data.service.title }));
+        serviceSelect.value = selectedServiceId;
+      }
+      const created = await postJson('/api/ai/threads', {
+        title: userText.slice(0, 60),
+        caseId: selectedCaseId || null,
+        caseworkServiceId: selectedServiceId || null,
+      });
       if (!created.ok || !created.data?.thread?.id) return false;
       threadId = created.data.thread.id;
+      caseSelect.disabled = true;
+      serviceSelect.disabled = true;
     }
     const a = await postJson(`/api/ai/threads/${threadId}/messages`, { role: 'user', content: userText });
     const b = await postJson(`/api/ai/threads/${threadId}/messages`, { role: 'ai', content: aiText, metadata });
@@ -265,10 +289,44 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
 
   // ---------- حالت و نوع سند ----------
   let mode = MODES.some(([value]) => value === initialMode) ? initialMode : 'consult';
-  const workspaceIntro = h('section', { class: 'ai-workbench-intro', role: 'region', 'aria-label': 'راهنمای بخش' }, [
-    h('h1', { text: 'مشاوره حقوقی هوشمند' }),
-    h('p', { class: 'muted', text: 'گفت‌وگوی تعاملی برای روشن‌کردن مسئله، تکمیل واقعیت‌های مؤثر و رسیدن به راهکار حقوقی.' }),
+  let selectedCaseId = '';
+  let selectedServiceId = '';
+  const caseSelect = h('select', { 'aria-label': 'پرونده مرتبط' }, [h('option', { value: '', text: 'بدون اتصال به پرونده' })]);
+  const serviceSelect = h('select', { 'aria-label': 'خدمت مرتبط' }, [h('option', { value: '', text: 'بدون خدمت مشخص' })]);
+  const caseLinkPanel = h('div', { class: 'ai-case-link-panel' }, [
+    h('label', {}, [h('span', { text: 'ذخیره خروجی در پرونده' }), caseSelect]),
+    h('label', {}, [h('span', { text: 'خدمت مرتبط' }), serviceSelect]),
+    h('a', { href: '#/casework', text: 'مدیریت و ایجاد پرونده‌ها ←' }),
   ]);
+  if (guestMode) caseLinkPanel.hidden = true;
+  async function loadCaseServices(caseId) {
+    selectedCaseId = caseId || '';
+    selectedServiceId = '';
+    serviceSelect.replaceChildren(h('option', { value: '', text: 'بدون خدمت مشخص' }));
+    if (!selectedCaseId) return;
+    const detail = await getJson('/api/casework/cases/' + encodeURIComponent(selectedCaseId));
+    if (!detail.ok) return;
+    for (const service of detail.data.services || []) serviceSelect.append(h('option', { value: service.id, text: service.title }));
+    selectedServiceId = serviceSelect.value;
+  }
+  async function loadCaseLinks(preferredCaseId = initialCaseId) {
+    if (guestMode) return;
+    const result = await getJson('/api/casework/cases?sort=activity');
+    if (!result.ok) return;
+    caseSelect.replaceChildren(h('option', { value: '', text: 'بدون اتصال به پرونده' }),
+      ...(result.data.cases || []).map(item => h('option', { value: item.id, text: item.name + (item.caseNumber ? ' ـ ' + item.caseNumber : '') })));
+    const found = (result.data.cases || []).find(item => item.id === preferredCaseId);
+    if (found) caseSelect.value = found.id;
+    await loadCaseServices(caseSelect.value);
+  }
+  caseSelect.addEventListener('change', async () => { await loadCaseServices(caseSelect.value); renderLog(); });
+  serviceSelect.addEventListener('change', () => { selectedServiceId = serviceSelect.value; renderLog(); });
+
+  const introDescription = h('p', { class: 'muted', text: 'گفت‌وگوی تعاملی برای روشن‌کردن مسئله، تکمیل واقعیت‌های مؤثر و رسیدن به راهکار حقوقی.' });
+  const workspaceIntro = h('section', { class: 'ai-workbench-intro', role: 'region', 'aria-label': 'راهنمای بخش' }, [
+    h('h1', { text: 'مشاوره حقوقی هوشمند' }), introDescription,
+  ]);
+  workspaceIntro.append(caseLinkPanel);
   function syncWorkspaceIntro() {
     const copy = {
       consult: ['مشاوره حقوقی هوشمند', 'گفت‌وگوی تعاملی برای روشن‌کردن مسئله، تکمیل واقعیت‌های مؤثر و رسیدن به راهکار حقوقی.'],
@@ -280,7 +338,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     };
     const selected = copy[mode] || copy.consult;
     workspaceIntro.firstElementChild.textContent = selected[0];
-    workspaceIntro.lastElementChild.textContent = selected[1];
+    introDescription.textContent = selected[1];
   }
   const modeGroup = h('div', { class: 'ai-seg', role: 'group', 'aria-label': 'نوع کار' });
   const modeIcons = { consult: 'scale', draft: 'edit', analyze: 'search', litigation: 'gavel', research: 'book-open-check', review: 'clipboard-list' };
@@ -564,6 +622,31 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       const pdf = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'چاپ یا دریافت پی‌دی‌اف' });
       pdf.addEventListener('click', () => { if (!printDocumentPdf(displayText, DOC_TYPES.find(([value]) => value === m.docType)?.[1] || 'سند حقوقی')) status.textContent = 'پنجره چاپ باز نشد؛ اجازه بازشدن پنجره را در مرورگر فعال کنید.'; });
       actions.append(word, pdf);
+      if (selectedCaseId) {
+        const saveToCase = h('button', { class: 'btn ai-mini', type: 'button', text: 'ذخیره نسخه Word در بایگانی پرونده' });
+        saveToCase.addEventListener('click', async () => {
+          saveToCase.disabled = true;
+          try {
+            const fileName = 'پیش‌نویس-' + (DOC_TYPES.find(([value]) => value === m.docType)?.[0] || 'حقوقی') + '.doc';
+            const wordBlob = createWordDocumentBlob(displayText, DOC_TYPES.find(([value]) => value === m.docType)?.[1] || 'سند حقوقی');
+            const response = await fetch('/api/casework/cases/' + encodeURIComponent(selectedCaseId) + '/documents', {
+              method: 'POST', credentials: 'same-origin',
+              headers: {
+                'Content-Type': 'application/msword', 'X-File-Name': encodeURIComponent(fileName),
+                'X-Document-Type': 'draft', 'X-Source-Kind': 'generated',
+                'X-Service-Id': selectedServiceId, 'X-Description': 'پیش‌نویس Word تولیدشده توسط دستیار وکیل',
+              },
+              body: wordBlob,
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.error || 'ذخیره پیش‌نویس ناموفق بود.');
+            status.textContent = 'نسخه Word در بایگانی پرونده ذخیره شد.';
+            actions.append(h('a', { href: '#/casework/' + selectedCaseId, class: 'ai-source-link', text: 'مشاهده بایگانی پرونده' }));
+          } catch (error) { status.textContent = error.message || 'ذخیره پیش‌نویس انجام نشد.'; }
+          finally { saveToCase.disabled = false; }
+        });
+        actions.append(saveToCase);
+      }
     }
 
     const children = [
@@ -1364,6 +1447,9 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
 
   function newConversation() {
     threadId = null;
+    caseSelect.disabled = false;
+    serviceSelect.disabled = false;
+    selectedServiceId = '';
     history.length = 0;
     stopVoiceMode();
     voicePanel.hidden = !voiceAllowed;
@@ -1414,6 +1500,11 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
 
   voicePanel.hidden = !voiceAllowed;
   syncMode();
+  if (!guestMode) {
+    loadCaseLinks().then(() => {
+      if (initialThread && /^[1-9][0-9]{0,15}$/.test(initialThread)) loadThread(initialThread);
+    });
+  } else if (initialThread && /^[1-9][0-9]{0,15}$/.test(initialThread)) loadThread(initialThread);
   return h('div', { class: 'ai-shell' }, [
     h('section', { class: 'ai-main', 'aria-label': 'گفت‌وگو با دستیار' }, [workspaceIntro, toolbar, stream, composer]),
   ]);
