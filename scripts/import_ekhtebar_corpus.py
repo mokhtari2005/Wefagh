@@ -17,13 +17,13 @@ GH = {"Accept":"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28"
 if os.getenv("GITHUB_TOKEN"): GH["Authorization"] = f"Bearer {os.environ['GITHUB_TOKEN']}"
 IMPORT_PHASE = os.getenv("LEGAL_IMPORT_PHASE", "laws").strip().lower()
 PHASE_TYPES = {
-    "laws": {"law", "treaty"},
-    "regulations": {"bylaw", "executive_regulation", "executive_circular", "circular", "executive_resolution", "general_policies"},
+    "laws": {"law", "treaty", "interpretive_law"},
+    "regulations": {"bylaw", "executive_regulation", "executive_circular", "circular", "executive_resolution", "expediency_council_resolution", "general_policies"},
     "judicial": {
         "supreme_court_unified_precedent", "supreme_court_insistence_precedent",
         "administrative_court_unified_precedent", "administrative_court_general_board",
         "administrative_court_specialized_board", "judicial_advisory_opinion",
-        "advisory_opinion", "guardian_council_opinion", "judicial_circular", "judicial_decision", "administrative_court_decision", "judicial_session",
+        "advisory_opinion", "guardian_council_opinion", "judicial_circular", "judicial_decision", "administrative_court_decision", "judicial_session", "fatwa",
     },
     "parliamentary": {"bill", "parliamentary_review_opinion"},
 }
