@@ -10,7 +10,7 @@ const DOC_TYPE = {attachment:'پیوست',draft:'پیش‌نویس',final:'سن�
 const SERVICE_TYPES = [
   ['petition','تنظیم دادخواست'],['defense','تنظیم لایحه'],['notice','تهیه اظهارنامه'],
   ['analysis','بررسی و تحلیل پرونده'],['contract','بررسی قرارداد'],['expert_report','گزارش کارشناسی'],
-  ['arbitration_award','تنظیم رأی داوری'],['other','خدمت دیگر'],
+  ['other','خدمت دیگر'],
 ];
 const h=(tag,attrs={},children=[])=>{
   const n=document.createElement(tag);
@@ -96,7 +96,9 @@ export function caseworkPage(){
     }catch(err){message(form,err.message,true);}
     finally{submit.disabled=false;submit.textContent='ایجاد پرونده و ورود به بایگانی';}
   });
-  root.append(header,form,stats,continuation,h('div',{class:'casework-list-toolbar'},[h('h2',{text:'فهرست پرونده‌ها'}),help]),listPanel);
+  const calculatorHistory=h('div',{class:'casework-documents'});
+  const calculatorPanel=panel('سوابق اقدامات با محاسبه‌گرها',calculatorHistory);
+  root.append(header,form,stats,continuation,h('div',{class:'casework-list-toolbar'},[h('h2',{text:'فهرست پرونده‌ها'}),help]),listPanel,calculatorPanel);
   let timer;
   async function load(){
     list.replaceChildren(h('p',{class:'muted',text:'در حال دریافت پرونده‌ها…'}));
@@ -105,6 +107,16 @@ export function caseworkPage(){
     if(filter.value)params.set('status',filter.value);
     const res=await getJson('/api/casework/cases?'+params.toString());
     if(!res.ok){list.replaceChildren(empty(res.status===401?'برای مشاهده پرونده‌ها وارد حساب خود شوید.':'دریافت پرونده‌ها انجام نشد.'));stats.replaceChildren();continuation.lastElementChild.replaceChildren();return;}
+    const actionResult=await getJson('/api/casework/actions?limit=12');
+    const recentActions=actionResult.ok?actionResult.data.actions||[]:[];
+    calculatorHistory.replaceChildren(...(recentActions.length?recentActions.map(action=>{
+      const item=h('article',{class:'casework-service-card'},[
+        h('div',{},[h('strong',{text:action.title}),h('small',{text:date(action.createdAt)+' · '+(action.caseName||'محاسبه عمومی')}),
+          action.resultData?.text?h('p',{class:'muted',text:String(action.resultData.text).slice(0,220)}):null]),
+        action.caseId?h('a',{class:'btn secondary',href:'#/casework/'+action.caseId,text:'پرونده'}):null
+      ]);
+      return item;
+    }):[empty('هنوز محاسبه‌ای در سوابق شما ثبت نشده است.')]));
     const items=res.data.cases||[];
     const allRes=filter.value?await getJson('/api/casework/cases?sort=activity'):res;
     const all=allRes.ok?allRes.data.cases||[]:items;
@@ -143,6 +155,7 @@ export function caseworkDetailPage(caseId){
   const serviceList=h('div',{class:'casework-cards'});
   const docList=h('div',{class:'casework-documents'});
   const timeline=h('ol',{class:'casework-timeline'});
+  const calculatorActions=h('div',{class:'casework-documents'});
   const notice=h('p',{class:'casework-message',role:'status'});
   const serviceForm=h('form',{class:'casework-create',hidden:true});
   const serviceType=h('select',{name:'type'},SERVICE_TYPES.map(([v,t])=>h('option',{value:v,text:t})));
@@ -180,7 +193,8 @@ export function caseworkDetailPage(caseId){
     }catch(err){message(root,err.message,true);}
     finally{uploadBtn.disabled=false;uploadBtn.textContent='بارگذاری و ثبت در بایگانی';}
   });
-  root.append(back,heading,actions,notice,metrics,meta,serviceForm,servicePanel,docPanel,uploadForm,panel('تاریخچه و گردش کار پرونده',timeline));
+  const calculatorPanel=panel('اقدامات ثبت‌شده با محاسبه‌گرها',calculatorActions);
+  root.append(back,heading,actions,notice,metrics,meta,serviceForm,servicePanel,docPanel,uploadForm,calculatorPanel,panel('تاریخچه و گردش کار پرونده',timeline));
   let current=null,docs=[];
   function updateServiceSelect(services){
     serviceSelect.replaceChildren(h('option',{value:'',text:'بدون خدمت مشخص'}),...services.map(s=>h('option',{value:s.id,text:s.title})));
@@ -245,7 +259,9 @@ export function caseworkDetailPage(caseId){
     heading.replaceChildren(h('p',{class:'muted',text:'پرونده و بایگانی جامع'}),h('h1',{text:c.name}),statusPill(c.status));
     actions.replaceChildren(
       button('ویرایش اطلاعات'),button(c.status==='archived'?'فعال‌سازی پرونده':'بایگانی پرونده'),
-      button('ادامه خدمت','btn')
+      button('ادامه خدمت','btn'),
+      h('a',{class:'btn',href:'#/assistant/consult?caseId='+encodeURIComponent(caseId),text:'دستیار وکیل برای این پرونده'}),
+      h('a',{class:'btn secondary',href:'#/calculators/court?caseId='+encodeURIComponent(caseId),text:'محاسبه‌گر حقوقی'})
     );
     const [edit,archive,continueBtn]=actions.querySelectorAll('button');
     edit.addEventListener('click',()=>editCase(c));
@@ -266,6 +282,12 @@ export function caseworkDetailPage(caseId){
     updateServiceSelect(current.services);
     docs.forEach(d=>{d.serviceTitle=serviceName(d.serviceId);});
     renderDocs();
+    const calculations=current.calculatorActions||[];
+    calculatorActions.replaceChildren(...(calculations.length?calculations.map(action=>h('article',{class:'casework-service-card'},[
+      h('div',{},[h('strong',{text:action.title}),h('small',{text:date(action.createdAt)+' · '+action.calculatorKey}),
+        action.resultData?.text?h('p',{class:'muted',text:String(action.resultData.text).slice(0,350)}):null]),
+      h('a',{class:'btn secondary',href:'#/calculators/'+encodeURIComponent(action.calculatorKey)+'?caseId='+encodeURIComponent(caseId),text:'محاسبه مجدد'})
+    ])):[empty('برای این پرونده هنوز محاسبه‌ای ثبت نشده است.')]));
     timeline.replaceChildren(...(current.timeline.length?current.timeline.map(item=>h('li',{},[h('strong',{text:item.title}),h('small',{text:date(item.created_at)}),item.details?.name?h('p',{text:item.details.name}):null])):[empty('هنوز رویدادی ثبت نشده است.')]));
   }
   function metaItem(title,value){return h('div',{class:'casework-meta-item'},[h('small',{text:title}),h('p',{text:value})]);}
