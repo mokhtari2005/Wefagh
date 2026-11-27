@@ -4271,3 +4271,7 @@ body.classroom-fullscreen-fallback { overflow:hidden; }
 
 .legal-bank-source-warning{color:#a43b35;font-weight:700}
 .legal-bank-source-ok{color:#2e6b45;font-weight:600}
+
+.legal-bank-external{border-style:dashed}
+.legal-bank-external>a{display:inline-flex;margin:.35rem 0 .6rem;color:var(--primary,#21436a);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.legal-bank-external .muted{font-size:.9rem}
