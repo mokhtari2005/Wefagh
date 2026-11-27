@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "purpose": "Expanded, domain-based priority checklist for Iranian statutes and regulations. Presence only means discoverable in the configured source mirror; it never means authoritative, current, or verified.",
   "authoritative_sources": [
     "https://qavanin.ir/",
@@ -447,13 +447,6 @@
       "priority": "extended"
     },
     {
-      "key": "tax-procedure",
-      "title": "قانون مالیات‌های مستقیم - مقررات دادرسی مالیاتی",
-      "aliases": [],
-      "domain": "tax",
-      "priority": "extended"
-    },
-    {
       "key": "tax-collection",
       "title": "آیین‌نامه اجرایی ماده ۲۱۸ قانون مالیات‌های مستقیم",
       "aliases": [],
@@ -741,13 +734,6 @@
       "priority": "extended"
     },
     {
-      "key": "dowry",
-      "title": "قانون نحوه اجرای محکومیت‌های مالی - مقررات مهریه و مستثنیات دین",
-      "aliases": [],
-      "domain": "family",
-      "priority": "extended"
-    },
-    {
       "key": "guardianship",
       "title": "قانون حمایت از کودکان و نوجوانان بی‌سرپرست و بدسرپرست",
       "aliases": [],
@@ -881,22 +867,8 @@
       "priority": "extended"
     },
     {
-      "key": "traffic-insurance",
-      "title": "قانون بیمه اجباری خسارات واردشده به شخص ثالث",
-      "aliases": [],
-      "domain": "insurance",
-      "priority": "extended"
-    },
-    {
       "key": "civil-procedure-fees",
       "title": "قانون وصول برخی از درآمدهای دولت و مصرف آن در موارد معین",
-      "aliases": [],
-      "domain": "procedure",
-      "priority": "extended"
-    },
-    {
-      "key": "court-costs",
-      "title": "قانون تعیین هزینه‌های دادرسی و تعرفه خدمات قضایی",
       "aliases": [],
       "domain": "procedure",
       "priority": "extended"
@@ -930,17 +902,129 @@
       "priority": "extended"
     },
     {
-      "key": "budget",
-      "title": "قانون محاسبات عمومی کشور",
+      "key": "development-plans",
+      "title": "قانون برنامه پنجساله هفتم پیشرفت جمهوری اسلامی ایران",
+      "aliases": [],
+      "domain": "public-policy",
+      "priority": "extended"
+    },
+    {
+      "key": "ai-national-development",
+      "title": "قانون ملی توسعه هوش مصنوعی",
+      "aliases": [],
+      "domain": "public-policy",
+      "priority": "current"
+    },
+    {
+      "key": "tax-speculation",
+      "title": "قانون مالیات بر سوداگری و سفته‌بازی",
+      "aliases": [],
+      "domain": "tax",
+      "priority": "current"
+    },
+    {
+      "key": "annual-budget-1405",
+      "title": "قانون بودجه سال ۱۴۰۵ کل کشور",
+      "aliases": [],
+      "domain": "public-policy",
+      "priority": "annual"
+    },
+    {
+      "key": "annual-budget-1404",
+      "title": "قانون بودجه سال ۱۴۰۴ کل کشور",
+      "aliases": [],
+      "domain": "public-policy",
+      "priority": "annual"
+    },
+    {
+      "key": "annual-budget-1403",
+      "title": "قانون بودجه سال ۱۴۰۳ کل کشور",
+      "aliases": [],
+      "domain": "public-policy",
+      "priority": "annual"
+    },
+    {
+      "key": "foreign-iranians",
+      "title": "قانون حمایت از ایرانیان خارج از کشور",
+      "aliases": [],
+      "domain": "administrative",
+      "priority": "current"
+    },
+    {
+      "key": "family-youth",
+      "title": "قانون حمایت از خانواده و جوانی جمعیت",
+      "aliases": [],
+      "domain": "family",
+      "priority": "current"
+    },
+    {
+      "key": "reporters-corruption",
+      "title": "قانون حمایت از گزارشگران فساد",
+      "aliases": [],
+      "domain": "administrative",
+      "priority": "current"
+    },
+    {
+      "key": "transparency-three-branches",
+      "title": "قانون شفافیت قوای سه‌گانه، دستگاه‌های اجرائی و سایر نهادها",
+      "aliases": [],
+      "domain": "administrative",
+      "priority": "current"
+    },
+    {
+      "key": "production-finance",
+      "title": "قانون تأمین مالی تولید و زیرساخت‌ها",
+      "aliases": [],
+      "domain": "commercial",
+      "priority": "current"
+    },
+    {
+      "key": "business-licensing",
+      "title": "قانون تسهیل صدور مجوزهای کسب‌وکار",
+      "aliases": [],
+      "domain": "commercial",
+      "priority": "current"
+    },
+    {
+      "key": "data-national",
+      "title": "قانون مدیریت داده‌ها و اطلاعات ملی",
+      "aliases": [],
+      "domain": "administrative",
+      "priority": "current"
+    },
+    {
+      "key": "urban-income",
+      "title": "قانون درآمد پایدار و هزینه شهرداری‌ها و دهیاری‌ها",
+      "aliases": [],
+      "domain": "administrative",
+      "priority": "current"
+    },
+    {
+      "key": "soil-protection",
+      "title": "قانون حفاظت از خاک",
+      "aliases": [],
+      "domain": "environment",
+      "priority": "extended"
+    },
+    {
+      "key": "anti-terror-financing",
+      "title": "قانون اصلاح قانون مبارزه با تأمین مالی تروریسم",
+      "aliases": [],
+      "domain": "criminal",
+      "priority": "extended"
+    },
+    {
+      "key": "public-contracts",
+      "title": "قانون برگزاری مناقصات",
       "aliases": [],
       "domain": "administrative",
       "priority": "extended"
     },
     {
-      "key": "development-plans",
-      "title": "قانون برنامه پنجساله هفتم پیشرفت جمهوری اسلامی ایران",
+      "key": "public-audit-reg",
+      "title": "آیین‌نامه‌های اجرایی قانون محاسبات عمومی کشور",
       "aliases": [],
-      "domain": "public-policy",
+      "domain": "administrative",
       "priority": "extended"
     }
   ],
