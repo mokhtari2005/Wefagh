@@ -50,7 +50,7 @@ test('کارگاه‌های معرفی‌شده به محتوای تعاملی �
 });
 
 test('دوره‌های تازه کارگاه از داده و آزمونک سمت سرور تغذیه می‌شوند', () => {
-  assert.equal(WORKSHOP_COURSES.length, 6);
+  assert.equal(WORKSHOP_COURSES.length, 7);
   for (const course of WORKSHOP_COURSES) {
     assert.equal(course.format, 'workshop');
     assert.equal(WORKSHOP_ACTIVITIES[course.id].length, 5);
