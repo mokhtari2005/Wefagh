@@ -253,6 +253,7 @@ export function legalBankPage() {
             h('small', { text: source.authority }),
           ]),
           h('div', { class: 'legal-bank-source-date' }, [
+            h('span', { class: source.syncStatus === 'warning' ? 'legal-bank-source-warning' : 'legal-bank-source-ok', text: source.syncStatus === 'warning' ? 'محدودیت یا خطای دسترسی' : 'وضعیت عادی' }),
             h('span', { text: source.lastSuccessAt ? 'آخرین همگام‌سازی: ' + dateLabel(source.lastSuccessAt) : (source.lastCheckedAt ? 'آخرین بررسی: ' + dateLabel(source.lastCheckedAt) : 'همگام‌سازی ثبت نشده') }),
             h('a', { href: source.url, target: '_blank', rel: 'noopener noreferrer', text: 'وبگاه منبع' }),
           ]),
