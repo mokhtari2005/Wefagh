@@ -290,22 +290,132 @@ def priority_coverage(documents, manifest):
 
 
 def partition_document_updates(documents, existing_rows):
-    """Separate new, unchanged and changed source documents without overwriting D1."""
-    existing = {row["slug"]: row.get("content_sha256") for row in existing_rows}
-    new_docs, changed_docs, unchanged = [], [], 0
+    """Separate new, unchanged, safely refreshable and protected source documents."""
+    existing = {row["slug"]: row for row in existing_rows}
+    new_docs, refreshable_docs, protected_docs, unchanged = [], [], [], 0
     for doc in documents:
-        old_hash = existing.get(doc["slug"])
-        if doc["slug"] not in existing:
+        row = existing.get(doc["slug"])
+        if row is None:
             new_docs.append(doc)
-        elif old_hash and old_hash == doc.get("contentSha256"):
+            continue
+        old_hash = row.get("content_sha256")
+        if old_hash and old_hash == doc.get("contentSha256"):
             unchanged += 1
+            continue
+        protected_articles = int(row.get("protected_articles") or 0)
+        if row.get("status") == "needs_review" and protected_articles == 0:
+            refreshable_docs.append((doc, old_hash))
         else:
-            changed_docs.append((doc, old_hash))
-    return new_docs, changed_docs, unchanged
+            protected_docs.append((doc, old_hash))
+    return new_docs, refreshable_docs, protected_docs, unchanged
+
+
+def refresh_statements(doc):
+    """Build a guarded replacement for a document whose law and articles remain unverified."""
+    slug = doc["slug"]
+    protected = "NOT EXISTS (SELECT 1 FROM legal_articles p WHERE p.law_id=legal_laws.id AND p.status IN ('verified','amended','repealed'))"
+    statements = [
+        (f"""UPDATE legal_laws SET title=?1,law_type=?2,source_name=?3,source_url=?4,notes=?5,
+            official_source_url=?6,discovery_source_url=?7,content_sha256=?8,
+            updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+            WHERE slug=?9 AND status='needs_review' AND {protected}""",
+         [doc["title"],doc["lawType"],doc["sourceName"],doc["sourceUrl"],doc["notes"],
+          doc.get("officialSourceUrl") or None,doc.get("discoverySourceUrl") or None,doc["contentSha256"],slug]),
+        (f"""DELETE FROM legal_articles WHERE law_id=(SELECT id FROM legal_laws WHERE slug=?1 AND status='needs_review')
+            AND status='needs_review'
+            AND NOT EXISTS (SELECT 1 FROM legal_articles p WHERE p.law_id=(SELECT id FROM legal_laws WHERE slug=?1)
+              AND p.status IN ('verified','amended','repealed'))""", [slug]),
+    ]
+    chunk = []
+    chunk_bytes = 0
+    for article in doc["articles"]:
+        encoded = json.dumps(article,ensure_ascii=False,separators=(",",":"))
+        encoded_bytes = len(encoded.encode("utf-8"))
+        if chunk and (len(chunk) >= 50 or chunk_bytes + encoded_bytes > 48_000):
+            payload = json.dumps(chunk,ensure_ascii=False,separators=(",",":"))
+            statements.append((
+                f"""INSERT INTO legal_articles (law_id,article_number,heading,body,status)
+                    SELECT l.id,json_extract(j.value,'$.number'),json_extract(j.value,'$.heading'),
+                    json_extract(j.value,'$.body'),'needs_review'
+                    FROM legal_laws l,json_each(?1) j WHERE l.slug=?2 AND l.status='needs_review'
+                    AND NOT EXISTS (SELECT 1 FROM legal_articles p WHERE p.law_id=l.id
+                      AND p.status IN ('verified','amended','repealed'))""",
+                [payload,slug]))
+            chunk = []
+            chunk_bytes = 0
+        chunk.append(article)
+        chunk_bytes += encoded_bytes
+    if chunk:
+        payload = json.dumps(chunk,ensure_ascii=False,separators=(",",":"))
+        statements.append((
+            f"""INSERT INTO legal_articles (law_id,article_number,heading,body,status)
+                SELECT l.id,json_extract(j.value,'$.number'),json_extract(j.value,'$.heading'),
+                json_extract(j.value,'$.body'),'needs_review'
+                FROM legal_laws l,json_each(?1) j WHERE l.slug=?2 AND l.status='needs_review'
+                AND NOT EXISTS (SELECT 1 FROM legal_articles p WHERE p.law_id=l.id
+                  AND p.status IN ('verified','amended','repealed'))""",
+            [payload,slug]))
+    statements.append((
+        """UPDATE legal_document_update_queue SET review_status='accepted',
+            reviewed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+            review_note='به‌روزرسانی خودکار؛ نسخه قبلی و مواد آن تأییدنشده بودند.'
+            WHERE slug=?1 AND proposed_sha256=?2 AND review_status='needs_review'
+            AND EXISTS (SELECT 1 FROM legal_laws l WHERE l.slug=?1 AND l.status='needs_review'
+              AND NOT EXISTS (SELECT 1 FROM legal_articles p WHERE p.law_id=l.id
+                AND p.status IN ('verified','amended','repealed')))""",
+        [slug,doc["contentSha256"]]))
+    return statements
+
+
+def refresh_unverified_documents(refreshable_docs):
+    """Replace only needs_review text; verified/amended/repealed content is never touched."""
+    if not refreshable_docs:
+        return {"documents_updated":0,"articles_deleted":0,"articles_inserted":0,"queue_accepted":0,"skipped_large":0}
+    stats = {"documents_updated":0,"articles_deleted":0,"articles_inserted":0,"queue_accepted":0,"skipped_large":0}
+    batch = []
+    batch_bytes = 0
+
+    def submit(items):
+        if not items:
+            return
+        response = requests.post(D1,headers={"Authorization":f"Bearer {TOKEN}","Content-Type":"application/json"},
+            json={"batch":[{"sql":sql,"params":params} for sql,params in items]},timeout=240)
+        if response.status_code != 200:
+            raise RuntimeError(f"Legal auto-refresh HTTP {response.status_code}: {response.text[:800]}")
+        result = response.json()
+        results = result.get("result") or []
+        if not result.get("success") or len(results) != len(items) or any(not item.get("success",True) for item in results):
+            raise RuntimeError("Legal auto-refresh batch failed: "+json.dumps(result.get("errors",results),ensure_ascii=False)[:1000])
+        for (sql,_),item in zip(items,results):
+            changes = int((item.get("meta") or {}).get("changes") or 0)
+            if sql.startswith("UPDATE legal_laws SET"):
+                stats["documents_updated"] += changes
+            elif sql.startswith("DELETE FROM legal_articles"):
+                stats["articles_deleted"] += changes
+            elif sql.startswith("INSERT INTO legal_articles"):
+                stats["articles_inserted"] += changes
+            elif sql.startswith("UPDATE legal_document_update_queue"):
+                stats["queue_accepted"] += changes
+
+    for doc,_previous_hash in refreshable_docs:
+        statements = refresh_statements(doc)
+        encoded_size = sum(len(sql.encode("utf-8"))+len(json.dumps(params,ensure_ascii=False).encode("utf-8")) for sql,params in statements)
+        if len(statements) > 90 or encoded_size > 3_500_000:
+            stats["skipped_large"] += 1
+            continue
+        if batch and (len(batch)+len(statements)>90 or batch_bytes+encoded_size>3_500_000):
+            submit(batch)
+            batch=[]
+            batch_bytes=0
+        batch.extend(statements)
+        batch_bytes += encoded_size
+    if batch:
+        submit(batch)
+    return stats
 
 
 def queue_changed_documents(changed_docs):
-    """Persist changed full-text proposals for admin review; never mutate current law text."""
+    """Persist changed source proposals; auto-refreshed unverified records are marked accepted."""
     if not changed_docs:
         return 0
     statements = []
@@ -321,14 +431,14 @@ def queue_changed_documents(changed_docs):
     inserted = 0
     for start in range(0, len(statements), 40):
         batch = statements[start:start+40]
-        response = requests.post(D1, headers={"Authorization":f"Bearer {TOKEN}","Content-Type":"application/json"},
-            json={"batch":batch}, timeout=240)
+        response=requests.post(D1,headers={"Authorization":f"Bearer {TOKEN}","Content-Type":"application/json"},
+            json={"batch":batch},timeout=240)
         if response.status_code != 200:
             raise RuntimeError(f"Legal update queue HTTP {response.status_code}: {response.text[:800]}")
-        result = response.json()
-        items = result.get("result") or []
-        if not result.get("success") or len(items) != len(batch) or any(not item.get("success", True) for item in items):
-            raise RuntimeError("Legal update queue batch failed: " + json.dumps(result.get("errors", items), ensure_ascii=False)[:1000])
+        result=response.json()
+        items=result.get("result") or []
+        if not result.get("success") or len(items) != len(batch) or any(not item.get("success",True) for item in items):
+            raise RuntimeError("Legal update queue batch failed: "+json.dumps(result.get("errors",items),ensure_ascii=False)[:1000])
         inserted += sum(int((item.get("meta") or {}).get("changes") or 0) for item in items)
     return inserted
 
@@ -351,10 +461,15 @@ def main():
     docs = [d for d in docs if d["lawType"] in PHASE_TYPES[IMPORT_PHASE]]
     docs.sort(key=lambda x:x["slug"])
     print(f"Phase: {IMPORT_PHASE}; parsed {parsed_count}; selected {len(docs)}; excluded by phase {len(phase_skipped)}; parse-skipped {skipped}.")
-    existing_rows = d1_query("SELECT slug,content_sha256 FROM legal_laws")
-    new_docs, changed_docs, unchanged_docs = partition_document_updates(docs, existing_rows)
+    existing_rows = d1_query("""SELECT l.slug,l.content_sha256,l.status,
+        SUM(CASE WHEN a.status IN ('verified','amended','repealed') THEN 1 ELSE 0 END) AS protected_articles
+        FROM legal_laws l LEFT JOIN legal_articles a ON a.law_id=l.id GROUP BY l.id""")
+    new_docs, refreshable_docs, protected_docs, unchanged_docs = partition_document_updates(docs, existing_rows)
+    changed_docs = refreshable_docs + protected_docs
     queued_updates = queue_changed_documents(changed_docs)
-    print(f"Change detection: {len(new_docs)} new; {len(changed_docs)} changed queued; {unchanged_docs} unchanged.")
+    refresh_stats = refresh_unverified_documents(refreshable_docs)
+    print(f"Change detection: {len(new_docs)} new; {len(changed_docs)} changed; {unchanged_docs} unchanged; "
+          f"{len(refreshable_docs)} unverified auto-refresh candidates; {len(protected_docs)} protected for review.")
     batch=[]; size=0; done=0
     inserted={"laws":0,"articles":0}
     for d in new_docs:
@@ -382,7 +497,7 @@ def main():
     with open(os.path.join(os.path.dirname(__file__), "legal_priority_documents.json"), encoding="utf-8") as priority_file:
         priority_manifest=json.load(priority_file)
     priority_audit=priority_coverage([*docs, *phase_skipped], priority_manifest)
-    report={"priority_coverage":priority_audit,"source":"https://github.com/SaeedAqamiri/laws-mcp","index_source":"https://www.ekhtebar.ir/قوانین/","official_sources":["https://qavanin.ir/","https://www.rrk.ir/"],"discovery_sources":discovery_sources,"official_links_found":sum(1 for d in docs if d.get("officialSourceUrl")),"documents_without_direct_official_link":sum(1 for d in docs if not d.get("officialSourceUrl")),"files_found":len(files),"phase":IMPORT_PHASE,"documents_parsed":parsed_count,"documents_selected":len(docs),"documents_excluded_by_phase":len(phase_skipped),"documents_processed":done,"documents_new":len(new_docs),"documents_unchanged":unchanged_docs,"documents_changed_detected":len(changed_docs),"updates_queued_for_review":queued_updates,"documents_inserted":inserted["laws"],"articles_inserted":inserted["articles"],"selected_type_counts":type_counts,"documents_skipped":skipped,"skip_reason_counts":skip_reason_counts,"database_audit":database_audit,"status":"needs_review","automation_policy":"new documents are imported as needs_review; changed existing documents are queued and never overwrite current text automatically","selected_types":sorted(PHASE_TYPES[IMPORT_PHASE]),"phase_excluded_sample":[{"slug":d["slug"],"title":d["title"],"type":d["lawType"]} for d in phase_skipped[:100]],"skip_sample":errors[:200]}
+    report={"priority_coverage":priority_audit,"source":"https://github.com/SaeedAqamiri/laws-mcp","index_source":"https://www.ekhtebar.ir/قوانین/","official_sources":["https://qavanin.ir/","https://www.rrk.ir/"],"discovery_sources":discovery_sources,"official_links_found":sum(1 for d in docs if d.get("officialSourceUrl")),"documents_without_direct_official_link":sum(1 for d in docs if not d.get("officialSourceUrl")),"files_found":len(files),"phase":IMPORT_PHASE,"documents_parsed":parsed_count,"documents_selected":len(docs),"documents_excluded_by_phase":len(phase_skipped),"documents_processed":done,"documents_new":len(new_docs),"documents_unchanged":unchanged_docs,"documents_changed_detected":len(changed_docs),"updates_logged":queued_updates,"documents_auto_refreshed":refresh_stats["documents_updated"],"articles_replaced_deleted":refresh_stats["articles_deleted"],"articles_refreshed_inserted":refresh_stats["articles_inserted"],"updates_auto_accepted":refresh_stats["queue_accepted"],"protected_documents_pending_review":len(protected_docs)+refresh_stats["skipped_large"],"auto_refresh_skipped_large":refresh_stats["skipped_large"],"documents_inserted":inserted["laws"],"articles_inserted":inserted["articles"],"selected_type_counts":type_counts,"documents_skipped":skipped,"skip_reason_counts":skip_reason_counts,"database_audit":database_audit,"status":"needs_review","automation_policy":"new documents remain needs_review; changed unverified documents are refreshed automatically; documents with verified/amended/repealed law or article status are only queued for review","selected_types":sorted(PHASE_TYPES[IMPORT_PHASE]),"phase_excluded_sample":[{"slug":d["slug"],"title":d["title"],"type":d["lawType"]} for d in phase_skipped[:100]],"skip_sample":errors[:200]}
     with open("artifacts/legal-bank-import-report.json","w",encoding="utf-8") as f: json.dump(report,f,ensure_ascii=False,indent=2)
     print(json.dumps({k:v for k,v in report.items() if k!="skip_sample"},ensure_ascii=False))
 
