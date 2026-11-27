@@ -298,7 +298,7 @@ function pageNotFound() {
 
 function pageAccount(params) {
   return lazy(async () => {
-    const { loginForm, registerForm, forgotPasswordForm, accountPanel } = await import('./account.js?v=20261127-password-recovery-visibility-3');
+    const { loginForm, registerForm, forgotPasswordForm, accountPanel } = await import('./account.js?v=20261127-password-reset-account-link-1');
     const wrap = h('div');
     const area = h('div', { role: 'region', 'aria-live': 'polite' });
     wrap.append(area);
