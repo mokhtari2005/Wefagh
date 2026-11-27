@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { WORKSHOPS, EXERCISES } from '../site/js/workshops.js';
 
 test('کارگاه‌های مهارت‌محور برای سه گروه مخاطب تعریف شده‌اند', () => {
-  assert.equal(WORKSHOPS.length, 12);
+  assert.equal(WORKSHOPS.length, 13);
   assert.equal(new Set(WORKSHOPS.map(item => item.id)).size, WORKSHOPS.length);
   assert.ok(WORKSHOPS.some(item => item.level.includes('دانشجو')));
   assert.ok(WORKSHOPS.some(item => item.level.includes('کارآموز')));
