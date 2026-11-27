@@ -46,6 +46,9 @@ function setup() {
   db.exec(migration('0002_auth.sql'));
   db.exec(migration('0008_registration_profile.sql'));
   db.exec(migration('0014_member_identity.sql'));
+  db.exec(migration('0019_mla_membership_sequence.sql'));
+  db.exec(migration('0024_membership_approval.sql'));
+  db.exec(migration('0025_registration_contact_details.sql'));
   const sent = [];
   const env = {
     DB: d1Like(db),
@@ -97,6 +100,7 @@ async function registerAndLogin(env, sent, { email, phone }) {
   await call(env, '/api/auth/register', { body: { email, password: OLD, displayName: 'کاربر آزمایشی', professionalTitle: 'کارآموز وکالت', position: 'عضو' } });
   const token = sent.at(-1).text.match(/token=([A-Za-z0-9_-]+)/)[1];
   await call(env, '/api/auth/verify-email', { body: { token } });
+  await env.DB.prepare("UPDATE users SET membership_status='approved' WHERE email=?1").bind(email).run();
   const res = await call(env, '/api/auth/login', { body: { email, password: OLD } });
   assert.equal(res.status, 200);
   const cookie = sessionCookieFrom(res);

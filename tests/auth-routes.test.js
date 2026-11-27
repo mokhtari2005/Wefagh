@@ -47,6 +47,7 @@ function setup({ adminEmail } = {}) {
   db.exec(migration('0002_auth.sql'));
   db.exec(migration('0008_registration_profile.sql'));
   db.exec(migration('0014_member_identity.sql'));
+  db.exec(migration('0019_mla_membership_sequence.sql'));
   db.exec(migration('0024_membership_approval.sql'));
   db.exec(migration('0025_registration_contact_details.sql'));
   const sent = [];
@@ -98,9 +99,22 @@ const validUser = {
   profile: validProfile,
 };
 
+async function approveMembership(env) {
+  const user = await env.DB.prepare('SELECT id FROM users WHERE email=?1').bind('shahram@example.com').first();
+  assert.ok(user?.id, 'test user must exist before membership approval');
+  await env.DB.prepare("UPDATE users SET membership_status='approved' WHERE id=?1").bind(user.id).run();
+  const status = await env.DB.prepare('SELECT membership_status FROM users WHERE id=?1').bind(user.id).first();
+  assert.equal(status?.membership_status, 'approved');
+}
+
 function tokenFromMail(sent) {
-  const m = sent.at(-1).text.match(/token=([A-Za-z0-9_-]+)/);
-  return m?.[1];
+  // ثبت‌نام مدیر ممکن است پس از ایمیل تأیید، اعلان جداگانهٔ مدیر را هم ارسال کند.
+  // توکن را از پیام حاوی پیوند تأیید پیدا می‌کنیم، نه الزاماً آخرین ایمیل ارسال‌شده.
+  for (const message of [...sent].reverse()) {
+    const match = typeof message?.text === 'string' ? message.text.match(/token=([A-Za-z0-9_-]+)/) : null;
+    if (match?.[1]) return match[1];
+  }
+  return undefined;
 }
 
 function sessionCookieFrom(res) {
@@ -138,7 +152,7 @@ test('ثبت‌نام با ایمیل تکراری همان پاسخ عمومی 
 
 test('متقاضی ردشده می‌تواند با همان ایمیل درخواست تازه ثبت کند', { skip }, async () => {
   const { db, env, sent } = setup();
-  const firstBody = { ...validUser, gender: 'male', position: 'lawyer', phone: '09123456789' };
+  const firstBody = { ...validUser, gender: 'male', professionalTitle: 'academy_member', position: 'lawyer', phone: '09123456789' };
   await call(env, '/api/auth/register', { body: firstBody });
   const firstToken = tokenFromMail(sent);
   const original = db.prepare('SELECT id, membership_no FROM users WHERE email=?').get('shahram@example.com');
@@ -218,6 +232,7 @@ test('ورود موفق: کوکی HttpOnly امن ست می‌شود و نشست
   const { db, env, sent } = setup();
   await call(env, '/api/auth/register', { body: validUser });
   await call(env, '/api/auth/verify-email', { body: { token: tokenFromMail(sent) } });
+  await approveMembership(env);
   const res = await call(env, '/api/auth/login', { body: { email: validUser.email, password: validUser.password } });
   assert.equal(res.status, 200);
   const setCookie = res.headers.get('set-cookie');
@@ -233,6 +248,7 @@ test('رمز اشتباه و ایمیل ناموجود، پاسخ یکسان د�
   const { env, sent } = setup();
   await call(env, '/api/auth/register', { body: validUser });
   await call(env, '/api/auth/verify-email', { body: { token: tokenFromMail(sent) } });
+  await approveMembership(env);
   const wrongPass = await call(env, '/api/auth/login', { body: { email: validUser.email, password: 'اشتباه-اشتباه-۱' } });
   const noUser = await call(env, '/api/auth/login', { body: { email: 'nobody@example.com', password: 'اشتباه-اشتباه-۱' } });
   assert.equal(wrongPass.status, 401);
@@ -244,6 +260,7 @@ test('پس از ۵ تلاش ناموفق حساب قفل می‌شود و ورو
   const { env, sent } = setup();
   await call(env, '/api/auth/register', { body: validUser });
   await call(env, '/api/auth/verify-email', { body: { token: tokenFromMail(sent) } });
+  await approveMembership(env);
   for (let i = 0; i < 5; i++) {
     await call(env, '/api/auth/login', { body: { email: validUser.email, password: 'بد-بد-بد-بد-۱' } });
   }
@@ -255,9 +272,15 @@ test('پس از ۵ تلاش ناموفق حساب قفل می‌شود و ورو
 test('/api/me بدون کوکی ۴۰۱ و با کوکی معتبر اطلاعات کاربر و نقش‌ها را برمی‌گرداند', { skip }, async () => {
   const { env, sent } = setup({ adminEmail: validUser.email });
   await call(env, '/api/auth/register', { body: validUser });
-  await call(env, '/api/auth/verify-email', { body: { token: tokenFromMail(sent) } });
+  const verification = await call(env, '/api/auth/verify-email', { body: { token: tokenFromMail(sent) } });
+  assert.equal(verification.status, 200);
+  const verifiedUser = await env.DB.prepare('SELECT email_verified_at FROM users WHERE email=?1').bind('shahram@example.com').first();
+  assert.ok(verifiedUser?.email_verified_at, 'email verification must be persisted');
+  await approveMembership(env);
   const login = await call(env, '/api/auth/login', { body: { email: validUser.email, password: validUser.password } });
+  assert.equal(login.status, 200);
   const cookie = sessionCookieFrom(login);
+  assert.ok(cookie);
 
   const anon = await call(env, '/api/me', { method: 'GET' });
   assert.equal(anon.status, 401);
@@ -284,6 +307,7 @@ test('خروج نشست را حذف می‌کند و /api/me بعد از آن ۴
   const { env, sent } = setup();
   await call(env, '/api/auth/register', { body: validUser });
   await call(env, '/api/auth/verify-email', { body: { token: tokenFromMail(sent) } });
+  await approveMembership(env);
   const login = await call(env, '/api/auth/login', { body: { email: validUser.email, password: validUser.password } });
   const cookie = sessionCookieFrom(login);
   const out = await call(env, '/api/auth/logout', { cookie });

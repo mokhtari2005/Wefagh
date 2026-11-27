@@ -44,7 +44,7 @@ function d1Like(db) {
 function setup() {
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON;');
-  for (const f of ['0001_init.sql', '0002_auth.sql', '0008_registration_profile.sql', '0014_member_identity.sql', '0019_mla_membership_sequence.sql']) db.exec(migration(f));
+  for (const f of ['0001_init.sql', '0002_auth.sql', '0008_registration_profile.sql', '0014_member_identity.sql', '0019_mla_membership_sequence.sql', '0024_membership_approval.sql', '0025_registration_contact_details.sql']) db.exec(migration(f));
   const sent = [];
   const env = {
     DB: d1Like(db),
@@ -91,6 +91,7 @@ const verifiedCookie = async (env, sent, email, password = 'رمز-امن-۱۴۰
   assert.equal(reg.status, 202);
   const token = sent.at(-1).text.match(/token=([A-Za-z0-9_-]+)/)[1];
   await call(env, '/api/auth/verify-email', { body: { token } });
+  await env.DB.prepare("UPDATE users SET membership_status='approved' WHERE email=?1").bind(email).run();
   const login = await call(env, '/api/auth/login', { body: { email, password } });
   assert.equal(login.status, 200);
   return (login.headers.get('set-cookie') || '').match(/wefagh_session=[^;]+/)[0];
@@ -237,14 +238,14 @@ import { hashPassword } from '../worker/src/auth/password.js';
 function setupWithoutProfiles() {
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON;');
-  for (const f of ['0001_init.sql', '0002_auth.sql', '0014_member_identity.sql', '0019_mla_membership_sequence.sql']) db.exec(migration(f));
+  for (const f of ['0001_init.sql', '0002_auth.sql', '0014_member_identity.sql', '0019_mla_membership_sequence.sql', '0024_membership_approval.sql', '0025_registration_contact_details.sql']) db.exec(migration(f));
   const env = { DB: d1Like(db), PUBLIC_BASE_URL: 'https://mokhtari.ir', mailer: async () => {} };
   return { db, env };
 }
 
 test('بدون جدول پروفایل: کاربر قدیمی می‌تواند وارد شود و /api/me بدون پروفایل پاسخ 200 بدهد', { skip }, async () => {
   const { db, env } = setupWithoutProfiles();
-  db.prepare("INSERT INTO users (email, password_hash, display_name, email_verified_at) VALUES (?,?,?,datetime('now'))")
+  db.prepare("INSERT INTO users (email, password_hash, display_name, email_verified_at, membership_status) VALUES (?,?,?,datetime('now'),'approved')")
     .run('old@example.com', await hashPassword('رمز-قدیمی-۱۴۰۴'), 'کاربر قدیمی');
   const login = await call(env, '/api/auth/login', { body: { email: 'old@example.com', password: 'رمز-قدیمی-۱۴۰۴' } });
   assert.equal(login.status, 200, 'ورود کاربر قدیمی نباید به پروفایل وابسته باشد');
@@ -267,8 +268,6 @@ test('بدون جدول پروفایل: ثبت‌نام همچنان کار می
 
 test('ثبت‌نام جنسیت، سمت، عنوان آکادمی و شماره همراه را ذخیره می‌کند', { skip }, async () => {
   const { db, env } = setup();
-  db.exec(migration('0024_membership_approval.sql'));
-  db.exec(migration('0025_registration_contact_details.sql'));
   const payload = {
     email: 'newmember@example.com',
     password: 'رمز-امن-۱۴۰۵',
@@ -289,8 +288,6 @@ test('ثبت‌نام جنسیت، سمت، عنوان آکادمی و شمار�
 
 test('ثبت‌نام با جنسیت یا سمت و عنوان خارج از فهرست رد می‌شود', { skip }, async () => {
   const { db, env } = setup();
-  db.exec(migration('0024_membership_approval.sql'));
-  db.exec(migration('0025_registration_contact_details.sql'));
   const response = await call(env, '/api/auth/register', { body: { email: 'bad@example.com', password: 'رمز-امن-۱۴۰۵', displayName: 'کاربر نامعتبر', gender: 'unknown', position: 'unknown', professionalTitle: 'unknown', phone: '08123456789' } });
   assert.equal(response.status, 422);
   const body = await response.json();

@@ -41,6 +41,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Run complete repository verification (known baseline failures are reported, not hidden)
-        continue-on-error: true
+      - name: Run complete repository verification
         run: npm run verify

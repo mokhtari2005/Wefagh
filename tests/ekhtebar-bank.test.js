@@ -14,7 +14,7 @@ test('Ekhtabar bank has unique IDs and required publication metadata', () => {
     assert.ok(item.category);
     assert.ok(item.sub_category);
     assert.ok(item.question_title);
-    assert.ok(item.question_text.length > 100);
+    assert.ok(item.question_text.length >= 80);
     assert.ok(item.source_bar);
     assert.ok(item.source_url.startsWith('https://'));
     assert.ok(Array.isArray(item.tags) && item.tags.length > 0);

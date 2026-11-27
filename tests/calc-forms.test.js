@@ -35,9 +35,9 @@ test('جدول حق‌الوکاله جمع ردیف‌ها را برابر نت
   const r = computeAttorneyForm({ subject: 'attorney', caseType: 'financial', judgment: 'nonfinal', amount });
   assert.equal(r.ok, true);
   const rule = findRule(YEAR, RULE.f9Nonfinal);
-  const rows = tierTableRows(rule, amount, r.lines[0].amount);
+  const rows = tierTableRows(rule, amount, r.feeTotal);
   assert.equal(rows.length, 5);
-  assert.equal(rows.reduce((s, x) => s + x.fee, 0), r.lines[0].amount);
+  assert.equal(rows.reduce((s, x) => s + x.fee, 0), r.feeTotal);
   // پله‌های بعد از رسیدن مبلغ صفر هستند و اضافه‌ای ساخته نمی‌شود
   assert.equal(rows[3].base, 0);
 });

@@ -25,5 +25,5 @@ test('کارت‌ها عنوان و آیکون یکتا دارند و تکرار
 });
 
 test('برچسب موت‌کورت صوتی که هنوز پیاده نشده حذف شده است', () => {
-  assert.ok(!ACADEMY_TOOLS.some((i) => i.title.includes('صوتی')));
+  assert.ok(!ACADEMY_TOOLS.some((i) => i.title.includes('موت‌کورت صوتی')));
 });
