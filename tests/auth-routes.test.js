@@ -267,7 +267,10 @@ test('پس از ۵ تلاش ناموفق حساب قفل می‌شود و ورو
 test('/api/me بدون کوکی ۴۰۱ و با کوکی معتبر اطلاعات کاربر و نقش‌ها را برمی‌گرداند', { skip }, async () => {
   const { env, sent } = setup({ adminEmail: validUser.email });
   await call(env, '/api/auth/register', { body: validUser });
-  await call(env, '/api/auth/verify-email', { body: { token: tokenFromMail(sent) } });
+  const verification = await call(env, '/api/auth/verify-email', { body: { token: tokenFromMail(sent) } });
+  assert.equal(verification.status, 200);
+  const verifiedUser = await env.DB.prepare('SELECT email_verified_at FROM users WHERE email=?1').bind('shahram@example.com').first();
+  assert.ok(verifiedUser?.email_verified_at, 'email verification must be persisted');
   await approveMembership(env);
   const login = await call(env, '/api/auth/login', { body: { email: validUser.email, password: validUser.password } });
   assert.equal(login.status, 200);
