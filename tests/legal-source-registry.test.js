@@ -93,3 +93,4 @@ test('expanded priority inventory reports broad legal-domain coverage without cl
   assert.ok(keys.has('official-registration-transactions'));
   assert.equal(manifest.coverage_note.includes('not an exhaustive inventory'), true);
 });
+
