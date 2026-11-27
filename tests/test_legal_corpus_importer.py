@@ -161,6 +161,18 @@ class LegalCorpusImporterTests(unittest.TestCase):
         self.assertEqual(selected_count, 8)
         self.assertEqual(deferred_count, 27)
 
+    def test_new_document_batch_has_its_own_daily_article_budget(self):
+        docs = [
+            {"slug": "a", "articles": [{}] * 2},
+            {"slug": "b", "articles": [{}] * 4},
+            {"slug": "c", "articles": [{}] * 3},
+        ]
+        selected, deferred, selected_count, deferred_count = importer.limit_new_batch(docs, 5)
+        self.assertEqual([doc["slug"] for doc in selected], ["a", "c"])
+        self.assertEqual([doc["slug"] for doc in deferred], ["b"])
+        self.assertEqual(selected_count, 5)
+        self.assertEqual(deferred_count, 4)
+
     def test_d1_daily_quota_errors_are_recognized_without_masking_other_errors(self):
         self.assertTrue(importer.is_d1_daily_write_quota_error(RuntimeError("HTTP 400 code 7500 daily row write limit")))
         self.assertTrue(importer.is_d1_daily_write_quota_error(RuntimeError("daily row write limit exceeded")))
