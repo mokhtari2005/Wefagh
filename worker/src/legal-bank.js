@@ -50,7 +50,8 @@ export async function handleLegalBank(request, env, path) {
         SUM(CASE WHEN status='repealed' THEN 1 ELSE 0 END) AS repealed FROM legal_articles`).all(),
       env.DB.prepare('SELECT law_type AS type,status,COUNT(*) AS count FROM legal_laws GROUP BY law_type,status ORDER BY law_type,status').all(),
       env.DB.prepare(`SELECT source_key AS key,title,authority,base_url AS url,access_mode AS accessMode,
-        enabled,last_checked_at AS lastCheckedAt,last_success_at AS lastSuccessAt
+        enabled,last_checked_at AS lastCheckedAt,last_success_at AS lastSuccessAt,
+        CASE WHEN last_error IS NULL THEN 'ok' ELSE 'warning' END AS syncStatus
         FROM legal_document_sources ORDER BY title`).all(),
       env.DB.prepare(`SELECT l.id,l.slug,l.title,l.law_type AS lawType,l.status,
         l.document_number AS documentNumber,l.document_date AS documentDate,
