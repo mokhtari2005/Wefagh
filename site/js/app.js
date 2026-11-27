@@ -298,7 +298,7 @@ function pageNotFound() {
 
 function pageAccount(params) {
   return lazy(async () => {
-    const { loginForm, registerForm, accountPanel } = await import('./account.js');
+    const { loginForm, registerForm, forgotPasswordForm, accountPanel } = await import('./account.js');
     const wrap = h('div');
     const area = h('div', { role: 'region', 'aria-live': 'polite' });
     wrap.append(area);
@@ -308,10 +308,10 @@ function pageAccount(params) {
         loginForm({ onSuccess: () => { window.location.hash = '#/account'; render(); } })
       );
     };
-    const showRegister = () => {
+    const showForgot = () => {\n      area.replaceChildren(h('h1', { text: 'بازیابی رمز عبور' }), forgotPasswordForm());\n    };\n    const showRegister = () => {
       area.replaceChildren(h('h1', { text: 'ثبت‌نام' }), registerForm({ onLoginLink: showLogin }));
     };
-    if (params.mode === 'register') { showRegister(); return wrap; }
+    if (params.mode === 'register') { showRegister(); return wrap; }\n    if (params.mode === 'forgot') { showForgot(); return wrap; }
     area.replaceChildren(h('p', { class: 'loading', text: 'در حال بررسی…' }));
     const panel = await accountPanel({ onLogout: () => render() });
     if (panel) area.replaceChildren(panel); else showLogin();
@@ -319,7 +319,7 @@ function pageAccount(params) {
   });
 }
 
-function pageVerify(params) {
+function pageResetPassword(params) {\n  return lazy(async () => {\n    const { resetPasswordForm } = await import('./account.js');\n    return h('div', {}, [h('h1', { text: 'تعیین رمز عبور جدید' }), resetPasswordForm(params.token || '')]);\n  });\n}\n\nfunction pageVerify(params) {
   return lazy(async () => {
     const { verifyPanel } = await import('./account.js');
     return verifyPanel(params.token || '');
@@ -331,7 +331,7 @@ const ROUTES = {
   '/about': () => pageAbout(),
   '/contact': () => pageContact(),
   '/account': (params) => pageAccount(params),
-  '/verify': (params) => pageVerify(params),
+  '/verify': (params) => pageVerify(params),\n  '/reset-password': (params) => pageResetPassword(params),
   '/academy': () => lazy(async () => (await import('./academy.js?v=20261127-apprenticeship-rubric-1')).academyList()),
   '/academy/courses': () => lazy(async () => (await import('./academy.js?v=20261127-apprenticeship-rubric-1')).academyCoursesPage()),
   '/academy/workshops': () => lazy(async () => (await import('./workshops.js?v=20261127-workshops-2')).workshopsPage()),
