@@ -59,6 +59,20 @@ class IranGraphRagCorpusImporterTests(unittest.TestCase):
         self.assertEqual(len(docs[0]["articles"]), 2)
         self.assertNotEqual(docs[0]["articles"][0]["number"], docs[0]["articles"][1]["number"])
 
+    def test_long_duplicate_article_numbers_remain_unique_after_truncation(self):
+        long_number = "ماده " + ("بند تکراری " * 30)
+        rows = [
+            {"record_type": "article", "law_cid": "cid-law-long", "instrument_title": "قانون نمونه",
+             "article_number": long_number, "article_title": "ماده طولانی", "body": "متن اول", "entry_cid": "entry-a"},
+            {"record_type": "article", "law_cid": "cid-law-long", "instrument_title": "قانون نمونه",
+             "article_number": long_number, "article_title": "ماده طولانی", "body": "متن دوم", "entry_cid": "entry-b"},
+        ]
+        docs = build_documents(rows, "revision-abc")
+        numbers = [article["number"] for article in docs[0]["articles"]]
+        self.assertEqual(len(numbers), 2)
+        self.assertEqual(len(set(numbers)), 2)
+        self.assertTrue(all(len(number) <= 120 for number in numbers))
+
     def test_article_only_rows_still_create_a_parent_document(self):
         rows = [{
             "record_type": "article", "law_cid": "cid-law-3", "instrument_title": "قانون حمایت نمونه",
