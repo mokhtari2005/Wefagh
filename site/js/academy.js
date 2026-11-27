@@ -84,11 +84,11 @@ export async function academyCourse(courseId) {
   }
   const course = res.data.course;
   wrap.append(
-    h('p', {}, [h('a', { href: '#/courses', text: '← همه دوره‌ها' })]),
+    h('p', {}, [h('a', { href: course.format === 'workshop' ? '#/academy/workshops' : '#/courses', text: course.format === 'workshop' ? '← همه کارگاه‌ها' : '← همه دوره‌ها' })]),
     h('h1', { text: course.title }),
     h('p', { class: 'muted', text: course.level }),
     h('p', { class: 'lead', text: course.summary }),
-    h('div', { class: 'notice', text: 'روش کار: درس را بخوانید، پرونده یا مسئله را تحلیل کنید، پاسخ کتبی بدهید و آزمونک را بگذرانید. قبولی در آزمونک، درس را در کارنامه شما ثبت می‌کند. پاسخ تشریحی نیز جداگانه با هوش مصنوعی و بر اساس معیارهای اعلام‌شده ارزیابی می‌شود؛ قبولی مستلزم پاسخ تستی صحیح و کسب حداقل ۶۰ از ۱۰۰ در پاسخ تشریحی است. برای حفظ محرمانگی، در تمرین‌ها فقط از اطلاعات فرضی یا بی‌نام‌سازی‌شده استفاده کنید و مشخصات موکل یا پرونده واقعی را وارد نکنید.' })
+    h('div', { class: 'notice', text: (course.format === 'workshop' ? 'روش کارگاه: ' : 'روش دوره: ') + 'درس را بخوانید، پرونده یا مسئله را تحلیل کنید، پاسخ کتبی بدهید و آزمونک را بگذرانید. قبولی در آزمونک، درس را در کارنامه شما ثبت می‌کند. پاسخ تشریحی نیز جداگانه با هوش مصنوعی و بر اساس معیارهای اعلام‌شده ارزیابی می‌شود؛ قبولی مستلزم پاسخ تستی صحیح و کسب حداقل ۶۰ از ۱۰۰ در پاسخ تشریحی است. برای حفظ محرمانگی، در تمرین‌ها فقط از اطلاعات فرضی یا بی‌نام‌سازی‌شده استفاده کنید و مشخصات موکل یا پرونده واقعی را وارد نکنید.' })
   );
   if (course.status === 'draft') {
     wrap.append(h('div', { class: 'notice', role: 'note' }, [h('p', { text: 'این دوره پیش‌نویس است. ثبت‌نام و دسترسی کاربران عادی به محتوا غیرفعال است.' })]));
@@ -114,7 +114,7 @@ async function renderProgress(area, course, user) {
   }
   if (!state.enrolled) {
     const status = h('p', { class: 'form-status', role: 'status' });
-    const btn = h('button', { class: 'btn', type: 'button', text: 'ثبت‌نام و شروع دوره' });
+    const btn = h('button', { class: 'btn', type: 'button', text: course.format === 'workshop' ? 'ثبت‌نام و شروع کارگاه' : 'ثبت‌نام و شروع دوره' });
     btn.addEventListener('click', async () => {
       btn.disabled = true;
       const r = await postJson('/api/academy/enroll', { courseId: course.id });
@@ -180,12 +180,12 @@ function courseCertificateCard(user, course) {
       ]),
       h('div', { class: 'academy-cert-header-mark', text: '⚖' }),
     ]),
-    h('p', { class: 'academy-cert-kicker', text: 'گواهینامه پایان دوره آموزشی' }),
+    h('p', { class: 'academy-cert-kicker', text: course.format === 'workshop' ? 'گواهینامه پایان کارگاه آموزشی' : 'گواهینامه پایان دوره آموزشی' }),
     h('h2', { class: 'academy-cert-title', text: 'گواهینامه' }),
     h('p', { class: 'academy-cert-title-en', text: 'CERTIFICATE OF COMPLETION' }),
     h('p', { class: 'academy-cert-copy', text: 'بدین‌وسیله گواهی می‌شود' }),
     h('strong', { class: 'academy-cert-name', text: user?.displayName || 'شرکت‌کننده' }),
-    h('p', { class: 'academy-cert-copy', text: 'دوره آموزشی زیر را با موفقیت به پایان رسانده است:' }),
+    h('p', { class: 'academy-cert-copy', text: course.format === 'workshop' ? 'کارگاه آموزشی زیر را با موفقیت به پایان رسانده است:' : 'دوره آموزشی زیر را با موفقیت به پایان رسانده است:' }),
     h('h3', { class: 'academy-cert-course', text: course.title }),
     h('div', { class: 'academy-cert-meta' }, [
       h('span', { text: 'تاریخ صدور: ' + issued }),
@@ -195,7 +195,7 @@ function courseCertificateCard(user, course) {
       h('div', { class: 'academy-cert-signature' }, [h('span', { text: '' }), h('strong', { text: 'استاد دوره' })]),
       h('div', { class: 'academy-cert-signature' }, [h('span', { text: '' }), h('strong', { text: 'شهرام مختاری' }), h('small', { text: 'مدیر آکادمی وکالت' })]),
     ]),
-    h('p', { class: 'academy-cert-footnote', text: 'این گواهینامه ناظر بر اتمام دوره آموزشی در آکادمی است.' }),
+    h('p', { class: 'academy-cert-footnote', text: course.format === 'workshop' ? 'این گواهینامه ناظر بر اتمام کارگاه آموزشی در آکادمی است و صلاحیت حرفه‌ای رسمی ایجاد نمی‌کند.' : 'این گواهینامه ناظر بر اتمام دوره آموزشی در آکادمی است.' }),
   ]);
   const actions = h('div', { class: 'academy-print-actions no-print' }, [
     h('button', { class: 'btn', type: 'button', text: 'چاپ گواهینامه / ذخیره PDF' }),
