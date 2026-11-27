@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Import the public Iran-law GraphRAG snapshot as unverified legal records.
 
+# 2026-11-27: trigger the one-time idempotent repair pass for article rows.
+
 The dataset is a research packaging of the upstream DOTIC-derived corpus.
 Every imported document/article stays needs_review; source URLs and snapshot
 provenance are retained. Changed existing records are queued, never overwritten.
