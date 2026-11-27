@@ -121,6 +121,20 @@ class LegalCorpusImporterTests(unittest.TestCase):
         self.assertEqual(audit["verified"], 0)
         self.assertEqual(audit["documents"][1]["status"], "missing_from_source_mirror")
 
+    def test_priority_coverage_distinguishes_indexed_from_unparsed(self):
+        manifest = {"documents":[{"key":"civil","title":"قانون مدنی","domain":"civil"}]}
+        audit = importer.priority_coverage([],manifest,["قانون مدنی"])
+        self.assertEqual(audit["present_in_source_mirror"],1)
+        self.assertEqual(audit["parsed_in_source_mirror"],0)
+        self.assertEqual(audit["indexed_not_parsed"],1)
+        self.assertEqual(audit["documents"][0]["status"],"indexed_not_parsed")
+
+    def test_empty_auto_refresh_stats_include_archive_counters(self):
+        stats = importer.refresh_unverified_documents([])
+        self.assertEqual(stats["documents_updated"],0)
+        self.assertEqual(stats["versions_archived"],0)
+        self.assertEqual(stats["articles_archived"],0)
+
     def test_priority_coverage_reports_domain_breakdown(self):
         manifest = {
             "documents": [
