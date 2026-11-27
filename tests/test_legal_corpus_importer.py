@@ -148,6 +148,22 @@ class LegalCorpusImporterTests(unittest.TestCase):
         self.assertEqual([(doc["slug"], old_hash) for doc, old_hash in protected], [("protected-law", "e" * 64)])
         self.assertEqual(unchanged, 1)
 
+    def test_database_audit_includes_unclassified_samples_and_official_link_coverage(self):
+        responses = [
+            [{"total": 10, "needs_review": 10}],
+            [{"total": 20, "needs_review": 20}],
+            [{"type": "other", "status": "needs_review", "count": 4}],
+            [{"type": "law", "total": 6, "with_official_link": 2}],
+            [{"source_name": "DOTIC", "count": 6}],
+            [{"slug": "x", "title": "سند بدون عنوان", "source_url": "https://dotic.ir/x"}],
+        ]
+        with patch.object(importer, "d1_query", side_effect=responses) as query:
+            audit = importer.audit_database()
+        self.assertEqual(query.call_count, 6)
+        self.assertEqual(audit["official_links_by_type"][0]["with_official_link"], 2)
+        self.assertEqual(audit["source_name_counts"][0]["source_name"], "DOTIC")
+        self.assertEqual(audit["other_document_samples"][0]["title"], "سند بدون عنوان")
+
     def test_daily_refresh_budget_defers_excess_articles_deterministically(self):
         docs = [
             ({"slug": "a", "articles": [{}] * 5}, "a"),
@@ -177,6 +193,72 @@ class LegalCorpusImporterTests(unittest.TestCase):
         self.assertTrue(importer.is_d1_daily_write_quota_error(RuntimeError("HTTP 400 code 7500 daily row write limit")))
         self.assertTrue(importer.is_d1_daily_write_quota_error(RuntimeError("daily row write limit exceeded")))
         self.assertFalse(importer.is_d1_daily_write_quota_error(RuntimeError("database busy")))
+
+    def test_same_hash_with_incomplete_article_rows_is_refreshed(self):
+        doc = {
+            "slug": "partially-imported", "contentSha256": "a" * 64,
+            "lawType": "law", "sourceUrl": "https://www.ekhtebar.ir/law",
+            "officialSourceUrl": None, "sourceName": "پایگاه خبری اختبار",
+            "articles": [{"number": "1", "body": "الف"}, {"number": "2", "body": "ب"}],
+        }
+        row = {
+            "slug": "partially-imported", "content_sha256": "a" * 64,
+            "law_type": "law", "source_url": "https://www.ekhtebar.ir/law",
+            "official_source_url": None, "source_name": "پایگاه خبری اختبار",
+            "status": "needs_review", "protected_articles": 0, "existing_articles": 1,
+        }
+        new_docs, refreshable, protected, unchanged = importer.partition_document_updates([doc], [row])
+        self.assertEqual(new_docs, [])
+        self.assertEqual(len(refreshable), 1)
+        self.assertEqual(protected, [])
+        self.assertEqual(unchanged, 0)
+        self.assertEqual(doc["_existingArticleCount"], 1)
+
+    def test_verified_document_with_incomplete_articles_is_queued_not_overwritten(self):
+        doc = {
+            "slug": "protected-partial", "contentSha256": "a" * 64,
+            "lawType": "law", "sourceUrl": "https://www.ekhtebar.ir/law",
+            "officialSourceUrl": None, "sourceName": "پایگاه خبری اختبار",
+            "articles": [{"number": "1", "body": "الف"}, {"number": "2", "body": "ب"}],
+        }
+        row = {
+            "slug": "protected-partial", "content_sha256": "a" * 64,
+            "law_type": "law", "source_url": "https://www.ekhtebar.ir/law",
+            "official_source_url": None, "source_name": "پایگاه خبری اختبار",
+            "status": "verified", "protected_articles": 1, "existing_articles": 1,
+        }
+        _, refreshable, protected, unchanged = importer.partition_document_updates([doc], [row])
+        self.assertEqual(refreshable, [])
+        self.assertEqual(len(protected), 1)
+        self.assertEqual(unchanged, 0)
+
+    def test_refresh_splits_documents_larger_than_one_d1_batch(self):
+        doc = {
+            "slug": "large-refresh", "title": "قانون نمونه", "lawType": "law",
+            "sourceName": "پایگاه خبری اختبار", "sourceUrl": "https://www.ekhtebar.ir/law",
+            "officialSourceUrl": None, "notes": "test", "contentSha256": "a" * 64,
+            "articles": [{"number": str(i), "heading": f"ماده {i}", "body": "متن " + str(i)} for i in range(5000)],
+        }
+        calls = []
+        class FakeD1Response:
+            status_code = 200
+            def __init__(self, batch): self.batch = batch
+            def json(self):
+                return {"success": True, "result": [
+                    {"success": True, "meta": {"changes": 50 if item["sql"].startswith("INSERT INTO legal_articles") else 1}}
+                    for item in self.batch
+                ]}
+        def fake_post(url, **kwargs):
+            batch = kwargs["json"]["batch"]
+            calls.append(len(batch))
+            return FakeD1Response(batch)
+        with patch.object(importer.requests, "post", side_effect=fake_post):
+            stats = importer.refresh_unverified_documents([(doc, "b" * 64)])
+        self.assertGreater(len(calls), 1)
+        self.assertTrue(all(count <= 90 for count in calls))
+        self.assertEqual(stats["documents_updated"], 1)
+        self.assertEqual(stats["articles_inserted"], 5000)
+        self.assertEqual(stats["skipped_large"], 0)
 
     def test_metadata_only_changes_trigger_refresh_or_protected_review(self):
         doc = {
