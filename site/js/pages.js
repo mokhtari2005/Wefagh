@@ -5,6 +5,7 @@ export const NAV = [
   { id: 'home', path: '/', title: 'خانه' },
   { id: 'about', path: '/about', title: 'درباره آکادمی وکالت شهرام مختاری' },
   { id: 'academy', path: '/academy', title: 'آکادمی' },
+  { id: 'workshops', path: '/academy/workshops', title: 'کارگاه‌های آموزشی' },
   { id: 'voice-typing', path: '/voice-typing', title: 'تایپ صوتی' },
   { id: 'dashboard', path: '/dashboard', title: 'داشبورد من' },
   { id: 'classroom', path: '/classroom', title: 'کلاس آنلاین' },
