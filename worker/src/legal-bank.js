@@ -11,14 +11,14 @@ const TYPES = new Set([
   'administrative_court_unified_precedent', 'administrative_court_general_board',
   'administrative_court_specialized_board', 'judicial_advisory_opinion',
   'judicial_circular', 'executive_circular', 'executive_regulation',
-  'treaty', 'guardian_council_opinion', 'parliamentary_research', 'judicial_decision'
+  'treaty', 'guardian_council_opinion', 'parliamentary_research', 'judicial_decision', 'executive_resolution', 'general_policies', 'bill', 'parliamentary_review_opinion', 'administrative_court_decision', 'judicial_session'
 ]);
 
 const JUDICIAL_TYPES = new Set([
   'unified_precedent', 'supreme_court_unified_precedent', 'supreme_court_insistence_precedent',
   'administrative_court_unified_precedent', 'administrative_court_general_board',
-  'administrative_court_specialized_board', 'advisory_opinion', 'judicial_advisory_opinion',
-  'judicial_circular',
+  'administrative_court_specialized_board', 'administrative_court_decision', 'advisory_opinion', 'judicial_advisory_opinion',
+  'judicial_circular', 'judicial_session', 'parliamentary_review_opinion',
 ]);
 
 async function readLargeJson(request, maxBytes = 4 * 1024 * 1024) {
@@ -266,7 +266,7 @@ export async function findVerifiedLegalArticles(db, query) {
     .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')
     .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
   const explicitReferences = extractExplicitLegalReferences(text).slice(0, 12);
-  const legalTypes = ['law','regulation','bylaw','circular','executive_circular','executive_regulation','treaty'];
+  const legalTypes = ['law','regulation','bylaw','circular','executive_circular','executive_regulation','executive_resolution','general_policies','treaty'];
   const typePlaceholders = legalTypes.map((_, i) => `?${i + 1}`).join(',');
   const selectSql = `SELECT l.title AS lawTitle,l.source_name AS sourceName,l.source_url AS sourceUrl,
       a.article_number AS articleNumber,a.heading,a.body

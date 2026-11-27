@@ -42,9 +42,10 @@ test("legal corpus import defaults to laws and separates the regulations phase",
   const workflow = readFileSync(new URL("../.github/workflows/import-legal-corpus.yml", import.meta.url), "utf8");
   assert.ok(importer.includes('IMPORT_PHASE = os.getenv("LEGAL_IMPORT_PHASE", "laws")'));
   assert.ok(importer.includes('"laws": {"law", "treaty"}'));
-  assert.ok(importer.includes('"regulations": {"bylaw", "executive_regulation", "executive_circular", "circular"}'));
-  assert.ok(importer.includes('PHASE_TYPES["all"] = PHASE_TYPES["laws"] | PHASE_TYPES["regulations"] | PHASE_TYPES["judicial"]'));
+  assert.ok(importer.includes('"regulations": {"bylaw", "executive_regulation", "executive_circular", "circular", "executive_resolution", "general_policies"}'));
+  assert.ok(importer.includes('PHASE_TYPES["all"] = PHASE_TYPES["laws"] | PHASE_TYPES["regulations"] | PHASE_TYPES["judicial"] | PHASE_TYPES["parliamentary"]'));
   assert.ok(importer.includes('"judicial": {'));
+  assert.ok(importer.includes('"parliamentary": {"bill", "parliamentary_review_opinion"}'));
   assert.ok(importer.includes("documents_excluded_by_phase"));
   assert.ok(importer.includes("phase_excluded_sample"));
   assert.ok(workflow.includes("default: all"));
