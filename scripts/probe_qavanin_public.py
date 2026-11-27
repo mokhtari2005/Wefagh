@@ -80,7 +80,7 @@ def probe():
         response.raise_for_status()
         html = response.text
         lowered = html.lower()
-        challenge_markers = ("cf-chl-", "challenge-platform", "captcha", "verify you are human", "access denied")
+        challenge_markers = ("cf-chl-", "challenge-platform", "captcha", "verify you are human", "access denied", "transferring to the website", "value_v1", "function values()", "error-section__title")
         if any(marker in lowered for marker in challenge_markers):
             report.update(status="blocked", reason="challenge_page_detected")
             return report
