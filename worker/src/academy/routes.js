@@ -123,7 +123,7 @@ export async function handleAcademy(request, env, path) {
     return json({
       ok: true,
       course: {
-        id: course.id, title: course.title, level: course.level, summary: course.summary,
+        id: course.id, title: course.title, level: course.level, summary: course.summary, format: course.format || 'course',
         status: course.status || 'published',
         lessons: course.lessons.map((l) => {
           const learning = lessonLearning(course.id, l.id);
