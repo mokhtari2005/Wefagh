@@ -80,7 +80,7 @@ test('کارآموزی مجازی پنج مرحله عملی با خروجی و 
 });
 
 test('بانک مطالعات موردی واقعی از سناریوهای فرضی جدا و به منبع قضایی پیوند دارد', () => {
-  assert.equal(VERIFIED_CASE_STUDIES.length, 6);
+  assert.equal(VERIFIED_CASE_STUDIES.length, 8);
   for (const item of VERIFIED_CASE_STUDIES) {
     assert.ok(item.documentNumber);
     assert.ok(item.date);
@@ -96,7 +96,7 @@ test('API مطالعات موردی عمومی، فقط‌خواندنی و بد
   assert.equal(getResponse.status, 200);
   const payload = await getResponse.json();
   assert.equal(payload.ok, true);
-  assert.equal(payload.caseStudies.length, 6);
+  assert.equal(payload.caseStudies.length, 8);
   for (const item of payload.caseStudies) {
     assert.ok(item.sourceUrl.startsWith('https://ara.jri.ac.ir/'));
     assert.equal(Object.hasOwn(item, 'personName'), false);
