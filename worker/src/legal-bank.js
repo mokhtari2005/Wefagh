@@ -37,28 +37,28 @@ export async function handleLegalBank(request, env, path) {
   if (path === '/api/legal-bank/public-stats') {
     if (request.method !== 'GET') return json({ok:false,error:'METHOD_NOT_ALLOWED'},405,{Allow:'GET'});
     const [lawTotals,articleTotals,types,sources,latest] = await Promise.all([
-      env.DB.prepare(\`SELECT COUNT(*) AS total,
+      env.DB.prepare(`SELECT COUNT(*) AS total,
         SUM(CASE WHEN status='verified' THEN 1 ELSE 0 END) AS verified,
         SUM(CASE WHEN status='needs_review' THEN 1 ELSE 0 END) AS needsReview,
         SUM(CASE WHEN status='amended' THEN 1 ELSE 0 END) AS amended,
         SUM(CASE WHEN status='repealed' THEN 1 ELSE 0 END) AS repealed,
-        MAX(updated_at) AS lastUpdated FROM legal_laws\`).all(),
-      env.DB.prepare(\`SELECT COUNT(*) AS total,
+        MAX(updated_at) AS lastUpdated FROM legal_laws`).all(),
+      env.DB.prepare(`SELECT COUNT(*) AS total,
         SUM(CASE WHEN status='verified' THEN 1 ELSE 0 END) AS verified,
         SUM(CASE WHEN status='needs_review' THEN 1 ELSE 0 END) AS needsReview,
         SUM(CASE WHEN status='amended' THEN 1 ELSE 0 END) AS amended,
-        SUM(CASE WHEN status='repealed' THEN 1 ELSE 0 END) AS repealed FROM legal_articles\`).all(),
+        SUM(CASE WHEN status='repealed' THEN 1 ELSE 0 END) AS repealed FROM legal_articles`).all(),
       env.DB.prepare('SELECT law_type AS type,status,COUNT(*) AS count FROM legal_laws GROUP BY law_type,status ORDER BY law_type,status').all(),
-      env.DB.prepare(\`SELECT source_key AS key,title,authority,base_url AS url,access_mode AS accessMode,
+      env.DB.prepare(`SELECT source_key AS key,title,authority,base_url AS url,access_mode AS accessMode,
         enabled,last_checked_at AS lastCheckedAt,last_success_at AS lastSuccessAt
-        FROM legal_document_sources ORDER BY title\`).all(),
-      env.DB.prepare(\`SELECT l.id,l.slug,l.title,l.law_type AS lawType,l.status,
+        FROM legal_document_sources ORDER BY title`).all(),
+      env.DB.prepare(`SELECT l.id,l.slug,l.title,l.law_type AS lawType,l.status,
         l.document_number AS documentNumber,l.document_date AS documentDate,
         l.approved_date AS approvedDate,l.source_name AS sourceName,
         l.source_url AS sourceUrl,l.official_source_url AS officialSourceUrl,
         l.updated_at AS updatedAt,COUNT(a.id) AS articleCount
         FROM legal_laws l LEFT JOIN legal_articles a ON a.law_id=l.id
-        GROUP BY l.id ORDER BY l.updated_at DESC,l.id DESC LIMIT 12\`).all(),
+        GROUP BY l.id ORDER BY l.updated_at DESC,l.id DESC LIMIT 12`).all(),
     ]);
     return json({ok:true,
       totals:{documents:lawTotals.results?.[0]||{},articles:articleTotals.results?.[0]||{}},
@@ -75,22 +75,22 @@ export async function handleLegalBank(request, env, path) {
     const page = Math.min(1000,Math.max(1,Number.parseInt(url.searchParams.get('page')||'1',10)||1));
     const limit = 30, offset = (page-1)*limit;
     const conditions=[],bindings=[];
-    if (type) { bindings.push(type); conditions.push(\`l.law_type=?\${bindings.length}\`); }
+    if (type) { bindings.push(type); conditions.push(`l.law_type=?${bindings.length}`); }
     if (query.length>=2) {
-      const terms=[...new Set(query.split(/[\\s،؛,.()]+/).map(x=>x.trim()).filter(x=>x.length>=2))].slice(0,5);
+      const terms=[...new Set(query.split(/[\s،؛,.()]+/).map(x=>x.trim()).filter(x=>x.length>=2))].slice(0,5);
       if (terms.length) {
-        conditions.push('('+terms.map(term=>{bindings.push('%'+term+'%');return \`(l.title LIKE ?\${bindings.length} OR l.document_number LIKE ?\${bindings.length} OR l.subject LIKE ?\${bindings.length})\`;}).join(' OR ')+')');
+        conditions.push('('+terms.map(term=>{bindings.push('%'+term+'%');return `(l.title LIKE ?${bindings.length} OR l.document_number LIKE ?${bindings.length} OR l.subject LIKE ?${bindings.length})`;}).join(' OR ')+')');
       }
     }
     bindings.push(limit+1,offset);
-    const result=await env.DB.prepare(\`SELECT l.id,l.slug,l.title,l.law_type AS lawType,l.status,
+    const result=await env.DB.prepare(`SELECT l.id,l.slug,l.title,l.law_type AS lawType,l.status,
       l.document_number AS documentNumber,l.document_date AS documentDate,l.approved_date AS approvedDate,
       l.source_name AS sourceName,l.source_url AS sourceUrl,l.official_source_url AS officialSourceUrl,
       l.updated_at AS updatedAt,COUNT(a.id) AS articleCount,
       SUM(CASE WHEN a.status='verified' THEN 1 ELSE 0 END) AS verifiedArticles
       FROM legal_laws l LEFT JOIN legal_articles a ON a.law_id=l.id
-      WHERE \${conditions.join(' AND ')} GROUP BY l.id
-      ORDER BY l.updated_at DESC,l.id DESC LIMIT ?\${bindings.length-1} OFFSET ?\${bindings.length}\`).bind(...bindings).all();
+      WHERE ${conditions.join(' AND ')} GROUP BY l.id
+      ORDER BY l.updated_at DESC,l.id DESC LIMIT ?${bindings.length-1} OFFSET ?${bindings.length}`).bind(...bindings).all();
     const rows=result.results||[];
     return json({ok:true,items:rows.slice(0,limit),page,hasMore:rows.length>limit});
   }
@@ -101,21 +101,21 @@ export async function handleLegalBank(request, env, path) {
     const id = Number(url.searchParams.get('id'));
     const slug = clean(url.searchParams.get('slug'),100);
     if ((!Number.isInteger(id)||id<1)&&!slug) return json({ok:false,error:'VALIDATION_FAILED'},422);
-    const doc=await env.DB.prepare(\`SELECT id,slug,title,law_type AS lawType,status,
+    const doc=await env.DB.prepare(`SELECT id,slug,title,law_type AS lawType,status,
       issuing_authority AS issuingAuthority,document_number AS documentNumber,
       document_date AS documentDate,subject,approved_date AS approvedDate,
       publication_date AS publicationDate,effective_date AS effectiveDate,
       source_name AS sourceName,source_url AS sourceUrl,
       official_source_url AS officialSourceUrl,discovery_source_url AS discoverySourceUrl,
-      updated_at AS updatedAt FROM legal_laws WHERE \${Number.isInteger(id)&&id>0?'id=?1':'slug=?1'}\`)
+      updated_at AS updatedAt FROM legal_laws WHERE ${Number.isInteger(id)&&id>0?'id=?1':'slug=?1'}`)
       .bind(Number.isInteger(id)&&id>0?id:slug).first();
     if (!doc) return json({ok:false,error:'NOT_FOUND'},404);
     if (doc.status!=='verified') return json({ok:true,document:doc,textAvailable:false,articles:[],message:'متن این سند هنوز برای انتشار عمومی تأیید نشده است.'});
     const offset=Math.max(0,Number.parseInt(url.searchParams.get('offset')||'0',10)||0);
     const limit=Math.min(50,Math.max(1,Number.parseInt(url.searchParams.get('limit')||'30',10)||30));
-    const result=await env.DB.prepare(\`SELECT article_number AS number,heading,body
+    const result=await env.DB.prepare(`SELECT article_number AS number,heading,body
       FROM legal_articles WHERE law_id=?1 AND status='verified'
-      ORDER BY id LIMIT ?2 OFFSET ?3\`).bind(doc.id,limit+1,offset).all();
+      ORDER BY id LIMIT ?2 OFFSET ?3`).bind(doc.id,limit+1,offset).all();
     const rows=result.results||[];
     return json({ok:true,document:doc,textAvailable:true,articles:rows.slice(0,limit).map(a=>({...a,body:String(a.body||'').slice(0,20000)})),nextOffset:rows.length>limit?offset+limit:null});
   }
