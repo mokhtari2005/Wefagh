@@ -75,10 +75,10 @@ function caseFilter({ area = null, difficulty = null, q = null } = {}) {
 }
 
 /** فهرست صفحه‌بندی‌شدهٔ همه پرونده‌های منتشرشده؛ سقف تعداد کل پرونده‌ها وجود ندارد. */
-export async function listPublishedCases(env, { area = null, difficulty = null, q = null, limit = 30, offset = 0 } = {}) {
+export async function listPublishedCases(env, { area = null, difficulty = null, q = null, limit = 5000, offset = 0 } = {}) {
   if (!env?.DB) return [];
   const filter = caseFilter({ area, difficulty, q });
-  const pageSize = Math.max(1, Math.min(50, Number(limit) || 30));
+  const pageSize = Math.max(1, Math.min(5000, Number(limit) || 5000));
   const startAt = Math.max(0, Number(offset) || 0);
   try {
     const result = await env.DB.prepare(`SELECT slug, title, summary, payload_json FROM admin_content WHERE ${filter.where} ORDER BY title, slug LIMIT ? OFFSET ?`)
