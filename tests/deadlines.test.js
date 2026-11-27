@@ -42,7 +42,7 @@ function d1Like(db) {
 async function setup() {
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON;');
-  for (const f of ['0001_init.sql', '0002_auth.sql', '0003_academy.sql', '0004_deadlines.sql', '0011_deadline_time.sql', '0020_calendar_notifications.sql', '0021_calendar_push_reminders.sql']) db.exec(migration(f));
+  for (const f of ['0001_init.sql', '0002_auth.sql', '0003_academy.sql', '0004_deadlines.sql', '0011_deadline_time.sql', '0020_calendar_notifications.sql', '0021_calendar_push_reminders.sql', '0031_deadline_email_reminders.sql']) db.exec(migration(f));
   const env = { DB: d1Like(db) };
   const make = async (email, token) => {
     const u = db
