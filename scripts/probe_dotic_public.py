@@ -1,0 +1,177 @@
+#!/usr/bin/env python3
+"""Read-only probe of the official DOTIC public catalogue.
+
+The probe checks robots.txt before inspecting the public search/detail pages.
+It never solves challenges, uses proxies, submits forms, or bulk-crawls records.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import math
+import re
+from datetime import datetime, timezone
+from pathlib import Path
+from urllib.parse import urljoin, urlparse
+from urllib.robotparser import RobotFileParser
+
+import requests
+from bs4 import BeautifulSoup
+
+BASE = "https://dotic.ir"
+SEARCH_URL = BASE + "/new-search/"
+SAMPLE_URL = BASE + "/news/21912"
+USER_AGENT = "MokhtariLawAcademyBot/1.0 (+https://mokhtari.ir; mailto:edu@mokhtari.ir)"
+TIMEOUT = 25
+
+
+def _integer(value: str | None):
+    if not value:
+        return None
+    return int(re.sub(r"[^\d]", "", value))
+
+
+def check_robots(response, target_url: str, user_agent: str = USER_AGENT) -> dict:
+    status = int(response.status_code)
+    if 400 <= status < 500:
+        return {"status_code": status, "available": False, "allowed": True,
+                "reason": "robots_not_found_or_client_error_no_rules"}
+    if status != 200:
+        return {"status_code": status, "available": False, "allowed": False,
+                "reason": "robots_unavailable_fail_closed"}
+    parser = RobotFileParser()
+    parser.set_url(BASE + "/robots.txt")
+    parser.parse(response.text.splitlines())
+    allowed = parser.can_fetch(user_agent, target_url)
+    return {"status_code": status, "available": True, "allowed": allowed,
+            "reason": "allowed_by_robots" if allowed else "disallowed_by_robots"}
+
+
+def parse_search_page(html: str, page_url: str = SEARCH_URL) -> dict:
+    soup = BeautifulSoup(html, "html.parser")
+    text = soup.get_text(" ", strip=True)
+    match = re.search(r"(\d[\d,]*)\s*-\s*(\d[\d,]*)\s+of\s+([\d,]+)", text, re.I)
+    first = _integer(match.group(1)) if match else None
+    last = _integer(match.group(2)) if match else None
+    total = _integer(match.group(3)) if match else None
+    page_size = (last - first + 1) if first is not None and last is not None else None
+    page_count = math.ceil(total / page_size) if total and page_size else None
+    urls = []
+    for anchor in soup.select("a[href]"):
+        href = urljoin(page_url, anchor.get("href", ""))
+        path = urlparse(href).path
+        if re.fullmatch(r"/news/\d+/?", path) and href not in urls:
+            urls.append(href)
+    return {
+        "result_total": total,
+        "page_first": first,
+        "page_last": last,
+        "page_size": page_size,
+        "page_count": page_count,
+        "sample_record_urls": urls[:15],
+        "page_title": soup.title.get_text(" ", strip=True) if soup.title else None,
+    }
+
+
+def parse_detail_page(html: str, page_url: str = SAMPLE_URL) -> dict:
+    soup = BeautifulSoup(html, "html.parser")
+    heading = soup.find(["h1", "h2", "h3"])
+    title = heading.get_text(" ", strip=True) if heading else (
+        soup.title.get_text(" ", strip=True) if soup.title else None
+    )
+    text = soup.get_text(" ", strip=True)
+    date_match = re.search(r"تاریخ خبر\s*:\s*([^|]{5,50})", text)
+    number_match = re.search(r"شماره\s+([0-9۰-۹٠-٩/.-]{2,40})", text)
+    candidates = []
+    for tag in soup.select("a[href], iframe[src], embed[src], object[data]"):
+        attr = "href" if tag.name == "a" else ("data" if tag.name == "object" else "src")
+        href = tag.get(attr)
+        if not href:
+            continue
+        absolute = urljoin(page_url, href)
+        hint = (href + " " + tag.get_text(" ", strip=True)).lower()
+        if ".pdf" in hint or "download" in hint or "file" in hint or "دریافت متن کامل" in hint:
+            if absolute not in candidates:
+                candidates.append(absolute)
+    for raw in re.findall(r"""(?:https?:)?//[^"'\\s<>]+|/[^"'\\s<>]+""", html):
+        if ".pdf" in raw.lower():
+            absolute = urljoin(page_url, raw)
+            if absolute not in candidates:
+                candidates.append(absolute)
+    return {
+        "title": title,
+        "published_date_text": date_match.group(1).strip() if date_match else None,
+        "document_number_candidate": number_match.group(1) if number_match else None,
+        "pdf_candidates": candidates[:20],
+        "has_pdf_candidate": bool(candidates),
+        "page_url": page_url,
+    }
+
+
+def run_probe(session: requests.Session | None = None) -> dict:
+    session = session or requests.Session()
+    session.headers.update({"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml"})
+    report = {
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "source": "پایگاه ملی اطلاع‌رسانی قوانین و مقررات کشور (DOTIC)",
+        "base_url": BASE,
+        "status": "unknown",
+        "robots": {},
+        "search": {},
+        "sample_detail": {},
+        "errors": [],
+        "crawl_policy": "No crawling unless robots.txt explicitly permits the public search and record paths.",
+    }
+    try:
+        robots_response = session.get(BASE + "/robots.txt", timeout=TIMEOUT, allow_redirects=True)
+        search_robots = check_robots(robots_response, SEARCH_URL)
+        detail_robots = check_robots(robots_response, SAMPLE_URL)
+        report["robots"] = {
+            "status_code": robots_response.status_code,
+            "search_allowed": search_robots["allowed"],
+            "search_reason": search_robots["reason"],
+            "detail_allowed": detail_robots["allowed"],
+            "detail_reason": detail_robots["reason"],
+            "body_excerpt": robots_response.text[:2500] if robots_response.status_code == 200 else None,
+        }
+        if not search_robots["allowed"] or not detail_robots["allowed"]:
+            report["status"] = "robots_disallowed_or_unavailable"
+            return report
+        search_response = session.get(SEARCH_URL, timeout=TIMEOUT, allow_redirects=True)
+        report["search_http_status"] = search_response.status_code
+        if search_response.status_code != 200:
+            report["status"] = "search_unavailable"
+            report["errors"].append(f"Search returned HTTP {search_response.status_code}")
+            return report
+        lower = search_response.text.lower()
+        if any(marker in lower for marker in ("captcha", "challenge-platform", "cf-chl-", "access denied")):
+            report["status"] = "challenge_or_access_denied"
+            return report
+        report["search"] = parse_search_page(search_response.text, search_response.url)
+        sample_urls = report["search"].get("sample_record_urls") or []
+        sample_url = next((u for u in sample_urls if u.endswith("/21912")), SAMPLE_URL)
+        detail_response = session.get(sample_url, timeout=TIMEOUT, allow_redirects=True)
+        report["sample_detail_http_status"] = detail_response.status_code
+        if detail_response.status_code == 200:
+            report["sample_detail"] = parse_detail_page(detail_response.text, detail_response.url)
+        report["status"] = "accessible"
+        report["crawl_allowed"] = True
+    except requests.RequestException as exc:
+        report["status"] = "network_error"
+        report["errors"].append(type(exc).__name__ + ": " + str(exc)[:400])
+    return report
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", default="artifacts/dotic-public-probe.json")
+    args = parser.parse_args()
+    report = run_probe()
+    output = Path(args.output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    main()
