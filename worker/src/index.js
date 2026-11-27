@@ -177,7 +177,7 @@ export default {
       }
     }
 
-    if (path.startsWith('/api/admin/legal-bank/') || path === '/api/legal-bank/search') {
+    if (path.startsWith('/api/admin/legal-bank/') || path.startsWith('/api/legal-bank/public-') || path === '/api/legal-bank/search') {
       const res = await handleLegalBank(request, env, path);
       if (res) return res;
     }
