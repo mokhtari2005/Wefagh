@@ -86,7 +86,7 @@ jobs:
           echo "Cloudflare token verified and active"
 
       - name: Apply pending remote D1 migrations
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.apply_migrations == true }}
+        if: ${{ (github.event_name == 'push' && (contains(toJSON(github.event.commits.*.added), 'worker/migrations/') || contains(toJSON(github.event.commits.*.modified), 'worker/migrations/'))) || (github.event_name == 'workflow_dispatch' && inputs.apply_migrations == true) }}
         working-directory: worker
         run: wrangler d1 migrations apply wefagh-db --remote --config wrangler.toml
 
