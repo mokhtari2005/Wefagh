@@ -148,6 +148,24 @@ class LegalCorpusImporterTests(unittest.TestCase):
         self.assertEqual([(doc["slug"], old_hash) for doc, old_hash in protected], [("protected-law", "e" * 64)])
         self.assertEqual(unchanged, 1)
 
+    def test_daily_refresh_budget_defers_excess_articles_deterministically(self):
+        docs = [
+            ({"slug": "a", "articles": [{}] * 5}, "a"),
+            ({"slug": "b", "articles": [{}] * 7}, "b"),
+            ({"slug": "c", "articles": [{}] * 3}, "c"),
+            ({"slug": "d", "articles": [{}] * 20}, "d"),
+        ]
+        selected, deferred, selected_count, deferred_count = importer.limit_refresh_batch(docs, 10)
+        self.assertEqual([item[0]["slug"] for item in selected], ["a", "c"])
+        self.assertEqual([item[0]["slug"] for item in deferred], ["b", "d"])
+        self.assertEqual(selected_count, 8)
+        self.assertEqual(deferred_count, 27)
+
+    def test_d1_daily_quota_errors_are_recognized_without_masking_other_errors(self):
+        self.assertTrue(importer.is_d1_daily_write_quota_error(RuntimeError("HTTP 400 code 7500 daily row write limit")))
+        self.assertTrue(importer.is_d1_daily_write_quota_error(RuntimeError("daily row write limit exceeded")))
+        self.assertFalse(importer.is_d1_daily_write_quota_error(RuntimeError("database busy")))
+
     def test_metadata_only_changes_trigger_refresh_or_protected_review(self):
         doc = {
             "slug": "reclassified-law",
