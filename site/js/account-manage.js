@@ -51,42 +51,7 @@ function applyErrors(errors, nodes) {
   for (const [key, node] of Object.entries(nodes)) node.textContent = errors?.[key] || '';
 }
 
-// ---------- تغییر رمز عبور ----------
-export function changePasswordForm() {
-  const current = h('input', { type: 'password', name: 'currentPassword', autocomplete: 'current-password', required: '' });
-  const next = h('input', { type: 'password', name: 'newPassword', autocomplete: 'new-password', required: '', minlength: '10' });
-  const currentErr = errorNode('cp-current');
-  const nextErr = errorNode('cp-new');
-  const status = h('p', { class: 'form-status', role: 'status', 'aria-live': 'polite' });
-  const submit = h('button', { class: 'btn', type: 'submit', text: 'تغییر رمز عبور' });
-
-  const form = h('form', { class: 'form', novalidate: '', 'aria-label': 'تغییر رمز عبور' }, [
-    h('h2', { text: 'تغییر رمز عبور' }),
-    fieldWrap('cp-current', 'رمز عبور فعلی', current, currentErr),
-    fieldWrap('cp-new', 'رمز عبور جدید (حداقل ۱۰ نویسه)', next, nextErr),
-    submit,
-    status,
-  ]);
-
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    applyErrors({}, { 'cp-current': currentErr, 'cp-new': nextErr });
-    submit.disabled = true;
-    setStatus(status, 'در حال ذخیره…');
-    const res = await postJson('/api/auth/change-password', { currentPassword: current.value, newPassword: next.value });
-    submit.disabled = false;
-    current.value = '';
-    next.value = '';
-    if (res.ok) {
-      setStatus(status, 'رمز عبور تغییر کرد. نشست‌های دیگر این حساب خاتمه یافتند.', 'ok');
-      return;
-    }
-    if (res.data?.errors) applyErrors(res.data.errors, { 'cp-current': currentErr, 'cp-new': nextErr });
-    setStatus(status, messageFor(res.networkError ? 'NETWORK' : res.data?.error), 'err');
-  });
-
-  return form;
-}
+// تغییر رمز فقط از مسیر بازیابی ایمیلی انجام می‌شود؛ فرم قدیمیِ نیازمند رمز فعلی حذف شده است.
 
 // ---------- ویرایش پروفایل ----------
 export function profileEditForm(profile, onSaved) {
