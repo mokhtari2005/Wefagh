@@ -219,7 +219,8 @@ class LegalCorpusImporterTests(unittest.TestCase):
     def test_refresh_splits_documents_larger_than_one_d1_batch(self):
         doc = {
             "slug": "large-refresh", "title": "قانون نمونه", "lawType": "law",
-            "contentSha256": "a" * 64,
+            "sourceName": "پایگاه خبری اختبار", "sourceUrl": "https://www.ekhtebar.ir/law",
+            "officialSourceUrl": None, "notes": "test", "contentSha256": "a" * 64,
             "articles": [{"number": str(i), "heading": f"ماده {i}", "body": "متن " + str(i)} for i in range(100)],
         }
         calls = []
