@@ -1,6 +1,13 @@
 name: Import public Iranian legal corpus
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/import_ekhtebar_corpus.py'
+      - 'scripts/legal_priority_documents.json'
+      - '.github/workflows/import-legal-corpus.yml'
   schedule:
     # Daily source refresh and change detection; changed existing documents are queued for review.
     - cron: '17 2 * * *'
@@ -30,7 +37,7 @@ concurrency:
 
 jobs:
   import:
-    if: github.event_name == 'schedule' || inputs.confirm == 'IMPORT_TO_D1'
+    if: github.event_name == 'schedule' || github.event_name == 'push' || inputs.confirm == 'IMPORT_TO_D1'
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
