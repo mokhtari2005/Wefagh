@@ -253,6 +253,7 @@ async function issueVerificationEmail(env, userId, email) {
       'SELECT display_name, gender, position FROM users WHERE id = ?1'
     ).bind(userId).first();
     await mailer(env)({
+      from: 'Mokhtari Law Academy <edu@mokhtari.ir>',
       to: email,
       subject: 'تأیید ایمیل و تکمیل درخواست عضویت | آکادمی وکالت شهرام مختاری',
       text: buildVerificationEmailText({
@@ -398,10 +399,14 @@ export async function requestPasswordReset(request, env) {
         'اگر شما این درخواست را ثبت نکرده‌اید، این پیام را نادیده بگیرید؛ رمز فعلی شما تغییر نمی‌کند.',
         '',
         'آکادمی وکالت شهرام مختاری',
-      ].join('\\n'),
+      ].join('\n'),
     });
   } catch (err) {
     logError('auth.send_password_reset', err);
+    // توکن ارسال‌نشده قابل استفاده نیست و نباید کاربر را پشت پاسخ موفق کاذب نگه دارد.
+    await env.DB.prepare("UPDATE email_tokens SET used_at=?1 WHERE user_id=?2 AND purpose='reset_password' AND used_at IS NULL")
+      .bind(new Date().toISOString(), user.id).run();
+    return json({ ok: false, error: 'MAIL_SEND_FAILED' }, 503);
   }
   return json({ ok: true, message: RESET_REQUEST_MSG }, 202);
 }
