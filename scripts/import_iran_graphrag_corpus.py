@@ -58,6 +58,12 @@ def classify_title(title):
     value = text(title).replace("ي", "ی").replace("ك", "ک")
     compact = re.sub(r"[\s\u200c]+", "", value)
     # A statute remains a law even when its title mentions an implementing bylaw.
+    if "استفتاء" in value or "استفتا" in value or "مسئله فقهی" in value or "فتوای" in value:
+        return "fatwa"
+    if "قانون تفسیری" in value or "قانون تفسیر" in value or "استفساریه" in value:
+        return "interpretive_law"
+    if "مجمع تشخیص مصلحت" in value and ("مصوبه" in value or "مصلحت نظام" in value):
+        return "expediency_council_resolution"
     if value.startswith("قانون") or value.startswith("قوانین"):
         return "law"
     if value.startswith("طرح") or value.startswith("لایحه"):
