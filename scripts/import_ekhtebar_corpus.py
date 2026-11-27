@@ -18,12 +18,13 @@ if os.getenv("GITHUB_TOKEN"): GH["Authorization"] = f"Bearer {os.environ['GITHUB
 IMPORT_PHASE = os.getenv("LEGAL_IMPORT_PHASE", "laws").strip().lower()
 PHASE_TYPES = {
     "laws": {"law", "treaty"},
-    "regulations": {"bylaw", "executive_regulation", "executive_circular", "circular"},
+    "regulations": {"bylaw", "executive_regulation", "executive_circular", "circular", "executive_resolution", "general_policies"},
     "judicial": {
         "supreme_court_unified_precedent", "supreme_court_insistence_precedent",
         "administrative_court_unified_precedent", "administrative_court_general_board",
-        "administrative_court_specialized_board", "judicial_advisory_opinion",
-        "advisory_opinion", "guardian_council_opinion", "judicial_circular", "judicial_decision",
+        "administrative_court_specialized_board", "administrative_court_decision",
+        "judicial_advisory_opinion", "advisory_opinion", "guardian_council_opinion",
+        "judicial_circular", "judicial_decision", "judicial_session", "parliamentary_review_opinion",
     },
 }
 PHASE_TYPES["all"] = PHASE_TYPES["laws"] | PHASE_TYPES["regulations"] | PHASE_TYPES["judicial"]
@@ -53,9 +54,48 @@ def get_index():
     return by_stem
 
 def get_files():
-    rows=get(f"{API}/contents/data/laws?ref={BRANCH}&per_page=1000",True).json()
-    if not isinstance(rows,list): raise RuntimeError("Unexpected source directory response")
-    return [x["path"] for x in rows if x.get("type")=="file" and x.get("name","").endswith(".md")]
+    # One recursive Git tree call discovers both statute files and the much
+    # larger category corpus (precedents, opinions, regulations, circulars, etc.).
+    tree=get(f"{API}/git/trees/{BRANCH}?recursive=1",True).json()
+    if tree.get("truncated"):
+        raise RuntimeError("Source Git tree was truncated; refusing a partial legal-corpus import")
+    rows=tree.get("tree")
+    if not isinstance(rows,list):
+        raise RuntimeError("Unexpected source Git tree response")
+    return sorted(x["path"] for x in rows
+                  if x.get("type")=="blob" and x.get("path","").endswith(".md")
+                  and (x["path"].startswith("data/laws/") or x["path"].startswith("data/cats/")))
+
+
+def category_type(path, title):
+    parts=path.split("/")
+    if len(parts)<3 or parts[1]!="cats":
+        return classify(title)
+    category=parts[2].replace("\u200c"," ").strip()
+    value=re.sub(r"\\s+"," ",title.replace("\u200c"," ").strip())
+    if category=="آرا وحدت رویه":
+        return "supreme_court_unified_precedent" if "دیوان عدالت اداری" not in value else "administrative_court_unified_precedent"
+    if category=="نظریه‌های مشورتی":
+        return "judicial_advisory_opinion"
+    if category=="آیین‌نامه‌ها":
+        return "bylaw"
+    if category=="بخشنامه‌ها":
+        return "judicial_circular" if any(x in value for x in ("قوه قضائیه","رئیس قوه","دادگستری")) else "executive_circular"
+    if category=="آرای دیوان عدالت اداری":
+        return "administrative_court_general_board" if "هیئت عمومی" in value else "administrative_court_decision"
+    if category=="مصوبات":
+        return "executive_resolution"
+    if category=="طرح و لایحه":
+        return "bill"
+    if category=="نظریه‌های رئیس مجلس":
+        return "parliamentary_review_opinion"
+    if category=="نشست‌های قضایی":
+        return "judicial_session"
+    if category=="رویه قضایی":
+        return "judicial_decision"
+    if category=="سیاست‌های کلی":
+        return "general_policies"
+    return classify(title)
 
 def classify(t):
     text=re.sub(r"\s+"," ",t.replace("\u200c"," ").strip())
@@ -120,21 +160,36 @@ def parse_doc(path, index):
         else:
             m=SINGLE.match(line)
             if m: starts.append((i,"واحده",(m.group(1) or "").strip(),"ماده"))
-    if not starts: return None,"no-article-structure"
+    doc_type = category_type(path, title)
     articles=[]; seen=set()
-    for n,(pos,num,heading,kind) in enumerate(starts):
-        end=starts[n+1][0] if n+1<len(starts) else len(lines)
-        body="\n".join(lines[pos+1:end]).strip()
-        if heading: body=(heading+"\n"+body).strip()
+    if starts and doc_type in PHASE_TYPES["laws"] | PHASE_TYPES["regulations"]:
+        for n,(pos,num,heading,kind) in enumerate(starts):
+            end=starts[n+1][0] if n+1<len(starts) else len(lines)
+            body="\n".join(lines[pos+1:end]).strip()
+            if heading: body=(heading+"\n"+body).strip()
+            body=re.sub(r"\n{3,}","\n\n",body)
+            if not body or len(body)>100000 or num in seen: continue
+            seen.add(num); articles.append({"number":num,"heading":f"{kind} {num}","body":body})
+    else:
+        # Judicial opinions and many category records are continuous texts,
+        # not statutes. Keep the full decision as one searchable text block
+        # instead of splitting incidental citations into fake "articles".
+        body_lines=[]
+        for line in lines:
+            if line.strip()==f"# {title}" or re.match(r"^>\\s*(?:منبع|پی.?دی.?اف)\\s*:",line.strip(),re.I):
+                continue
+            body_lines.append(line)
+        body="\n".join(body_lines).strip()
         body=re.sub(r"\n{3,}","\n\n",body)
-        if not body or len(body)>100000 or num in seen: continue
-        seen.add(num); articles.append({"number":num,"heading":f"{kind} {num}","body":body})
-    if not articles: return None,"no-valid-articles"
+        if len(body)>100000: body=body[:100000]
+        if len(body)>=180:
+            articles=[{"number":"متن کامل","heading":title[:240],"body":body}]
+    if not articles: return None,"no-usable-full-text"
     slug="ekhtebar-"+hashlib.sha1(source.encode()).hexdigest()[:20]
     return {
         "slug":slug,
         "title":title[:240],
-        "lawType":classify(title),
+        "lawType":doc_type,
         "sourceName":"سامانه ملی قوانین و مقررات / روزنامه رسمی (پیوند مستقیم در سند)" if official_source_url else "پایگاه خبری اختبار (منبع ثانویه؛ نیازمند مقابله رسمی)",
         "sourceUrl":source_url[:1200],
         "officialSourceUrl":official_source_url,
@@ -335,7 +390,7 @@ def queue_changed_documents(changed_docs):
 
 def main():
     index=get_index(); files=get_files()
-    print(f"Source mirror: {len(files)} Markdown files; parsing...")
+    print(f"Source mirror: {len(files)} Markdown files across laws and category records; parsing...")
     docs=[]; skipped=0; errors=[]
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
         futures={pool.submit(parse_doc,p,index):p for p in files}
@@ -382,7 +437,7 @@ def main():
     with open(os.path.join(os.path.dirname(__file__), "legal_priority_documents.json"), encoding="utf-8") as priority_file:
         priority_manifest=json.load(priority_file)
     priority_audit=priority_coverage([*docs, *phase_skipped], priority_manifest)
-    report={"priority_coverage":priority_audit,"source":"https://github.com/SaeedAqamiri/laws-mcp","index_source":"https://www.ekhtebar.ir/قوانین/","official_sources":["https://qavanin.ir/","https://www.rrk.ir/"],"discovery_sources":discovery_sources,"official_links_found":sum(1 for d in docs if d.get("officialSourceUrl")),"documents_without_direct_official_link":sum(1 for d in docs if not d.get("officialSourceUrl")),"files_found":len(files),"phase":IMPORT_PHASE,"documents_parsed":parsed_count,"documents_selected":len(docs),"documents_excluded_by_phase":len(phase_skipped),"documents_processed":done,"documents_new":len(new_docs),"documents_unchanged":unchanged_docs,"documents_changed_detected":len(changed_docs),"updates_queued_for_review":queued_updates,"documents_inserted":inserted["laws"],"articles_inserted":inserted["articles"],"selected_type_counts":type_counts,"documents_skipped":skipped,"skip_reason_counts":skip_reason_counts,"database_audit":database_audit,"status":"needs_review","automation_policy":"new documents are imported as needs_review; changed existing documents are queued and never overwrite current text automatically","selected_types":sorted(PHASE_TYPES[IMPORT_PHASE]),"phase_excluded_sample":[{"slug":d["slug"],"title":d["title"],"type":d["lawType"]} for d in phase_skipped[:100]],"skip_sample":errors[:200]}
+    report={"priority_coverage":priority_audit,"source":"https://github.com/SaeedAqamiri/laws-mcp","index_source":"https://www.ekhtebar.ir/قوانین/","official_sources":["https://qavanin.ir/","https://www.rrk.ir/"],"discovery_sources":discovery_sources,"official_links_found":sum(1 for d in docs if d.get("officialSourceUrl")),"documents_without_direct_official_link":sum(1 for d in docs if not d.get("officialSourceUrl")),"files_found":len(files),"source_families":{"statute_files":sum(1 for p in files if p.startswith("data/laws/")),"category_files":sum(1 for p in files if p.startswith("data/cats/"))},"phase":IMPORT_PHASE,"documents_parsed":parsed_count,"documents_selected":len(docs),"documents_excluded_by_phase":len(phase_skipped),"documents_processed":done,"documents_new":len(new_docs),"documents_unchanged":unchanged_docs,"documents_changed_detected":len(changed_docs),"updates_queued_for_review":queued_updates,"documents_inserted":inserted["laws"],"articles_inserted":inserted["articles"],"selected_type_counts":type_counts,"documents_skipped":skipped,"skip_reason_counts":skip_reason_counts,"database_audit":database_audit,"status":"needs_review","automation_policy":"new documents are imported as needs_review; changed existing documents are queued and never overwrite current text automatically","selected_types":sorted(PHASE_TYPES[IMPORT_PHASE]),"phase_excluded_sample":[{"slug":d["slug"],"title":d["title"],"type":d["lawType"]} for d in phase_skipped[:100]],"skip_sample":errors[:200]}
     with open("artifacts/legal-bank-import-report.json","w",encoding="utf-8") as f: json.dump(report,f,ensure_ascii=False,indent=2)
     print(json.dumps({k:v for k,v in report.items() if k!="skip_sample"},ensure_ascii=False))
 
