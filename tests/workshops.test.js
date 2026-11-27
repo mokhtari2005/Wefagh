@@ -1,9 +1,11 @@
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { WORKSHOPS, EXERCISES } from '../site/js/workshops.js';
 import { WORKSHOP_COURSES, WORKSHOP_ACTIVITIES } from '../worker/src/academy/workshop-courses.js';
 import { findCourse } from '../worker/src/academy/catalog.js';
 import { lessonLearning } from '../worker/src/academy/learning.js';
+import { PRACTICAL_COMPETENCIES, getPracticalGuide } from '../worker/src/academy/practical-assessment.js';
 
 test('کارگاه‌های مهارت‌محور برای سه گروه مخاطب تعریف شده‌اند', () => {
   assert.equal(WORKSHOPS.length, 13);
@@ -54,5 +56,37 @@ test('دوره‌های تازه کارگاه از داده و آزمونک سم
   for (const course of WORKSHOP_COURSES) {
     assert.equal(course.format, 'workshop');
     assert.equal(WORKSHOP_ACTIVITIES[course.id].length, 5);
+  }
+});
+
+test('کارآموزی مجازی پنج مرحله عملی با خروجی و معیار ارزیابی مشخص دارد', () => {
+  assert.equal(PRACTICAL_COMPETENCIES.length, 7);
+  const course = findCourse('virtual-apprenticeship-workshop');
+  assert.ok(course);
+  for (let index = 1; index <= 5; index += 1) {
+    const lessonId = 'l' + index;
+    const guide = getPracticalGuide(course.id, lessonId);
+    const learning = lessonLearning(course.id, lessonId);
+    assert.ok(guide);
+    assert.equal(guide.number, index);
+    assert.ok(guide.deliverables.length >= 3);
+    assert.ok(guide.checkpoints.length >= 3);
+    assert.equal(guide.rubric.length, 4);
+    assert.equal(learning.practicalGuide.title, guide.title);
+    assert.equal(learning.rubric.length, 4);
+  }
+  assert.equal(getPracticalGuide('civil-litigation-practice', 'l1'), null);
+});
+
+test('مطالعات موردی واقعی از سناریوهای فرضی جدا و به منبع عمومی پیوند دارند', () => {
+  const bank = JSON.parse(readFileSync(new URL('../research/case-bank/verified-case-studies.json', import.meta.url), 'utf8'));
+  assert.equal(bank.records.length, 2);
+  for (const item of bank.records) {
+    assert.equal(item.status, 'reviewed_for_training');
+    assert.ok(item.court_document_number);
+    assert.ok(item.judgment_date);
+    assert.ok(item.source_url.startsWith('https://ara.jri.ac.ir/Judge/Text/'));
+    assert.ok(item.procedural_summary.length > 100);
+    assert.ok(item.limits.length >= 2);
   }
 });
