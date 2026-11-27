@@ -245,6 +245,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       history.push({ role, text: m.content, ...metadata });
     }
     threadId = Number(id);
+    if (threadInfo.ok && threadInfo.data?.thread?.case_id) { caseSelect.disabled = true; serviceSelect.disabled = true; }
     const latest = history.at(-1);
     if (latest?.role === 'ai') {
       if (MODES.some(([value]) => value === latest.mode) || latest.mode === 'draft') mode = latest.mode;
@@ -1455,6 +1456,9 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
 
   function newConversation() {
     threadId = null;
+    caseSelect.disabled = false;
+    serviceSelect.disabled = false;
+    selectedServiceId = '';
     history.length = 0;
     stopVoiceMode();
     voicePanel.hidden = !voiceAllowed;
