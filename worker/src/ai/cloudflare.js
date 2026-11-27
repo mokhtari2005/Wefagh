@@ -53,10 +53,10 @@ export async function generateWorkersAIText(env, {
       break;
     } catch (error) {
       const detail = String(error?.message || '').toLowerCase();
-      if (/quota|rate.?limit|too many requests|\\b429\\b|daily limit|neuron limit/.test(detail)) {
+      if (/quota|rate.?limit|too many requests|429|daily limit|neuron limit/.test(detail)) {
         throw providerError('AI_ZERO_COST_QUOTA');
       }
-      const transient = /timeout|timed out|overload|capacity|temporar|unavailable|\\b503\\b|network|fetch failed/.test(detail);
+      const transient = /timeout|timed out|overload|capacity|temporar|unavailable|503|network|fetch failed/.test(detail);
       if (attempt === 0 && transient) {
         await new Promise(resolve => setTimeout(resolve, 300));
         continue;
