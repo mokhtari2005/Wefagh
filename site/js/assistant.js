@@ -265,9 +265,9 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
 
   // ---------- حالت و نوع سند ----------
   let mode = MODES.some(([value]) => value === initialMode) ? initialMode : 'consult';
+  const introDescription = h('p', { class: 'muted', text: 'گفت‌وگوی تعاملی برای روشن‌کردن مسئله، تکمیل واقعیت‌های مؤثر و رسیدن به راهکار حقوقی.' });
   const workspaceIntro = h('section', { class: 'ai-workbench-intro', role: 'region', 'aria-label': 'راهنمای بخش' }, [
-    h('h1', { text: 'مشاوره حقوقی هوشمند' }),
-    h('p', { class: 'muted', text: 'گفت‌وگوی تعاملی برای روشن‌کردن مسئله، تکمیل واقعیت‌های مؤثر و رسیدن به راهکار حقوقی.' }),
+    h('h1', { text: 'مشاوره حقوقی هوشمند' }), introDescription,
   ]);
   function syncWorkspaceIntro() {
     const copy = {
@@ -280,7 +280,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     };
     const selected = copy[mode] || copy.consult;
     workspaceIntro.firstElementChild.textContent = selected[0];
-    workspaceIntro.lastElementChild.textContent = selected[1];
+    introDescription.textContent = selected[1];
   }
   let selectedCaseId = '';
   let selectedServiceId = '';
