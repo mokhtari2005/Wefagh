@@ -36,6 +36,48 @@ class LegalCorpusImporterTests(unittest.TestCase):
         self.assertNotIn("judicial_advisory_opinion", importer.PHASE_TYPES["laws"])
         self.assertIn("judicial_advisory_opinion", importer.PHASE_TYPES["judicial"])
 
+    def test_category_files_are_discovered_with_recursive_tree(self):
+        fake = type("Response", (), {"json": lambda self: {"truncated": False, "tree": [
+            {"type": "blob", "path": "data/laws/civil.md"},
+            {"type": "blob", "path": "data/cats/آرا وحدت رویه/precedent.md"},
+            {"type": "blob", "path": "data/cats/نظریه‌های مشورتی/opinion.md"},
+            {"type": "blob", "path": "README.md"},
+        ]}})()
+        with patch.object(importer, "get", return_value=fake):
+            files = importer.get_files()
+        self.assertEqual(files, ["data/cats/آرا وحدت رویه/precedent.md", "data/cats/نظریه‌های مشورتی/opinion.md", "data/laws/civil.md"])
+
+    def test_category_taxonomy_covers_ekhtebar_families(self):
+        cases = [
+            ("data/cats/آرا وحدت رویه/x.md", "رأی وحدت رویه شماره ۸۸۰", "supreme_court_unified_precedent"),
+            ("data/cats/نظریه‌های مشورتی/x.md", "نظریه مشورتی اداره کل حقوقی", "judicial_advisory_opinion"),
+            ("data/cats/آیین‌نامه‌ها/x.md", "آیین‌نامه نمونه", "bylaw"),
+            ("data/cats/بخشنامه‌ها/x.md", "بخشنامه وزارت کشور", "executive_circular"),
+            ("data/cats/آرای دیوان عدالت اداری/x.md", "رأی هیئت عمومی دیوان عدالت اداری", "administrative_court_general_board"),
+            ("data/cats/مصوبات/x.md", "مصوبه هیئت وزیران", "executive_resolution"),
+            ("data/cats/طرح و لایحه/x.md", "طرح اصلاح قانون", "bill"),
+            ("data/cats/نظریه‌های رئیس مجلس/x.md", "نظر رئیس مجلس", "parliamentary_review_opinion"),
+            ("data/cats/نشست‌های قضایی/x.md", "نشست قضایی", "judicial_session"),
+            ("data/cats/رویه قضایی/x.md", "رأی دادگاه", "judicial_decision"),
+            ("data/cats/سیاست‌های کلی/x.md", "سیاست کلی", "general_policies"),
+        ]
+        for path, title, expected in cases:
+            self.assertEqual(importer.category_type(path, title), expected)
+
+    def test_full_text_judicial_opinion_is_not_split_into_fake_articles(self):
+        markdown = """# نظریه مشورتی اداره کل حقوقی قوه قضائیه
+> منبع: https://www.ekhtebar.ir/sample-opinion/
+
+سؤال: متن پرسش حقوقی با جزئیات کافی برای آزمون استخراج از سند منتشرشده.
+
+نظریه: پاسخ اداره کل حقوقی در خصوص تفسیر مقررات و آثار قانونی موضوع مورد سؤال به شرح زیر است."""
+        with patch.object(importer, "get", return_value=FakeResponse(markdown)):
+            doc, reason = importer.parse_doc("data/cats/نظریه‌های مشورتی/sample.md", {})
+        self.assertIsNone(reason)
+        self.assertEqual(doc["lawType"], "judicial_advisory_opinion")
+        self.assertEqual(doc["articles"][0]["number"], "متن کامل")
+        self.assertIn("نظریه:", doc["articles"][0]["body"])
+
     def test_specific_document_families_keep_precedence(self):
         self.assertEqual(importer.classify("رأی وحدت رویه دیوان عالی کشور"), "supreme_court_unified_precedent")
         self.assertEqual(importer.classify("رأی اصراری دیوان عالی کشور"), "supreme_court_insistence_precedent")
