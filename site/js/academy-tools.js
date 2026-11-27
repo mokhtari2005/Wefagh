@@ -4,6 +4,7 @@ export const ACADEMY_TOOLS = [
   { icon: 'users', title: 'تالار گفتگو', href: '#/community' },
   { icon: 'mic', title: 'تایپ صوتی', href: '#/voice-typing' },
   { icon: 'cap', title: 'دوره‌های آموزشی', href: '#/courses' },
+  { icon: 'graduation-cap', title: 'کارگاه‌های آموزشی و مسیر رشد', href: '#/academy/workshops' },
   { icon: 'edit', title: 'مرکز آزمون هوشمند', href: '#/academy/exams' },
   { icon: 'file-text', title: 'بانک سؤالات اختبار', href: '#/academy/ekhtebar' },
   { icon: 'mic', title: 'تمرین دادرسی و موت‌کورت', href: '#/moot-court' },
