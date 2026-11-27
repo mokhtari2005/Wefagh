@@ -307,7 +307,8 @@ def update_source_cursor(session, revision, error=None):
         params = [revision, SOURCE_KEY]
     response = session.post(endpoint, headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
                             json={"sql": sql, "params": params}, timeout=60)
-    response.raise_for_status()
+    if response.status_code != 200:
+        raise RuntimeError(f"D1 cursor update HTTP {response.status_code}: {response.text[:1200]}")
     if not response.json().get("success"):
         raise RuntimeError("Could not update the DOTIC snapshot source cursor")
 
