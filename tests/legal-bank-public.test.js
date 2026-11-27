@@ -71,6 +71,36 @@ test('public legal bank statistics are readable without authentication', async (
   assert.ok(Array.isArray(body.latest));
 });
 
+test('public statistics and search exclude malformed DOTIC research chunks', async () => {
+  const DB = dbFor();
+  const stats = await handleLegalBank(new Request('https://mokhtari.ir/api/legal-bank/public-stats'), { DB }, '/api/legal-bank/public-stats');
+  assert.equal(stats.status, 200);
+  const statsSql = DB.calls.map(call => call.sql).join('\n');
+  assert.match(statsSql, /پیکره پژوهشی قوانین ایران/);
+  assert.match(statsSql, /law_type='other'/);
+  assert.match(statsSql, /JOIN legal_laws l ON l.id=a.law_id/);
+
+  DB.calls.length = 0;
+  const search = await handleLegalBank(
+    new Request('https://mokhtari.ir/api/legal-bank/public-search?q=قانون'),
+    { DB },
+    '/api/legal-bank/public-search',
+  );
+  assert.equal(search.status, 200);
+  assert.match(DB.calls[0].sql, /پیکره پژوهشی قوانین ایران/);
+});
+
+test('public document lookup also excludes malformed DOTIC records', async () => {
+  const DB = dbFor();
+  const response = await handleLegalBank(
+    new Request('https://mokhtari.ir/api/legal-bank/public-document?id=7'),
+    { DB },
+    '/api/legal-bank/public-document',
+  );
+  assert.equal(response.status, 200);
+  assert.match(DB.calls[0].sql, /پیکره پژوهشی قوانین ایران/);
+});
+
 test('public search is read-only and does not require a login', async () => {
   const DB = dbFor();
   const response = await handleLegalBank(
