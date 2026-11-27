@@ -139,7 +139,16 @@ export async function workshopsPage(id='') {
   };
   search.addEventListener('input',render);select.addEventListener('change',render);render();
   root.append(el('h2',{text:'مسیر رشد حرفه‌ای'}),el('div',{class:'workshop-pathway'},[
-    ...[['دانشجوی حقوق','مبانی، تحقیق و تحلیل مسئله'],['داوطلب ورود به حرفه','آمادگی علمی و آزمون'],['کارآموز وکالت','تنظیم اسناد، پرونده‌خوانی و دفاع'],['وکیل جوان','مدیریت دفتر و انتخاب حوزه تخصصی'],['وکیل دادگستری','آموزش ضمن خدمت و توسعه حرفه‌ای']].map(([title,desc],i)=>el('article',{class:'workshop-stage'},[el('span',{text:'مرحله '+(i+1)}),el('strong',{text:title}),el('p',{text:desc})]))
+    ...[
+      ['دانشجوی حقوق','مبانی، تحقیق و تحلیل مسئله',['research','drafting','litigation','specialties']],
+      ['داوطلب ورود به حرفه','آمادگی علمی، آزمون و مهارت‌های پایه',['research','assessment','specialties']],
+      ['کارآموز وکالت','پرونده‌خوانی، نگارش، دفاع و اخلاق حرفه‌ای',['apprenticeship','case-analysis','drafting','advocacy','ethics']],
+      ['وکیل جوان','مدیریت دفتر، قرارداد و فناوری حقوقی',['office','contracts','legal-tech','advocacy']],
+      ['وکیل دادگستری','آموزش ضمن خدمت و توسعه تخصصی',['continuous','specialties','ethics','legal-tech']]
+    ].map(([title,desc,ids],i)=>el('article',{class:'workshop-stage'},[
+      el('span',{text:'مرحله '+(i+1)}),el('strong',{text:title}),el('p',{text:desc}),
+      el('div',{class:'workshop-stage-links'},ids.map(id=>{const item=WORKSHOPS.find(w=>w.id===id);return item?link(item.title,'/academy/workshops/'+id,''):null;}))
+    ]))
   ]));
   root.append(el('div',{class:'workshop-note',text:'سوابق ثبت‌نام و پیشرفت دوره‌های فعلی در بخش دوره‌های آموزشی و داشبورد کاربر نگهداری می‌شود. گواهی‌های این سامانه صرفاً گواهی شرکت یا اتمام آموزش آکادمی هستند و جایگزین گواهی‌های رسمی کارآموزی یا صلاحیت حرفه‌ای نیستند.'}));
   return root;
