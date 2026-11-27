@@ -70,7 +70,7 @@ test('دستور مشاوره تولید و نمایش پرسش‌های تکم�
 });
 
 test('بارگذاری دستیار نسخه تازه رابط را دریافت می‌کند و در انتظار نامحدود نمی‌ماند', () => {
-  assert.match(html, /js\/app\.js\?v=20261126-home-hero-preload-1/u);
+  assert.match(html, /js\/app\.js\?v=20261127-password-reset-hard-refresh-2/u);
   assert.match(html, /css\/styles\.css\?v=20261125-gpt-primary-ui-1/u);
   assert.match(app, /assistant\.js\?v=20261126-assistant-config-split-1/u);
   assert.match(app, /assistant-forms\.js\?v=20261126-assistant-config-split-1/u);
