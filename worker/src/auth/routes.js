@@ -253,6 +253,7 @@ async function issueVerificationEmail(env, userId, email) {
       'SELECT display_name, gender, position FROM users WHERE id = ?1'
     ).bind(userId).first();
     await mailer(env)({
+      from: 'Mokhtari Law Academy <edu@mokhtari.ir>',
       to: email,
       subject: 'تأیید ایمیل و تکمیل درخواست عضویت | آکادمی وکالت شهرام مختاری',
       text: buildVerificationEmailText({
