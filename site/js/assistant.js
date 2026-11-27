@@ -195,7 +195,7 @@ export function assistantPage(params = {}) {
     const initialMode = MODES.some(([value]) => value === params.mode) ? params.mode : 'consult';
     // همهٔ حالت‌ها مستقیماً در محیط یکپارچه باز می‌شوند؛ تایپ و گفت‌وگوی صوتی در همان صفحه در دسترس است.
     accessCheckStage = 'ساخت محیط گفت‌وگو';
-    body.replaceChildren(assistantWorkspace(guestMode ? null : params.thread, guestMode, 'smart', initialMode));
+    body.replaceChildren(assistantWorkspace(guestMode ? null : params.thread, guestMode, 'smart', initialMode, params.caseId || null));
   })().catch((error) => {
     const errorName = error instanceof Error ? error.name : 'UnknownError';
     const errorMessage = String(error instanceof Error ? error.message : error).replace(/\\s+/g, ' ').slice(0, 180);
@@ -220,7 +220,7 @@ function downloadText(text, name) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function assistantWorkspace(initialThread, guestMode = false, method = 'smart', initialMode = 'consult') {
+function assistantWorkspace(initialThread, guestMode = false, method = 'smart', initialMode = 'consult', initialCaseId = null) {
   const voiceAllowed = method === 'smart';
   const history = [];
   let busy = false;
@@ -282,6 +282,41 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     workspaceIntro.firstElementChild.textContent = selected[0];
     workspaceIntro.lastElementChild.textContent = selected[1];
   }
+  let selectedCaseId = '';
+  let selectedServiceId = '';
+  const caseSelect = h('select', { 'aria-label': 'پرونده مرتبط' }, [h('option', { value: '', text: 'بدون اتصال به پرونده' })]);
+  const serviceSelect = h('select', { 'aria-label': 'خدمت مرتبط' }, [h('option', { value: '', text: 'بدون خدمت مشخص' })]);
+  const caseLinkPanel = h('div', { class: 'ai-case-link-panel' }, [
+    h('label', {}, [h('span', { text: 'ذخیره خروجی در پرونده' }), caseSelect]),
+    h('label', {}, [h('span', { text: 'خدمت مرتبط' }), serviceSelect]),
+    h('a', { href: '#/casework', text: 'مدیریت و ایجاد پرونده‌ها ←' }),
+  ]);
+  if (guestMode) caseLinkPanel.hidden = true;
+  workspaceIntro.append(caseLinkPanel);
+  async function loadCaseServices(caseId) {
+    selectedCaseId = caseId || '';
+    selectedServiceId = '';
+    serviceSelect.replaceChildren(h('option', { value: '', text: 'بدون خدمت مشخص' }));
+    if (!selectedCaseId) return;
+    const detail = await getJson('/api/casework/cases/' + encodeURIComponent(selectedCaseId));
+    if (!detail.ok) return;
+    for (const service of detail.data.services || []) {
+      serviceSelect.append(h('option', { value: service.id, text: service.title }));
+    }
+    selectedServiceId = serviceSelect.value;
+  }
+  async function loadCaseLinks() {
+    if (guestMode) return;
+    const result = await getJson('/api/casework/cases?sort=activity');
+    if (!result.ok) return;
+    caseSelect.replaceChildren(h('option', { value: '', text: 'بدون اتصال به پرونده' }),
+      ...(result.data.cases || []).map(item => h('option', { value: item.id, text: item.name + (item.caseNumber ? ' ـ ' + item.caseNumber : '') })));
+    const found = (result.data.cases || []).find(item => item.id === initialCaseId);
+    if (found) caseSelect.value = found.id;
+    await loadCaseServices(caseSelect.value);
+  }
+  caseSelect.addEventListener('change', () => loadCaseServices(caseSelect.value));
+  serviceSelect.addEventListener('change', () => { selectedServiceId = serviceSelect.value; });
   const modeGroup = h('div', { class: 'ai-seg', role: 'group', 'aria-label': 'نوع کار' });
   const modeIcons = { consult: 'scale', draft: 'edit', analyze: 'search', litigation: 'gavel', research: 'book-open-check', review: 'clipboard-list' };
   const modeButtons = MODES.map(([value, label]) => {
@@ -564,6 +599,39 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       const pdf = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'چاپ یا دریافت پی‌دی‌اف' });
       pdf.addEventListener('click', () => { if (!printDocumentPdf(displayText, DOC_TYPES.find(([value]) => value === m.docType)?.[1] || 'سند حقوقی')) status.textContent = 'پنجره چاپ باز نشد؛ اجازه بازشدن پنجره را در مرورگر فعال کنید.'; });
       actions.append(word, pdf);
+      if (selectedCaseId) {
+        const saveToCase = h('button', { class: 'btn ai-mini', type: 'button', text: 'ذخیره پیش‌نویس در بایگانی پرونده' });
+        saveToCase.addEventListener('click', async () => {
+          saveToCase.disabled = true;
+          saveToCase.textContent = 'در حال ذخیره…';
+          try {
+            const fileName = 'پیش‌نویس-' + (DOC_TYPES.find(([value]) => value === m.docType)?.[0] || 'حقوقی') + '.txt';
+            const response = await fetch('/api/casework/cases/' + encodeURIComponent(selectedCaseId) + '/documents', {
+              method: 'POST', credentials: 'same-origin',
+              headers: {
+                'Content-Type': 'text/plain',
+                'X-File-Name': encodeURIComponent(fileName),
+                'X-Document-Type': 'draft',
+                'X-Source-Kind': 'generated',
+                'X-Service-Id': selectedServiceId,
+                'X-Description': 'خروجی تولیدشده توسط دستیار وکیل',
+              },
+              body: new Blob([displayText], { type: 'text/plain;charset=utf-8' }),
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.error || 'ذخیره پیش‌نویس ناموفق بود.');
+            status.textContent = 'پیش‌نویس در بایگانی پرونده ذخیره شد.';
+            const archiveLink = h('a', { href: '#/casework/' + selectedCaseId, class: 'ai-source-link', text: 'مشاهده بایگانی پرونده' });
+            actions.append(archiveLink);
+          } catch (error) {
+            status.textContent = error.message || 'ذخیره پیش‌نویس انجام نشد.';
+          } finally {
+            saveToCase.disabled = false;
+            saveToCase.textContent = 'ذخیره پیش‌نویس در بایگانی پرونده';
+          }
+        });
+        actions.append(saveToCase);
+      }
     }
 
     const children = [
@@ -1414,6 +1482,7 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
 
   voicePanel.hidden = !voiceAllowed;
   syncMode();
+  if (!guestMode) loadCaseLinks();
   return h('div', { class: 'ai-shell' }, [
     h('section', { class: 'ai-main', 'aria-label': 'گفت‌وگو با دستیار' }, [workspaceIntro, toolbar, stream, composer]),
   ]);
