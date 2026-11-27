@@ -116,7 +116,7 @@ class LegalCorpusImporterTests(unittest.TestCase):
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         keys = {item["key"] for item in manifest["documents"]}
         domains = {item.get("domain") for item in manifest["documents"]}
-        self.assertGreaterEqual(len(keys), 100)
+        self.assertGreaterEqual(len(keys), 170)
         self.assertGreaterEqual(len(domains), 15)
         self.assertTrue({"tax-direct", "vat", "official-registration-transactions", "landlord-1356", "landlord-1362", "landlord-1376", "patents", "clean-air"} <= keys)
 
@@ -124,7 +124,7 @@ class LegalCorpusImporterTests(unittest.TestCase):
         manifest_path = MODULE_PATH.parent / "legal_priority_documents.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         keys = {item["key"] for item in manifest["documents"]}
-        self.assertTrue({"civil-code", "civil-procedure", "criminal-code-1392", "criminal-procedure", "civil-enforcement", "financial-judgments", "cheques", "family-protection"} <= keys)
+        self.assertTrue({"civil-code", "civil-procedure", "criminal-code-1392", "criminal-procedure", "civil-enforcement", "financial-judgments", "cheques", "family-protection", "housing-market-regulation", "taxpayer-obligations", "spy-and-hostile-cooperation", "drone-regulation-act", "iran-russia-strategic-treaty"} <= keys)
 
     def test_parse_doc_extracts_title_and_article_without_network(self):
         markdown = "# قانون نمونه\nhttps://www.ekhtebar.ir/sample-law/\n\nماده ۱\nمتن ماده نخست"
