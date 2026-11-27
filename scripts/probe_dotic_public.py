@@ -143,7 +143,7 @@ def parse_detail_page(html: str, page_url: str = SAMPLE_URL) -> dict:
         absolute = urljoin(page_url, href)
         if absolute not in candidates:
             candidates.append(absolute)
-    for raw in re.findall(r"""(?:https?:)?//[^"'\s<>]+|/[^"'\\s<>]+""", html):
+    for raw in re.findall(r"""(?:https?:)?//[^"'<> ]+|/[^"'<> ]+""", html):
         if ".pdf" in raw.lower():
             absolute = urljoin(page_url, raw)
             if absolute not in candidates:
