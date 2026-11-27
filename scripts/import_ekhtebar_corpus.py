@@ -514,6 +514,22 @@ def limit_refresh_batch(refreshable_docs, max_article_rows=MAX_REFRESH_ARTICLES_
     return selected, deferred, selected_articles, deferred_articles
 
 
+def limit_new_batch(new_docs, max_article_rows=MAX_NEW_ARTICLES_PER_RUN):
+    """Bound new legal text writes separately from refresh/version-archive writes."""
+    selected, deferred = [], []
+    selected_articles = 0
+    deferred_articles = 0
+    for doc in new_docs:
+        article_count = max(1, len(doc.get("articles") or []))
+        if article_count > max_article_rows or selected_articles + article_count > max_article_rows:
+            deferred.append(doc)
+            deferred_articles += article_count
+            continue
+        selected.append(doc)
+        selected_articles += article_count
+    return selected, deferred, selected_articles, deferred_articles
+
+
 def refresh_unverified_documents(refreshable_docs):
     """Replace only needs_review text; verified/amended/repealed content is never touched."""
     if not refreshable_docs:
@@ -619,6 +635,7 @@ def main():
     new_docs, refreshable_docs, protected_docs, unchanged_docs = partition_document_updates(docs, existing_rows)
     changed_docs = refreshable_docs + protected_docs
     refresh_batch, refresh_deferred, refresh_articles_selected, refresh_articles_deferred = limit_refresh_batch(refreshable_docs)
+    new_batch, new_deferred, new_articles_selected, new_articles_deferred = limit_new_batch(new_docs)
     queued_updates = 0
     refresh_stats = {"documents_updated":0,"versions_archived":0,"articles_archived":0,
                      "articles_deleted":0,"articles_inserted":0,"queue_accepted":0,"skipped_large":0}
@@ -626,12 +643,14 @@ def main():
     inserted={"laws":0,"articles":0}
     print(f"Change detection: {len(new_docs)} new; {len(changed_docs)} changed; {unchanged_docs} unchanged; "
           f"{len(refreshable_docs)} unverified auto-refresh candidates; {len(protected_docs)} protected for review.")
-    print(f"Daily write budget: {len(refresh_batch)} documents / {refresh_articles_selected} article rows; "
-          f"{len(refresh_deferred)} documents / {refresh_articles_deferred} article rows deferred.")
+    print(f"Daily write budget: {len(refresh_batch)} refresh documents / {refresh_articles_selected} article rows; "
+          f"{len(refresh_deferred)} refresh documents / {refresh_articles_deferred} article rows deferred; "
+          f"{len(new_batch)} new documents / {new_articles_selected} article rows; "
+          f"{len(new_deferred)} new documents / {new_articles_deferred} article rows deferred.")
     try:
         queued_updates = queue_changed_documents(changed_docs)
         refresh_stats = refresh_unverified_documents(refresh_batch)
-        for d in new_docs:
+        for d in new_batch:
             for statement, params in sql_for(d):
                 n=len(statement.encode("utf-8"))+len(json.dumps(params,ensure_ascii=False).encode("utf-8"))
                 if batch and (len(batch)>=90 or size+n>3_500_000):
@@ -655,6 +674,10 @@ def main():
             "documents_parsed":parsed_count,
             "documents_selected":len(docs),
             "documents_new":len(new_docs),
+            "documents_new_selected":len(new_batch),
+            "documents_new_deferred":len(new_deferred),
+            "articles_new_selected":new_articles_selected,
+            "articles_new_deferred":new_articles_deferred,
             "documents_changed_detected":len(changed_docs),
             "documents_unchanged":unchanged_docs,
             "documents_auto_refresh_candidates":len(refreshable_docs),
@@ -694,7 +717,9 @@ def main():
     priority_audit=priority_coverage([*docs, *phase_skipped], priority_manifest,
         [item.get("title","") for item in index.values()])
     report={"priority_coverage":priority_audit,"source":"https://github.com/SaeedAqamiri/laws-mcp","index_source":"https://www.ekhtebar.ir/قوانین/","official_sources":["https://qavanin.ir/","https://www.rrk.ir/"],"discovery_sources":discovery_sources,"official_links_found":sum(1 for d in docs if d.get("officialSourceUrl")),"documents_without_direct_official_link":sum(1 for d in docs if not d.get("officialSourceUrl")),"files_found":len(files),"source_families":{"statute_files":sum(1 for p in files if p.startswith("data/laws/")),"category_files":sum(1 for p in files if p.startswith("data/cats/"))},"phase":IMPORT_PHASE,"documents_parsed":parsed_count,"documents_selected":len(docs),"documents_excluded_by_phase":len(phase_skipped),"documents_processed":done,"documents_new":len(new_docs),"documents_unchanged":unchanged_docs,"documents_changed_detected":len(changed_docs),"updates_logged":queued_updates,"documents_auto_refresh_candidates":len(refreshable_docs),"documents_refresh_selected":len(refresh_batch),
-        "articles_refresh_selected":refresh_articles_selected,"documents_refresh_deferred":len(refresh_deferred),
+        "articles_refresh_selected":refresh_articles_selected,
+        "documents_new_selected":len(new_batch),"documents_new_deferred":len(new_deferred),
+        "articles_new_selected":new_articles_selected,"articles_new_deferred":new_articles_deferred,"documents_refresh_deferred":len(refresh_deferred),
         "articles_refresh_deferred":refresh_articles_deferred,"documents_auto_refreshed":refresh_stats["documents_updated"],"versions_archived":refresh_stats["versions_archived"],"articles_archived":refresh_stats["articles_archived"],"articles_replaced_deleted":refresh_stats["articles_deleted"],"articles_refreshed_inserted":refresh_stats["articles_inserted"],"updates_auto_accepted":refresh_stats["queue_accepted"],"protected_documents_pending_review":len(protected_docs)+refresh_stats["skipped_large"],"auto_refresh_skipped_large":refresh_stats["skipped_large"],"documents_inserted":inserted["laws"],"articles_inserted":inserted["articles"],"selected_type_counts":type_counts,"documents_skipped":skipped,"skip_reason_counts":skip_reason_counts,"database_audit":database_audit,"status":"needs_review","automation_policy":"new documents remain needs_review; changed unverified documents are refreshed automatically; documents with verified/amended/repealed law or article status are only queued for review","selected_types":sorted(PHASE_TYPES[IMPORT_PHASE]),"phase_excluded_sample":[{"slug":d["slug"],"title":d["title"],"type":d["lawType"]} for d in phase_skipped[:100]],"skip_sample":errors[:200]}
     with open("artifacts/legal-bank-import-report.json","w",encoding="utf-8") as f: json.dump(report,f,ensure_ascii=False,indent=2)
     print(json.dumps({k:v for k,v in report.items() if k!="skip_sample"},ensure_ascii=False))
