@@ -212,7 +212,7 @@ async function uploadDocument(request,env,userId,caseId) {
       VALUES(?1,?2,?3,?4,?5,?6,?7,'upload',?8,?9,?10,?11,'active',?12,?13,?14,?15)`)
       .bind(documentId,caseId,serviceId,userId,name,name,documentType,mime,bytes.length,storageKey,shaHex,versionGroup,versionNumber,parentId,clean(request.headers.get('x-description'),2000)).run();
   } catch(error){
-    console.error(JSON.stringify({where:'casework.metadata',error:error?.name||'Error'}));
+    console.error(JSON.stringify({where:'casework.metadata',error:error?.name||'Error',detail:String(error?.message||'').slice(0,180)}));
     return fail('DOCUMENT_REGISTER_FAILED',500);
   }
   await event(env,userId,caseId,'document_uploaded','سند بارگذاری شد',{serviceId,documentId,details:{name,sizeBytes:bytes.length,version:versionNumber}});
