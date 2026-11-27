@@ -311,7 +311,16 @@ def audit_database():
         SUM(CASE WHEN status='repealed' THEN 1 ELSE 0 END) AS repealed
         FROM legal_articles""")
     types=d1_query("SELECT law_type AS type,status,COUNT(*) AS count FROM legal_laws GROUP BY law_type,status ORDER BY law_type,status")
-    return {"laws":laws[0] if laws else {},"articles":articles[0] if articles else {},"law_type_status":types}
+    official_links=d1_query("""SELECT law_type AS type,COUNT(*) AS total,
+        SUM(CASE WHEN official_source_url IS NOT NULL AND TRIM(official_source_url)<>'' THEN 1 ELSE 0 END) AS with_official_link
+        FROM legal_laws GROUP BY law_type ORDER BY law_type""")
+    sources=d1_query("""SELECT COALESCE(source_name,'(بدون منبع)') AS source_name,COUNT(*) AS count
+        FROM legal_laws GROUP BY source_name ORDER BY count DESC LIMIT 20""")
+    other_samples=d1_query("""SELECT slug,title,source_name,source_url,official_source_url,substr(notes,1,220) AS notes
+        FROM legal_laws WHERE law_type='other' ORDER BY title LIMIT 40""")
+    return {"laws":laws[0] if laws else {},"articles":articles[0] if articles else {},
+            "law_type_status":types,"official_links_by_type":official_links,
+            "source_name_counts":sources,"other_document_samples":other_samples}
 
 def normalize_title(value):
     value = value.replace("\u200c", " ").replace("\u200f", " ").translate(DIGITS)
