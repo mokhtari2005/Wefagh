@@ -45,10 +45,11 @@ function dbFor({ docStatus = 'needs_review' } = {}) {
         },
         all: async () => {
           calls.push({ sql, bindings: [] });
-          if (sql.includes('GROUP BY law_type,status')) return { results: [{ type: 'law', status: 'needs_review', count: 1 }] };
           if (sql.includes('legal_document_sources')) return { results: [] };
-          if (sql.includes('legal_laws')) return { results: [{ ...document, articleCount: 4 }] };
-          if (sql.includes('legal_articles')) return { results: [{ total: 4, verified: 0, needsReview: 4 }] };
+          if (sql.includes('FROM legal_articles') && sql.includes('COUNT(*) AS total')) return { results: [{ total: 4, verified: 0, needsReview: 4 }] };
+          if (sql.includes('GROUP BY l.law_type,l.status')) return { results: [{ type: 'law', status: 'needs_review', count: 1 }] };
+          if (sql.includes('FROM legal_laws') && sql.includes('GROUP BY l.id')) return { results: [{ ...document, articleCount: 4 }] };
+          if (sql.includes('FROM legal_laws')) return { results: [{ total: 1, verified: 0, needsReview: 1 }] };
           return { results: [] };
         },
         first: async () => {
