@@ -86,3 +86,76 @@ test('automatic Workers AI legal review is disabled unless explicitly enabled', 
   assert.equal(result.status, 'disabled');
   assert.equal(called, false);
 });
+
+
+test('confirmed Gemini free tier is the zero-cost primary and uses only Gemini 3.5 Flash-Lite', async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), body: JSON.parse(init.body) });
+    return new Response(JSON.stringify({
+      candidates: [{ content: { parts: [{ text: JSON.stringify({ status: 'ready', text: 'پاسخ مستند بر پایه بانک حقوقی.' }) }] } }],
+    }), { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  try {
+    const env = {
+      AI_BILLING_MODE: 'zero',
+      GEMINI_FREE_TIER_CONFIRMED: 'true',
+      GEMINI_TEXT_MODEL: 'gemini-3.5-flash-lite',
+      GEMINI_API_KEY: 'test-gemini-free-tier-key',
+      AI: { run: async () => { throw new Error('Workers AI must not be called'); } },
+    };
+    const result = await generateTextWithFallback(env, prompt);
+    assert.equal(result.provider, 'gemini');
+    assert.equal(result.data.status, 'ready');
+    assert.equal(calls.length, 1);
+    assert.match(calls[0].url, /models\/gemini-3\.5-flash-lite:generateContent/);
+    assert.equal(calls[0].body.tools, undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('Gemini free-tier quota failure does not retry Gemini 3.8 or call another provider', async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  let workersCalls = 0;
+  globalThis.fetch = async (url) => {
+    calls.push(String(url));
+    return new Response(JSON.stringify({ error: { status: 'RESOURCE_EXHAUSTED' } }), {
+      status: 429, headers: { 'content-type': 'application/json' },
+    });
+  };
+  try {
+    const env = {
+      AI_BILLING_MODE: 'zero',
+      GEMINI_FREE_TIER_CONFIRMED: 'true',
+      GEMINI_TEXT_MODEL: 'gemini-3.5-flash-lite',
+      GEMINI_API_KEY: 'test-gemini-free-tier-key',
+      AI: { run: async () => { workersCalls += 1; return { response: '{}' }; } },
+      GROQ_API_KEY: 'test-groq-key-0123456789',
+      OPENAI_API_KEY: 'test-openai-key-0123456789',
+    };
+    await assert.rejects(generateTextWithFallback(env, prompt), error => error?.code === 'AI_QUOTA');
+    assert.equal(calls.length, 1);
+    assert.match(calls[0], /gemini-3\.5-flash-lite/);
+    assert.equal(calls.some(url => url.includes('gemini-3.8-flash')), false);
+    assert.equal(workersCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('Gemini free-tier confirmation fails closed when its key is missing', async () => {
+  let workersCalls = 0;
+  await assert.rejects(
+    generateTextWithFallback({
+      AI_BILLING_MODE: 'zero',
+      GEMINI_FREE_TIER_CONFIRMED: 'true',
+      GEMINI_TEXT_MODEL: 'gemini-3.5-flash-lite',
+      AI: { run: async () => { workersCalls += 1; return { response: '{}' }; } },
+    }, prompt),
+    error => error?.code === 'AI_ZERO_COST_GEMINI_NOT_CONFIGURED',
+  );
+  assert.equal(workersCalls, 0);
+});
