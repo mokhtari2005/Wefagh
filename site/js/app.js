@@ -328,7 +328,7 @@ function pageAccount(params) {
 
 function pageResetPassword(params) {
   return lazy(async () => {
-    const { resetPasswordForm } = await import('./account.js');
+    const { resetPasswordForm } = await import('./account.js?v=20261127-password-recovery-1');
     return h('div', {}, [h('h1', { text: 'تعیین رمز عبور جدید' }), resetPasswordForm(params.token || '')]);
   });
 }
