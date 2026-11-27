@@ -49,7 +49,7 @@ test('پرونده بدون فایل ایجاد می‌شود، خدمت و اس
     assert.equal(detail.services.length,1);
     assert.equal(detail.documents.length,1);
     assert.equal(detail.documents[0].serviceId,serviceId);
-    assert.equal(detail.case.documentCount,undefined);
+    assert.equal(detail.case.documentCount,1);
     assert.ok(detail.timeline.some(x=>x.event_type==='document_uploaded'));
   }finally{globalThis.fetch=oldFetch;}
 });
