@@ -56,6 +56,12 @@ test('پرونده بدون فایل ایجاد می‌شود، خدمت و اس
     }),env);
     assert.equal(generated.status,201);
     assert.equal((await generated.json()).document.source,'generated');
+    const wordGenerated=await worker.fetch(new Request('https://mokhtari.ir/api/casework/cases/'+caseId+'/documents',{
+      method:'POST',headers:{cookie,'content-type':'application/msword','x-file-name':encodeURIComponent('پیش‌نویس.doc'),'x-service-id':serviceId,'x-document-type':'draft','x-source-kind':'generated'},
+      body:new TextEncoder().encode('<!doctype html><html lang="fa" dir="rtl"><body>پیش‌نویس حقوقی</body></html>')
+    }),env);
+    assert.equal(wordGenerated.status,201);
+    assert.equal((await wordGenerated.json()).document.mimeType,'application/msword');
     const documentId=detail.documents[0].id;
     assert.equal((await worker.fetch(req('/api/casework/documents/'+documentId,{method:'PATCH',cookie,body:{status:'deleted'}}),env)).status,200);
     assert.equal((await worker.fetch(req('/api/casework/documents/'+documentId+'/restore',{method:'POST',cookie,body:{} }),env)).status,200);
