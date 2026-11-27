@@ -20,6 +20,6 @@ for (const viewport of [
 test('صفحهٔ مستقل آکادمی بدون انتظار برای اسکرول باز می‌شود', async ({ page }) => {
   await page.goto('/?academy-direct-test=1#/academy', { waitUntil: 'domcontentloaded' });
   const tools = page.locator('.academy-tools .academy-tool');
-  await expect(tools).toHaveCount(16, { timeout: 7000 });
+  await expect(tools).toHaveCount(17, { timeout: 7000 });
   await expect(page.getByRole('heading', { name: 'آکادمی وکالت شهرام مختاری' })).toBeVisible();
 });
