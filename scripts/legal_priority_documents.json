@@ -120,7 +120,8 @@
       "aliases": [
         "قانون صدور چک",
         "متن قانون چک با آخرین اصلاحات",
-        "قانون اصلاح قانون چک"
+        "قانون اصلاح قانون چک",
+        "قانون اصلاح قانون صدور چک"
       ],
       "domain": "commercial",
       "priority": "core"
@@ -178,7 +179,8 @@
       "title": "قانون دیوان عدالت اداری با اصلاحات ۱۴۰۲",
       "aliases": [
         "قانون دیوان عدالت اداری",
-        "قانون تشکیلات و آیین دادرسی دیوان عدالت اداری"
+        "قانون تشکیلات و آیین دادرسی دیوان عدالت اداری",
+        "قانون اصلاح قانون تشکیلات و آیین دادرسی دیوان عدالت اداری"
       ],
       "domain": "administrative",
       "priority": "core"
@@ -252,7 +254,9 @@
       "key": "council-dispute-resolution",
       "title": "قانون شوراهای حل اختلاف مصوب ۱۴۰۲",
       "aliases": [
-        "قانون شوراهای حل اختلاف ۱۴۰۲"
+        "قانون شوراهای حل اختلاف ۱۴۰۲",
+        "قانون شوراهای حل اختلاف",
+        "قانون شورا‌های حل اختلاف"
       ],
       "domain": "procedure",
       "priority": "extended"
@@ -470,7 +474,9 @@
     {
       "key": "anti-money-laundering",
       "title": "قانون مبارزه با پولشویی",
-      "aliases": [],
+      "aliases": [
+        "قانون اصلاح قانون مبارزه با پولشویی"
+      ],
       "domain": "commercial",
       "priority": "extended"
     },
@@ -498,7 +504,10 @@
     {
       "key": "banking-issuance",
       "title": "قانون بانک مرکزی جمهوری اسلامی ایران مصوب ۱۴۰۲",
-      "aliases": [],
+      "aliases": [
+        "قانون بانک مرکزی جمهوری اسلامی ایران",
+        "قانون اصلاح بند (الف) ماده (۵۸) قانون بانک مرکزی جمهوری اسلامی ایران"
+      ],
       "domain": "banking",
       "priority": "extended"
     },
@@ -547,7 +556,9 @@
     {
       "key": "trade-unions",
       "title": "قانون نظام صنفی کشور",
-      "aliases": [],
+      "aliases": [
+        "قانون اصلاح قانون نظام صنفی کشور"
+      ],
       "domain": "commercial",
       "priority": "extended"
     },
@@ -589,7 +600,9 @@
     {
       "key": "patents",
       "title": "قانون حمایت از مالکیت صنعتی مصوب ۱۴۰۳",
-      "aliases": [],
+      "aliases": [
+        "قانون حمایت از مالکیت صنعتی"
+      ],
       "domain": "intellectual-property",
       "priority": "extended"
     },
@@ -694,7 +707,9 @@
     {
       "key": "arms",
       "title": "قانون مجازات قاچاق اسلحه و مهمات و دارندگان سلاح و مهمات غیرمجاز",
-      "aliases": [],
+      "aliases": [
+        "قانون اصلاح قانون مجازات قاچاق اسلحه و مهمات و دارندگان سلاح و مهمات غیرمجاز"
+      ],
       "domain": "criminal",
       "priority": "extended"
     },
@@ -708,7 +723,9 @@
     {
       "key": "anti-trafficking-goods",
       "title": "قانون مبارزه با قاچاق کالا و ارز",
-      "aliases": [],
+      "aliases": [
+        "قانون اصلاح قانون مبارزه با قاچاق کالا و ارز"
+      ],
       "domain": "commercial",
       "priority": "extended"
     },
@@ -918,14 +935,19 @@
     {
       "key": "annual-budget-1405",
       "title": "قانون بودجه سال ۱۴۰۵ کل کشور",
-      "aliases": [],
+      "aliases": [
+        "قانون بودجه سال ۱۴۰۵ کل کشور مصوب ۱۴۰۴/۱۱/۲۸"
+      ],
       "domain": "public-policy",
       "priority": "annual"
     },
     {
       "key": "annual-budget-1404",
       "title": "قانون بودجه سال ۱۴۰۴ کل کشور",
-      "aliases": [],
+      "aliases": [
+        "قانون بودجه سال ۱۴۰۴ کل کشور (بخش اول)",
+        "قانون بودجه سال ۱۴۰۴ کل کشور (بخش دوم)"
+      ],
       "domain": "public-policy",
       "priority": "annual"
     },
@@ -1012,6 +1034,314 @@
       "aliases": [],
       "domain": "administrative",
       "priority": "extended"
+    },
+    {
+      "key": "housing-market-regulation",
+      "title": "قانون ساماندهی بازار زمین، مسکن و اجاره‌بها",
+      "aliases": [],
+      "domain": "property",
+      "priority": "current"
+    },
+    {
+      "key": "housing-production-leap",
+      "title": "قانون جهش تولید مسکن",
+      "aliases": [],
+      "domain": "property",
+      "priority": "extended"
+    },
+    {
+      "key": "automotive-industry",
+      "title": "قانون ساماندهی صنعت خودرو",
+      "aliases": [],
+      "domain": "commercial",
+      "priority": "extended"
+    },
+    {
+      "key": "knowledge-based-production",
+      "title": "قانون جهش تولید دانش‌بنیان",
+      "aliases": [],
+      "domain": "commercial",
+      "priority": "extended"
+    },
+    {
+      "key": "taxpayer-obligations",
+      "title": "قانون تسهیل تکالیف مؤدیان جهت اجرای قانون پایانه‌های فروشگاهی و سامانه مؤدیان",
+      "aliases": [],
+      "domain": "tax",
+      "priority": "current"
+    },
+    {
+      "key": "political-crime",
+      "title": "قانون جرم سیاسی",
+      "aliases": [],
+      "domain": "criminal",
+      "priority": "extended"
+    },
+    {
+      "key": "academic-integrity",
+      "title": "قانون پیشگیری و مقابله با تقلب در تهیه آثار علمی",
+      "aliases": [],
+      "domain": "administrative",
+      "priority": "extended"
+    },
+    {
+      "key": "disability-rights",
+      "title": "قانون حمایت از حقوق معلولان",
+      "aliases": [],
+      "domain": "civil",
+      "priority": "extended"
+    },
+    {
+      "key": "permanent-development-provisions",
+      "title": "قانون احکام دائمی برنامه‌های توسعه کشور",
+      "aliases": [],
+      "domain": "public-policy",
+      "priority": "extended"
+    },
+    {
+      "key": "sensitive-positions",
+      "title": "قانون نحوه انتصاب اشخاص در مشاغل حساس",
+      "aliases": [],
+      "domain": "administrative",
+      "priority": "extended"
+    },
+    {
+      "key": "political-parties",
+      "title": "قانون نحوه فعالیت احزاب و گروه‌های سیاسی",
+      "aliases": [],
+      "domain": "constitutional",
+      "priority": "extended"
+    },
+    {
+      "key": "bank-debt-settlement",
+      "title": "قانون تسهیل تسویه بدهی بدهکاران شبکه بانکی کشور",
+      "aliases": [],
+      "domain": "banking",
+      "priority": "extended"
+    },
+    {
+      "key": "construction-worker-insurance",
+      "title": "قانون بیمه‌های اجتماعی کارگران ساختمانی",
+      "aliases": [],
+      "domain": "labor",
+      "priority": "extended"
+    },
+    {
+      "key": "central-insurance",
+      "title": "قانون تأسیس بیمه مرکزی ایران و بیمه‌گری",
+      "aliases": [],
+      "domain": "insurance",
+      "priority": "extended"
+    },
+    {
+      "key": "insurance-record-transfer",
+      "title": "قانون نقل و انتقال سوابق بیمه یا کسور بازنشستگی بین صندوق‌های بازنشستگی و تجمیع سوابق بیمه‌ای اشخاص",
+      "aliases": [],
+      "domain": "labor",
+      "priority": "extended"
+    },
+    {
+      "key": "border-trade",
+      "title": "قانون ساماندهی و نظارت بر تجارت مرزی (کولبری و ملوانی) و ایجاد اشتغال پایدار مرزنشینان",
+      "aliases": [],
+      "domain": "commercial",
+      "priority": "current"
+    },
+    {
+      "key": "crisis-management",
+      "title": "قانون مدیریت بحران کشور مصوب ۱۳۹۸",
+      "aliases": [],
+      "domain": "administrative",
+      "priority": "extended"
+    },
+    {
+      "key": "illegal-utility-use",
+      "title": "قانون مجازات استفاده‌کنندگان غیرمجاز از آب، برق، تلفن، فاضلاب و گاز",
+      "aliases": [],
+      "domain": "criminal",
+      "priority": "extended"
+    },
+    {
+      "key": "failure-to-assist-injured",
+      "title": "قانون مجازات خودداری از کمک به مصدومین و رفع مخاطرات جانی",
+      "aliases": [],
+      "domain": "criminal",
+      "priority": "extended"
+    },
+    {
+      "key": "spy-and-hostile-cooperation",
+      "title": "قانون تشدید مجازات جاسوسی و همکاری با رژیم صهیونیستی و کشورهای متخاصم علیه امنیت و منافع ملی",
+      "aliases": [],
+      "domain": "criminal",
+      "priority": "current"
+    },
+    {
+      "key": "drone-regulation-act",
+      "title": "قانون ساماندهی پرنده‌های هدایت‌پذیر از دور (پهپاد) غیرنظامی",
+      "aliases": [],
+      "domain": "administrative",
+      "priority": "current"
+    },
+    {
+      "key": "iaea-cooperation-suspension",
+      "title": "قانون الزام دولت به تعلیق همکاری با سازمان (آژانس) بین‌المللی انرژی هسته‌ای (اتمی)",
+      "aliases": [],
+      "domain": "public-policy",
+      "priority": "current"
+    },
+    {
+      "key": "budget-annual-obligations",
+      "title": "قانون الزامات و احکام مورد نیاز قوانین بودجه‌های سنواتی",
+      "aliases": [],
+      "domain": "public-policy",
+      "priority": "current"
+    },
+    {
+      "key": "parliament-internal-rules-amendment-180-182",
+      "title": "قانون اصلاح مواد ۱۸۰ و ۱۸۲ قانون آیین‌نامه داخلی مجلس شورای اسلامی",
+      "aliases": [],
+      "domain": "constitutional",
+      "priority": "current"
+    },
+    {
+      "key": "vat-interpretation-9",
+      "title": "قانون تفسیر جزء (۱۳) بند (ب) ماده (۹) قانون مالیات بر ارزش افزوده",
+      "aliases": [],
+      "domain": "tax",
+      "priority": "current"
+    },
+    {
+      "key": "plan7-article46-interpretation",
+      "title": "قانون تفسیر جزء ۱-۲ بند الف ماده ۴۶ قانون برنامه پنج‌ساله هفتم پیشرفت جمهوری اسلامی ایران",
+      "aliases": [],
+      "domain": "public-policy",
+      "priority": "current"
+    },
+    {
+      "key": "iran-russia-strategic-treaty",
+      "title": "قانون معاهده مشارکت جامع راهبردی بین جمهوری اسلامی ایران و فدراسیون روسیه",
+      "aliases": [],
+      "domain": "public-policy",
+      "priority": "current"
+    },
+    {
+      "key": "iran-malaysia-prisoner-transfer",
+      "title": "قانون معاهده بین دولت جمهوری اسلامی ایران و دولت مالزی در زمینه انتقال بین‌المللی زندانیان",
+      "aliases": [],
+      "domain": "criminal",
+      "priority": "current"
+    },
+    {
+      "key": "iran-venezuela-civil-legal-assistance",
+      "title": "قانون موافقتنامه معاضدت حقوقی متقابل در امور مدنی میان جمهوری اسلامی ایران و جمهوری بولیواری ونزوئلا",
+      "aliases": [],
+      "domain": "civil-procedure",
+      "priority": "current"
+    },
+    {
+      "key": "iran-venezuela-criminal-legal-assistance",
+      "title": "قانون موافقتنامه معاضدت متقابل در امور کیفری میان جمهوری اسلامی ایران و جمهوری بولیواری ونزوئلا",
+      "aliases": [],
+      "domain": "criminal-procedure",
+      "priority": "current"
+    },
+    {
+      "key": "criminal-code-article-104-amendment",
+      "title": "قانون اصلاح ماده (۱۰۴) قانون مجازات اسلامی",
+      "aliases": [],
+      "domain": "criminal",
+      "priority": "current"
+    },
+    {
+      "key": "taazirat-705-711-amendment",
+      "title": "قانون اصلاح مواد ۷۰۵ تا ۷۱۱ کتاب پنجم قانون مجازات اسلامی (تعزیرات و مجازات‌های بازدارنده)",
+      "aliases": [],
+      "domain": "criminal",
+      "priority": "current"
+    },
+    {
+      "key": "taazirat-two-articles-addition",
+      "title": "قانون الحاق دو ماده به کتاب پنجم قانون مجازات اسلامی",
+      "aliases": [],
+      "domain": "criminal",
+      "priority": "extended"
+    },
+    {
+      "key": "schools-nongovernmental-amendment",
+      "title": "قانون اصلاح قانون تأسیس و اداره مدارس و مراکز آموزشی و پرورشی غیردولتی",
+      "aliases": [],
+      "domain": "administrative",
+      "priority": "current"
+    },
+    {
+      "key": "invalid-laws-trade-list",
+      "title": "قانون فهرست قوانین و احکام نامعتبر در حوزه تجارت",
+      "aliases": [],
+      "domain": "commercial",
+      "priority": "current"
+    },
+    {
+      "key": "invalid-laws-social-security-list",
+      "title": "قانون فهرست قوانین و احکام نامعتبر در حوزه تأمین اجتماعی",
+      "aliases": [],
+      "domain": "labor",
+      "priority": "current"
+    },
+    {
+      "key": "invalid-laws-insurance-list",
+      "title": "قانون فهرست قوانین و احکام نامعتبر در حوزه بیمه",
+      "aliases": [],
+      "domain": "insurance",
+      "priority": "current"
+    },
+    {
+      "key": "invalid-laws-transport-list",
+      "title": "قانون فهرست قوانین و احکام نامعتبر در حوزه حمل و نقل",
+      "aliases": [],
+      "domain": "commercial",
+      "priority": "current"
+    },
+    {
+      "key": "invalid-laws-environment-list",
+      "title": "قانون فهرست قوانین و احکام نامعتبر در حوزه محیط زیست",
+      "aliases": [],
+      "domain": "environment",
+      "priority": "current"
+    },
+    {
+      "key": "invalid-laws-health-list",
+      "title": "قانون فهرست قوانین و احکام نامعتبر در حوزه سلامت",
+      "aliases": [],
+      "domain": "administrative",
+      "priority": "current"
+    },
+    {
+      "key": "invalid-laws-veterans-list",
+      "title": "قانون فهرست قوانین و احکام نامعتبر در حوزه ایثارگران",
+      "aliases": [],
+      "domain": "administrative",
+      "priority": "current"
+    },
+    {
+      "key": "invalid-laws-labor-list",
+      "title": "قانون فهرست قوانین و احکام نامعتبر در حوزه کار",
+      "aliases": [],
+      "domain": "labor",
+      "priority": "current"
+    },
+    {
+      "key": "invalid-laws-sports-list",
+      "title": "قانون فهرست قوانین و احکام نامعتبر در حوزه ورزش",
+      "aliases": [],
+      "domain": "administrative",
+      "priority": "current"
+    },
+    {
+      "key": "invalid-laws-election-list",
+      "title": "قانون فهرست قوانین و احکام نامعتبر در حوزه انتخابات",
+      "aliases": [],
+      "domain": "constitutional",
+      "priority": "current"
     }
   ],
   "domains": {
