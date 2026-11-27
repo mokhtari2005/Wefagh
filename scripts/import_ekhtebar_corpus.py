@@ -17,13 +17,13 @@ GH = {"Accept":"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28"
 if os.getenv("GITHUB_TOKEN"): GH["Authorization"] = f"Bearer {os.environ['GITHUB_TOKEN']}"
 IMPORT_PHASE = os.getenv("LEGAL_IMPORT_PHASE", "laws").strip().lower()
 PHASE_TYPES = {
-    "laws": {"law", "treaty"},
-    "regulations": {"bylaw", "executive_regulation", "executive_circular", "circular", "executive_resolution", "general_policies"},
+    "laws": {"law", "treaty", "interpretive_law"},
+    "regulations": {"bylaw", "executive_regulation", "executive_circular", "circular", "executive_resolution", "expediency_council_resolution", "general_policies"},
     "judicial": {
         "supreme_court_unified_precedent", "supreme_court_insistence_precedent",
         "administrative_court_unified_precedent", "administrative_court_general_board",
         "administrative_court_specialized_board", "judicial_advisory_opinion",
-        "advisory_opinion", "guardian_council_opinion", "judicial_circular", "judicial_decision", "administrative_court_decision", "judicial_session",
+        "advisory_opinion", "guardian_council_opinion", "judicial_circular", "judicial_decision", "administrative_court_decision", "judicial_session", "fatwa",
     },
     "parliamentary": {"bill", "parliamentary_review_opinion"},
 }
@@ -94,7 +94,7 @@ def category_type(path, title):
     if category=="آرایدیوانعدالتاداری":
         return "administrative_court_general_board" if "هیئت عمومی" in value else "administrative_court_decision"
     if category=="مصوبات":
-        return "executive_resolution"
+        return "expediency_council_resolution" if "مجمع تشخیص" in value else "executive_resolution"
     if category=="طرحولایحه":
         return "bill"
     if category=="نظریههایرئیسمجلس":
@@ -118,6 +118,9 @@ def classify(t):
     if "نظریه مشورتی" in text and ("اداره کل حقوقی" in text or "قوه قضائیه" in text): return "judicial_advisory_opinion"
     if "نظریه مشورتی" in text: return "advisory_opinion"
     if "شورای نگهبان" in text and ("تفسیر" in text or "نظریه" in text): return "guardian_council_opinion"
+    if "استفتاء" in text or "استفتا" in text or "مسئله فقهی" in text or "فتوای" in text: return "fatwa"
+    if "قانون تفسیری" in text or "قانون تفسیر" in text or "استفساریه" in text: return "interpretive_law"
+    if "مجمع تشخیص مصلحت" in text and ("مصوبه" in text or "مصلحت نظام" in text): return "expediency_council_resolution"
     if "مرکز پژوهش های مجلس" in text or "مرکز پژوهش‌های مجلس" in text: return "parliamentary_research"
     # A statute approving a treaty is indexed as a treaty, not a bylaw.
     if "کنوانسیون" in text or "معاهده" in text: return "treaty"
