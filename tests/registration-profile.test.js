@@ -288,8 +288,6 @@ test('ثبت‌نام جنسیت، سمت، عنوان آکادمی و شمار�
 
 test('ثبت‌نام با جنسیت یا سمت و عنوان خارج از فهرست رد می‌شود', { skip }, async () => {
   const { db, env } = setup();
-  db.exec(migration('0024_membership_approval.sql'));
-  db.exec(migration('0025_registration_contact_details.sql'));
   const response = await call(env, '/api/auth/register', { body: { email: 'bad@example.com', password: 'رمز-امن-۱۴۰۵', displayName: 'کاربر نامعتبر', gender: 'unknown', position: 'unknown', professionalTitle: 'unknown', phone: '08123456789' } });
   assert.equal(response.status, 422);
   const body = await response.json();
