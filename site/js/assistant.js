@@ -40,6 +40,18 @@ function cleanModelOutput(value) {
     .replace(/^\s*[-*+]\s+/gm, '• ')
     .replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim();
 }
+/** حذف عبارت‌های ثابت و تکراری که نباید به‌عنوان دنبالهٔ پاسخ نمایش داده شوند. */
+export function stripAssistantFooterBoilerplate(value) {
+  if (typeof value !== 'string') return '';
+  const unwanted = [
+    'شرط مطالبه چک ضمانت اثبات تخلف از تعهد پایه است.',
+    'تا زمان ایجاد حق مطالبه، اقدام حقوقی نتیجه‌بخش نخواهد بود.',
+  ];
+  let text = value;
+  for (const sentence of unwanted) text = text.split(sentence).join('');
+  return text.replace(/\n{3,}/g, '\n\n').trim();
+}
+
 export function reviewUnavailableMessage(status, notes = []) {
   const note = Array.isArray(notes) ? notes.find((item) => typeof item === 'string' && /بازبینی مستقل/u.test(item)) : '';
   if (note) return note;
@@ -144,13 +156,13 @@ export function trimHistory(history) {
 
 /** متن پاسخ دستیار برای تاریخچه: پرسش‌های تکمیلی یا متن پیش‌نویس. */
 export function summarizeReply(data, mode = '') {
-  if (mode === 'consult') return data.text || '';
+  if (mode === 'consult') return stripAssistantFooterBoilerplate(data.text || '');
   if (data.status === 'need_info') {
     const optionQuestions = new Set((Array.isArray(data.questionOptions) ? data.questionOptions : []).map((item) => item?.question).filter(Boolean));
     const freeQuestions = (data.questions || []).filter((question) => !optionQuestions.has(question));
-    return [freeQuestions.length ? 'برای ادامه این اطلاعات لازم است:' : '', ...freeQuestions.map((question) => `- ${question}`)].filter(Boolean).join('\n') || data.text || '';
+    return stripAssistantFooterBoilerplate([freeQuestions.length ? 'برای ادامه این اطلاعات لازم است:' : '', ...freeQuestions.map((question) => `- ${question}`)].filter(Boolean).join('\n') || data.text || '');
   }
-  return data.text || '';
+  return stripAssistantFooterBoilerplate(data.text || '');
 }
 
 export function assistantPage(params = {}) {
@@ -491,16 +503,17 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
   }
 
   function aiMessageNode(m, isLatest = false) {
+    const displayText = stripAssistantFooterBoilerplate(m.text || '');
     const actions = h('div', { class: 'ai-msg-actions' });
     const copy = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'کپی پاسخ' });
     copy.addEventListener('click', async () => {
-      try { await copyAssistantText(m.text); status.textContent = 'پاسخ دستیار کپی شد.'; }
+      try { await copyAssistantText(displayText); status.textContent = 'پاسخ دستیار کپی شد.'; }
       catch { status.textContent = 'کپی انجام نشد؛ متن را دستی انتخاب کنید.'; }
     });
     actions.append(copy);
     const reviewReport = m.reviewReport && typeof m.reviewReport === 'object' ? formatReviewerOutput(JSON.stringify(m.reviewReport)) : '';
     let reviewPanel = null;
-    const hasReviewState = Boolean(m.reviewStatus || reviewReport);
+    const hasReviewState = Boolean(reviewReport);
     if (hasReviewState) {
       const reviewButton = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'دیدن گزارش بازبینی مستقل', 'aria-expanded': 'false' });
       const reviewChildren = [
@@ -543,19 +556,19 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       actions.append(reviewButton);
     }
     const dl = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'دریافت فایل متنی' });
-    dl.addEventListener('click', () => downloadText(m.text, 'پاسخ-دستیار-آکادمی.txt'));
+    dl.addEventListener('click', () => downloadText(displayText, 'پاسخ-دستیار-آکادمی.txt'));
     actions.append(dl);
     if (m.documentDraft) {
       const word = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'دریافت فایل ورد' });
-      word.addEventListener('click', () => downloadWordDocument(m.text, DOC_TYPES.find(([value]) => value === m.docType)?.[1] || 'سند حقوقی'));
+      word.addEventListener('click', () => downloadWordDocument(displayText, DOC_TYPES.find(([value]) => value === m.docType)?.[1] || 'سند حقوقی'));
       const pdf = h('button', { class: 'btn secondary ai-mini', type: 'button', text: 'چاپ یا دریافت پی‌دی‌اف' });
-      pdf.addEventListener('click', () => { if (!printDocumentPdf(m.text, DOC_TYPES.find(([value]) => value === m.docType)?.[1] || 'سند حقوقی')) status.textContent = 'پنجره چاپ باز نشد؛ اجازه بازشدن پنجره را در مرورگر فعال کنید.'; });
+      pdf.addEventListener('click', () => { if (!printDocumentPdf(displayText, DOC_TYPES.find(([value]) => value === m.docType)?.[1] || 'سند حقوقی')) status.textContent = 'پنجره چاپ باز نشد؛ اجازه بازشدن پنجره را در مرورگر فعال کنید.'; });
       actions.append(word, pdf);
     }
 
     const children = [
       h('span', { class: 'ai-role', text: 'دستیار' }),
-      h('div', { class: 'ai-text pre-wrap', text: m.text }),
+      h('div', { class: 'ai-text pre-wrap', text: displayText }),
     ];
     const rawQuestionOptions = Array.isArray(m.questionOptions) ? m.questionOptions : [];
     const seenQuestionKeys = new Set();
@@ -604,10 +617,16 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       ]));
     }
     if (reviewPanel) children.push(reviewPanel);
-    if (m.notes?.length) children.push(h('ul', {
+    const visibleNotes = (Array.isArray(m.notes) ? m.notes : []).filter((note) =>
+      typeof note === 'string'
+      && !note.includes('Gemini 3.5 Flash-Lite در مسیر رایگان تهیه شد')
+      && !note.includes('پاسخ با مدل رایگان Groq تهیه شد')
+      && !note.includes('پاسخ با مسیر رایگان Cloudflare تهیه شد')
+      && !note.includes('بازبینی مستقل اجرا نشد'));
+    if (visibleNotes.length) children.push(h('ul', {
       class: 'ai-notes',
-      'aria-label': 'نکات تکمیلی',
-    }, m.notes.map((note) => h('li', { text: note }))));
+      'aria-label': 'هشدارها و محدودیت‌های مهم',
+    }, visibleNotes.map((note) => h('li', { text: note }))));
     if (m.text) children.push(actions);
     return h('li', { class: 'ai-msg ai-msg-ai' }, children);
   }
