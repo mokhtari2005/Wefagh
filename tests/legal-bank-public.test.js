@@ -71,6 +71,19 @@ test('public legal bank statistics are readable without authentication', async (
   assert.ok(Array.isArray(body.latest));
 });
 
+test('public search is read-only and does not require a login', async () => {
+  const DB = dbFor();
+  const response = await handleLegalBank(
+    new Request('https://mokhtari.ir/api/legal-bank/public-search?q=قانون'),
+    { DB },
+    '/api/legal-bank/public-search',
+  );
+  const body = await responseJson(response);
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.ok(Array.isArray(body.items));
+});
+
 test('public document endpoint withholds unverified full text', async () => {
   const DB = dbFor({ docStatus: 'needs_review' });
   const response = await handleLegalBank(new Request('https://mokhtari.ir/api/legal-bank/public-document?id=7'), { DB }, '/api/legal-bank/public-document');
