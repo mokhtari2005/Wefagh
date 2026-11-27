@@ -51,6 +51,18 @@ def get_index():
         if q: by_stem["p"+q]=x
         stem=p.path.rstrip("/").split("/")[-1]
         if stem: by_stem[stem]=x
+    # Category records have their own public index; use it only as a URL fallback
+    # when an individual Markdown record does not carry its source link inline.
+    try:
+        groups=get(RAW+"data/index-cats.json").json()
+        for records in groups.values():
+            if not isinstance(records,list): continue
+            for x in records:
+                u=x.get("url") or ""
+                stem=urlparse(u).path.rstrip("/").split("/")[-1]
+                if stem: by_stem[stem]=x
+    except Exception:
+        pass
     return by_stem
 
 def get_files():
