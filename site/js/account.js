@@ -43,14 +43,11 @@ export function loginForm({ onSuccess, onRegister }) {
   const emailErr = fieldError('login-email');
   const status = h('p', { class: 'form-status', role: 'status', 'aria-live': 'polite' });
   const submit = h('button', { class: 'btn', type: 'submit', text: 'ورود' });
-  const forgot = h('a', { href: '#/account?mode=forgot', text: 'رمز عبور را فراموش کرده‌اید؟' });
-
   const form = h('form', { class: 'form', novalidate: '', 'aria-label': 'فرم ورود' }, [
     field('login-email', 'ایمیل', email),
     emailErr,
     field('login-password', 'رمز عبور', password),
     submit,
-    h('p', { class: 'password-recovery-link' }, [forgot]),
     status,
     h('p', {}, [
       h('a', { href: '#/account?mode=register', text: 'حساب ندارید؟ ثبت‌نام کنید' }),

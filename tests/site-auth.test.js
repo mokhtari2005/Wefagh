@@ -44,10 +44,11 @@ test('پیام ثبت‌نام عمداً وجود یا نبود حساب را �
 });
 
 
-test('فرم ورود لینک بازیابی رمز را واقعاً نمایش می‌دهد', () => {
-  const source = readFileSync(new URL('../site/js/account.js', import.meta.url), 'utf8');
-  assert.match(source, /class: 'password-recovery-link'[\s\S]*?\[forgot\]/);
+test('صفحه ورود لینک مستقل و قابل مشاهده بازیابی رمز را نمایش می‌دهد', () => {
+  const source = readFileSync(new URL('../site/js/app.js', import.meta.url), 'utf8');
+  assert.match(source, /class: 'account-recovery-entry'/);
   assert.match(source, /href: '#\/account\?mode=forgot'/);
+  assert.match(source, /account\.js\?v=20261127-password-recovery-visibility-2/);
 });
 
 test('فرم تغییر رمز نیازی به رمز فعلی ندارد', () => {

@@ -4308,3 +4308,21 @@ body.classroom-fullscreen-fallback { overflow:hidden; }
 
 .academy-case-bank-disclosure>summary{cursor:pointer;font-weight:700;color:var(--primary,#21436a);padding:.25rem 0;list-style-position:inside}
 .academy-case-bank-disclosure[open]>summary{margin-bottom:.8rem}
+
+
+/* پیوند بازیابی رمز: بیرون از فرم ورود و همیشه قابل مشاهده */
+.account-recovery-entry {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  margin: .9rem 0 1.2rem;
+  text-align: center;
+  font-weight: 600;
+}
+.account-recovery-entry a {
+  display: inline-block;
+  color: var(--teal-dark);
+  text-decoration: underline;
+  text-underline-offset: .2em;
+  padding: .35rem .5rem;
+}
