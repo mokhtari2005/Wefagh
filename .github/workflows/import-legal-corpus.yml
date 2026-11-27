@@ -26,6 +26,7 @@ on:
           - laws
           - regulations
           - judicial
+          - parliamentary
           - all
 
 permissions:
