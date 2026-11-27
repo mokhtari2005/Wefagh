@@ -23,7 +23,7 @@ function dbFor({ docStatus = 'needs_review' } = {}) {
               if (sql.includes('legal_document_sources')) {
                 return { results: [{ key: 'national-regulations', title: 'سامانه ملی قوانین و مقررات', lastSuccessAt: null }] };
               }
-              if (sql.includes('GROUP BY law_type,status')) {
+              if (sql.includes('GROUP BY l.law_type,l.status')) {
                 return { results: [{ type: 'law', status: 'needs_review', count: 1 }] };
               }
               if (sql.includes('FROM legal_articles') && sql.includes('COUNT(*) AS total')) {
