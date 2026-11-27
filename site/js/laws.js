@@ -233,16 +233,20 @@ export function legalBankPage() {
       const docs = data.totals && data.totals.documents || {};
       const articles = data.totals && data.totals.articles || {};
       const byType = new Map();
-      for (const row of data.byType || []) byType.set(row.type, (byType.get(row.type) || 0) + Number(row.count || 0));
+      const byTypeVerified = new Map();
+      for (const row of data.byType || []) {
+        byType.set(row.type, (byType.get(row.type) || 0) + Number(row.count || 0));
+        if (row.status === 'verified') byTypeVerified.set(row.type, (byTypeVerified.get(row.type) || 0) + Number(row.count || 0));
+      }
       const sum = (types) => types.reduce((total, type) => total + (byType.get(type) || 0), 0);
       statsArea.replaceChildren(
-        statCard('قانون', sum(['law']), fa(docs.verified) + ' سند تأییدشده', '§'),
-        statCard('آیین‌نامه و مقرره', sum(['bylaw','executive_regulation']), fa(sum(['executive_circular','circular','executive_resolution','expediency_council_resolution'])) + ' بخشنامه و مصوبه', '▤'),
+        statCard('قانون', sum(['law']), fa(byTypeVerified.get('law') || 0) + ' تأییدشده', '§'),
+        statCard('آیین‌نامه و مقرره', sum(['bylaw','executive_regulation']), fa(sum(['executive_circular','circular','executive_resolution'])) + ' بخشنامه و مصوبه', '▤'),
         statCard('ماده و بخش ثبت‌شده', articles.total, fa(articles.verified) + ' دارای متن تأییدشده', '¶'),
         statCard('رأی وحدت رویه دیوان عالی کشور', sum(['supreme_court_unified_precedent','supreme_court_insistence_precedent']), 'آرای وحدت رویه و اصراری', '⚖'),
         statCard('رأی هیئت عمومی دیوان عدالت اداری', sum(['administrative_court_general_board','administrative_court_unified_precedent']), 'آرای هیئت عمومی و وحدت رویه', '◈'),
         statCard('نظریه مشورتی اداره کل حقوقی', sum(['judicial_advisory_opinion','advisory_opinion']), 'نظریات و پاسخ‌های مشورتی', '❞'),
-        statCard('بخش مصوبه و بخشنامه', sum(['executive_resolution','executive_circular','judicial_circular','circular','expediency_council_resolution']), 'مصوبات و دستورالعمل‌ها', '▧'),
+        statCard('بخش مصوبه و بخشنامه', sum(['executive_resolution','executive_circular','judicial_circular','circular']), 'مصوبات و دستورالعمل‌ها', '▧'),
         statCard('نظر تفسیری شورای نگهبان', sum(['guardian_council_opinion']), 'نظرات تفسیری و اعلام نظرها', '⚖'),
         statCard('قانون تفسیری و استفساریه', sum(['interpretive_law']), 'قوانین و اسناد تفسیری', '§'),
         statCard('مصوبه مجمع تشخیص مصلحت', sum(['expediency_council_resolution']), 'مصوبات ثبت‌شده مجمع', '◉'),
