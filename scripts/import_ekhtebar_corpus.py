@@ -659,7 +659,7 @@ def main():
                     send(batch,inserted); batch=[]; size=0
                 batch.append((statement, params)); size+=n
             done+=1
-            if done%25==0: print(f"Prepared: {done}/{len(new_docs)} new documents")
+            if done%25==0: print(f"Prepared: {done}/{len(new_batch)} selected new documents")
         if batch: send(batch,inserted)
     except RuntimeError as error:
         if not is_d1_daily_write_quota_error(error):
