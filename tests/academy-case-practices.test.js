@@ -48,6 +48,8 @@ test('هر کاربر می‌تواند چند پرونده مستقل را در
   const bank=await (await worker.fetch(req('/api/cases?pageSize=10'),env)).json();
   const ids=bank.cases.slice(0,2).map(x=>x.id);
   for(const caseId of ids){
+    const detail=await worker.fetch(req('/api/cases/'+caseId),env);
+    assert.equal(detail.status,200,'case detail: '+JSON.stringify(await detail.clone().json()));
     const created=await worker.fetch(req('/api/cases/workshop-practices',{method:'POST',cookie,body:{
       courseId:'civil-litigation-practice',lessonId:'l1',caseId,responseText:'تحلیل مستقل این پرونده آموزشی برای ارزیابی مهارت عملی کارآموز.'
     }}),env);
