@@ -293,6 +293,7 @@ test('خروج نشست را حذف می‌کند و /api/me بعد از آن ۴
   const { env, sent } = setup();
   await call(env, '/api/auth/register', { body: validUser });
   await call(env, '/api/auth/verify-email', { body: { token: tokenFromMail(sent) } });
+  await approveMembership(env);
   const login = await call(env, '/api/auth/login', { body: { email: validUser.email, password: validUser.password } });
   const cookie = sessionCookieFrom(login);
   const out = await call(env, '/api/auth/logout', { cookie });
