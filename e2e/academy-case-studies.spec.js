@@ -15,19 +15,23 @@ for (const viewport of [
         { id: 'ara-39327', title: 'شرط تنصیف دارایی پس از انتقال مال پیش از دادخواست طلاق', documentNumber: '140250920002237030', date: '1403/10/24', court: 'دادگاه تجدیدنظر استان', sourceUrl: 'https://ara.jri.ac.ir/Judge/Text/39327', summary: 'خلاصه آموزشی رأی درباره شرط تنصیف و فروش مال پیش از دادخواست طلاق.', issue: 'فروش مال پیش از دادخواست طلاق چه اثری در ارزیابی شرط تنصیف داشته است؟', holding: 'رأی با اصلاح تأیید شد و مبلغی بابت تنصیف تعیین شد.', tasks: ['تحلیل خط زمانی و ادله فروش'], limits: ['صفحه منبع امکان فرجام‌خواهی را ذکر می‌کند.'] },
         { id: 'ara-39386', title: 'ابهام در موضوع معامله و الزام به تنظیم سند', documentNumber: '140368920002061619', date: '1403/07/23', court: 'دادگاه تجدیدنظر استان', sourceUrl: 'https://ara.jri.ac.ir/Judge/Text/39386', summary: 'خلاصه آموزشی رأی درباره ابهام در موضوع معامله.', issue: 'آیا موضوع معامله معین بوده است؟', holding: 'اعتراض رد و رأی تأیید شد.', tasks: ['تحلیل موضوع قرارداد'], limits: ['نتیجه ناظر به همان قرارداد است.'] },
         { id: 'ara-277', title: 'اجرت‌المثل پس از پایان مدت اجاره', documentNumber: '9109970224400796', date: '1391/07/10', court: 'دادگاه تجدیدنظر استان تهران', sourceUrl: 'https://ara.jri.ac.ir/Judge/Text/277', summary: 'خلاصه آموزشی رأی درباره اجرت‌المثل تصرف.', issue: 'مدت تصرف و میزان اجرت‌المثل چگونه اثبات می‌شود؟', holding: 'رأی بدوی در تجدیدنظر تأیید شد.', tasks: ['تحلیل نظریه کارشناسی'], limits: ['مبالغ مربوط به همان پرونده است.'] },
-        { id: 'ara-291', title: 'تعارض حقوق خریدار با بازداشت قانونی ملک در رهن', documentNumber: '9109970270400836', date: '1391/07/10', court: 'دادگاه تجدیدنظر استان تهران', sourceUrl: 'https://ara.jri.ac.ir/Judge/Text/291', summary: 'خلاصه آموزشی رأی درباره بازداشت قانونی ملک و حقوق مرتهن.', issue: 'ابطال بازداشت با الزام به رفع بازداشت چه تفاوتی دارد؟', holding: 'دادگاه تجدیدنظر ابطال عملیات اجرایی را نپذیرفت.', tasks: ['ترسیم توالی رهن و بازداشت'], limits: ['نتیجه وابسته به ترتیب زمانی پرونده است.'] }
+        { id: 'ara-291', title: 'تعارض حقوق خریدار با بازداشت قانونی ملک در رهن', documentNumber: '9109970270400836', date: '1391/07/10', court: 'دادگاه تجدیدنظر استان تهران', sourceUrl: 'https://ara.jri.ac.ir/Judge/Text/291', summary: 'خلاصه آموزشی رأی درباره بازداشت قانونی ملک و حقوق مرتهن.', issue: 'ابطال بازداشت با الزام به رفع بازداشت چه تفاوتی دارد؟', holding: 'دادگاه تجدیدنظر ابطال عملیات اجرایی را نپذیرفت.', tasks: ['ترسیم توالی رهن و بازداشت'], limits: ['نتیجه وابسته به ترتیب زمانی پرونده است.'] },
+        { id: 'ara-39383', title: 'مرور زمان پنج‌ساله چک و لزوم احراز صدور آن در چارچوب امور تجاری', documentNumber: '140332920000672087', date: '1403/07/23', court: 'دادگاه تجدیدنظر استان چهارمحال و بختیاری', sourceUrl: 'https://ara.jri.ac.ir/Judge/Text/39383', summary: 'دادگاه تجدیدنظر اعمال ماده ۳۱۸ را به احراز صدور چک از سوی تاجر یا در امور تجارتی وابسته دانست.', issue: 'آیا صرف صدور چک برای اعمال ماده ۳۱۸ کافی است؟', holding: 'اعمال مرور زمان در همین پرونده پذیرفته نشد و رأی قطعی صادر شد.', tasks: ['مقایسه دو استدلال'], limits: ['نتیجه قابل تعمیم بی‌قید نیست.'] },
+        { id: 'ara-6479', title: 'خسارت تأخیر تأدیه محکوم‌به علیه دانشگاه', documentNumber: '9309970223300100', date: '1393/01/31', court: 'شعبه ۳۳ دادگاه تجدیدنظر استان تهران', sourceUrl: 'https://ara.jri.ac.ir/Judge/Text/6479', summary: 'دادگاه تجدیدنظر شمول قانون خاص مهلت پرداخت محکوم‌به دولت را نسبت به دانشگاه مورد رسیدگی نپذیرفت.', issue: 'آیا دانشگاه در این پرونده از مهلت یک‌ونیم‌ساله برخوردار بود؟', holding: 'حکم خسارت تأخیر تأدیه تأیید و رأی قطعی اعلام شد.', tasks: ['تحلیل شخصیت حقوقی محکوم‌علیه'], limits: ['رأی تاریخی و وابسته به وضعیت همان دانشگاه است.'] }
       ] })
     }));
     await page.goto('/?academy-case-study-test=1#/academy/workshops/case-analysis', { waitUntil: 'domcontentloaded' });
 
     await expect(page.getByRole('heading', { name: 'مطالعات موردی مبتنی بر آرای منتشرشده' })).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('.workshop-case-study')).toHaveCount(6, { timeout: 10000 });
+    await expect(page.locator('.workshop-case-study')).toHaveCount(8, { timeout: 10000 });
     await expect(page.getByText('9209970222900384', { exact: false })).toBeVisible();
     await expect(page.getByText('140291920009220359', { exact: false })).toBeVisible();
     await expect(page.getByText('140250920002237030', { exact: false })).toBeVisible();
     await expect(page.getByText('140368920002061619', { exact: false })).toBeVisible();
     await expect(page.getByText('9109970224400796', { exact: false })).toBeVisible();
     await expect(page.getByText('9109970270400836', { exact: false })).toBeVisible();
+    await expect(page.getByText('140332920000672087', { exact: false })).toBeVisible();
+    await expect(page.getByText('9309970223300100', { exact: false })).toBeVisible();
 
     const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
     expect(hasHorizontalOverflow).toBe(false);
