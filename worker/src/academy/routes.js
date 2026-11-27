@@ -132,6 +132,7 @@ export async function handleAcademy(request, env, path) {
             learning: learning ? {
               assignment: learning.assignment,
               rubric: learning.rubric,
+              practicalGuide: learning.practicalGuide || null,
               quiz: { question: learning.quiz.question, options: learning.quiz.options },
             } : null,
           };
