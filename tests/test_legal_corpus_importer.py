@@ -40,6 +40,7 @@ class LegalCorpusImporterTests(unittest.TestCase):
         self.assertEqual(importer.find_official_source_url("https://www.ekhtebar.ir/law/"), "")
         self.assertEqual(importer.find_official_source_url("منبع: https://qavanin.ir/Law/TreeText/?IDS=123"), "https://qavanin.ir/Law/TreeText/?IDS=123")
         self.assertEqual(importer.find_official_source_url("https://www.rrk.ir/News/ShowNews.aspx?id=12"), "https://www.rrk.ir/News/ShowNews.aspx?id=12")
+        self.assertEqual(importer.find_official_source_url("# قانون نمونه\\nمتن ماده\\n" + ("متن\\n" * 12) + "https://qavanin.ir/Law/TreeText/?IDS=456"), "")
 
     def test_article_heading_with_closing_parenthesis_is_parsed(self):
         markdown = "# قانون دریایی\nhttps://www.ekhtebar.ir/sample-law/\n\nماده ۱) شرایط تابعیت کشتی\nمتن ماده نخست"
