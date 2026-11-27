@@ -316,11 +316,15 @@ def audit_database():
         FROM legal_laws GROUP BY law_type ORDER BY law_type""")
     sources=d1_query("""SELECT COALESCE(source_name,'(بدون منبع)') AS source_name,COUNT(*) AS count
         FROM legal_laws GROUP BY source_name ORDER BY count DESC LIMIT 20""")
+    articles_by_source_type=d1_query("""SELECT COALESCE(l.source_name,'(بدون منبع)') AS source_name,
+        l.law_type AS type,COUNT(a.id) AS article_count
+        FROM legal_laws l LEFT JOIN legal_articles a ON a.law_id=l.id
+        GROUP BY l.source_name,l.law_type ORDER BY l.source_name,l.law_type""")
     other_samples=d1_query("""SELECT slug,title,source_name,source_url,official_source_url,substr(notes,1,220) AS notes
         FROM legal_laws WHERE law_type='other' ORDER BY title LIMIT 40""")
     return {"laws":laws[0] if laws else {},"articles":articles[0] if articles else {},
             "law_type_status":types,"official_links_by_type":official_links,
-            "source_name_counts":sources,"other_document_samples":other_samples}
+            "source_name_counts":sources,"articles_by_source_type":articles_by_source_type,"other_document_samples":other_samples}
 
 def normalize_title(value):
     value = value.replace("\u200c", " ").replace("\u200f", " ").translate(DIGITS)
