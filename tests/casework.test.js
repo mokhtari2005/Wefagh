@@ -101,6 +101,7 @@ test('گفت‌وگوی دستیار به پرونده و خدمت انتخاب�
   assert.equal(threadData.casework_service_id,serviceId);
   const events=await (await worker.fetch(req('/api/casework/cases/'+caseId,{cookie}),env)).json();
   assert.ok(events.timeline.some(x=>x.event_type==='assistant_thread_linked'));
+  assert.equal(events.services[0].threadId,threadData.id);
   assert.equal((await worker.fetch(req('/api/ai/threads',{method:'POST',cookie,body:{title:'خدمت نامرتبط',caseId,caseworkServiceId:'00000000-0000-4000-8000-000000000000'}}),env)).status,404);
 });
 
