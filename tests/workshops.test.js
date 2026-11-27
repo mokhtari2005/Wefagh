@@ -7,6 +7,7 @@ import { findCourse } from '../worker/src/academy/catalog.js';
 import { lessonLearning } from '../worker/src/academy/learning.js';
 import { PRACTICAL_COMPETENCIES, getPracticalGuide } from '../worker/src/academy/practical-assessment.js';
 import { VERIFIED_CASE_STUDIES } from '../worker/src/academy/case-studies.js';
+import { handleAcademy } from '../worker/src/academy/routes.js';
 
 test('کارگاه‌های مهارت‌محور برای سه گروه مخاطب تعریف شده‌اند', () => {
   assert.equal(WORKSHOPS.length, 13);
@@ -91,4 +92,19 @@ test('مطالعات موردی واقعی از سناریوهای فرضی جد
     assert.ok(item.procedural_summary.length > 100);
     assert.ok(item.limits.length >= 2);
   }
+});
+
+test('API مطالعات موردی عمومی، فقط‌خواندنی و بدون داده هویتی است', async () => {
+  const getResponse = await handleAcademy(new Request('https://example.test/api/academy/case-studies'), {}, '/api/academy/case-studies');
+  assert.equal(getResponse.status, 200);
+  const payload = await getResponse.json();
+  assert.equal(payload.ok, true);
+  assert.equal(payload.caseStudies.length, 2);
+  for (const item of payload.caseStudies) {
+    assert.ok(item.sourceUrl.startsWith('https://ara.jri.ac.ir/'));
+    assert.equal(Object.hasOwn(item, 'personName'), false);
+    assert.equal(Object.hasOwn(item, 'nationalId'), false);
+  }
+  const postResponse = await handleAcademy(new Request('https://example.test/api/academy/case-studies', { method: 'POST' }), {}, '/api/academy/case-studies');
+  assert.equal(postResponse.status, 405);
 });
