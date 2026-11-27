@@ -344,22 +344,23 @@ const ROUTES = {
   '/classroom/guest': (params) => lazy(async () => (await import('./classroom.js?v=20261120-classroom-instructors-1')).classroomGuestPage(params)),
   '/admin/traffic': () => lazy(async () => (await import('./visitor-analytics.js')).visitorAnalyticsPage()),
   '/community': () => lazy(async () => (await import('./community.js?v=20261119-community-title-fix-4')).communityPage()),
+  '/casework': () => lazy(async () => (await import('./casework.js?v=20261127-casework-1')).caseworkPage()),
   '/cases': () => lazy(async () => (await import('./cases.js')).casesPage()),
   '/moot-court': (params) => lazy(async () => (await import('./moot.js')).mootCourtPage(params)),
   '/assistant': () => lazy(async () => (await import('./assistant-forms.js?v=20261126-assistant-config-split-1')).assistantMenuPage()),
   '/assistant/documents': () => lazy(async () => (await import('./assistant-forms.js?v=20261126-assistant-config-split-1')).assistantDocumentsMenuPage()),
-  '/assistant/consult': (params) => lazy(async () => (await import('./assistant.js?v=20261126-assistant-config-split-1')).assistantPage(params)),
+  '/assistant/consult': (params) => lazy(async () => (await import('./assistant.js?v=20261127-casework-1')).assistantPage(params)),
   '/assistant/litigation': (params) => lazy(async () => (await import('./assistant.js?v=20261126-assistant-config-split-1')).assistantPage({ ...params, mode: 'litigation' })),
   '/assistant/research': (params) => lazy(async () => (await import('./assistant.js?v=20261126-assistant-config-split-1')).assistantPage({ ...params, mode: 'research' })),
   '/voice-typing': () => lazy(async () => (await import('./voice-typing.js')).voiceTypingPage()),
   '/assistant/history': () => lazy(async () => (await import('./assistant.js?v=20261126-assistant-config-split-1')).assistantHistoryPage()),
   '/moot-court/hearing': (params) => lazy(async () => (await import('./moot-ai.js?v=20261119-stop-speaker-1')).courtRoomPage(params)),
   '/moot-court/cases': (params) => lazy(async () => (await import('./moot-cases.js')).casePickerPage(params)),
-  '/calculators': (params) => lazy(async () => (await import('./calc/page.js?v=20261125-rtl-legal-notes-2')).calculatorsPage(params)),
-  '/calculators/regional': () => lazy(async () => (await import('./calc/page.js?v=20261125-rtl-legal-notes-2')).calculatorsPage({ tool: 'regional' })),
-  '/calculators/court': () => lazy(async () => (await import('./calc/page.js?v=20261125-rtl-legal-notes-2')).calculatorsPage({ tool: 'court' })),
-  '/calculators/attorney': () => lazy(async () => (await import('./calc/page.js?v=20261125-rtl-legal-notes-2')).calculatorsPage({ tool: 'attorney' })),
-  '/calculators/delay': () => lazy(async () => (await import('./calc/page.js?v=20261125-rtl-legal-notes-2')).calculatorsPage({ tool: 'delay' })),
+  '/calculators': (params) => lazy(async () => (await import('./calc/page.js?v=20261127-casework-1')).calculatorsPage(params)),
+  '/calculators/regional': (params) => lazy(async () => (await import('./calc/page.js?v=20261127-casework-1')).calculatorsPage({ ...params, tool: 'regional' })),
+  '/calculators/court': (params) => lazy(async () => (await import('./calc/page.js?v=20261127-casework-1')).calculatorsPage({ ...params, tool: 'court' })),
+  '/calculators/attorney': (params) => lazy(async () => (await import('./calc/page.js?v=20261127-casework-1')).calculatorsPage({ ...params, tool: 'attorney' })),
+  '/calculators/delay': (params) => lazy(async () => (await import('./calc/page.js?v=20261127-casework-1')).calculatorsPage({ ...params, tool: 'delay' })),
   '/media': () => lazy(async () => (await import('./media.js')).mediaHome()),
   '/laws': () => lazy(async () => (await import('./laws.js')).legalBankPage()),
   '/deadlines': (params) => lazy(async () => (await import('./deadlines.js')).deadlinesPage(params)),
@@ -381,7 +382,8 @@ function mobileQuickAccess(path) {
     { icon: 'scale', title: 'دستیار وکیل', href: '#/assistant' },
     { icon: 'calculator', title: 'محاسبه‌گرها', href: '#/calculators' },
     { icon: 'calendar', title: 'تقویم مواعد', href: '#/deadlines' },
-    { icon: 'folder', title: 'پرونده‌ها', href: '#/cases' },
+    { icon: 'folder', title: 'مدیریت پرونده‌ها', href: '#/casework' },
+    { icon: 'folder-open', title: 'بانک آموزشی', href: '#/cases' },
     { icon: 'mic', title: 'تایپ صوتی', href: '#/voice-typing' },
     { icon: 'newspaper', title: 'رسانه و اندیشه', href: '#/media' },
     { icon: 'scale', title: 'بانک قوانین', href: '#/laws' },
@@ -415,6 +417,7 @@ function render() {
   const planned = NAV.find((n) => n.path === path && n.status === 'planned');
   if (ROUTES[path]) content = ROUTES[path](params);
   else if (path.startsWith('/assistant/doc/')) content = lazy(async () => (await import('./assistant-forms.js?v=20261126-assistant-config-split-1')).assistantDocumentPage({ type: decodeURIComponent(path.slice('/assistant/doc/'.length)) }));
+  else if (path.startsWith('/casework/')) content = lazy(async () => (await import('./casework.js?v=20261127-casework-1')).caseworkDetailPage(decodeURIComponent(path.slice('/casework/'.length))));
   else if (path.startsWith('/cases/')) content = lazy(async () => (await import('./cases.js')).casesPage(decodeURIComponent(path.slice('/cases/'.length))));
   else if (path.startsWith('/media/')) content = lazy(async () => (await import('./media.js')).articlePage(decodeURIComponent(path.slice('/media/'.length))));
   else if (path.startsWith('/academy/workshops/')) content = lazy(async () => (await import('./workshops.js?v=20261127-workshops-1')).workshopsPage(decodeURIComponent(path.slice('/academy/workshops/'.length))));
