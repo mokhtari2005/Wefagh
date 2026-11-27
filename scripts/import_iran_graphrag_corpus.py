@@ -55,10 +55,13 @@ def normalize_url(value):
 def classify_title(title):
     value = text(title).replace("ي", "ی").replace("ك", "ک")
     compact = re.sub(r"[\s\u200c]+", "", value)
+    # A statute remains a law even when its title mentions an implementing bylaw.
+    if value.startswith("قانون") or value.startswith("قوانین"):
+        return "law"
+    if value.startswith("طرح") or value.startswith("لایحه"):
+        return "bill"
     if "سیاستهای کلی" in compact:
         return "general_policies"
-    if "طرح" in value or "لایحه" in value:
-        return "bill"
     if "آیین نامه" in value or "آیین‌نامه" in value or "آئین نامه" in value:
         return "bylaw"
     if "تصویب نامه" in value or "تصویب‌نامه" in value:
@@ -69,10 +72,7 @@ def classify_title(title):
         return "executive_resolution"
     if "کنوانسیون" in value or "معاهده" in value or "موافقتنامه" in value:
         return "treaty"
-    if value.startswith("قانون") or value.startswith("قوانین"):
-        return "law"
     return "other"
-
 
 def stable_law_key(row):
     return text(row.get("law_cid") or row.get("instrument_id") or row.get("entry_cid") or row.get("source_url") or row.get("instrument_title") or row.get("title"))
