@@ -2,10 +2,17 @@
 // اصول: هر دو مسیر نیاز به نشست معتبر دارند؛ رمز هرگز لاگ یا بازگردانده نمی‌شود؛
 // پس از تغییر رمز، نشست‌های دیگر کاربر باطل می‌شوند و نشست فعلی باقی می‌ماند.
 import { json, readJsonBody, readCookie, SESSION_COOKIE } from '../http.js';
-import { hashPassword, validatePasswordPolicy } from './password.js';
+import { hashPassword, verifyPassword, validatePasswordPolicy } from './password.js';
 import { hashToken } from './token.js';
 import { validateProfile } from './profile.js';
 import { currentUser, getProfile } from './routes.js';
+
+/** @returns {Promise<{ok:true, row:{password_hash:string}} | {ok:false, response:Response}>} */
+async function loadPasswordHash(env, userId) {
+  const row = await env.DB.prepare('SELECT password_hash FROM users WHERE id = ?1').bind(userId).first();
+  if (!row?.password_hash) return { ok: false, response: json({ ok: false, error: 'UNAUTHENTICATED' }, 401) };
+  return { ok: true, row };
+}
 
 export async function changePassword(request, env) {
   const user = await currentUser(request, env);
@@ -14,10 +21,20 @@ export async function changePassword(request, env) {
   const parsed = await readJsonBody(request);
   if (parsed.error) return parsed.error;
   const body = parsed.body && typeof parsed.body === 'object' ? parsed.body : {};
+  const currentPassword = typeof body.currentPassword === 'string' ? body.currentPassword : '';
   const newPassword = typeof body.newPassword === 'string' ? body.newPassword : '';
 
   const policy = validatePasswordPolicy(newPassword);
   if (!policy.ok) return json({ ok: false, error: 'VALIDATION_FAILED', errors: { newPassword: policy.error } }, 422);
+  if (newPassword === currentPassword) {
+    return json({ ok: false, error: 'VALIDATION_FAILED', errors: { newPassword: 'رمز جدید باید با رمز فعلی متفاوت باشد.' } }, 422);
+  }
+
+  const stored = await loadPasswordHash(env, user.id);
+  if (!stored.ok) return stored.response;
+  if (!(await verifyPassword(currentPassword, stored.row.password_hash))) {
+    return json({ ok: false, error: 'WRONG_PASSWORD' }, 400);
+  }
 
   await env.DB
     .prepare('UPDATE users SET password_hash = ?1 WHERE id = ?2')

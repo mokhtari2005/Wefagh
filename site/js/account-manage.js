@@ -53,40 +53,35 @@ function applyErrors(errors, nodes) {
 
 // ---------- تغییر رمز عبور ----------
 export function changePasswordForm() {
+  const current = h('input', { type: 'password', name: 'currentPassword', autocomplete: 'current-password', required: '' });
   const next = h('input', { type: 'password', name: 'newPassword', autocomplete: 'new-password', required: '', minlength: '10' });
-  const confirm = h('input', { type: 'password', name: 'confirmPassword', autocomplete: 'new-password', required: '', minlength: '10' });
+  const currentErr = errorNode('cp-current');
   const nextErr = errorNode('cp-new');
-  const confirmErr = errorNode('cp-confirm');
   const status = h('p', { class: 'form-status', role: 'status', 'aria-live': 'polite' });
   const submit = h('button', { class: 'btn', type: 'submit', text: 'تغییر رمز عبور' });
 
   const form = h('form', { class: 'form', novalidate: '', 'aria-label': 'تغییر رمز عبور' }, [
     h('h2', { text: 'تغییر رمز عبور' }),
+    fieldWrap('cp-current', 'رمز عبور فعلی', current, currentErr),
     fieldWrap('cp-new', 'رمز عبور جدید (حداقل ۱۰ نویسه)', next, nextErr),
-    fieldWrap('cp-confirm', 'تکرار رمز عبور جدید', confirm, confirmErr),
     submit,
     status,
   ]);
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
-    applyErrors({}, { 'cp-new': nextErr, 'cp-confirm': confirmErr });
-    if (next.value !== confirm.value) {
-      confirmErr.textContent = 'تکرار رمز با رمز جدید یکسان نیست.';
-      setStatus(status, 'رمز جدید و تکرار آن یکسان نیستند.', 'err');
-      return;
-    }
+    applyErrors({}, { 'cp-current': currentErr, 'cp-new': nextErr });
     submit.disabled = true;
     setStatus(status, 'در حال ذخیره…');
-    const res = await postJson('/api/auth/change-password', { newPassword: next.value });
+    const res = await postJson('/api/auth/change-password', { currentPassword: current.value, newPassword: next.value });
     submit.disabled = false;
+    current.value = '';
     next.value = '';
-    confirm.value = '';
     if (res.ok) {
       setStatus(status, 'رمز عبور تغییر کرد. نشست‌های دیگر این حساب خاتمه یافتند.', 'ok');
       return;
     }
-    if (res.data?.errors) applyErrors(res.data.errors, { 'cp-new': nextErr, 'cp-confirm': confirmErr });
+    if (res.data?.errors) applyErrors(res.data.errors, { 'cp-current': currentErr, 'cp-new': nextErr });
     setStatus(status, messageFor(res.networkError ? 'NETWORK' : res.data?.error), 'err');
   });
 
