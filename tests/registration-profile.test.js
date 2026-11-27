@@ -245,7 +245,7 @@ function setupWithoutProfiles() {
 
 test('بدون جدول پروفایل: کاربر قدیمی می‌تواند وارد شود و /api/me بدون پروفایل پاسخ 200 بدهد', { skip }, async () => {
   const { db, env } = setupWithoutProfiles();
-  db.prepare("INSERT INTO users (email, password_hash, display_name, email_verified_at) VALUES (?,?,?,datetime('now'))")
+  db.prepare("INSERT INTO users (email, password_hash, display_name, email_verified_at, membership_status) VALUES (?,?,?,datetime('now'),'approved')")
     .run('old@example.com', await hashPassword('رمز-قدیمی-۱۴۰۴'), 'کاربر قدیمی');
   const login = await call(env, '/api/auth/login', { body: { email: 'old@example.com', password: 'رمز-قدیمی-۱۴۰۴' } });
   assert.equal(login.status, 200, 'ورود کاربر قدیمی نباید به پروفایل وابسته باشد');
@@ -268,8 +268,6 @@ test('بدون جدول پروفایل: ثبت‌نام همچنان کار می
 
 test('ثبت‌نام جنسیت، سمت، عنوان آکادمی و شماره همراه را ذخیره می‌کند', { skip }, async () => {
   const { db, env } = setup();
-  db.exec(migration('0024_membership_approval.sql'));
-  db.exec(migration('0025_registration_contact_details.sql'));
   const payload = {
     email: 'newmember@example.com',
     password: 'رمز-امن-۱۴۰۵',
