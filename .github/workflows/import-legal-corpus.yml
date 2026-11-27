@@ -2,32 +2,23 @@ name: Import public Iranian legal corpus
 
 on:
   schedule:
-    # همگام‌سازی دوره‌ای پیکره عمومی؛ اسناد تازه نیز تا بررسی رسمی needs_review می‌مانند.
+    # Weekly refresh; all imported records remain needs_review until source-by-source verification.
     - cron: '17 2 * * 1'
-  push:
-    branches: [main]
-    paths:
-      - 'scripts/import_ekhtebar_corpus.py'
-      - 'scripts/legal_document_sources.json'
-      - 'scripts/legal_priority_documents.json'
-      - '.github/workflows/import-legal-corpus.yml'
-      - 'worker/migrations/0016_legal_reference_bank.sql'
-      - 'worker/migrations/0017_legal_article_status_and_relations.sql'
-      - 'worker/src/legal-bank.js'
   workflow_dispatch:
     inputs:
       confirm:
-        description: Type IMPORT_TO_D1 to import selected public corpus documents as needs_review
+        description: Type IMPORT_TO_D1 to import public corpus documents as needs_review
         required: true
         type: string
       phase:
-        description: laws first; regulations only after the laws phase
+        description: Select the legal document family to import
         required: true
-        default: laws
+        default: all
         type: choice
         options:
           - laws
           - regulations
+          - all
 
 permissions:
   contents: read
@@ -38,7 +29,7 @@ concurrency:
 
 jobs:
   import:
-    if: github.event_name == 'push' || inputs.confirm == 'IMPORT_TO_D1'
+    if: github.event_name == 'schedule' || inputs.confirm == 'IMPORT_TO_D1'
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
@@ -67,8 +58,6 @@ jobs:
           import os
           import sys
 
-          # Cloudflare API tokens are opaque strings and cannot contain whitespace.
-          # Remove whitespace introduced by line wrapping or copy/paste formatting.
           token = "".join(os.environ["CLOUDFLARE_API_TOKEN"].split())
           if not token:
               sys.exit("Cloudflare API token is empty after whitespace normalization")
@@ -76,7 +65,6 @@ jobs:
           PY
           )"
 
-          # Mask the normalized form too, then expose it only to subsequent steps.
           echo "::add-mask::$clean_token"
           printf 'CLOUDFLARE_API_TOKEN=%s\n' "$clean_token" >> "$GITHUB_ENV"
 
@@ -99,19 +87,14 @@ jobs:
           messages = "; ".join(str(item.get("message", "Unknown Cloudflare API error")) for item in errors)
           sys.exit("Cloudflare API token verification failed" + (": " + messages if messages else ""))
           '
-      - name: Apply remote D1 migrations
+      - name: Apply pending D1 migrations
         working-directory: worker
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: wrangler d1 migrations apply wefagh-db --remote --config wrangler.toml
-      - name: Deploy Worker
-        working-directory: worker
-        env:
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: wrangler deploy --config wrangler.toml
       - name: Import corpus into D1
         env:
-          LEGAL_IMPORT_PHASE: ${{ inputs.phase || 'laws' }}
+          LEGAL_IMPORT_PHASE: ${{ inputs.phase || 'all' }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           GITHUB_TOKEN: ${{ github.token }}
         run: python scripts/import_ekhtebar_corpus.py
