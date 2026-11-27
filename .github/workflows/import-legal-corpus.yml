@@ -1,47 +1,44 @@
 name: Import public Iranian legal corpus
 
 on:
+  schedule:
+    # همگام‌سازی دوره‌ای پیکره عمومی؛ اسناد تازه نیز تا بررسی رسمی needs_review می‌مانند.
+    - cron: '17 2 * * 1'
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - 'scripts/import_ekhtebar_corpus.py'
-      - 'scripts/import_iran_graphrag_corpus.py'
       - 'scripts/legal_document_sources.json'
       - 'scripts/legal_priority_documents.json'
-      - 'worker/migrations/**'
       - '.github/workflows/import-legal-corpus.yml'
-  schedule:
-    # Daily source refresh and change detection; changed existing documents are queued for review.
-    - cron: '17 2 * * *'
+      - 'worker/migrations/0016_legal_reference_bank.sql'
+      - 'worker/migrations/0017_legal_article_status_and_relations.sql'
+      - 'worker/src/legal-bank.js'
   workflow_dispatch:
     inputs:
       confirm:
-        description: Type IMPORT_TO_D1 to import public corpus documents as needs_review
+        description: Type IMPORT_TO_D1 to import selected public corpus documents as needs_review
         required: true
         type: string
       phase:
-        description: Select the legal document family to import
+        description: laws first; regulations only after the laws phase
         required: true
-        default: all
+        default: laws
         type: choice
         options:
           - laws
           - regulations
-          - judicial
-          - parliamentary
-          - all
 
 permissions:
   contents: read
 
 concurrency:
-  group: cloudflare-worker-production
+  group: legal-bank-bulk-import
   cancel-in-progress: false
 
 jobs:
   import:
-    if: github.event_name == 'schedule' || github.event_name == 'push' || inputs.confirm == 'IMPORT_TO_D1'
+    if: github.event_name == 'push' || inputs.confirm == 'IMPORT_TO_D1'
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
@@ -55,7 +52,7 @@ jobs:
       - name: Install dependencies
         run: |
           npm install --global wrangler
-          python -m pip install --upgrade pip requests pyarrow
+          python -m pip install --upgrade pip requests
       - name: Normalize and verify Cloudflare credentials
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -70,6 +67,8 @@ jobs:
           import os
           import sys
 
+          # Cloudflare API tokens are opaque strings and cannot contain whitespace.
+          # Remove whitespace introduced by line wrapping or copy/paste formatting.
           token = "".join(os.environ["CLOUDFLARE_API_TOKEN"].split())
           if not token:
               sys.exit("Cloudflare API token is empty after whitespace normalization")
@@ -77,6 +76,7 @@ jobs:
           PY
           )"
 
+          # Mask the normalized form too, then expose it only to subsequent steps.
           echo "::add-mask::$clean_token"
           printf 'CLOUDFLARE_API_TOKEN=%s\n' "$clean_token" >> "$GITHUB_ENV"
 
@@ -99,30 +99,22 @@ jobs:
           messages = "; ".join(str(item.get("message", "Unknown Cloudflare API error")) for item in errors)
           sys.exit("Cloudflare API token verification failed" + (": " + messages if messages else ""))
           '
-      - name: Apply pending D1 migrations
+      - name: Apply remote D1 migrations
         working-directory: worker
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: wrangler d1 migrations apply wefagh-db --remote --config wrangler.toml
+      - name: Deploy Worker
+        working-directory: worker
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: wrangler deploy --config wrangler.toml
       - name: Import corpus into D1
         env:
-          LEGAL_IMPORT_PHASE: ${{ inputs.phase || 'all' }}
+          LEGAL_IMPORT_PHASE: ${{ inputs.phase || 'laws' }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           GITHUB_TOKEN: ${{ github.token }}
         run: python scripts/import_ekhtebar_corpus.py
-      - name: Import DOTIC-derived national legal corpus
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: python scripts/import_iran_graphrag_corpus.py
-      - name: Upload DOTIC snapshot report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: iran-laws-graphrag-import-report
-          path: artifacts/dotic-snapshot-report.json
-          if-no-files-found: ignore
-          retention-days: 30
       - name: Upload import report
         if: always()
         uses: actions/upload-artifact@v4

@@ -3,7 +3,6 @@
 import { getPublishedCase, SLUG_RE } from '../moot/caseStore.js';
 import { findVerifiedLegalArticles, findVerifiedJudicialAuthorities } from '../legal-bank.js';
 import { searchLegalAuthorities } from './legal-search.js';
-import { searchDadrasLegal } from './dadras-mcp.js';
 import { json, readJsonBody } from '../http.js';
 import { currentUser } from '../auth/routes.js';
 import { registrationRequired } from '../access.js';
@@ -48,7 +47,7 @@ function safeEvidenceUrl(value) {
 }
 
 /** منابع بازیابی‌شده را با تفکیک منبع داخلیِ تأییدشده و سرنخ جست‌وجو به رابط کاربر می‌دهد. */
-export function buildEvidenceSources({ legalArticles = [], judicialAuthorities = [], webSources = [], secondarySources = [] } = {}) {
+export function buildEvidenceSources({ legalArticles = [], judicialAuthorities = [], webSources = [] } = {}) {
   const output = [];
   const seen = new Set();
   const add = (source) => {
@@ -87,17 +86,6 @@ export function buildEvidenceSources({ legalArticles = [], judicialAuthorities =
       domain: authority.issuingAuthority || authority.sourceName,
       status: 'سند و متن آن در بانک حقوقی با وضعیت تأییدشده بازیابی شد',
       excerpt: authority.body,
-    });
-  }
-
-  for (const source of (Array.isArray(secondarySources) ? secondarySources : []).slice(0, 4)) {
-    add({
-      type: 'منبع حقوقی تکمیلی',
-      title: source.title || 'نتیجه جست‌وجوی تکمیلی',
-      url: source.url,
-      domain: source.domain || 'dadrasai.com',
-      status: source.status || 'منبع ثانویه؛ برای تطبیق با متن رسمی',
-      excerpt: source.excerpt,
     });
   }
 
@@ -142,30 +130,18 @@ function fail(code, status, extra = {}) {
   return json({ ok: false, error: code, ...extra }, status);
 }
 
-function aiRequestId(request) {
-  const supplied = request.headers.get('x-client-request-id') || '';
-  if (/^[a-zA-Z0-9-]{8,80}$/.test(supplied)) return supplied;
-  try { if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID(); } catch {}
-  return `server-${Date.now().toString(36)}`;
-}
-
-function withAiRequestId(response, requestId) {
-  if (!response) return response;
-  const headers = new Headers(response.headers);
-  headers.set('X-Request-ID', requestId);
-  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
-}
-
-function aiFailure(err, stage = 'unknown', requestId = '') {
-  // فقط شناسه پیگیری، مرحله، نوع و کد خطا ثبت می‌شود؛ متن پرونده، prompt، فایل و کلیدها هرگز لاگ نمی‌شوند.
+function aiFailure(err, stage = 'unknown') {
+  // فقط کد و نوع خطا ثبت می‌شود؛ متن پرونده، prompt، فایل و جزئیات کلید هرگز لاگ نمی‌شوند.
   if (err instanceof AiError) {
-    console.error(JSON.stringify({ where: 'ai', ...(requestId ? { requestId } : {}), stage, error: err.name, code: err.code, status: err.status }));
-    return fail(err.code, err.status, { ...(err.details || {}), ...(requestId ? { requestId } : {}) });
+    console.error(JSON.stringify({ where: 'ai', stage, error: err.name, code: err.code, status: err.status }));
+    return fail(err.code, err.status, err.details || {});
   }
+  // خطای ناشناخته قبلاً به AI_UNAVAILABLE تبدیل می‌شد و نوع واقعی خطا از دید کاربر و لاگ پنهان می‌ماند.
+  // فقط نام/کد شمارشی خطا ثبت و ارسال می‌شود؛ پیام خام ممکن است حاوی دادهٔ کاربر یا جزئیات حساس باشد.
   const errorType = typeof err?.name === 'string' && /^[A-Za-z][A-Za-z0-9]{0,39}$/.test(err.name) ? err.name : 'Error';
   const errorCode = typeof err?.code === 'string' && /^[A-Z][A-Z0-9_]{1,39}$/.test(err.code) ? err.code : undefined;
-  console.error(JSON.stringify({ where: 'ai', ...(requestId ? { requestId } : {}), stage, error: errorType, ...(errorCode ? { errorCode } : {}) }));
-  return fail('AI_UNAVAILABLE', 503, { stage, errorType, ...(errorCode ? { errorCode } : {}), ...(requestId ? { requestId } : {}) });
+  console.error(JSON.stringify({ where: 'ai', stage, error: errorType, ...(errorCode ? { errorCode } : {}) }));
+  return fail('AI_UNAVAILABLE', 503, { stage, errorType, ...(errorCode ? { errorCode } : {}) });
 }
 
 function cleanText(value, max) {
@@ -662,7 +638,7 @@ const DEFAULT_ATTACHMENT_MESSAGE = 'پیوست‌ها را بر اساس نوع 
 async function readAssistantInput(request) {
   const type = (request.headers.get('content-type') || '').toLowerCase();
   if (!type.includes('multipart/form-data')) {
-    const parsed = await readBody(request, 128 * 1024);
+    const parsed = await readBody(request, 32 * 1024);
     return parsed.error ? { error: parsed.error } : { body: parsed.body || {}, files: [] };
   }
   const declared = Number(request.headers.get('content-length') || 0);
@@ -693,7 +669,6 @@ async function readAssistantInput(request) {
 }
 
 async function assistant(request, env) {
-  const requestId = aiRequestId(request);
   const auth = await authorized(request, env);
   if (auth.error) return auth.error;
   if (request.method !== 'POST') return fail('METHOD_NOT_ALLOWED', 405);
@@ -757,31 +732,6 @@ async function assistant(request, env) {
       ...(VEHICLE_DEFECT_TOPIC.test(legalSearchText) ? VEHICLE_DEFECT_ARTICLES : []),
       ...executionTransferArticles,
     ];
-    let dadrasResearch = { status: 'not_run', sources: [] };
-    const legalModes = ['consult', 'litigation', 'draft', 'analyze', 'research'];
-    if (env?.AI_BILLING_MODE === 'zero' && legalModes.includes(mode)
-      && curatedArticles.length + legalArticles.length < 4) {
-      stage = 'dadras_legal_search';
-      dadrasResearch = await searchDadrasLegal(legalSearchText, { limit: 5, timeoutMs: 4500 });
-      if (dadrasResearch.sources.length) {
-        // Dadras فقط سرنخ ثانویه است؛ متن تأییدشده را دوباره و فقط از D1 داخلی بازیابی می‌کنیم.
-        const discoveryTitles = dadrasResearch.sources.map((source) => source.title).join(' ');
-        try {
-          const supplemental = await findVerifiedLegalArticles(env.DB, legalSearchText + ' ' + discoveryTitles);
-          const seen = new Set(legalArticles.map((article) => String(article.lawTitle) + '::' + String(article.articleNumber)));
-          for (const article of supplemental) {
-            const key = String(article.lawTitle) + '::' + String(article.articleNumber);
-            if (!seen.has(key)) {
-              seen.add(key);
-              legalArticles.push(article);
-            }
-          }
-        } catch (err) {
-          legalBankUnavailable = true;
-          console.error(JSON.stringify({ where: 'ai', stage: 'dadras_local_recheck', error: err?.name || 'Error' }));
-        }
-      }
-    }
     // مواد صریح و مرتبطِ ازپیش‌تطبیق‌شده باید در ابتدای زمینه باشند تا در سقف ورودی بازبین حذف نشوند.
     const promptArticles = [...curatedArticles, ...legalArticles];
     const statuteContext = promptArticles.length ? promptArticles.map((a) => `قانون: ${a.lawTitle}\nماده ${a.articleNumber}${a.heading ? ` ـ ${a.heading}` : ''}\n${a.body}\nمنبع ثبت‌شده: ${a.sourceName || 'ثبت نشده'}${a.sourceUrl ? ` (${a.sourceUrl})` : ''}`).join('\n\n---\n\n') : '';
@@ -832,20 +782,12 @@ async function assistant(request, env) {
       }
     } else if (['consult', 'litigation', 'draft', 'analyze', 'research'].includes(mode)) {
       webResearch = { status: 'disabled_zero_cost_mode', sources: [], routesTried: [] };
-      webResearchContext = 'جست‌وجوی Google Search وابسته به Gemini در حالت صفرهزینه اجرا نشد. بانک داخلی قوانین و آرای تأییدشده مبنای استناد است؛ نبود نتیجه در بانک به‌معنای نبودن مستند قانونی نیست.';
+      webResearchContext = 'برای جلوگیری از فراخوانی سرویس جست‌وجوی مبتنی بر Gemini، جست‌وجوی برخط در حالت صفرهزینه اجرا نشد. بانک داخلی قوانین و آرای تأییدشده همچنان مبنای بازیابی است؛ نبود نتیجه در بانک به‌معنای نبودن مستند قانونی نیست.';
     }
     stage = 'primary_model_generation';
     const generationMode = mode;
     const generated = await generateTextWithFallback(env, {
-      system: [
-        assistantSystemPrompt({ mode: generationMode, docType, hasAttachments: attachments.length > 0, legalContext }),
-        webResearchContext,
-        dadrasResearch.sources.length ? [
-          'سرنخ‌های جست‌وجو از کتابخانه تکمیلی دادرس (منبع ثانویه و غیررسمی):',
-          JSON.stringify(dadrasResearch.sources.map((source) => ({ title: source.title, url: source.url }))),
-          'این سرنخ‌ها فقط برای کشف عنوان سند هستند؛ متن آن‌ها را رسمی یا تأییدشده تلقی نکن و هیچ حکم یا ماده‌ای را صرفاً بر پایه آن‌ها مستند نکن. فقط رکوردهای verified بازیابی‌شده از بانک داخلی مبنای استناد قطعی‌اند.',
-        ].join('\n') : '',
-      ].filter(Boolean).join('\n\n'),
+      system: [assistantSystemPrompt({ mode: generationMode, docType, hasAttachments: attachments.length > 0, legalContext }), webResearchContext].filter(Boolean).join('\n\n'),
       contents,
       // توکن‌های «تفکر» مدل هم از این سقف کم می‌شوند؛ سقف پایین باعث قطع شدن پیش‌نویس‌های فارسی می‌شد.
       maxOutputTokens: generationMode === 'consult' ? 5500 : 6000,
@@ -865,14 +807,8 @@ async function assistant(request, env) {
       for (const key of allowedDraftFields) if (typeof data.knownFields[key] === 'string') knownFields[key] = data.knownFields[key].trim().slice(0, 1200);
     }
     const notes = Array.isArray(data.notes) ? data.notes.filter((n) => typeof n === 'string').slice(0, 10) : [];
-    if (env.AI_BILLING_MODE === 'zero') {
-      if (provider === 'gemini') notes.push('پاسخ با Gemini 3.5 Flash-Lite در مسیر رایگان تهیه شد.');
-      if (provider === 'groq') notes.push('Gemini در دسترس نبود؛ پاسخ با مدل رایگان Groq تهیه شد.');
-      if (provider === 'cloudflare') notes.push('Gemini و Groq در دسترس نبودند؛ پاسخ با مسیر رایگان Cloudflare تهیه شد.');
-    } else {
-      if (provider === 'groq') notes.push('به‌دلیل در دسترس نبودن مدل اصلی و مسیر جایگزین نخست، پاسخ با مسیر پشتیبان تولید شد.');
-      if (provider === 'gemini' && attachments.length === 0) notes.push('مدل اصلی GPT در دسترس نبود یا کلید آن روی سرور فعال نشده بود؛ پاسخ با مدل جایگزین تهیه شد.');
-    }
+    if (provider === 'groq') notes.push('به‌دلیل در دسترس نبودن مدل اصلی و مسیر جایگزین نخست، پاسخ با مسیر پشتیبان تولید شد.');
+    if (provider === 'gemini' && attachments.length === 0) notes.push('مدل اصلی GPT در دسترس نبود یا کلید آن روی سرور فعال نشده بود؛ پاسخ با مدل جایگزین تهیه شد.');
     if (legalBankUnavailable) notes.push('بانک قوانین در این درخواست پاسخ نداد؛ پاسخ بدون استناد به مواد ثبت‌شده در بانک تهیه شد و استنادها باید جداگانه بررسی شوند.');
     const rawText = typeof data.text === 'string' ? data.text : '';
     const guardedText = guardUnverifiedLegalClaims(rawText, promptArticles, legalContext);
@@ -974,11 +910,11 @@ async function assistant(request, env) {
       ...(reviewReport ? { reviewReport } : {}),
       reviewFollowups: reviewFollowups,
       reviewStatus,
-      sources: buildEvidenceSources({ legalArticles, judicialAuthorities, webSources: webResearch?.sources || [], secondarySources: dadrasResearch?.sources || [] }),
+      sources: buildEvidenceSources({ legalArticles, judicialAuthorities, webSources: webResearch?.sources || [] }),
       attachments: summarizeAttachments(attachments),
     });
   } catch (err) {
-    return aiFailure(err, stage, requestId);
+    return aiFailure(err, stage);
   }
 }
 
@@ -1050,30 +986,12 @@ async function ekhtebarAnswer(request, env) {
 
 /** مسیرهای /api/ai/*. اگر مسیر شناخته نشود null برمی‌گرداند. */
 export async function handleAi(request, env, path) {
-  // شناسه درخواست برای تطبیق گزارش مرورگر با گزارش امن Worker؛ هیچ محتوای پرونده‌ای ثبت نمی‌شود.
-  const requestId = aiRequestId(request);
-  const startedAt = Date.now();
-  const isAssistantRequest = path === '/api/ai/assistant';
-  const attemptValue = request.headers.get('x-client-request-attempt') || '';
-  const attempt = /^[1-3]$/.test(attemptValue) ? Number(attemptValue) : 1;
-  if (isAssistantRequest) {
-    console.info(JSON.stringify({ where: 'ai_transport', event: 'received', requestId, attempt, method: request.method }));
-  }
+  // هر استثنای پیش‌بینی‌نشده (مثلاً خطای D1 هنگام احراز هویت) باید پاسخ JSON با کد مرحله بدهد،
+  // نه صفحهٔ خطای HTML کلودفلر که مرورگر آن را به‌اشتباه «سرویس در دسترس نیست» نشان می‌دهد.
   try {
-    const response = withAiRequestId(await routeAi(request, env, path), requestId);
-    if (isAssistantRequest) {
-      console.info(JSON.stringify({
-        where: 'ai_transport', event: 'completed', requestId, attempt,
-        status: response?.status || 0, elapsedMs: Date.now() - startedAt,
-      }));
-    }
-    return response;
+    return await routeAi(request, env, path);
   } catch (err) {
-    if (isAssistantRequest) {
-      const errorType = typeof err?.name === 'string' && /^[A-Za-z][A-Za-z0-9]{0,39}$/.test(err.name) ? err.name : 'Error';
-      console.error(JSON.stringify({ where: 'ai_transport', event: 'thrown', requestId, attempt, error: errorType, elapsedMs: Date.now() - startedAt }));
-    }
-    return withAiRequestId(aiFailure(err, 'router', requestId), requestId);
+    return aiFailure(err, 'router');
   }
 }
 

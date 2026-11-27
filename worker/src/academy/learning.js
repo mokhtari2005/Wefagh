@@ -1,6 +1,4 @@
 // محتوای کارگاه‌های تعاملی؛ کلید پاسخ فقط در Worker می‌ماند و به مرورگر ارسال نمی‌شود.
-import { WORKSHOP_ACTIVITIES } from './workshop-courses.js';
-import { getPracticalGuide } from './practical-assessment.js';
 const COURSE_ACTIVITIES = {
   'advocacy-writing': [
     ['ساختار حرفه‌ای لایحه کدام است؟', ['نقل کامل پرونده', 'معرفی پرونده، وقایع، مسئله، استدلال و خواسته نهایی', 'فهرست مواد قانونی بدون تحلیل', 'شرح شخصی و احساسی اختلاف'], 1, 'ساختار روشن به قاضی کمک می‌کند مسئله و نتیجه درخواستی را سریع و دقیق دنبال کند.', 'برای یک اختلاف قراردادی فرضی، طرح کلی لایحه را با پنج بخش اصلی و تیترهای کوتاه بنویسید.'],
@@ -66,7 +64,7 @@ const COURSE_ACTIVITIES = {
 
 export function lessonLearning(courseId, lessonId) {
   const match = /^l([1-5])$/.exec(lessonId || '');
-  const item = match && (COURSE_ACTIVITIES[courseId] || WORKSHOP_ACTIVITIES[courseId])?.[Number(match[1]) - 1];
+  const item = match && COURSE_ACTIVITIES[courseId]?.[Number(match[1]) - 1];
   if (!item && /^specialty-\d{3}$/.test(courseId || '') && match) {
     const lessonNo = Number(match[1]);
     const prompts = [
@@ -101,11 +99,9 @@ export function lessonLearning(courseId, lessonId) {
     return generated;
   }
   if (!item) return null;
-  const practicalGuide = getPracticalGuide(courseId, lessonId);
   return {
-    assignment: item[4] + ' پاسخ را مستند، مرحله‌به‌مرحله و با ذکر موارد نیازمند بررسی تنظیم کنید.',
-    rubric: practicalGuide?.rubric || ['تشخیص دقیق مسئله و خواسته', 'استفاده از وقایع و ادله مرتبط', 'استدلال منظم و قابل پیگیری', 'بیان روشن و رعایت حدود قانونی'],
-    practicalGuide,
+    assignment: item[4],
+    rubric: ['تشخیص دقیق مسئله و خواسته', 'استفاده از وقایع و ادله مرتبط', 'استدلال منظم و قابل پیگیری', 'بیان روشن و رعایت حدود قانونی'],
     quiz: { question: item[0], options: item[1], correctIndex: item[2], explanation: item[3] }
   };
 }

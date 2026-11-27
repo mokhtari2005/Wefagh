@@ -24,42 +24,6 @@ function metric(title, value, hint) {
   ]);
 }
 
-function learningProfile(data) {
-  const lessons=Number(data.completedLessonCount)||0;
-  const total=Number(data.totalEnrolledLessons)||0;
-  const percent=total?Math.round(lessons/total*100):0;
-  const courses=Number(data.enrolledCourseCount)||0;
-  const workshops=Number(data.workshopEnrollmentCount)||0;
-  const completedWorkshops=Number(data.completedWorkshopCount)||0;
-  const sessions=Number(data.mootSessionCount)||0;
-  const average=data.averageScore===null||data.averageScore===undefined?'ثبت نشده':String(data.averageScore)+' از ۱۰۰';
-  const grid=el('div',{class:'dashboard-list'},[
-    el('article',{class:'dashboard-row'},[
-      el('strong',{text:'دانش و مبانی حقوقی'}),
-      el('p',{class:'muted',text:lessons+' درس تکمیل‌شده از '+total+' درس ثبت‌نام‌شده · '+percent+'٪ پیشرفت آموزشی'})
-    ]),
-    el('article',{class:'dashboard-row'},[
-      el('strong',{text:'تمرین دادرسی و دفاع'}),
-      el('p',{class:'muted',text:sessions+' جلسه تمرینی ثبت‌شده · میانگین امتیاز: '+average})
-    ]),
-    el('article',{class:'dashboard-row'},[
-      el('strong',{text:'کارگاه‌های مهارت‌محور'}),
-      el('p',{class:'muted',text:workshops+' کارگاه ثبت‌نام‌شده · '+completedWorkshops+' کارگاه تکمیل‌شده'})
-    ]),
-    el('article',{class:'dashboard-row'},[
-      el('strong',{text:'تداوم یادگیری'}),
-      el('p',{class:'muted',text:courses+' مسیر آموزشی ثبت‌نام‌شده · سوابق بر اساس فعالیت واقعی حساب محاسبه می‌شود.'})
-    ])
-  ]);
-  const box=el('section',{class:'dashboard-section dashboard-learning-profile'},[
-    el('h2',{text:'پرونده مهارت‌آموزی من'}),
-    el('p',{class:'muted',text:'این نما فقط شواهد ثبت‌شده در سامانه را نشان می‌دهد و نمره صلاحیت حرفه‌ای یا گواهی رسمی محسوب نمی‌شود.'}),
-    grid,
-    el('p',{},[el('a',{href:'#/academy/workshops',text:'انتخاب کارگاه و ادامه مسیر رشد حرفه‌ای ←'})])
-  ]);
-  return box;
-}
-
 function section(title, content, link) {
   const box = el('section', { class: 'dashboard-section' }, [el('h2', { text: title }), content]);
   if (link) box.append(el('p', {}, [el('a', { href: link.href, text: link.text })]));
@@ -146,7 +110,7 @@ export async function dashboardPage() {
   wrap.append(el('div', { class: 'dashboard-charts-grid' }, [
     chartCard('وضعیت یادگیری','نسبت درس‌های تکمیل‌شده به کل درس‌ها',lessonDonut(data.completedLessonCount,data.totalEnrolledLessons)),
     chartCard('امتیاز تمرین‌ها','امتیاز تمرین‌های اخیر از ۱۰۰',scoreColumns(data.recentSessions))
-  ]), learningProfile(data));
+  ]));
   const courseList = el('div', { class: 'dashboard-list' });
   if (!data.courses.length) courseList.append(el('p',{class:'muted',text:'هنوز در دوره‌ای ثبت‌نام نکرده‌اید.'}));
   else data.courses.forEach(course => {
@@ -155,7 +119,7 @@ export async function dashboardPage() {
     progress.append(el('span',{style:'--course-progress:'+pct+'%'}));
     courseList.append(el('article',{class:'dashboard-row dashboard-course-row'},[
       el('div',{class:'dashboard-row-heading'},[el('strong',{text:course.title}),el('span',{class:'dashboard-course-percent',text:pct+'٪ · '+course.completedLessons+'/'+course.totalLessons+' درس'})]),
-      progress,el('p',{},[el('a',{href:'#/academy/'+encodeURIComponent(course.id),text:course.format==='workshop'?'ادامهٔ کارگاه':'ادامهٔ دوره'})])
+      progress,el('p',{},[el('a',{href:'#/academy/'+encodeURIComponent(course.id),text:'ادامهٔ دوره'})])
     ]));
   });
   wrap.append(section('پیشرفت دوره‌ها',courseList,{href:'#/academy',text:'مشاهدهٔ همهٔ دوره‌ها'}));

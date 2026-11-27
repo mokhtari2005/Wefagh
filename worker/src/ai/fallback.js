@@ -1,13 +1,8 @@
-// مسیر تولید پاسخ: در حالت صفرهزینه Gemini 3.5، سپس Groq Free و Workers AI Free؛ مسیر قدیمی پولی جدا و در این حالت غیرفعال است.
+// مسیر تولید پاسخ: GPT اصلی، Gemini جایگزین و Groq مسیر پشتیبان نهایی.
 import { generateOpenAIText, openaiConfigured } from './openai.js';
 import { generateText, aiConfigured } from './gemini.js';
 import { generateGroqText, groqConfigured } from './groq.js';
 import { generateWorkersAIText, workersAiPrimaryEnabled } from './cloudflare.js';
-
-const ZERO_COST_GEMINI_FAILOVER_CODES = new Set([
-  'AI_NETWORK_ERROR', 'AI_PROVIDER_ERROR', 'AI_PROVIDER_BAD_RESPONSE', 'AI_MODEL_UNAVAILABLE',
-  'AI_QUOTA', 'AI_NOT_CONFIGURED', 'AI_KEY_REJECTED', 'AI_EMPTY', 'AI_ZERO_COST_GEMINI_NOT_CONFIGURED',
-]);
 
 const FAILOVER_CODES = new Set([
   'AI_NETWORK_ERROR', 'AI_PROVIDER_ERROR', 'AI_PROVIDER_BAD_RESPONSE',
@@ -63,67 +58,20 @@ export async function generateTextWithFallback(env, prompt, {
   allowOpenAI = true,
   allowGroq = true,
 } = {}) {
-  // حالت صفرهزینه: زنجیرهٔ ثابت Gemini 3.5 → Groq Free → Workers AI Free.
-  // در این شاخه OpenAI و هر مدل/مسیر پولی مطلقاً فراخوانی نمی‌شوند.
+  // حالت صفرهزینه: فقط یک provider صریحاً تأییدشده مجاز است؛ خطا به provider دیگری failover نمی‌شود.
   if (env?.AI_BILLING_MODE === 'zero') {
-    const hasInlineData = (Array.isArray(prompt?.contents) ? prompt.contents : [])
-      .some((item) => Array.isArray(item?.parts) && item.parts.some((part) => part && typeof part === 'object' && 'inlineData' in part));
-    let geminiFailure = null;
-
     if (env?.GEMINI_FREE_TIER_CONFIRMED === 'true') {
-      if (aiConfigured(env) && (env?.GEMINI_TEXT_MODEL || 'gemini-3.5-flash-lite') === 'gemini-3.5-flash-lite') {
-        try {
-          const result = await generateText(env, { ...prompt, allowModelFallback: false, useGoogleSearch: false });
-          return cleanProviderResult({ ...result, provider: 'gemini' });
-        } catch (error) {
-          // خطای مسدودسازی محتوا یا رد اعتبارسنجی نباید با تعویض مدل دور زده شود.
-          if (!ZERO_COST_GEMINI_FAILOVER_CODES.has(error?.code)) throw error;
-          geminiFailure = error;
-          console.warn(JSON.stringify({ where: 'ai.zero_cost_failover', from: 'gemini', reason: error?.code || 'GEMINI_FAILED' }));
-        }
-      } else {
-        geminiFailure = Object.assign(new Error('AI_ZERO_COST_GEMINI_NOT_CONFIGURED'), {
-          code: 'AI_ZERO_COST_GEMINI_NOT_CONFIGURED', status: 503,
-        });
+      if (!aiConfigured(env) || (env?.GEMINI_TEXT_MODEL || 'gemini-3.5-flash-lite') !== 'gemini-3.5-flash-lite') {
+        throw Object.assign(new Error('AI_ZERO_COST_GEMINI_NOT_CONFIGURED'), { code: 'AI_ZERO_COST_GEMINI_NOT_CONFIGURED', status: 503 });
       }
-    } else {
-      geminiFailure = Object.assign(new Error('AI_ZERO_COST_GEMINI_DISABLED'), {
-        code: 'AI_ZERO_COST_GEMINI_DISABLED', status: 503,
-      });
+      const result = await generateText(env, { ...prompt, allowModelFallback: false, useGoogleSearch: false });
+      return cleanProviderResult({ ...result, provider: 'gemini' });
     }
-
-    let groqFailure = null;
-    if (allowGroq && !hasInlineData && env?.GROQ_FREE_TIER_CONFIRMED === 'true' && groqConfigured(env)) {
-      try {
-        const result = cleanProviderResult(await generateGroqText(env, prompt));
-        console.info(JSON.stringify({ where: 'ai.zero_cost_failover', from: 'gemini', to: 'groq', outcome: 'success', model: result?.model || 'unknown' }));
-        return { ...result, provider: 'groq', fallbackFrom: 'gemini', fallbackReason: geminiFailure?.code || 'GEMINI_UNAVAILABLE' };
-      } catch (error) {
-        groqFailure = error;
-        console.warn(JSON.stringify({ where: 'ai.zero_cost_failover', from: 'groq', reason: error?.code || 'GROQ_FAILED' }));
-      }
+    // تا زمان تأیید دستی وضعیت Free Tier گوگل، مسیر فعلی Workers AI حفظ می‌شود.
+    if (!workersAiPrimaryEnabled(env)) {
+      throw Object.assign(new Error('AI_ZERO_COST_PROVIDER_DISABLED'), { code: 'AI_ZERO_COST_PROVIDER_DISABLED', status: 503 });
     }
-
-    // Workers AI فقط آخرین مسیر رایگان است؛ محتوای باینری هرگز بی‌اجازه به سرویس دیگری منتقل نمی‌شود.
-    if (!hasInlineData && workersAiPrimaryEnabled(env)) {
-      try {
-        const result = cleanProviderResult(await generateWorkersAIText(env, prompt));
-        return {
-          ...result,
-          provider: 'cloudflare',
-          fallbackFrom: groqFailure ? 'groq' : 'gemini',
-          fallbackReason: groqFailure?.code || geminiFailure?.code || 'FREE_PROVIDER_UNAVAILABLE',
-        };
-      } catch (error) {
-        console.error(JSON.stringify({ where: 'ai.zero_cost_failover', from: 'cloudflare_workers_ai', reason: error?.code || 'WORKERS_AI_FAILED' }));
-        // اگر همهٔ مسیرها شکست خوردند، آخرین خطای واقعی را برمی‌گردانیم تا کد سهمیه/اختلال گم نشود.
-        throw error;
-      }
-    }
-
-    if (groqFailure) throw groqFailure;
-    if (env?.GEMINI_FREE_TIER_CONFIRMED === 'true' && geminiFailure) throw geminiFailure;
-    throw Object.assign(new Error('AI_ZERO_COST_PROVIDER_DISABLED'), { code: 'AI_ZERO_COST_PROVIDER_DISABLED', status: 503 });
+    return cleanProviderResult(await generateWorkersAIText(env, prompt));
   }
 
   let openaiFailure = null;

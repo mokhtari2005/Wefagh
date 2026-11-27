@@ -74,12 +74,6 @@ jobs:
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:8080
         run: npx playwright test e2e/home-academy.spec.js
 
-      - name: Verify academy case studies on desktop and mobile
-        env:
-          CI: true
-          PLAYWRIGHT_BASE_URL: http://127.0.0.1:8080
-        run: npx playwright test e2e/academy-case-studies.spec.js
-
       - name: Run consultation interaction tests against this branch
         env:
           CI: true

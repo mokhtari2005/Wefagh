@@ -8,9 +8,8 @@ import { sendMail } from '../email/resend.js';
 import { notifyMembershipAdmins } from '../push/membership.js';
 
 /** گزارش فنی بدون داده‌های کاربر: فقط نام خطا و محل آن (هرگز ایمیل، رمز یا پروفایل). */
-export function logError(where, err, requestId = '') {
+export function logError(where, err) {
   const entry = { where, error: err?.name || 'Error', detail: String(err?.message || '').slice(0, 200) };
-  if (typeof requestId === 'string' && /^[A-Za-z0-9_-]{8,80}$/.test(requestId)) entry.requestId = requestId;
   if (Number.isInteger(err?.status)) entry.status = err.status;
   if (typeof err?.reason === 'string' && /^[A-Za-z_]{1,40}$/.test(err.reason)) entry.reason = err.reason;
   if (Array.isArray(err?.missing)) {
@@ -22,20 +21,6 @@ export function logError(where, err, requestId = '') {
 /** رویداد عملیاتی بدون ایمیل یا توکن؛ فقط دلیل بازگشت ارسال مجدد. */
 function logOutcome(where, outcome) {
   console.info(JSON.stringify({ where, outcome }));
-}
-
-function isConfiguredAdmin(env, email) {
-  return Boolean(env.ADMIN_EMAIL && normalizeEmail(env.ADMIN_EMAIL) === normalizeEmail(email));
-}
-
-/** حساب مدیر اصلی ممکن است پیش از تنظیم ADMIN_EMAIL ساخته شده باشد؛ نقش فقط پس از احراز رمز و ایمیل اعطا می‌شود. */
-async function ensureConfiguredAdminRole(db, userId, email, env) {
-  if (!isConfiguredAdmin(env, email)) return false;
-  const existing = await db.prepare("SELECT 1 AS allowed FROM user_roles WHERE user_id=?1 AND role='super_admin'").bind(userId).first();
-  if (!existing) {
-    await db.prepare("INSERT OR IGNORE INTO user_roles (user_id, role) VALUES (?1, 'super_admin')").bind(userId).run();
-  }
-  return true;
 }
 
 async function membershipApproved(db, userId) {
@@ -52,8 +37,6 @@ export const LOCK_THRESHOLD = 5;
 export const LOCK_MINUTES = 15;
 const GENERIC_REGISTER_MSG = 'اگر این نشانی معتبر باشد، ایمیل تأیید برای شما ارسال شد.';
 const RESEND_MSG = 'اگر این حساب در انتظار تأیید باشد، ایمیل تأیید دوباره ارسال شد.';
-const RESET_REQUEST_MSG = 'اگر حسابی با این ایمیل وجود داشته باشد، لینک بازیابی رمز ارسال می‌شود.';
-const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
 const RESEND_COOLDOWN_MS = 60 * 1000;
 
 // هش ساختگی برای یکسان‌سازی زمان پاسخ وقتی کاربر وجود ندارد.
@@ -254,7 +237,6 @@ async function issueVerificationEmail(env, userId, email) {
       'SELECT display_name, gender, position FROM users WHERE id = ?1'
     ).bind(userId).first();
     await mailer(env)({
-      from: 'Mokhtari Law Academy <edu@mokhtari.ir>',
       to: email,
       subject: 'تأیید ایمیل و تکمیل درخواست عضویت | آکادمی وکالت شهرام مختاری',
       text: buildVerificationEmailText({
@@ -364,89 +346,6 @@ export async function getProfile(env, userId) {
   };
 }
 
-
-/** درخواست بازیابی رمز؛ پاسخ عمومی برای جلوگیری از افشای وجود حساب. */
-export async function requestPasswordReset(request, env) {
-  const parsed = await readJsonBody(request);
-  if (parsed.error) return parsed.error;
-  const email = normalizeEmail(parsed.body?.email);
-  if (!email) return json({ ok: false, error: 'VALIDATION_FAILED', errors: { email: 'نشانی ایمیل معتبر نیست.' } }, 422);
-  const requestId = request.headers.get('X-Client-Request-ID') || '';
-  let user;
-  let token;
-  let failureStage = 'user_lookup';
-  try {
-    user = await env.DB.prepare("SELECT id, status, email_verified_at FROM users WHERE email=?1").bind(email).first();
-    if (!user || user.status !== 'active' || !user.email_verified_at) {
-      return json({ ok: true, message: RESET_REQUEST_MSG }, 202);
-    }
-    failureStage = 'recent_token_lookup';
-    const recent = await env.DB.prepare("SELECT created_at FROM email_tokens WHERE user_id=?1 AND purpose='reset_password' AND used_at IS NULL ORDER BY created_at DESC LIMIT 1").bind(user.id).first();
-    if (recent && Date.now() - Date.parse(recent.created_at) < RESEND_COOLDOWN_MS) {
-      return json({ ok: true, message: RESET_REQUEST_MSG }, 202);
-    }
-    const now = new Date();
-    failureStage = 'invalidate_old_tokens';
-    await env.DB.prepare("UPDATE email_tokens SET used_at=?1 WHERE user_id=?2 AND purpose='reset_password' AND used_at IS NULL")
-      .bind(now.toISOString(), user.id).run();
-    failureStage = 'generate_and_hash_token';
-    token = generateToken();
-    const tokenHash = await hashToken(token);
-    failureStage = 'insert_reset_token';
-    await env.DB.prepare("INSERT INTO email_tokens (token_hash,user_id,purpose,expires_at) VALUES (?1,?2,'reset_password',?3)")
-      .bind(tokenHash, user.id, addMs(now, RESET_TOKEN_TTL_MS)).run();
-  } catch (err) {
-    logError(`auth.request_password_reset.${failureStage}`, err, requestId);
-    return json({ ok: false, error: 'RESET_UNAVAILABLE', stage: failureStage, requestId: /^[A-Za-z0-9_-]{8,80}$/.test(requestId) ? requestId : null }, 503);
-  }
-  try {
-    await mailer(env)({
-      from: 'Mokhtari Law Academy <edu@mokhtari.ir>',
-      to: email,
-      subject: 'بازیابی رمز عبور | آکادمی وکالت شهرام مختاری',
-      text: [
-        'با سلام،',
-        '',
-        'درخواست بازیابی رمز عبور حساب شما در آکادمی وکالت شهرام مختاری ثبت شده است.',
-        'برای تعیین رمز جدید، پیوند زیر را باز کنید:',
-        `${publicBaseUrl(env)}/#/reset-password?token=${token}`,
-        '',
-        'این پیوند فقط ۳۰ دقیقه و برای یک‌بار معتبر است.',
-        'اگر شما این درخواست را ثبت نکرده‌اید، این پیام را نادیده بگیرید؛ رمز فعلی شما تغییر نمی‌کند.',
-        '',
-        'آکادمی وکالت شهرام مختاری',
-      ].join('\n'),
-    });
-  } catch (err) {
-    logError('auth.send_password_reset', err, requestId);
-    // توکن ارسال‌نشده قابل استفاده نیست و نباید کاربر را پشت پاسخ موفق کاذب نگه دارد.
-    await env.DB.prepare("UPDATE email_tokens SET used_at=?1 WHERE user_id=?2 AND purpose='reset_password' AND used_at IS NULL")
-      .bind(new Date().toISOString(), user.id).run();
-    return json({ ok: false, error: 'MAIL_SEND_FAILED', requestId: /^[A-Za-z0-9_-]{8,80}$/.test(requestId) ? requestId : null }, 503);
-  }
-  return json({ ok: true, message: RESET_REQUEST_MSG }, 202);
-}
-
-/** تعیین رمز تازه با توکن یک‌بارمصرف؛ تمام نشست‌های قبلی باطل می‌شوند. */
-export async function resetPassword(request, env) {
-  const parsed = await readJsonBody(request);
-  if (parsed.error) return parsed.error;
-  const token = typeof parsed.body?.token === 'string' ? parsed.body.token : '';
-  const password = parsed.body?.password;
-  const policy = validatePasswordPolicy(password);
-  if (!token) return json({ ok: false, error: 'INVALID_TOKEN' }, 400);
-  if (!policy.ok) return json({ ok: false, error: 'VALIDATION_FAILED', errors: { password: policy.error } }, 422);
-  const tokenHash = await hashToken(token);
-  const row = await env.DB.prepare("SELECT user_id, expires_at, used_at FROM email_tokens WHERE token_hash=?1 AND purpose='reset_password'").bind(tokenHash).first();
-  const nowIso = new Date().toISOString();
-  if (!row || row.used_at || row.expires_at <= nowIso) return json({ ok: false, error: 'INVALID_TOKEN' }, 400);
-  const passwordHash = await hashPassword(password);
-  await env.DB.prepare("UPDATE email_tokens SET used_at=?1 WHERE token_hash=?2 AND used_at IS NULL").bind(nowIso, tokenHash).run();
-  await env.DB.prepare('UPDATE users SET password_hash=?1, failed_logins=0, locked_until=NULL WHERE id=?2').bind(passwordHash, row.user_id).run();
-  await env.DB.prepare('DELETE FROM sessions WHERE user_id=?1').bind(row.user_id).run();
-  return json({ ok: true });
-}
-
 export async function verifyEmail(request, env) {
   const parsed = await readJsonBody(request);
   if (parsed.error) return parsed.error;
@@ -502,9 +401,7 @@ export async function login(request, env) {
   // پس از احراز رمز، وضعیت تأیید ایمیل مستقل از تصویب عضویت گزارش می‌شود.
   if (!user.email_verified_at) return json({ ok: false, error: 'EMAIL_NOT_VERIFIED' }, 403);
 
-  // مدیر اصلیِ تعریف‌شده در تنظیمات سرور، حتی اگر حساب قدیمی باشد یا عضویت آن pending مانده باشد، پس از احراز رمز و ایمیل مجاز است.
-  const configuredAdmin = await ensureConfiguredAdminRole(env.DB, user.id, email, env);
-  const membershipOk = configuredAdmin || await membershipApproved(env.DB, user.id);
+  const membershipOk = await membershipApproved(env.DB, user.id);
   if (!membershipOk) return json({ ok: false, error: 'INVALID_CREDENTIALS' }, 401);
 
   await env.DB
@@ -543,22 +440,14 @@ export async function currentUser(request, env) {
     .bind(await hashToken(token), nowIso)
     .first();
   if (!row) return null;
-  const configuredAdmin = isConfiguredAdmin(env, row.email);
-  if (!configuredAdmin && !(await membershipApproved(env.DB, row.id))) return null;
+  if (!(await membershipApproved(env.DB, row.id))) return null;
   let identity = {};
   try {
     identity = await env.DB.prepare('SELECT membership_no, professional_title, position FROM users WHERE id=?1').bind(row.id).first() || {};
   } catch (identityError) {
     if (!String(identityError?.message || '').includes('no such column')) throw identityError;
   }
-  let roleRows = await env.DB.prepare('SELECT role FROM user_roles WHERE user_id = ?1').bind(row.id).all();
-  let roles = (roleRows?.results || []).map((r) => r.role);
-  // ترمیم امن و خودکار حساب مدیر قدیمی؛ فقط ایمیل محرمانهٔ ADMIN_EMAIL می‌تواند این مسیر را فعال کند.
-  if (configuredAdmin && !roles.includes('super_admin')) {
-    await env.DB.prepare("INSERT OR IGNORE INTO user_roles (user_id, role) VALUES (?1, 'super_admin')").bind(row.id).run();
-    roleRows = await env.DB.prepare('SELECT role FROM user_roles WHERE user_id = ?1').bind(row.id).all();
-    roles = (roleRows?.results || []).map((r) => r.role);
-  }
+  const roleRows = await env.DB.prepare('SELECT role FROM user_roles WHERE user_id = ?1').bind(row.id).all();
   return {
     id: row.id,
     email: row.email,
@@ -566,7 +455,7 @@ export async function currentUser(request, env) {
     membershipNo: identity.membership_no || `MLA-${1999 + Number(row.id)}`,
     professionalTitle: identity.professional_title || '',
     position: identity.position || '',
-    roles,
+    roles: (roleRows?.results || []).map((r) => r.role),
   };
 }
 

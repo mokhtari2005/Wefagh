@@ -2,7 +2,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseHash } from '../site/js/route.js';
 import { messageFor, REGISTER_SENT } from '../site/js/auth-messages.js';
-import { readFileSync } from 'node:fs';
 
 test('مسیر ساده و خالی درست تجزیه می‌شود', () => {
   assert.deepEqual(parseHash(''), { path: '/', params: {} });
@@ -41,17 +40,4 @@ test('کد ناشناخته یا خالی پیام عمومی می‌گیرد و
 test('پیام ثبت‌نام عمداً وجود یا نبود حساب را فاش نمی‌کند', () => {
   assert.ok(!/تکراری|قبلاً|وجود دارد|ثبت شده است/.test(REGISTER_SENT));
   assert.match(REGISTER_SENT, /اگر این نشانی معتبر باشد/);
-});
-
-
-test('صفحه ورود لینک مستقل و قابل مشاهده بازیابی رمز را نمایش می‌دهد', () => {
-  const source = readFileSync(new URL('../site/js/app.js', import.meta.url), 'utf8');
-  assert.match(source, /class: 'account-recovery-entry'/);
-  assert.match(source, /href: '#\/account\?mode=forgot'/);
-  assert.match(source, /account\.js\?v=20261127-password-recovery-visibility-2/);
-});
-
-test('فرم تغییر رمز نیازی به رمز فعلی ندارد', () => {
-  const source = readFileSync(new URL('../site/js/account-manage.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(source, /رمز عبور فعلی|currentPassword/);
 });

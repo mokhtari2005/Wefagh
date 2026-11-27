@@ -41,21 +41,13 @@ test("legal corpus import defaults to laws and separates the regulations phase",
   const importer = readFileSync(new URL("../scripts/import_ekhtebar_corpus.py", import.meta.url), "utf8");
   const workflow = readFileSync(new URL("../.github/workflows/import-legal-corpus.yml", import.meta.url), "utf8");
   assert.ok(importer.includes('IMPORT_PHASE = os.getenv("LEGAL_IMPORT_PHASE", "laws")'));
-  assert.ok(importer.includes('"laws": {"law", "treaty", "interpretive_law"}'));
-  assert.ok(importer.includes('"regulations": {"bylaw", "executive_regulation", "executive_circular", "circular", "executive_resolution", "expediency_council_resolution", "general_policies"}'));
-  assert.ok(importer.includes('PHASE_TYPES["all"] = PHASE_TYPES["laws"] | PHASE_TYPES["regulations"] | PHASE_TYPES["judicial"] | PHASE_TYPES["parliamentary"]'));
-  assert.ok(importer.includes('"judicial": {'));
-  assert.ok(importer.includes('"judicial_session", "fatwa"'));
-  assert.ok(importer.includes('"parliamentary": {"bill", "parliamentary_review_opinion"}'));
+  assert.ok(importer.includes('"laws": {"law", "treaty"}'));
+  assert.ok(importer.includes('"regulations": {"bylaw", "executive_regulation", "executive_circular"}'));
   assert.ok(importer.includes("documents_excluded_by_phase"));
   assert.ok(importer.includes("phase_excluded_sample"));
-  assert.ok(workflow.includes("default: all"));
+  assert.ok(workflow.includes("default: laws"));
   assert.ok(workflow.includes("LEGAL_IMPORT_PHASE:"));
-  assert.ok(workflow.includes("- all"));
-  assert.ok(workflow.includes("  push:"));
-  assert.ok(workflow.includes("\'scripts/legal_priority_documents.json\'"));
-  assert.ok(workflow.includes("github.event_name == \'push\'"));
-  assert.ok(!workflow.includes("Deploy Worker"));
+  assert.ok(!workflow.includes("- all"));
 });
 
 
@@ -70,27 +62,4 @@ test('legal corpus importer classifies statute titles before embedded regulation
   assert.ok(importer.includes('"documents_inserted":inserted["laws"]'));
   assert.ok(importer.includes('"articles_inserted":inserted["articles"]'));
   assert.ok(!importer.includes('"documents_submitted":done'));
-});
-
-
-test('Ekhtbar indexes are registered only as secondary discovery sources', () => {
-  const ekhtebar = registry.sources.filter((source) => source.key.startsWith('ekhtebar-'));
-  assert.ok(ekhtebar.length >= 7, 'expected separate Ekhtbar indexes for legal document families');
-  for (const source of ekhtebar) {
-    assert.equal(source.authoritative, false, source.key + ' must not be authoritative');
-    assert.equal(source.discovery_only, true, source.key + ' must be discovery-only');
-    assert.equal(source.mode, 'manual', source.key + ' must use a supported access mode');
-  }
-});
-
-test('expanded priority inventory reports broad legal-domain coverage without claiming verification', () => {
-  const manifest = JSON.parse(readFileSync(new URL('../scripts/legal_priority_documents.json', import.meta.url), 'utf8'));
-  const keys = new Set(manifest.documents.map((item) => item.key));
-  const domains = new Set(manifest.documents.map((item) => item.domain));
-  assert.ok(manifest.documents.length >= 120);
-  assert.ok(domains.size >= 15);
-  assert.ok(keys.has('annual-budget-1405'));
-  assert.ok(keys.has('tax-speculation'));
-  assert.ok(keys.has('official-registration-transactions'));
-  assert.equal(manifest.coverage_note.includes('not an exhaustive inventory'), true);
 });

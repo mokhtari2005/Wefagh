@@ -62,44 +62,22 @@ function summaryOf(row) {
  * فهرست پرونده‌های منتشرشده. فیلترها: area، difficulty و q (جست‌وجو در عنوان، خلاصه و موضوع دعوا).
  * @returns {Promise<Array<object>>}
  */
-function caseFilter({ area = null, difficulty = null, q = null } = {}) {
-  const clauses = ["kind = 'case'", "status = 'published'"];
-  const values = [];
-  if (area) { clauses.push("json_extract(payload_json, '$.area') = ?"); values.push(area); }
-  if (difficulty) { clauses.push("json_extract(payload_json, '$.difficulty') = ?"); values.push(difficulty); }
-  if (q) {
-    clauses.push("lower(title || ' ' || summary || ' ' || coalesce(json_extract(payload_json, '$.subject'), '')) LIKE ?");
-    values.push(`%${String(q).trim().toLowerCase()}%`);
-  }
-  return { where: clauses.join(' AND '), values };
-}
-
-/** فهرست صفحه‌بندی‌شدهٔ همه پرونده‌های منتشرشده؛ سقف تعداد کل پرونده‌ها وجود ندارد. */
-export async function listPublishedCases(env, { area = null, difficulty = null, q = null, limit = 5000, offset = 0 } = {}) {
+export async function listPublishedCases(env, { area = null, difficulty = null, q = null } = {}) {
   if (!env?.DB) return [];
-  const filter = caseFilter({ area, difficulty, q });
-  const pageSize = Math.max(1, Math.min(5000, Number(limit) || 5000));
-  const startAt = Math.max(0, Number(offset) || 0);
+  let result;
   try {
-    const result = await env.DB.prepare(`SELECT slug, title, summary, payload_json FROM admin_content WHERE ${filter.where} ORDER BY title, slug LIMIT ? OFFSET ?`)
-      .bind(...filter.values, pageSize, startAt).all();
-    return (result?.results || []).map(summaryOf).filter(Boolean);
+    result = await env.DB.prepare("SELECT slug, title, summary, payload_json FROM admin_content WHERE kind = 'case' AND status = 'published' ORDER BY title LIMIT 500").all();
   } catch (error) {
     console.error('case bank unavailable', String(error?.message || error).slice(0, 120));
     return [];
   }
-}
-
-export async function countPublishedCases(env, { area = null, difficulty = null, q = null } = {}) {
-  if (!env?.DB) return 0;
-  const filter = caseFilter({ area, difficulty, q });
-  try {
-    const result = await env.DB.prepare(`SELECT COUNT(*) AS total FROM admin_content WHERE ${filter.where}`).bind(...filter.values).first();
-    return Number(result?.total || 0);
-  } catch (error) {
-    console.error('case bank count unavailable', String(error?.message || error).slice(0, 120));
-    return 0;
-  }
+  const needle = q ? String(q).trim().toLowerCase() : '';
+  return (result?.results || [])
+    .map(summaryOf)
+    .filter(Boolean)
+    .filter((c) => !area || c.area === area)
+    .filter((c) => !difficulty || c.difficulty === difficulty)
+    .filter((c) => !needle || `${c.title} ${c.summary} ${c.subject}`.toLowerCase().includes(needle));
 }
 
 /** پرونده کامل منتشرشده با شناسه؛ اگر منتشر نشده باشد null برمی‌گرداند. */

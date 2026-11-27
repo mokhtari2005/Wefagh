@@ -5,7 +5,6 @@ import { COURSES, courseSummaries, findCourse, findLesson, isPublicCourse } from
 import { lessonLearning } from './learning.js';
 import { handleAcademyExams } from './exam-routes.js';
 import { generateLessonLegalReview, gradeLessonResponse } from './legal-review.js';
-import { VERIFIED_CASE_STUDIES } from './case-studies.js';
 
 const MANAGER_ROLES = ['admin', 'super_admin', 'academy_manager'];
 const isManager = (user) => Boolean(user && Array.isArray(user.roles) && user.roles.some((r) => MANAGER_ROLES.includes(r)));
@@ -61,7 +60,7 @@ async function publishedCourses(env) {
     return [];
   }
   return (rows?.results || []).flatMap((row) => {
-    try { const payload = JSON.parse(row.payload_json); return [{ id: row.slug, title: row.title, summary: row.summary, level: payload.level, format: payload.format === 'workshop' ? 'workshop' : 'course', lessons: payload.lessons, status: 'published' }]; } catch { return []; }
+    try { const payload = JSON.parse(row.payload_json); return [{ id: row.slug, title: row.title, summary: row.summary, level: payload.level, lessons: payload.lessons, status: 'published' }]; } catch { return []; }
   });
 }
 
@@ -76,7 +75,7 @@ async function getCourse(env, id) {
     if (row) {
       try {
         const payload = JSON.parse(row.payload_json);
-        return { id: row.slug, title: row.title, summary: row.summary, level: payload.level, format: payload.format === 'workshop' ? 'workshop' : 'course', lessons: payload.lessons, status: 'published' };
+        return { id: row.slug, title: row.title, summary: row.summary, level: payload.level, lessons: payload.lessons, status: 'published' };
       } catch {
         return null;
       }
@@ -104,10 +103,6 @@ async function enrolledCourseIds(request, env) {
 }
 
 export async function handleAcademy(request, env, path) {
-  if (path === '/api/academy/case-studies') {
-    if (request.method !== 'GET') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'GET' });
-    return json({ ok: true, caseStudies: VERIFIED_CASE_STUDIES });
-  }
   if (path.startsWith('/api/academy/exams')) return handleAcademyExams(request, env, path);
   if (path === '/api/academy/courses') {
     if (request.method !== 'GET') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'GET' });
@@ -128,7 +123,7 @@ export async function handleAcademy(request, env, path) {
     return json({
       ok: true,
       course: {
-        id: course.id, title: course.title, level: course.level, summary: course.summary, format: course.format || 'course',
+        id: course.id, title: course.title, level: course.level, summary: course.summary,
         status: course.status || 'published',
         lessons: course.lessons.map((l) => {
           const learning = lessonLearning(course.id, l.id);
@@ -137,7 +132,6 @@ export async function handleAcademy(request, env, path) {
             learning: learning ? {
               assignment: learning.assignment,
               rubric: learning.rubric,
-              practicalGuide: learning.practicalGuide || null,
               quiz: { question: learning.quiz.question, options: learning.quiz.options },
             } : null,
           };

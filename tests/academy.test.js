@@ -277,8 +277,8 @@ test('ارسال تمرین بدون ثبت‌نام یا با پاسخ کوتا
 });
 
 
-test('کاتالوگ دست‌کم ۱۰۰ مسیر آموزشی دارد و همه درس‌های منتشرشده محتوای کافی دارند', () => {
-  assert.ok(COURSES.length >= 100);
+test('کاتالوگ شامل ۱۰۰ دوره است و همه درس‌ها تمرین و آزمونک دارند', () => {
+  assert.equal(COURSES.length, 100);
   const courseIds = [...COURSES.filter((course) => course.status === 'published').map((course) => course.id), 'advocacy-writing', 'civil-basics'];
   let total = 0;
   for (const courseId of courseIds) {
@@ -291,7 +291,7 @@ test('کاتالوگ دست‌کم ۱۰۰ مسیر آموزشی دارد و هم
       total++;
     }
   }
-  assert.ok(total >= 496);
+  assert.equal(total, 496);
 });
 
 test('نسخه منتشرشده پنل مدیریت بر نسخه پیش‌نویس داخلی همان دوره اولویت دارد', { skip }, async () => {

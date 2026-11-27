@@ -44,7 +44,7 @@ test('پرسش‌های پیشنهادی آغاز مشاوره حذف شده‌�
 });
 
 test('پرسش‌ها و گزینه‌های تکمیلی در جریان اصلی مشاوره نمایش داده می‌شوند', () => {
-  assert.match(source, /if \(mode === 'consult'\) return stripAssistantFooterBoilerplate\(data\.text \|\| ''\)/u);
+  assert.match(source, /if \(mode === 'consult'\) return data\.text \|\| ''/u);
   assert.match(source, /questionOptions: Array\.isArray\(res\.data\.questionOptions\)/u);
   assert.match(source, /'aria-label': 'پرسش‌های تکمیلی مشاوره'/u);
   assert.match(source, /پاسخ انتخاب‌شده:/u);
@@ -59,7 +59,7 @@ test('گزارش بازبینی مستقل پرسش‌های ساخت‌یافت
 });
 
 test('پاسخ اصلی مشاوره فقط متن تحلیل را نشان می‌دهد و گزارش مستقل جدا می‌ماند', () => {
-  assert.match(source, /if \(mode === 'consult'\) return stripAssistantFooterBoilerplate\(data\.text \|\| ''\)/u);
+  assert.match(source, /if \(mode === 'consult'\) return data\.text \|\| ''/u);
   assert.match(source, /freeQuestions\.map\(\(question\) => `- \$\{question\}`\)/u);
 });
 
@@ -70,8 +70,8 @@ test('دستور مشاوره تولید و نمایش پرسش‌های تکم�
 });
 
 test('بارگذاری دستیار نسخه تازه رابط را دریافت می‌کند و در انتظار نامحدود نمی‌ماند', () => {
-  assert.match(html, /js\/app\.js\?v=20261127-password-recovery-visibility-2/u);
-  assert.match(html, /css\/styles\.css\?v=20261127-password-recovery-visibility-2/u);
+  assert.match(html, /js\/app\.js\?v=20261126-home-hero-preload-1/u);
+  assert.match(html, /css\/styles\.css\?v=20261125-gpt-primary-ui-1/u);
   assert.match(app, /assistant\.js\?v=20261126-assistant-config-split-1/u);
   assert.match(app, /assistant-forms\.js\?v=20261126-assistant-config-split-1/u);
   assert.match(app, /timeoutMs = 20000/u);

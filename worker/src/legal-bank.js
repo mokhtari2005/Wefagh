@@ -4,9 +4,6 @@ import { currentUser } from './auth/routes.js';
 import { requireAdmin } from './admin.js';
 
 const clean = (v, max = 500) => typeof v === 'string' ? v.trim().slice(0, max) : '';
-// Keep malformed DOTIC research chunks in D1 for audit, but exclude them from the public legal corpus.
-const PUBLIC_DOCUMENT_FILTER = `NOT (l.source_name LIKE 'پیکره پژوهشی قوانین ایران%' AND (l.law_type='other' OR l.title IS NULL OR TRIM(l.title)=''))`;
-const PUBLIC_DOCUMENT_FILTER_UNALIASED = `NOT (source_name LIKE 'پیکره پژوهشی قوانین ایران%' AND (law_type='other' OR title IS NULL OR TRIM(title)=''))`;
 const STATUSES = new Set(['needs_review', 'verified', 'amended', 'repealed']);
 const TYPES = new Set([
   'law', 'regulation', 'bylaw', 'circular', 'unified_precedent', 'advisory_opinion', 'other',
@@ -14,14 +11,14 @@ const TYPES = new Set([
   'administrative_court_unified_precedent', 'administrative_court_general_board',
   'administrative_court_specialized_board', 'judicial_advisory_opinion',
   'judicial_circular', 'executive_circular', 'executive_regulation',
-  'treaty', 'guardian_council_opinion', 'parliamentary_research', 'judicial_decision', 'executive_resolution', 'general_policies', 'bill', 'parliamentary_review_opinion', 'administrative_court_decision', 'judicial_session', 'interpretive_law', 'expediency_council_resolution', 'fatwa'
+  'treaty', 'guardian_council_opinion', 'parliamentary_research', 'judicial_decision'
 ]);
 
 const JUDICIAL_TYPES = new Set([
   'unified_precedent', 'supreme_court_unified_precedent', 'supreme_court_insistence_precedent',
   'administrative_court_unified_precedent', 'administrative_court_general_board',
-  'administrative_court_specialized_board', 'administrative_court_decision', 'advisory_opinion', 'judicial_advisory_opinion',
-  'judicial_circular', 'judicial_session', 'parliamentary_review_opinion',
+  'administrative_court_specialized_board', 'advisory_opinion', 'judicial_advisory_opinion',
+  'judicial_circular',
 ]);
 
 async function readLargeJson(request, maxBytes = 4 * 1024 * 1024) {
@@ -35,96 +32,6 @@ async function readLargeJson(request, maxBytes = 4 * 1024 * 1024) {
 
 export async function handleLegalBank(request, env, path) {
   if (!env.DB) return json({ ok:false, error:'DB_NOT_CONFIGURED' },503);
-
-  // Public, read-only legal bank. Unverified document text is never exposed.
-  if (path === '/api/legal-bank/public-stats') {
-    if (request.method !== 'GET') return json({ok:false,error:'METHOD_NOT_ALLOWED'},405,{Allow:'GET'});
-    const [lawTotals,articleTotals,types,sources,latest] = await Promise.all([
-      env.DB.prepare(`SELECT COUNT(*) AS total,
-        SUM(CASE WHEN l.status='verified' THEN 1 ELSE 0 END) AS verified,
-        SUM(CASE WHEN l.status='needs_review' THEN 1 ELSE 0 END) AS needsReview,
-        SUM(CASE WHEN l.status='amended' THEN 1 ELSE 0 END) AS amended,
-        SUM(CASE WHEN l.status='repealed' THEN 1 ELSE 0 END) AS repealed,
-        MAX(l.updated_at) AS lastUpdated FROM legal_laws l WHERE ${PUBLIC_DOCUMENT_FILTER}`).all(),
-      env.DB.prepare(`SELECT COUNT(*) AS total,
-        SUM(CASE WHEN a.status='verified' THEN 1 ELSE 0 END) AS verified,
-        SUM(CASE WHEN a.status='needs_review' THEN 1 ELSE 0 END) AS needsReview,
-        SUM(CASE WHEN a.status='amended' THEN 1 ELSE 0 END) AS amended,
-        SUM(CASE WHEN a.status='repealed' THEN 1 ELSE 0 END) AS repealed FROM legal_articles a JOIN legal_laws l ON l.id=a.law_id WHERE ${PUBLIC_DOCUMENT_FILTER}`).all(),
-      env.DB.prepare(`SELECT l.law_type AS type,l.status,COUNT(*) AS count FROM legal_laws l WHERE ${PUBLIC_DOCUMENT_FILTER} GROUP BY l.law_type,l.status ORDER BY l.law_type,l.status`).all(),
-      env.DB.prepare(`SELECT source_key AS key,title,authority,base_url AS url,access_mode AS accessMode,
-        enabled,last_checked_at AS lastCheckedAt,last_success_at AS lastSuccessAt,
-        CASE WHEN last_error IS NULL THEN 'ok' ELSE 'warning' END AS syncStatus
-        FROM legal_document_sources ORDER BY title`).all(),
-      env.DB.prepare(`SELECT l.id,l.slug,l.title,l.law_type AS lawType,l.status,
-        l.document_number AS documentNumber,l.document_date AS documentDate,
-        l.approved_date AS approvedDate,l.source_name AS sourceName,
-        l.source_url AS sourceUrl,l.official_source_url AS officialSourceUrl,
-        l.updated_at AS updatedAt,COUNT(a.id) AS articleCount
-        FROM legal_laws l LEFT JOIN legal_articles a ON a.law_id=l.id
-        WHERE ${PUBLIC_DOCUMENT_FILTER}
-        GROUP BY l.id ORDER BY l.updated_at DESC,l.id DESC LIMIT 12`).all(),
-    ]);
-    return json({ok:true,
-      totals:{documents:lawTotals.results?.[0]||{},articles:articleTotals.results?.[0]||{}},
-      byType:types.results||[],sources:sources.results||[],latest:latest.results||[]});
-  }
-
-  if (path === '/api/legal-bank/public-search') {
-    if (request.method !== 'GET') return json({ok:false,error:'METHOD_NOT_ALLOWED'},405,{Allow:'GET'});
-    const url = new URL(request.url);
-    const query = clean(url.searchParams.get('q'),200);
-    const type = clean(url.searchParams.get('type'),60);
-    if (type && !TYPES.has(type)) return json({ok:false,error:'INVALID_DOCUMENT_TYPE'},422);
-    if (query.length < 2 && !type) return json({ok:true,items:[],page:1,hasMore:false});
-    const page = Math.min(1000,Math.max(1,Number.parseInt(url.searchParams.get('page')||'1',10)||1));
-    const limit = 30, offset = (page-1)*limit;
-    const conditions=[PUBLIC_DOCUMENT_FILTER],bindings=[];
-    if (type) { bindings.push(type); conditions.push(`l.law_type=?${bindings.length}`); }
-    if (query.length>=2) {
-      const terms=[...new Set(query.split(/[\s،؛,.()]+/).map(x=>x.trim()).filter(x=>x.length>=2))].slice(0,5);
-      if (terms.length) {
-        conditions.push('('+terms.map(term=>{bindings.push('%'+term+'%');return `(l.title LIKE ?${bindings.length} OR l.document_number LIKE ?${bindings.length} OR l.subject LIKE ?${bindings.length})`;}).join(' OR ')+')');
-      }
-    }
-    if (!conditions.length) return json({ok:true,items:[],page,hasMore:false});
-    bindings.push(limit+1,offset);
-    const result=await env.DB.prepare(`SELECT l.id,l.slug,l.title,l.law_type AS lawType,l.status,
-      l.document_number AS documentNumber,l.document_date AS documentDate,l.approved_date AS approvedDate,
-      l.source_name AS sourceName,l.source_url AS sourceUrl,l.official_source_url AS officialSourceUrl,
-      l.updated_at AS updatedAt,COUNT(a.id) AS articleCount,
-      SUM(CASE WHEN a.status='verified' THEN 1 ELSE 0 END) AS verifiedArticles
-      FROM legal_laws l LEFT JOIN legal_articles a ON a.law_id=l.id
-      WHERE ${conditions.join(' AND ')} GROUP BY l.id
-      ORDER BY l.updated_at DESC,l.id DESC LIMIT ?${bindings.length-1} OFFSET ?${bindings.length}`).bind(...bindings).all();
-    const rows=result.results||[];
-    return json({ok:true,items:rows.slice(0,limit),page,hasMore:rows.length>limit});
-  }
-
-  if (path === '/api/legal-bank/public-document') {
-    if (request.method !== 'GET') return json({ok:false,error:'METHOD_NOT_ALLOWED'},405,{Allow:'GET'});
-    const url = new URL(request.url);
-    const id = Number(url.searchParams.get('id'));
-    const slug = clean(url.searchParams.get('slug'),100);
-    if ((!Number.isInteger(id)||id<1)&&!slug) return json({ok:false,error:'VALIDATION_FAILED'},422);
-    const doc=await env.DB.prepare(`SELECT id,slug,title,law_type AS lawType,status,
-      issuing_authority AS issuingAuthority,document_number AS documentNumber,
-      document_date AS documentDate,subject,approved_date AS approvedDate,
-      publication_date AS publicationDate,effective_date AS effectiveDate,
-      source_name AS sourceName,source_url AS sourceUrl,
-      official_source_url AS officialSourceUrl,discovery_source_url AS discoverySourceUrl,
-      updated_at AS updatedAt FROM legal_laws WHERE ${Number.isInteger(id)&&id>0?'id=?1':'slug=?1'} AND ${PUBLIC_DOCUMENT_FILTER_UNALIASED}`)
-      .bind(Number.isInteger(id)&&id>0?id:slug).first();
-    if (!doc) return json({ok:false,error:'NOT_FOUND'},404);
-    if (doc.status!=='verified') return json({ok:true,document:doc,textAvailable:false,articles:[],message:'متن این سند هنوز برای انتشار عمومی تأیید نشده است.'});
-    const offset=Math.max(0,Number.parseInt(url.searchParams.get('offset')||'0',10)||0);
-    const limit=Math.min(20,Math.max(1,Number.parseInt(url.searchParams.get('limit')||'20',10)||20));
-    const result=await env.DB.prepare(`SELECT article_number AS number,heading,body
-      FROM legal_articles WHERE law_id=?1 AND status='verified'
-      ORDER BY id LIMIT ?2 OFFSET ?3`).bind(doc.id,limit+1,offset).all();
-    const rows=result.results||[];
-    return json({ok:true,document:doc,textAvailable:true,articles:rows.slice(0,limit).map(a=>({...a,body:String(a.body||'').slice(0,100000)})),nextOffset:rows.length>limit?offset+limit:null});
-  }
   if (path === '/api/admin/legal-bank/list') {
     const access = await requireAdmin(request, env);
     if (access.response) return access.response;
@@ -152,9 +59,7 @@ export async function handleLegalBank(request, env, path) {
       const documentDate = clean(b.documentDate,40);
       const subject = clean(b.subject,500);
       const sourceUrlInput = clean(b.sourceUrl,1200);
-      // A discovery URL (for example, Ekhtbar) is not an official source.
-      // Keep the official link empty unless the importer supplied a distinct verified-domain URL.
-      const officialSourceUrl = clean(b.officialSourceUrl,1200);
+      const officialSourceUrl = clean(b.officialSourceUrl,1200) || sourceUrlInput;
       const sourceUrl = sourceUrlInput || officialSourceUrl;
       const discoverySourceUrl = clean(b.discoverySourceUrl,1200);
       const contentSha256 = clean(b.contentSha256,64).toLowerCase();
@@ -359,7 +264,7 @@ export async function findVerifiedLegalArticles(db, query) {
     .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')
     .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
   const explicitReferences = extractExplicitLegalReferences(text).slice(0, 12);
-  const legalTypes = ['law','regulation','bylaw','circular','executive_circular','executive_regulation','executive_resolution','general_policies','treaty'];
+  const legalTypes = ['law','regulation','bylaw','circular','executive_circular','executive_regulation','treaty'];
   const typePlaceholders = legalTypes.map((_, i) => `?${i + 1}`).join(',');
   const selectSql = `SELECT l.title AS lawTitle,l.source_name AS sourceName,l.source_url AS sourceUrl,
       a.article_number AS articleNumber,a.heading,a.body

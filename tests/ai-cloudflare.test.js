@@ -139,7 +139,7 @@ test('assistant keeps interactive need_info flow in zero-cost mode without Gemin
     assert.equal(body.questionOptions[0].options.length, 2);
     assert.equal(calls.length, 1);
     assert.equal(calls[0].model, CLOUDFLARE_TEXT_MODEL);
-    assert.match(calls[0].options.messages[0].content, /جست‌وجوی Google Search وابسته به Gemini در حالت صفرهزینه اجرا نشد/);
+    assert.match(calls[0].options.messages[0].content, /جست‌وجوی برخط در حالت صفرهزینه اجرا نشد/);
     assert.equal(body.reviewStatus, 'skipped_zero_cost');
   } finally {
     globalThis.fetch = originalFetch;

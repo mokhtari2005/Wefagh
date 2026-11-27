@@ -2,7 +2,7 @@
 import { validateContact } from './validate.js';
 import { saveContactMessage } from './contact.js';
 import { json, readJsonBody } from './http.js';
-import { register, verifyEmail, resendVerification, requestPasswordReset, resetPassword, login, logout, me, logError } from './auth/routes.js';
+import { register, verifyEmail, resendVerification, login, logout, me } from './auth/routes.js';
 import { changePassword, updateProfile, updateAvatar, deleteAvatar, getAvatar } from './auth/account.js';
 import { handleAcademy } from './academy/routes.js';
 import { handleMedia } from './media/routes.js';
@@ -65,8 +65,6 @@ const AUTH_ROUTES = {
   '/api/auth/register': ['POST', register],
   '/api/auth/verify-email': ['POST', verifyEmail],
   '/api/auth/resend-verification': ['POST', resendVerification],
-  '/api/auth/request-password-reset': ['POST', requestPasswordReset],
-  '/api/auth/reset-password': ['POST', resetPassword],
   '/api/auth/login': ['POST', login],
   '/api/auth/logout': ['POST', logout],
   '/api/me': ['GET', me],
@@ -136,9 +134,8 @@ export default {
         return await handler(request, env);
       } catch (err) {
         // هر خطای پیش‌بینی‌نشده: پاسخ JSON امن و گزارش فنی بدون داده‌های کاربر.
-        const requestId = request.headers.get('X-Client-Request-ID') || '';
-        logError(`route:${path}`, err, requestId);
-        return json({ ok: false, error: 'INTERNAL_ERROR', requestId: /^[A-Za-z0-9_-]{8,80}$/.test(requestId) ? requestId : null }, 500);
+        console.error(JSON.stringify({ where: `route:${path}`, error: err?.name || 'Error' }));
+        return json({ ok: false, error: 'INTERNAL_ERROR' }, 500);
       }
     }
 
@@ -180,7 +177,7 @@ export default {
       }
     }
 
-    if (path.startsWith('/api/admin/legal-bank/') || path.startsWith('/api/legal-bank/public-') || path === '/api/legal-bank/search') {
+    if (path.startsWith('/api/admin/legal-bank/') || path === '/api/legal-bank/search') {
       const res = await handleLegalBank(request, env, path);
       if (res) return res;
     }

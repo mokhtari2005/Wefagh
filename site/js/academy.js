@@ -3,7 +3,6 @@ import { getJson, postJson } from './api.js';
 import { icon } from './icons.js';
 import { messageFor } from './auth-messages.js';
 import { ACADEMY_TOOLS } from './academy-tools.js';
-import { academyCaseBank } from './academy-case-bank.js';
 export { ACADEMY_TOOLS } from './academy-tools.js';
 
 function h(tag, attrs = {}, children = []) {
@@ -45,8 +44,8 @@ export function academyList() {
 export async function academyCoursesPage() {
   const wrap = h('div', {}, [
     h('p', {}, [h('a', { href: '#/academy', text: '← بازگشت به آکادمی' })]),
-    h('h1', { text: 'کارگاه‌ها و مسیرهای آموزشی' }),
-    h('p', { class: 'lead', text: 'هر کارگاه با مطالعه، تحلیل پرونده، تمرین کتبی و آزمونک پیش می‌رود؛ نتیجه و پیشرفت در حساب کاربر ثبت می‌شود.' }),
+    h('h1', { text: 'دوره‌های آموزشی' }),
+    h('p', { class: 'lead', text: 'هر درس با مطالعه، تحلیل پرونده، تمرین کتبی و آزمونک پیش می‌رود؛ نتیجه و پیشرفت در حساب کارآموز ثبت می‌شود.' }),
   ]);
   const grid = h('div', { class: 'cards' });
   wrap.append(grid);
@@ -61,7 +60,7 @@ export async function academyCoursesPage() {
   }
   for (const c of res.data.courses) {
     grid.append(h('a', { class: 'card', href: `#/academy/${c.id}` }, [
-      h('span', { class: 'badge', text: `${c.format === 'workshop' ? 'کارگاه آموزشی' : c.level} · ${c.lessonCount} درس` }),
+      h('span', { class: 'badge', text: `${c.level} · ${c.lessonCount} درس` }),
       c.status === 'draft' ? h('span', { class: 'badge badge-draft', text: 'پیش‌نویس ـ در دست تهیه' }) : h('span'),
       c.enrolled ? h('span', { class: 'badge badge-soft', text: 'ثبت‌نام شده‌اید' }) : h('span'),
       h('h3', { text: c.title }), h('p', { text: c.summary }),
@@ -85,12 +84,11 @@ export async function academyCourse(courseId) {
   }
   const course = res.data.course;
   wrap.append(
-    h('p', {}, [h('a', { href: course.format === 'workshop' ? '#/academy/workshops' : '#/courses', text: course.format === 'workshop' ? '← همه کارگاه‌ها' : '← همه دوره‌ها' })]),
-    h('span', { class: 'section-kicker', text: course.format === 'workshop' ? 'کارگاه آموزشی مهارت‌محور' : 'محتوای آموزشی' }),
+    h('p', {}, [h('a', { href: '#/courses', text: '← همه دوره‌ها' })]),
     h('h1', { text: course.title }),
     h('p', { class: 'muted', text: course.level }),
     h('p', { class: 'lead', text: course.summary }),
-    h('div', { class: 'notice', text: (course.format === 'workshop' ? 'روش کارگاه: ' : 'روش دوره: ') + 'درس را بخوانید، پرونده یا مسئله را تحلیل کنید، پاسخ کتبی بدهید و آزمونک را بگذرانید. قبولی در آزمونک، درس را در کارنامه شما ثبت می‌کند. پاسخ تشریحی نیز جداگانه با هوش مصنوعی و بر اساس معیارهای اعلام‌شده ارزیابی می‌شود؛ قبولی مستلزم پاسخ تستی صحیح و کسب حداقل ۶۰ از ۱۰۰ در پاسخ تشریحی است. برای حفظ محرمانگی، می‌توانید پرونده‌های منتشرشده بانک مشترک یا سناریوهای فرضی و بی‌نام را انتخاب کنید؛ اطلاعات هویتی محرمانه موکلان را وارد نکنید.' })
+    h('div', { class: 'notice', text: 'روش کار: درس را بخوانید، پرونده یا مسئله را تحلیل کنید، پاسخ کتبی بدهید و آزمونک را بگذرانید. قبولی در آزمونک، درس را در کارنامه شما ثبت می‌کند. پاسخ تشریحی نیز جداگانه با هوش مصنوعی و بر اساس معیارهای اعلام‌شده ارزیابی می‌شود؛ قبولی مستلزم پاسخ تستی صحیح و کسب حداقل ۶۰ از ۱۰۰ در پاسخ تشریحی است. برای حفظ محرمانگی، در تمرین‌ها فقط از اطلاعات فرضی یا بی‌نام‌سازی‌شده استفاده کنید و مشخصات موکل یا پرونده واقعی را وارد نکنید.' })
   );
   if (course.status === 'draft') {
     wrap.append(h('div', { class: 'notice', role: 'note' }, [h('p', { text: 'این دوره پیش‌نویس است. ثبت‌نام و دسترسی کاربران عادی به محتوا غیرفعال است.' })]));
@@ -116,11 +114,11 @@ async function renderProgress(area, course, user) {
   }
   if (!state.enrolled) {
     const status = h('p', { class: 'form-status', role: 'status' });
-    const btn = h('button', { class: 'btn', type: 'button', text: course.format === 'workshop' ? 'ثبت‌نام و شروع کارگاه' : 'ثبت‌نام و شروع دوره' });
+    const btn = h('button', { class: 'btn', type: 'button', text: 'ثبت‌نام و شروع دوره' });
     btn.addEventListener('click', async () => {
       btn.disabled = true;
       const r = await postJson('/api/academy/enroll', { courseId: course.id });
-      if (r.ok) await renderProgress(area, course, user);
+      if (r.ok) await renderProgress(area, course);
       else { btn.disabled = false; status.className = 'form-status err'; status.textContent = messageFor(r.networkError ? 'NETWORK' : r.data?.error); }
     });
     area.append(h('div', { class: 'notice' }, [h('p', { text: 'برای ذخیره تمرین‌ها و مشاهده کارنامه، ابتدا در این دوره ثبت‌نام کنید.' }), btn, status]), lessonsList(course, null));
@@ -135,7 +133,7 @@ async function renderProgress(area, course, user) {
     h('p', { class: 'muted', text: `${assessments.size} تمرین ثبت‌شده · قبولی هر آزمونک با پاسخ صحیح و ارائه تمرین کتبی ثبت می‌شود.` }),
   ]);
   area.append(summary, lessonsList(course, {
-    done, assessments, user,
+    done, assessments,
     onAssess: (lessonId, answerIndex, responseText, feedback) => submitAssessment(area, course, lessonId, answerIndex, responseText, feedback, done, assessments, summary, user),
   }));
   if (course.lessons.length && done.size === course.lessons.length) area.append(courseCertificateCard(user, course));
@@ -182,12 +180,12 @@ function courseCertificateCard(user, course) {
       ]),
       h('div', { class: 'academy-cert-header-mark', text: '⚖' }),
     ]),
-    h('p', { class: 'academy-cert-kicker', text: course.format === 'workshop' ? 'گواهینامه پایان کارگاه آموزشی' : 'گواهینامه پایان دوره آموزشی' }),
+    h('p', { class: 'academy-cert-kicker', text: 'گواهینامه پایان دوره آموزشی' }),
     h('h2', { class: 'academy-cert-title', text: 'گواهینامه' }),
     h('p', { class: 'academy-cert-title-en', text: 'CERTIFICATE OF COMPLETION' }),
     h('p', { class: 'academy-cert-copy', text: 'بدین‌وسیله گواهی می‌شود' }),
     h('strong', { class: 'academy-cert-name', text: user?.displayName || 'شرکت‌کننده' }),
-    h('p', { class: 'academy-cert-copy', text: course.format === 'workshop' ? 'کارگاه آموزشی زیر را با موفقیت به پایان رسانده است:' : 'دوره آموزشی زیر را با موفقیت به پایان رسانده است:' }),
+    h('p', { class: 'academy-cert-copy', text: 'دوره آموزشی زیر را با موفقیت به پایان رسانده است:' }),
     h('h3', { class: 'academy-cert-course', text: course.title }),
     h('div', { class: 'academy-cert-meta' }, [
       h('span', { text: 'تاریخ صدور: ' + issued }),
@@ -197,7 +195,7 @@ function courseCertificateCard(user, course) {
       h('div', { class: 'academy-cert-signature' }, [h('span', { text: '' }), h('strong', { text: 'استاد دوره' })]),
       h('div', { class: 'academy-cert-signature' }, [h('span', { text: '' }), h('strong', { text: 'شهرام مختاری' }), h('small', { text: 'مدیر آکادمی وکالت' })]),
     ]),
-    h('p', { class: 'academy-cert-footnote', text: course.format === 'workshop' ? 'این گواهینامه ناظر بر اتمام کارگاه آموزشی در آکادمی است و صلاحیت حرفه‌ای رسمی ایجاد نمی‌کند.' : 'این گواهینامه ناظر بر اتمام دوره آموزشی در آکادمی است.' }),
+    h('p', { class: 'academy-cert-footnote', text: 'این گواهینامه ناظر بر اتمام دوره آموزشی در آکادمی است.' }),
   ]);
   const actions = h('div', { class: 'academy-print-actions no-print' }, [
     h('button', { class: 'btn', type: 'button', text: 'چاپ گواهینامه / ذخیره PDF' }),
@@ -261,23 +259,11 @@ function lessonsList(course, progress) {
       h('h2', { text: `درس ${i + 1}: ${lesson.title}` }),
       h('p', { class: 'lesson-body pre-wrap', text: lesson.body }),
     ]);
-    if (course.format === 'workshop' && progress?.user) article.append(academyCaseBank(course.id, lesson.id));
     if (lesson.learning) {
       article.append(
         h('h3', { text: 'تمرین پرونده‌محور' }),
         h('p', { text: lesson.learning.assignment }),
         h('ul', { class: 'academy-rubric' }, lesson.learning.rubric.map((item) => h('li', { text: item }))),
-        ...(lesson.learning.practicalGuide ? [h('section', { class: 'academy-practical-guide' }, [
-          h('h3', { text: 'راهنمای ارزیابی مرحله ' + lesson.learning.practicalGuide.number + ' از ۵: ' + lesson.learning.practicalGuide.title }),
-          h('p', { text: lesson.learning.practicalGuide.objective }),
-          h('h4', { text: 'خروجی‌های قابل تحویل' }),
-          h('ul', {}, lesson.learning.practicalGuide.deliverables.map((item) => h('li', { text: item }))),
-          h('h4', { text: 'نقاط کنترل کیفیت' }),
-          h('ul', {}, lesson.learning.practicalGuide.checkpoints.map((item) => h('li', { text: item }))),
-          h('h4', { text: 'معیارهای ارزیابی این مرحله' }),
-          h('ul', {}, lesson.learning.practicalGuide.rubric.map((item) => h('li', { text: item }))),
-          h('p', { class: 'muted', text: 'چارچوب شایستگی‌های کل مسیر: ' + lesson.learning.practicalGuide.competencyFramework.map((item) => item.title).join(' · ') }),
-        ])] : []),
         h('h3', { text: 'آزمونک پایان درس' }),
         h('p', { text: lesson.learning.quiz.question })
       );

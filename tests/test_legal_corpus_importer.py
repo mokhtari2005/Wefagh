@@ -23,98 +23,14 @@ class LegalCorpusImporterTests(unittest.TestCase):
         self.assertEqual(importer.classify("قانون آیین‌نامه داخلی مجلس شورای اسلامی"), "law")
         self.assertEqual(importer.classify("قانون اصلاح آیین نامه داخلی مجلس"), "law")
 
-    def test_all_phase_covers_statutes_regulations_and_judicial_authorities(self):
+    def test_treaty_statutes_are_in_laws_phase(self):
         self.assertIn("treaty", importer.PHASE_TYPES["laws"])
         self.assertNotIn("bylaw", importer.PHASE_TYPES["laws"])
-        self.assertIn("bylaw", importer.PHASE_TYPES["all"])
-        self.assertIn("executive_regulation", importer.PHASE_TYPES["all"])
-        self.assertIn("executive_circular", importer.PHASE_TYPES["all"])
-        self.assertIn("judicial_advisory_opinion", importer.PHASE_TYPES["all"])
-        self.assertIn("supreme_court_unified_precedent", importer.PHASE_TYPES["all"])
-        self.assertIn("administrative_court_general_board", importer.PHASE_TYPES["all"])
-        self.assertIn("judicial_decision", importer.PHASE_TYPES["all"])
-        self.assertNotIn("judicial_advisory_opinion", importer.PHASE_TYPES["laws"])
-        self.assertIn("judicial_advisory_opinion", importer.PHASE_TYPES["judicial"])
-
-    def test_category_files_are_discovered_with_recursive_tree(self):
-        fake = type("Response", (), {"json": lambda self: {"truncated": False, "tree": [
-            {"type": "blob", "path": "data/laws/civil.md"},
-            {"type": "blob", "path": "data/cats/آرا وحدت رویه/precedent.md"},
-            {"type": "blob", "path": "data/cats/نظریه‌های مشورتی/opinion.md"},
-            {"type": "blob", "path": "README.md"},
-        ]}})()
-        with patch.object(importer, "get", return_value=fake):
-            files = importer.get_files()
-        self.assertEqual(files, ["data/cats/آرا وحدت رویه/precedent.md", "data/cats/نظریه‌های مشورتی/opinion.md", "data/laws/civil.md"])
-
-    def test_category_taxonomy_covers_ekhtebar_families(self):
-        cases = [
-            ("data/cats/آرا وحدت رویه/x.md", "رأی وحدت رویه شماره ۸۸۰", "supreme_court_unified_precedent"),
-            ("data/cats/نظریه‌های مشورتی/x.md", "نظریه مشورتی اداره کل حقوقی", "judicial_advisory_opinion"),
-            ("data/cats/آیین‌نامه‌ها/x.md", "آیین‌نامه نمونه", "bylaw"),
-            ("data/cats/بخشنامه‌ها/x.md", "بخشنامه وزارت کشور", "executive_circular"),
-            ("data/cats/آرای دیوان عدالت اداری/x.md", "رأی هیئت عمومی دیوان عدالت اداری", "administrative_court_general_board"),
-            ("data/cats/مصوبات/x.md", "مصوبه هیئت وزیران", "executive_resolution"),
-            ("data/cats/طرح و لایحه/x.md", "طرح اصلاح قانون", "bill"),
-            ("data/cats/نظریه‌های رئیس مجلس/x.md", "نظر رئیس مجلس", "parliamentary_review_opinion"),
-            ("data/cats/نشست‌های قضایی/x.md", "نشست قضایی", "judicial_session"),
-            ("data/cats/رویه قضایی/x.md", "رأی دادگاه", "judicial_decision"),
-            ("data/cats/سیاست‌های کلی/x.md", "سیاست کلی", "general_policies"),
-        ]
-        for path, title, expected in cases:
-            self.assertEqual(importer.category_type(path, title), expected)
-
-    def test_interpretive_laws_fatwas_and_expediency_resolutions_are_classified(self):
-        cases = [
-            ("قانون تفسیر ماده ۱۰ قانون مدنی", "interpretive_law"),
-            ("استفساریه قانون مالیات‌های مستقیم", "interpretive_law"),
-            ("مصوبه مجمع تشخیص مصلحت نظام", "expediency_council_resolution"),
-            ("استفتاء درباره مسئله فقهی", "fatwa"),
-        ]
-        for title, expected in cases:
-            self.assertEqual(importer.classify(title), expected)
-
-    def test_expediency_council_category_uses_specific_resolution_type(self):
-        self.assertEqual(
-            importer.category_type("data/cats/مصوبات/example.md", "مصوبه مجمع تشخیص مصلحت نظام"),
-            "expediency_council_resolution",
-        )
-
-    def test_interpretive_and_special_corpus_types_are_in_import_phases(self):
-        self.assertIn("interpretive_law", importer.PHASE_TYPES["laws"])
-        self.assertIn("expediency_council_resolution", importer.PHASE_TYPES["regulations"])
-        self.assertIn("fatwa", importer.PHASE_TYPES["judicial"])
-        self.assertIn("interpretive_law", importer.PHASE_TYPES["all"])
-        self.assertIn("expediency_council_resolution", importer.PHASE_TYPES["all"])
-        self.assertIn("fatwa", importer.PHASE_TYPES["all"])
-
-    def test_full_text_judicial_opinion_is_not_split_into_fake_articles(self):
-        markdown = """# نظریه مشورتی اداره کل حقوقی قوه قضائیه
-> منبع: https://www.ekhtebar.ir/sample-opinion/
-
-سؤال: متن پرسش حقوقی با جزئیات کافی برای آزمون استخراج از سند منتشرشده.
-
-نظریه: پاسخ اداره کل حقوقی در خصوص تفسیر مقررات و آثار قانونی موضوع مورد سؤال به شرح زیر است."""
-        with patch.object(importer, "get", return_value=FakeResponse(markdown)):
-            doc, reason = importer.parse_doc("data/cats/نظریه‌های مشورتی/sample.md", {})
-        self.assertIsNone(reason)
-        self.assertEqual(doc["lawType"], "judicial_advisory_opinion")
-        self.assertEqual(doc["articles"][0]["number"], "متن کامل")
-        self.assertIn("نظریه:", doc["articles"][0]["body"])
 
     def test_specific_document_families_keep_precedence(self):
         self.assertEqual(importer.classify("رأی وحدت رویه دیوان عالی کشور"), "supreme_court_unified_precedent")
-        self.assertEqual(importer.classify("رأی اصراری دیوان عالی کشور"), "supreme_court_insistence_precedent")
-        self.assertEqual(importer.classify("رأی هیئت عمومی دیوان عدالت اداری"), "administrative_court_general_board")
         self.assertEqual(importer.classify("نظریه مشورتی اداره کل حقوقی قوه قضائیه"), "judicial_advisory_opinion")
         self.assertEqual(importer.classify("کنوانسیون حقوقی"), "treaty")
-
-    def test_official_source_is_only_detected_when_direct_qavanin_or_gazette_link_exists(self):
-        self.assertEqual(importer.find_official_source_url("https://www.ekhtebar.ir/law/"), "")
-        self.assertEqual(importer.find_official_source_url("منبع: https://qavanin.ir/Law/TreeText/?IDS=123"), "https://qavanin.ir/Law/TreeText/?IDS=123")
-        self.assertEqual(importer.find_official_source_url("https://www.rrk.ir/News/ShowNews.aspx?id=12"), "https://www.rrk.ir/News/ShowNews.aspx?id=12")
-        unrelated_body = "\n".join(["# قانون نمونه", "متن ماده", *("متن" for _ in range(12)), "https://qavanin.ir/Law/TreeText/?IDS=456"])
-        self.assertEqual(importer.find_official_source_url(unrelated_body), "")
 
     def test_article_heading_with_closing_parenthesis_is_parsed(self):
         markdown = "# قانون دریایی\nhttps://www.ekhtebar.ir/sample-law/\n\nماده ۱) شرایط تابعیت کشتی\nمتن ماده نخست"
@@ -123,207 +39,6 @@ class LegalCorpusImporterTests(unittest.TestCase):
         self.assertIsNone(reason)
         self.assertEqual(doc["articles"][0]["number"], "1")
         self.assertIn("شرایط تابعیت کشتی", doc["articles"][0]["body"])
-
-    def test_daily_change_detection_separates_new_changed_and_unchanged_documents(self):
-        docs = [
-            {"slug": "new-law", "contentSha256": "a" * 64},
-            {"slug": "same-law", "contentSha256": "b" * 64},
-            {"slug": "changed-law", "contentSha256": "c" * 64},
-        ]
-        existing = [
-            {"slug": "same-law", "content_sha256": "b" * 64, "status": "needs_review", "protected_articles": 0},
-            {"slug": "changed-law", "content_sha256": "d" * 64, "status": "needs_review", "protected_articles": 0},
-            {"slug": "protected-law", "content_sha256": "e" * 64, "status": "verified", "protected_articles": 0},
-            {"slug": "rehash-law", "content_sha256": None, "status": "needs_review", "protected_articles": 0},
-        ]
-        docs.extend([
-            {"slug": "protected-law", "contentSha256": "f" * 64},
-            {"slug": "rehash-law", "contentSha256": "g" * 64},
-        ])
-        new_docs, refreshable, protected, unchanged = importer.partition_document_updates(docs, existing)
-        self.assertEqual([doc["slug"] for doc in new_docs], ["new-law"])
-        self.assertEqual([(doc["slug"], old_hash) for doc, old_hash in refreshable], [
-            ("changed-law", "d" * 64), ("rehash-law", None)
-        ])
-        self.assertEqual([(doc["slug"], old_hash) for doc, old_hash in protected], [("protected-law", "e" * 64)])
-        self.assertEqual(unchanged, 1)
-
-    def test_database_audit_includes_unclassified_samples_and_official_link_coverage(self):
-        responses = [
-            [{"total": 10, "needs_review": 10}],
-            [{"total": 20, "needs_review": 20}],
-            [{"type": "other", "status": "needs_review", "count": 4}],
-            [{"type": "law", "total": 6, "with_official_link": 2}],
-            [{"source_name": "DOTIC", "count": 6}],
-            [{"source_name": "DOTIC", "type": "other", "article_count": 24000}],
-            [{"slug": "x", "title": "سند بدون عنوان", "source_url": "https://dotic.ir/x"}],
-        ]
-        with patch.object(importer, "d1_query", side_effect=responses) as query:
-            audit = importer.audit_database()
-        self.assertEqual(query.call_count, 7)
-        self.assertEqual(audit["official_links_by_type"][0]["with_official_link"], 2)
-        self.assertEqual(audit["source_name_counts"][0]["source_name"], "DOTIC")
-        self.assertEqual(audit["articles_by_source_type"][0]["article_count"], 24000)
-        self.assertEqual(audit["other_document_samples"][0]["title"], "سند بدون عنوان")
-
-    def test_daily_refresh_budget_defers_excess_articles_deterministically(self):
-        docs = [
-            ({"slug": "a", "articles": [{}] * 5}, "a"),
-            ({"slug": "b", "articles": [{}] * 7}, "b"),
-            ({"slug": "c", "articles": [{}] * 3}, "c"),
-            ({"slug": "d", "articles": [{}] * 20}, "d"),
-        ]
-        selected, deferred, selected_count, deferred_count = importer.limit_refresh_batch(docs, 10)
-        self.assertEqual([item[0]["slug"] for item in selected], ["a", "c"])
-        self.assertEqual([item[0]["slug"] for item in deferred], ["b", "d"])
-        self.assertEqual(selected_count, 8)
-        self.assertEqual(deferred_count, 27)
-
-    def test_new_document_batch_has_its_own_daily_article_budget(self):
-        docs = [
-            {"slug": "a", "articles": [{}] * 2},
-            {"slug": "b", "articles": [{}] * 4},
-            {"slug": "c", "articles": [{}] * 3},
-        ]
-        selected, deferred, selected_count, deferred_count = importer.limit_new_batch(docs, 5)
-        self.assertEqual([doc["slug"] for doc in selected], ["a", "c"])
-        self.assertEqual([doc["slug"] for doc in deferred], ["b"])
-        self.assertEqual(selected_count, 5)
-        self.assertEqual(deferred_count, 4)
-
-    def test_d1_daily_quota_errors_are_recognized_without_masking_other_errors(self):
-        self.assertTrue(importer.is_d1_daily_write_quota_error(RuntimeError("HTTP 400 code 7500 daily row write limit")))
-        self.assertTrue(importer.is_d1_daily_write_quota_error(RuntimeError("daily row write limit exceeded")))
-        self.assertFalse(importer.is_d1_daily_write_quota_error(RuntimeError("database busy")))
-
-    def test_same_hash_with_incomplete_article_rows_is_refreshed(self):
-        doc = {
-            "slug": "partially-imported", "contentSha256": "a" * 64,
-            "lawType": "law", "sourceUrl": "https://www.ekhtebar.ir/law",
-            "officialSourceUrl": None, "sourceName": "پایگاه خبری اختبار",
-            "articles": [{"number": "1", "body": "الف"}, {"number": "2", "body": "ب"}],
-        }
-        row = {
-            "slug": "partially-imported", "content_sha256": "a" * 64,
-            "law_type": "law", "source_url": "https://www.ekhtebar.ir/law",
-            "official_source_url": None, "source_name": "پایگاه خبری اختبار",
-            "status": "needs_review", "protected_articles": 0, "existing_articles": 1,
-        }
-        new_docs, refreshable, protected, unchanged = importer.partition_document_updates([doc], [row])
-        self.assertEqual(new_docs, [])
-        self.assertEqual(len(refreshable), 1)
-        self.assertEqual(protected, [])
-        self.assertEqual(unchanged, 0)
-        self.assertEqual(doc["_existingArticleCount"], 1)
-
-    def test_verified_document_with_incomplete_articles_is_queued_not_overwritten(self):
-        doc = {
-            "slug": "protected-partial", "contentSha256": "a" * 64,
-            "lawType": "law", "sourceUrl": "https://www.ekhtebar.ir/law",
-            "officialSourceUrl": None, "sourceName": "پایگاه خبری اختبار",
-            "articles": [{"number": "1", "body": "الف"}, {"number": "2", "body": "ب"}],
-        }
-        row = {
-            "slug": "protected-partial", "content_sha256": "a" * 64,
-            "law_type": "law", "source_url": "https://www.ekhtebar.ir/law",
-            "official_source_url": None, "source_name": "پایگاه خبری اختبار",
-            "status": "verified", "protected_articles": 1, "existing_articles": 1,
-        }
-        _, refreshable, protected, unchanged = importer.partition_document_updates([doc], [row])
-        self.assertEqual(refreshable, [])
-        self.assertEqual(len(protected), 1)
-        self.assertEqual(unchanged, 0)
-
-    def test_refresh_splits_documents_larger_than_one_d1_batch(self):
-        doc = {
-            "slug": "large-refresh", "title": "قانون نمونه", "lawType": "law",
-            "sourceName": "پایگاه خبری اختبار", "sourceUrl": "https://www.ekhtebar.ir/law",
-            "officialSourceUrl": None, "notes": "test", "contentSha256": "a" * 64,
-            "articles": [{"number": str(i), "heading": f"ماده {i}", "body": "متن " + str(i)} for i in range(5000)],
-        }
-        calls = []
-        class FakeD1Response:
-            status_code = 200
-            def __init__(self, batch): self.batch = batch
-            def json(self):
-                return {"success": True, "result": [
-                    {"success": True, "meta": {"changes": 50 if item["sql"].startswith("INSERT INTO legal_articles") else 1}}
-                    for item in self.batch
-                ]}
-        def fake_post(url, **kwargs):
-            batch = kwargs["json"]["batch"]
-            calls.append(len(batch))
-            return FakeD1Response(batch)
-        with patch.object(importer.requests, "post", side_effect=fake_post):
-            stats = importer.refresh_unverified_documents([(doc, "b" * 64)])
-        self.assertGreater(len(calls), 1)
-        self.assertTrue(all(count <= 90 for count in calls))
-        self.assertEqual(stats["documents_updated"], 1)
-        self.assertEqual(stats["articles_inserted"], 5000)
-        self.assertEqual(stats["skipped_large"], 0)
-
-    def test_metadata_only_changes_trigger_refresh_or_protected_review(self):
-        doc = {
-            "slug": "reclassified-law",
-            "contentSha256": "a" * 64,
-            "lawType": "interpretive_law",
-            "sourceUrl": "https://qavanin.ir/Law/TreeText/?IDS=123",
-            "officialSourceUrl": "https://qavanin.ir/Law/TreeText/?IDS=123",
-            "sourceName": "سامانه ملی قوانین و مقررات",
-        }
-        refreshable_rows = [{
-            "slug": "reclassified-law", "content_sha256": "a" * 64,
-            "law_type": "law", "source_url": "https://www.ekhtebar.ir/old",
-            "official_source_url": None, "source_name": "اختبار",
-            "status": "needs_review", "protected_articles": 0,
-        }]
-        new_docs, refreshable, protected, unchanged = importer.partition_document_updates([doc], refreshable_rows)
-        self.assertEqual(new_docs, [])
-        self.assertEqual(len(refreshable), 1)
-        self.assertEqual(protected, [])
-        self.assertEqual(unchanged, 0)
-
-        verified_rows = [{**refreshable_rows[0], "status": "verified"}]
-        _, refreshable, protected, unchanged = importer.partition_document_updates([doc], verified_rows)
-        self.assertEqual(refreshable, [])
-        self.assertEqual(len(protected), 1)
-        self.assertEqual(unchanged, 0)
-
-    def test_document_fingerprint_changes_when_classification_or_source_changes(self):
-        base = {
-            "contentSha256": "a" * 64, "lawType": "law",
-            "sourceUrl": "https://www.ekhtebar.ir/law",
-            "officialSourceUrl": "", "sourceName": "اختبار",
-        }
-        self.assertNotEqual(
-            importer.document_fingerprint(base),
-            importer.document_fingerprint({**base, "lawType": "interpretive_law"}),
-        )
-        self.assertNotEqual(
-            importer.document_fingerprint(base),
-            importer.document_fingerprint({**base, "officialSourceUrl": "https://qavanin.ir/law"}),
-        )
-
-    def test_automatic_updates_preserve_verified_documents_and_refresh_only_unverified(self):
-        migration = (MODULE_PATH.parent.parent / "worker" / "migrations" / "0039_legal_document_update_queue.sql").read_text(encoding="utf-8")
-        self.assertIn("proposed_payload_json", migration)
-        self.assertIn("previous_sha256", migration)
-        self.assertIn("UNIQUE(slug, proposed_sha256)", migration)
-        self.assertIn("DEFAULT 'needs_review'", migration)
-        statements = importer.refresh_statements({
-            "slug":"sample-law","title":"قانون نمونه","lawType":"law","sourceName":"اختبار",
-            "sourceUrl":"https://www.ekhtebar.ir/sample/","notes":"needs review",
-            "officialSourceUrl":"","discoverySourceUrl":"https://www.ekhtebar.ir/sample/",
-            "contentSha256":"a"*64,"articles":[{"number":"1","heading":"ماده ۱","body":"متن"}]
-        })
-        combined = "\n".join(sql for sql,_ in statements)
-        self.assertIn("INSERT INTO legal_document_versions", combined)
-        self.assertIn("INSERT INTO legal_article_versions", combined)
-        self.assertIn("automatic_source_refresh", combined)
-        self.assertIn("status='needs_review'", combined)
-        self.assertIn("NOT EXISTS", combined)
-        self.assertIn("p.status IN ('verified','amended','repealed')", combined)
-        self.assertIn("review_status='accepted'", combined)
 
     def test_priority_coverage_distinguishes_present_missing_and_repealed(self):
         manifest = {
@@ -343,47 +58,11 @@ class LegalCorpusImporterTests(unittest.TestCase):
         self.assertEqual(audit["verified"], 0)
         self.assertEqual(audit["documents"][1]["status"], "missing_from_source_mirror")
 
-    def test_priority_coverage_distinguishes_indexed_from_unparsed(self):
-        manifest = {"documents":[{"key":"civil","title":"قانون مدنی","domain":"civil"}]}
-        audit = importer.priority_coverage([],manifest,["قانون مدنی"])
-        self.assertEqual(audit["present_in_source_mirror"],1)
-        self.assertEqual(audit["parsed_in_source_mirror"],0)
-        self.assertEqual(audit["indexed_not_parsed"],1)
-        self.assertEqual(audit["documents"][0]["status"],"indexed_not_parsed")
-
-    def test_empty_auto_refresh_stats_include_archive_counters(self):
-        stats = importer.refresh_unverified_documents([])
-        self.assertEqual(stats["documents_updated"],0)
-        self.assertEqual(stats["versions_archived"],0)
-        self.assertEqual(stats["articles_archived"],0)
-
-    def test_priority_coverage_reports_domain_breakdown(self):
-        manifest = {
-            "documents": [
-                {"key": "civil", "title": "قانون مدنی", "domain": "civil", "priority": "core"},
-                {"key": "tax", "title": "قانون مالیات‌های مستقیم", "domain": "tax", "priority": "extended"},
-            ]
-        }
-        docs = [{"title": "قانون مدنی", "slug": "civil", "lawType": "law"}]
-        audit = importer.priority_coverage(docs, manifest)
-        self.assertEqual(audit["by_domain"]["civil"]["present_in_source_mirror"], 1)
-        self.assertEqual(audit["by_domain"]["tax"]["missing_from_source_mirror"], 1)
-        self.assertEqual(audit["by_domain"]["tax"]["verified"], 0)
-
-    def test_expanded_manifest_has_broad_domain_coverage(self):
-        manifest_path = MODULE_PATH.parent / "legal_priority_documents.json"
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        keys = {item["key"] for item in manifest["documents"]}
-        domains = {item.get("domain") for item in manifest["documents"]}
-        self.assertGreaterEqual(len(keys), 170)
-        self.assertGreaterEqual(len(domains), 15)
-        self.assertTrue({"tax-direct", "vat", "official-registration-transactions", "landlord-1356", "landlord-1362", "landlord-1376", "patents", "clean-air"} <= keys)
-
     def test_priority_manifest_has_core_litigation_statutes(self):
         manifest_path = MODULE_PATH.parent / "legal_priority_documents.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         keys = {item["key"] for item in manifest["documents"]}
-        self.assertTrue({"civil-code", "civil-procedure", "criminal-code-1392", "criminal-procedure", "civil-enforcement", "financial-judgments", "cheques", "family-protection", "housing-market-regulation", "taxpayer-obligations", "spy-and-hostile-cooperation", "drone-regulation-act", "iran-russia-strategic-treaty"} <= keys)
+        self.assertTrue({"civil-code", "civil-procedure", "criminal-code-1392", "criminal-procedure", "civil-enforcement", "financial-judgments", "cheques", "family-protection"} <= keys)
 
     def test_parse_doc_extracts_title_and_article_without_network(self):
         markdown = "# قانون نمونه\nhttps://www.ekhtebar.ir/sample-law/\n\nماده ۱\nمتن ماده نخست"
@@ -392,10 +71,6 @@ class LegalCorpusImporterTests(unittest.TestCase):
         self.assertIsNone(reason)
         self.assertEqual(doc["title"], "قانون نمونه")
         self.assertEqual(doc["lawType"], "law")
-        self.assertEqual(doc["officialSourceUrl"], "")
-        self.assertEqual(doc["discoverySourceUrl"], "https://www.ekhtebar.ir/sample-law/")
-        self.assertEqual(doc["sourceUrl"], "https://www.ekhtebar.ir/sample-law/")
-        self.assertEqual(len(doc["contentSha256"]), 64)
         self.assertEqual(len(doc["articles"]), 1)
         self.assertEqual(doc["articles"][0]["number"], "1")
         self.assertIn("متن ماده نخست", doc["articles"][0]["body"])

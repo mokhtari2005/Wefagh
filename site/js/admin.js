@@ -53,11 +53,6 @@ export async function adminPage() {
     el('option', { value: 'course', text: 'دورهٔ آموزشی' }),
     el('option', { value: 'case', text: 'پروندهٔ آموزشی' }),
   ]);
-  const formatSelect = el('select', { name: 'format', 'aria-label': 'قالب آموزشی' }, [
-    el('option', { value: 'workshop', text: 'کارگاه آموزشی' }),
-    el('option', { value: 'course', text: 'دورهٔ آموزشی' }),
-  ]);
-  const formatLabel = el('label', { class: 'admin-field' }, [el('span', { text: 'قالب آموزشی' }), formatSelect]);
   const statusSelect = el('select', { name: 'status', required: 'true', 'aria-label': 'وضعیت انتشار' }, [
     el('option', { value: 'draft', text: 'پیش‌نویس' }), el('option', { value: 'published', text: 'منتشرشده' }),
   ]);
@@ -80,7 +75,7 @@ export async function adminPage() {
   const cancel = el('button', { class: 'btn secondary', type: 'button', text: 'لغو ویرایش' });
   cancel.hidden = true;
   const formActions = el('div', { class: 'row' }, [submit, cancel]);
-  form.append(kindLabel, slugField, titleField, summaryField, statusLabel, formatLabel, levelField, lessonsField, areaField, factsField, issuesField, evidenceField, caseJsonField, formActions);
+  form.append(kindLabel, slugField, titleField, summaryField, statusLabel, levelField, lessonsField, areaField, factsField, issuesField, evidenceField, caseJsonField, formActions);
   // بارگذاری دوره‌های داخلی و بانک پرونده‌ها به‌صورت پیش‌نویس؛ هیچ‌کدام منتشر نمی‌شوند.
   const importNotice = el('p', { class: 'form-status', role: 'status' });
   const importStatus = el('p', { class: 'muted', role: 'status' });
@@ -1075,7 +1070,6 @@ export async function adminPage() {
     evidenceField.hidden = isCourse;
     caseJsonField.hidden = isCourse;
     levelField.hidden = !isCourse;
-    formatLabel.hidden = !isCourse;
     caseJsonField.querySelector('textarea').required = !isCourse;
     lessonsField.querySelector('textarea').required = isCourse;
     areaField.querySelector('input').required = !isCourse;
@@ -1086,7 +1080,7 @@ export async function adminPage() {
   function resetForm() {
     editingId = null;
     select.disabled = false;
-    form.reset(); statusSelect.value = 'draft'; formatSelect.value = 'workshop'; levelField.querySelector('input').value = 'مقدماتی'; areaField.querySelector('input').value = 'قراردادها';
+    form.reset(); statusSelect.value = 'draft'; levelField.querySelector('input').value = 'مقدماتی'; areaField.querySelector('input').value = 'قراردادها';
     lessonsField.querySelector('textarea').value = ''; factsField.querySelector('textarea').value = ''; issuesField.querySelector('textarea').value = ''; evidenceField.querySelector('textarea').value = ''; caseJsonField.querySelector('textarea').value = '';
     submit.textContent = 'ذخیرهٔ محتوا'; cancel.hidden = true; showKindFields();
   }
@@ -1095,7 +1089,7 @@ export async function adminPage() {
       const lessons = parseLines(lessonsField.querySelector('textarea').value).map((line) => {
         const [id, title, ...body] = line.split('|'); return { id: (id || '').trim(), title: (title || '').trim(), body: body.join('|').trim() };
       });
-      return { format: formatSelect.value, level: levelField.querySelector('input').value.trim(), lessons };
+      return { level: levelField.querySelector('input').value.trim(), lessons };
     }
     const issues = parseLines(issuesField.querySelector('textarea').value).map((line) => {
       const [id, ...text] = line.split('|'); return { id: (id || '').trim(), text: text.join('|').trim() };
@@ -1116,14 +1110,13 @@ export async function adminPage() {
     for (const item of currentItems) {
       const statusText = item.status === 'published' ? 'منتشرشده' : (item.payload?.review_status || 'پیش‌نویس');
       const row = el('article', { class: 'admin-content-row card' }, [
-        el('div', {}, [el('span', { class: 'badge', text: `${item.kind === 'course' ? (item.payload?.format === 'workshop' ? 'کارگاه آموزشی' : 'دورهٔ آموزشی') : 'پروندهٔ آموزشی'} · ${statusText}` }), el('h3', { text: item.title }), el('p', { class: 'muted', text: `${item.slug} — ${item.summary}` })]),
+        el('div', {}, [el('span', { class: 'badge', text: `${item.kind === 'course' ? 'دوره' : 'پرونده'} · ${statusText}` }), el('h3', { text: item.title }), el('p', { class: 'muted', text: `${item.slug} — ${item.summary}` })]),
       ]);
       const actions = el('div', { class: 'row admin-actions' });
       const edit = el('button', { class: 'btn secondary', type: 'button', text: 'ویرایش' });
       edit.addEventListener('click', () => {
         editingId = item.id; select.value = item.kind; select.disabled = true; slugField.querySelector('input').value = item.slug; titleField.querySelector('input').value = item.title; summaryField.querySelector('textarea').value = item.summary; statusSelect.value = item.status;
         levelField.querySelector('input').value = item.payload.level || 'مقدماتی';
-        formatSelect.value = item.payload.format === 'workshop' ? 'workshop' : 'course';
         if (item.kind === 'course') lessonsField.querySelector('textarea').value = lineList((item.payload.lessons || []).map((x) => `${x.id}|${x.title}|${x.body}`));
         else { caseJsonField.querySelector('textarea').value = JSON.stringify(item.payload?.id ? item.payload : { ...item.payload, id: item.slug }, null, 2); }
         submit.textContent = 'ثبت تغییرات'; cancel.hidden = false; showKindFields(); form.scrollIntoView({ behavior: 'smooth', block: 'start' });

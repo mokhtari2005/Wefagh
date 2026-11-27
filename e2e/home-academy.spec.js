@@ -9,9 +9,8 @@ for (const viewport of [
     await page.goto('/?academy-shortcuts-test=1#/', { waitUntil: 'domcontentloaded' });
 
     const shortcuts = page.locator('.home-dashboard .quick-section .quick-tile');
-    await expect(shortcuts).toHaveCount(17, { timeout: 7000 });
+    await expect(shortcuts).toHaveCount(16, { timeout: 7000 });
     await expect(page.locator('.home-dashboard .quick-section')).toBeVisible();
-    await expect(shortcuts.filter({ hasText: 'کارگاه‌های آموزشی و مسیر رشد' })).toHaveCount(1);
     await expect(page.locator('.home-dashboard .quick-section .loading')).toHaveCount(0);
     await expect(page.locator('.home-dashboard .quick-section .lazy-content-placeholder')).toHaveCount(0);
   });
@@ -20,6 +19,6 @@ for (const viewport of [
 test('صفحهٔ مستقل آکادمی بدون انتظار برای اسکرول باز می‌شود', async ({ page }) => {
   await page.goto('/?academy-direct-test=1#/academy', { waitUntil: 'domcontentloaded' });
   const tools = page.locator('.academy-tools .academy-tool');
-  await expect(tools).toHaveCount(17, { timeout: 7000 });
+  await expect(tools).toHaveCount(16, { timeout: 7000 });
   await expect(page.getByRole('heading', { name: 'آکادمی وکالت شهرام مختاری' })).toBeVisible();
 });
