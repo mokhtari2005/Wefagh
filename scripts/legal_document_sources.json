@@ -103,8 +103,9 @@
       "types": [
         "supreme_court_unified_precedent"
       ],
-      "mode": "discovery_only",
-      "authoritative": false
+      "mode": "manual",
+      "authoritative": false,
+      "discovery_only": true
     },
     {
       "key": "ekhtebar-advisory-opinions",
@@ -113,8 +114,9 @@
       "types": [
         "judicial_advisory_opinion"
       ],
-      "mode": "discovery_only",
-      "authoritative": false
+      "mode": "manual",
+      "authoritative": false,
+      "discovery_only": true
     },
     {
       "key": "ekhtebar-resolutions",
@@ -125,8 +127,9 @@
         "treaty",
         "executive_regulation"
       ],
-      "mode": "discovery_only",
-      "authoritative": false
+      "mode": "manual",
+      "authoritative": false,
+      "discovery_only": true
     },
     {
       "key": "ekhtebar-bylaws",
@@ -136,8 +139,9 @@
         "bylaw",
         "executive_regulation"
       ],
-      "mode": "discovery_only",
-      "authoritative": false
+      "mode": "manual",
+      "authoritative": false,
+      "discovery_only": true
     },
     {
       "key": "ekhtebar-circulars",
@@ -147,8 +151,9 @@
         "executive_circular",
         "judicial_circular"
       ],
-      "mode": "discovery_only",
-      "authoritative": false
+      "mode": "manual",
+      "authoritative": false,
+      "discovery_only": true
     },
     {
       "key": "ekhtebar-admin-court",
@@ -157,8 +162,9 @@
       "types": [
         "administrative_court_general_board"
       ],
-      "mode": "discovery_only",
-      "authoritative": false
+      "mode": "manual",
+      "authoritative": false,
+      "discovery_only": true
     },
     {
       "key": "ekhtebar-case-law",
@@ -167,8 +173,9 @@
       "types": [
         "judicial_decision"
       ],
-      "mode": "discovery_only",
-      "authoritative": false
+      "mode": "manual",
+      "authoritative": false,
+      "discovery_only": true
     }
   ]
 }
