@@ -159,3 +159,41 @@ test('Gemini free-tier confirmation fails closed when its key is missing', async
   );
   assert.equal(workersCalls, 0);
 });
+
+
+test('Workers AI retries one transient infrastructure failure and then succeeds', async () => {
+  let calls = 0;
+  const env = {
+    AI_BILLING_MODE: 'zero',
+    WORKERS_AI_FREE_PLAN_CONFIRMED: 'true',
+    WORKERS_AI_PRIMARY_ENABLED: 'true',
+    AI: { run: async () => {
+      calls += 1;
+      if (calls === 1) throw new Error('temporary service unavailable 503');
+      return { response: JSON.stringify({ status: 'ready', text: 'پاسخ بازیابی شد.' }) };
+    } },
+  };
+  const result = await generateTextWithFallback(env, prompt);
+  assert.equal(calls, 2);
+  assert.equal(result.provider, 'cloudflare');
+  assert.equal(result.data.text, 'پاسخ بازیابی شد.');
+});
+
+test('Workers AI quota exhaustion is not retried and never invokes another provider', async () => {
+  let calls = 0;
+  const env = {
+    AI_BILLING_MODE: 'zero',
+    WORKERS_AI_FREE_PLAN_CONFIRMED: 'true',
+    WORKERS_AI_PRIMARY_ENABLED: 'true',
+    GEMINI_FREE_TIER_CONFIRMED: 'false',
+    GEMINI_API_KEY: 'test-gemini-free-tier-key',
+    GROQ_API_KEY: 'test-groq-key-0123456789',
+    OPENAI_API_KEY: 'test-openai-key-0123456789',
+    AI: { run: async () => { calls += 1; throw new Error('429 daily neuron limit exceeded'); } },
+  };
+  await assert.rejects(
+    generateTextWithFallback(env, prompt),
+    error => error?.code === 'AI_ZERO_COST_QUOTA',
+  );
+  assert.equal(calls, 1);
+});
