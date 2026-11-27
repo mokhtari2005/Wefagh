@@ -386,8 +386,7 @@ export async function login(request, env) {
   }
 
   const passOk = await verifyPassword(password, user ? user.password_hash : await dummyHash());
-  const membershipOk = user ? await membershipApproved(env.DB, user.id) : false;
-  if (!user || !passOk || user.status !== 'active' || !membershipOk) {
+  if (!user || !passOk || user.status !== 'active') {
     if (user) {
       const failed = (user.failed_logins || 0) + 1;
       const lockedUntil = failed >= LOCK_THRESHOLD ? addMs(new Date(), LOCK_MINUTES * 60 * 1000) : null;
@@ -399,7 +398,11 @@ export async function login(request, env) {
     return json({ ok: false, error: 'INVALID_CREDENTIALS' }, 401);
   }
 
+  // پس از احراز رمز، وضعیت تأیید ایمیل مستقل از تصویب عضویت گزارش می‌شود.
   if (!user.email_verified_at) return json({ ok: false, error: 'EMAIL_NOT_VERIFIED' }, 403);
+
+  const membershipOk = await membershipApproved(env.DB, user.id);
+  if (!membershipOk) return json({ ok: false, error: 'INVALID_CREDENTIALS' }, 401);
 
   await env.DB
     .prepare('UPDATE users SET failed_logins = 0, locked_until = NULL WHERE id = ?1')
