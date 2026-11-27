@@ -111,8 +111,39 @@ def probe():
         return report
 
 
+
+
+def update_source_check(report):
+    account = os.environ.get("CLOUDFLARE_ACCOUNT_ID")
+    token = os.environ.get("CLOUDFLARE_API_TOKEN")
+    if not account or not token:
+        return
+    endpoint = "https://api.cloudflare.com/client/v4/accounts/" + account + "/d1/database/" + DB_ID + "/query"
+    reason = None
+    if report.get("status") in {"blocked", "disallowed_by_robots", "network_error", "probe_error", "accessible_unparsed"}:
+        reason = "QAVANIN_ACCESS_BLOCKED: " + str(report.get("reason") or report.get("status"))[:800]
+    response = requests.post(
+        endpoint,
+        headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
+        json={"sql": """UPDATE legal_document_sources
+          SET last_checked_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+              last_error=?1,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+          WHERE source_key=?2""", "params": [reason, SOURCE_KEY]},
+        timeout=30,
+    )
+    response.raise_for_status()
+    if not response.json().get("success"):
+        raise RuntimeError("Could not record Qavanin access check in D1")
+
+
 def main():
     report = probe()
+    try:
+        update_source_check(report)
+        report["source_status_recorded"] = True
+    except Exception as exc:
+        report["source_status_recorded"] = False
+        report["source_status_error"] = type(exc).__name__ + ": " + str(exc)[:300]
     Path("artifacts").mkdir(exist_ok=True)
     Path("artifacts/qavanin-public-access-report.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
