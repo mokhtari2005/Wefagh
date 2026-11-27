@@ -1,6 +1,6 @@
 // ارسال ایمیل تراکنشی از طریق Resend API؛ بدون SMTP و بدون وابستگی خارجی.
 const SEND_URL = 'https://api.resend.com/emails';
-const DEFAULT_FROM = 'Mokhtari Law Academy <noreply@mokhtari.ir>';
+const DEFAULT_FROM = 'Mokhtari Law Academy <edu@mokhtari.ir>';
 const SAFE_CODE = /^[A-Za-z_]{1,60}$/;
 
 /**
