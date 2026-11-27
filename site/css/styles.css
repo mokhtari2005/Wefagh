@@ -4305,3 +4305,6 @@ body.classroom-fullscreen-fallback { overflow:hidden; }
 .academy-case-practice-item{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;padding:.65rem 0;border-bottom:1px solid var(--border,#d9d2c5)}
 .academy-case-practice-item p{flex-basis:100%;margin:.15rem 0;white-space:pre-wrap}
 @media(max-width:640px){.academy-case-bank{padding:.75rem}.academy-case-bank-search>*{width:100%}.academy-case-bank-pager{justify-content:space-between}}
+
+.academy-case-bank-disclosure>summary{cursor:pointer;font-weight:700;color:var(--primary,#21436a);padding:.25rem 0;list-style-position:inside}
+.academy-case-bank-disclosure[open]>summary{margin-bottom:.8rem}
