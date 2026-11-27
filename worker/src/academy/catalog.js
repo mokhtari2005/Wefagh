@@ -76,6 +76,7 @@ export function courseSummaries() {
     summary: c.summary,
     lessonCount: c.lessons.length,
     status: c.status,
+    format: c.format || 'course',
   }));
 }
 
