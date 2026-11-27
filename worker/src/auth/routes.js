@@ -381,7 +381,7 @@ export async function requestPasswordReset(request, env) {
       .bind(tokenHash, user.id, addMs(now, RESET_TOKEN_TTL_MS)).run();
   } catch (err) {
     logError(`auth.request_password_reset.${failureStage}`, err, requestId);
-    return json({ ok: false, error: 'RESET_UNAVAILABLE', requestId }, 503);
+    return json({ ok: false, error: 'RESET_UNAVAILABLE', requestId, stage: failureStage }, 503);
   }
   try {
     await mailer(env)({
