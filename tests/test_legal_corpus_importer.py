@@ -80,6 +80,14 @@ class LegalCorpusImporterTests(unittest.TestCase):
             "expediency_council_resolution",
         )
 
+    def test_interpretive_and_special_corpus_types_are_in_import_phases(self):
+        self.assertIn("interpretive_law", importer.PHASE_TYPES["laws"])
+        self.assertIn("expediency_council_resolution", importer.PHASE_TYPES["regulations"])
+        self.assertIn("fatwa", importer.PHASE_TYPES["judicial"])
+        self.assertIn("interpretive_law", importer.PHASE_TYPES["all"])
+        self.assertIn("expediency_council_resolution", importer.PHASE_TYPES["all"])
+        self.assertIn("fatwa", importer.PHASE_TYPES["all"])
+
     def test_full_text_judicial_opinion_is_not_split_into_fake_articles(self):
         markdown = """# نظریه مشورتی اداره کل حقوقی قوه قضائیه
 > منبع: https://www.ekhtebar.ir/sample-opinion/
