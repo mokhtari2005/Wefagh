@@ -91,7 +91,7 @@ export async function searchDadrasLegal(input, { limit = 5, timeoutMs = 4500 } =
     if (!response.ok) return { status: "unavailable", sources: [], httpStatus: response.status };
     const raw = (await response.text()).slice(0, 40_000);
     const payload = parseMcpResponse(response, raw);
-    if (!payload || payload.error || !payload.result) return { status: "unavailable", sources: [] };
+    if (!payload || payload.error || !payload.result || payload.result.isError) return { status: "unavailable", sources: [] };
     const text = (Array.isArray(payload.result.content) ? payload.result.content : [])
       .filter((item) => item?.type === "text" && typeof item.text === "string")
       .map((item) => item.text)
