@@ -40,15 +40,29 @@ export async function generateWorkersAIText(env, {
     if (content.trim()) messages.push({ role, content });
   }
   let result;
-  try {
-    result = await env.AI.run(CLOUDFLARE_TEXT_MODEL, {
-      messages,
-      max_tokens: Math.max(256, Math.min(Number(maxOutputTokens) || 2048, 6000)),
-      temperature: 0.2,
-      ...(json ? { response_format: { type: 'json_object' } } : {}),
-    });
-  } catch {
-    throw providerError('AI_ZERO_COST_PROVIDER_ERROR');
+  // فقط اختلال گذرای زیرساخت یک بار با همان موتور رایگان تکرار می‌شود.
+  // خطای سهمیه هرگز retry نمی‌شود تا مصرف و فشار بیشتر ایجاد نکند.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      result = await env.AI.run(CLOUDFLARE_TEXT_MODEL, {
+        messages,
+        max_tokens: Math.max(256, Math.min(Number(maxOutputTokens) || 2048, 6000)),
+        temperature: 0.2,
+        ...(json ? { response_format: { type: 'json_object' } } : {}),
+      });
+      break;
+    } catch (error) {
+      const detail = String(error?.message || '').toLowerCase();
+      if (/quota|rate.?limit|too many requests|\\b429\\b|daily limit|neuron limit/.test(detail)) {
+        throw providerError('AI_ZERO_COST_QUOTA');
+      }
+      const transient = /timeout|timed out|overload|capacity|temporar|unavailable|\\b503\\b|network|fetch failed/.test(detail);
+      if (attempt === 0 && transient) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+        continue;
+      }
+      throw providerError('AI_ZERO_COST_PROVIDER_ERROR');
+    }
   }
   const text = typeof result === 'string' ? result
     : typeof result?.response === 'string' ? result.response
