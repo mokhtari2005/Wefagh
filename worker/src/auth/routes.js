@@ -371,20 +371,28 @@ export async function requestPasswordReset(request, env) {
   if (parsed.error) return parsed.error;
   const email = normalizeEmail(parsed.body?.email);
   if (!email) return json({ ok: false, error: 'VALIDATION_FAILED', errors: { email: 'نشانی ایمیل معتبر نیست.' } }, 422);
-  const user = await env.DB.prepare("SELECT id, status, email_verified_at FROM users WHERE email=?1").bind(email).first();
-  if (!user || user.status !== 'active' || !user.email_verified_at) {
-    return json({ ok: true, message: RESET_REQUEST_MSG }, 202);
+  const requestId = request.headers.get('X-Client-Request-ID') || '';
+  let user;
+  let token;
+  try {
+    user = await env.DB.prepare("SELECT id, status, email_verified_at FROM users WHERE email=?1").bind(email).first();
+    if (!user || user.status !== 'active' || !user.email_verified_at) {
+      return json({ ok: true, message: RESET_REQUEST_MSG }, 202);
+    }
+    const recent = await env.DB.prepare("SELECT created_at FROM email_tokens WHERE user_id=?1 AND purpose='reset_password' AND used_at IS NULL ORDER BY created_at DESC LIMIT 1").bind(user.id).first();
+    if (recent && Date.now() - Date.parse(recent.created_at) < RESEND_COOLDOWN_MS) {
+      return json({ ok: true, message: RESET_REQUEST_MSG }, 202);
+    }
+    const now = new Date();
+    await env.DB.prepare("UPDATE email_tokens SET used_at=?1 WHERE user_id=?2 AND purpose='reset_password' AND used_at IS NULL")
+      .bind(now.toISOString(), user.id).run();
+    token = generateToken();
+    await env.DB.prepare("INSERT INTO email_tokens (token_hash,user_id,purpose,expires_at) VALUES (?1,?2,'reset_password',?3)")
+      .bind(await hashToken(token), user.id, addMs(now, RESET_TOKEN_TTL_MS)).run();
+  } catch (err) {
+    logError('auth.request_password_reset.prepare', err, requestId);
+    return json({ ok: false, error: 'RESET_UNAVAILABLE', requestId: /^[A-Za-z0-9_-]{8,80}$/.test(requestId) ? requestId : null }, 503);
   }
-  const recent = await env.DB.prepare("SELECT created_at FROM email_tokens WHERE user_id=?1 AND purpose='reset_password' AND used_at IS NULL ORDER BY created_at DESC LIMIT 1").bind(user.id).first();
-  if (recent && Date.now() - Date.parse(recent.created_at) < RESEND_COOLDOWN_MS) {
-    return json({ ok: true, message: RESET_REQUEST_MSG }, 202);
-  }
-  const now = new Date();
-  await env.DB.prepare("UPDATE email_tokens SET used_at=?1 WHERE user_id=?2 AND purpose='reset_password' AND used_at IS NULL")
-    .bind(now.toISOString(), user.id).run();
-  const token = generateToken();
-  await env.DB.prepare("INSERT INTO email_tokens (token_hash,user_id,purpose,expires_at) VALUES (?1,?2,'reset_password',?3)")
-    .bind(await hashToken(token), user.id, addMs(now, RESET_TOKEN_TTL_MS)).run();
   try {
     await mailer(env)({
       from: 'Mokhtari Law Academy <edu@mokhtari.ir>',
@@ -404,11 +412,11 @@ export async function requestPasswordReset(request, env) {
       ].join('\n'),
     });
   } catch (err) {
-    logError('auth.send_password_reset', err, request.headers.get('X-Client-Request-ID') || '');
+    logError('auth.send_password_reset', err, requestId);
     // توکن ارسال‌نشده قابل استفاده نیست و نباید کاربر را پشت پاسخ موفق کاذب نگه دارد.
     await env.DB.prepare("UPDATE email_tokens SET used_at=?1 WHERE user_id=?2 AND purpose='reset_password' AND used_at IS NULL")
       .bind(new Date().toISOString(), user.id).run();
-    return json({ ok: false, error: 'MAIL_SEND_FAILED', requestId: request.headers.get('X-Client-Request-ID') || null }, 503);
+    return json({ ok: false, error: 'MAIL_SEND_FAILED', requestId: /^[A-Za-z0-9_-]{8,80}$/.test(requestId) ? requestId : null }, 503);
   }
   return json({ ok: true, message: RESET_REQUEST_MSG }, 202);
 }
