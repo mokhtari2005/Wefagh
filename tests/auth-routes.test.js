@@ -108,8 +108,13 @@ async function approveMembership(env) {
 }
 
 function tokenFromMail(sent) {
-  const m = sent.at(-1).text.match(/token=([A-Za-z0-9_-]+)/);
-  return m?.[1];
+  // ثبت‌نام مدیر ممکن است پس از ایمیل تأیید، اعلان جداگانهٔ مدیر را هم ارسال کند.
+  // توکن را از پیام حاوی پیوند تأیید پیدا می‌کنیم، نه الزاماً آخرین ایمیل ارسال‌شده.
+  for (const message of [...sent].reverse()) {
+    const match = typeof message?.text === 'string' ? message.text.match(/token=([A-Za-z0-9_-]+)/) : null;
+    if (match?.[1]) return match[1];
+  }
+  return undefined;
 }
 
 function sessionCookieFrom(res) {
