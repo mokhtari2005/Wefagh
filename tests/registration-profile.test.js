@@ -44,7 +44,7 @@ function d1Like(db) {
 function setup() {
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON;');
-  for (const f of ['0001_init.sql', '0002_auth.sql', '0008_registration_profile.sql', '0014_member_identity.sql', '0019_mla_membership_sequence.sql']) db.exec(migration(f));
+  for (const f of ['0001_init.sql', '0002_auth.sql', '0008_registration_profile.sql', '0014_member_identity.sql', '0019_mla_membership_sequence.sql', '0024_membership_approval.sql', '0025_registration_contact_details.sql']) db.exec(migration(f));
   const sent = [];
   const env = {
     DB: d1Like(db),
@@ -91,6 +91,7 @@ const verifiedCookie = async (env, sent, email, password = 'رمز-امن-۱۴۰
   assert.equal(reg.status, 202);
   const token = sent.at(-1).text.match(/token=([A-Za-z0-9_-]+)/)[1];
   await call(env, '/api/auth/verify-email', { body: { token } });
+  await env.DB.prepare("UPDATE users SET membership_status='approved' WHERE email=?1").bind(email).run();
   const login = await call(env, '/api/auth/login', { body: { email, password } });
   assert.equal(login.status, 200);
   return (login.headers.get('set-cookie') || '').match(/wefagh_session=[^;]+/)[0];
@@ -237,7 +238,7 @@ import { hashPassword } from '../worker/src/auth/password.js';
 function setupWithoutProfiles() {
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON;');
-  for (const f of ['0001_init.sql', '0002_auth.sql', '0014_member_identity.sql', '0019_mla_membership_sequence.sql']) db.exec(migration(f));
+  for (const f of ['0001_init.sql', '0002_auth.sql', '0014_member_identity.sql', '0019_mla_membership_sequence.sql', '0024_membership_approval.sql', '0025_registration_contact_details.sql']) db.exec(migration(f));
   const env = { DB: d1Like(db), PUBLIC_BASE_URL: 'https://mokhtari.ir', mailer: async () => {} };
   return { db, env };
 }
