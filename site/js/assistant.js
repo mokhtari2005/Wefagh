@@ -229,6 +229,13 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
 
   // ---------- بازیابی یک گفت‌وگو (فهرست سوابق در صفحهٔ جدا: #/assistant/history) ----------
   async function loadThread(id) {
+    const threadInfo = await getJson(`/api/ai/threads/${encodeURIComponent(id)}`);
+    if (threadInfo.ok && threadInfo.data?.thread?.case_id) {
+      await loadCaseLinks(threadInfo.data.thread.case_id);
+      const linkedService = threadInfo.data.thread.casework_service_id || '';
+      serviceSelect.value = linkedService;
+      selectedServiceId = linkedService;
+    }
     const res = await getJson(`/api/ai/threads/${encodeURIComponent(id)}/messages`);
     if (!res.ok) { status.textContent = 'بازیابی گفت‌وگو انجام نشد.'; return; }
     history.length = 0;
@@ -254,9 +261,25 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
   async function persistTurn(userText, aiText, metadata = {}) {
     if (guestMode) return true; // تاریخچهٔ مهمان فقط در حافظهٔ همین صفحه می‌ماند.
     if (!threadId) {
-      const created = await postJson('/api/ai/threads', { title: userText.slice(0, 60) });
+      if (selectedCaseId && !selectedServiceId) {
+        const serviceTitle = ({consult:'مشاوره حقوقی',analyze:'تحلیل پرونده',litigation:'بازبینی حقوقی',research:'تحقیق حقوقی',review:'بررسی و اصلاح متن',draft:'تنظیم سند'})[mode] || 'خدمت دستیار وکیل';
+        const service = await postJson('/api/casework/cases/' + encodeURIComponent(selectedCaseId) + '/services', {
+          type: 'assistant_' + mode, title: serviceTitle + ' ـ ' + userText.slice(0, 55),
+        });
+        if (!service.ok || !service.data?.service?.id) return false;
+        selectedServiceId = service.data.service.id;
+        serviceSelect.append(h('option', { value: selectedServiceId, text: service.data.service.title }));
+        serviceSelect.value = selectedServiceId;
+      }
+      const created = await postJson('/api/ai/threads', {
+        title: userText.slice(0, 60),
+        caseId: selectedCaseId || null,
+        caseworkServiceId: selectedServiceId || null,
+      });
       if (!created.ok || !created.data?.thread?.id) return false;
       threadId = created.data.thread.id;
+      caseSelect.disabled = true;
+      serviceSelect.disabled = true;
     }
     const a = await postJson(`/api/ai/threads/${threadId}/messages`, { role: 'user', content: userText });
     const b = await postJson(`/api/ai/threads/${threadId}/messages`, { role: 'ai', content: aiText, metadata });
@@ -305,13 +328,13 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     }
     selectedServiceId = serviceSelect.value;
   }
-  async function loadCaseLinks() {
+  async function loadCaseLinks(preferredCaseId = initialCaseId) {
     if (guestMode) return;
     const result = await getJson('/api/casework/cases?sort=activity');
     if (!result.ok) return;
     caseSelect.replaceChildren(h('option', { value: '', text: 'بدون اتصال به پرونده' }),
       ...(result.data.cases || []).map(item => h('option', { value: item.id, text: item.name + (item.caseNumber ? ' ـ ' + item.caseNumber : '') })));
-    const found = (result.data.cases || []).find(item => item.id === initialCaseId);
+    const found = (result.data.cases || []).find(item => item.id === preferredCaseId);
     if (found) caseSelect.value = found.id;
     await loadCaseServices(caseSelect.value);
   }
@@ -1466,7 +1489,6 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
   });
 
   renderLog();
-  if (initialThread && /^[1-9][0-9]{0,15}$/.test(initialThread)) loadThread(initialThread);
 
   const toolbar = h('div', { class: voiceAllowed ? 'ai-toolbar ai-smart-toolbar' : 'ai-toolbar' }, [modeGroup, docWrap, contractWrap, newBtn]);
   const composer = h('form', { class: voiceAllowed ? 'ai-composer ai-chat-composer' : 'ai-composer', 'aria-label': voiceAllowed ? 'چت با دستیار' : 'ارسال پیام' }, [
@@ -1482,7 +1504,11 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
 
   voicePanel.hidden = !voiceAllowed;
   syncMode();
-  if (!guestMode) loadCaseLinks();
+  if (!guestMode) {
+    loadCaseLinks().then(() => {
+      if (initialThread && /^[1-9][0-9]{0,15}$/.test(initialThread)) loadThread(initialThread);
+    });
+  } else if (initialThread && /^[1-9][0-9]{0,15}$/.test(initialThread)) loadThread(initialThread);
   return h('div', { class: 'ai-shell' }, [
     h('section', { class: 'ai-main', 'aria-label': 'گفت‌وگو با دستیار' }, [workspaceIntro, toolbar, stream, composer]),
   ]);
