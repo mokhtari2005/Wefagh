@@ -20,7 +20,14 @@ import requests
 
 BASE = "https://dotic.ir"
 SEARCH_URL = BASE + "/new-search/"
-SAMPLE_URL = BASE + "/news/21912"
+SAMPLE_URL = BASE + "/news/22182"
+CATEGORY_SEARCH_URLS = {
+    "laws": BASE + "/search?type=6",
+    "regulations": BASE + "/search?type=7",
+    "judicial_decisions": BASE + "/search?type=8",
+    "bills": BASE + "/search?type=9",
+    "drafts": BASE + "/search?type=10",
+}
 USER_AGENT = "MokhtariLawAcademyBot/1.0 (+https://mokhtari.ir; mailto:edu@mokhtari.ir)"
 TIMEOUT = 25
 
@@ -55,16 +62,27 @@ class _PageParser(HTMLParser):
         self.text_parts = []
         self.anchors = []
         self.media = []
+        self.elements = []
+        self.script_parts = []
         self.in_title = False
         self.in_heading = False
+        self.in_script = False
         self.current_anchor = None
+        self.current_button = None
+        self.buttons = []
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
         if tag == "title":
             self.in_title = True
+        if tag == "script":
+            self.in_script = True
         if tag in ("h1", "h2", "h3") and not self.heading_parts:
             self.in_heading = True
+        if any(key in attrs for key in ("onclick", "data-url", "data-file", "data-id", "href", "src", "data")) or any(key.startswith("data-") for key in attrs):
+            self.elements.append({"tag": tag, "attrs": attrs})
+        if tag in ("button", "input"):
+            self.current_button = {"tag": tag, "attrs": attrs, "text": ""}
         if tag == "a":
             self.current_anchor = {"href": attrs.get("href", ""), "text": ""}
         if tag in ("iframe", "embed") and attrs.get("src"):
@@ -75,8 +93,13 @@ class _PageParser(HTMLParser):
     def handle_endtag(self, tag):
         if tag == "title":
             self.in_title = False
+        if tag == "script":
+            self.in_script = False
         if tag in ("h1", "h2", "h3"):
             self.in_heading = False
+        if tag in ("button", "input") and self.current_button is not None:
+            self.buttons.append(self.current_button)
+            self.current_button = None
         if tag == "a" and self.current_anchor is not None:
             self.anchors.append(self.current_anchor)
             self.current_anchor = None
@@ -89,8 +112,12 @@ class _PageParser(HTMLParser):
             self.title_parts.append(data)
         if self.in_heading:
             self.heading_parts.append(data)
+        if self.in_script:
+            self.script_parts.append(data)
         if self.current_anchor is not None:
             self.current_anchor["text"] += data
+        if self.current_button is not None:
+            self.current_button["text"] += data
 
     def parse(self, html):
         self.feed(html)
