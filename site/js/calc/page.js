@@ -766,7 +766,8 @@ function toolPage(kind, params = {}) {
     const form = event.target;
     if (!(form instanceof HTMLFormElement)) return;
     queueMicrotask(async () => {
-      const resultNode = section.querySelector('.regional-result, .tool-out .result');
+      const resultScope = form.closest('.tool') || section;
+      const resultNode = resultScope.querySelector('.regional-result, .tool-out .result');
       if (!resultNode || resultNode.classList.contains('notice')) return;
       const inputData = Object.fromEntries([...form.elements].filter(control =>
         control.name || control.id
