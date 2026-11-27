@@ -292,6 +292,27 @@ test('/api/me بدون کوکی ۴۰۱ و با کوکی معتبر اطلاعا�
   assert.deepEqual(body.user.roles, ['super_admin']);
 });
 
+test('حساب مدیر قدیمی با ایمیل ADMIN_EMAIL بدون نیاز به تصویب عضویت وارد می‌شود و نقش ترمیم می‌شود', { skip }, async () => {
+  const { db, env, sent } = setup();
+  // حساب پیش از تعیین ADMIN_EMAIL ساخته شده و نقش super_admin ندارد.
+  await call(env, '/api/auth/register', { body: validUser });
+  const token = tokenFromMail(sent);
+  await call(env, '/api/auth/verify-email', { body: { token } });
+  env.ADMIN_EMAIL = 'SHAHRAM@example.com';
+
+  const login = await call(env, '/api/auth/login', { body: { email: validUser.email, password: validUser.password } });
+  assert.equal(login.status, 200, 'configured admin must not be blocked by pending membership approval');
+  const cookie = sessionCookieFrom(login);
+  assert.ok(cookie);
+
+  const me = await call(env, '/api/me', { method: 'GET', cookie });
+  assert.equal(me.status, 200);
+  const body = await me.json();
+  assert.ok(body.user.roles.includes('super_admin'));
+  const role = db.prepare("SELECT role FROM user_roles WHERE user_id=1 AND role='super_admin'").get();
+  assert.equal(role?.role, 'super_admin');
+});
+
 test('ادمین اصلی با ثبت‌نام همان ایمیل نقش super_admin می‌گیرد؛ کاربر عادی نمی‌گیرد', { skip }, async () => {
   const { db, env } = setup({ adminEmail: 'Shahram@Example.com' });
   await call(env, '/api/auth/register', { body: validUser });
