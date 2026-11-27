@@ -178,6 +178,70 @@ class LegalCorpusImporterTests(unittest.TestCase):
         self.assertTrue(importer.is_d1_daily_write_quota_error(RuntimeError("daily row write limit exceeded")))
         self.assertFalse(importer.is_d1_daily_write_quota_error(RuntimeError("database busy")))
 
+    def test_same_hash_with_incomplete_article_rows_is_refreshed(self):
+        doc = {
+            "slug": "partially-imported", "contentSha256": "a" * 64,
+            "lawType": "law", "sourceUrl": "https://www.ekhtebar.ir/law",
+            "officialSourceUrl": None, "sourceName": "پایگاه خبری اختبار",
+            "articles": [{"number": "1", "body": "الف"}, {"number": "2", "body": "ب"}],
+        }
+        row = {
+            "slug": "partially-imported", "content_sha256": "a" * 64,
+            "law_type": "law", "source_url": "https://www.ekhtebar.ir/law",
+            "official_source_url": None, "source_name": "پایگاه خبری اختبار",
+            "status": "needs_review", "protected_articles": 0, "existing_articles": 1,
+        }
+        new_docs, refreshable, protected, unchanged = importer.partition_document_updates([doc], [row])
+        self.assertEqual(new_docs, [])
+        self.assertEqual(len(refreshable), 1)
+        self.assertEqual(protected, [])
+        self.assertEqual(unchanged, 0)
+        self.assertEqual(doc["_existingArticleCount"], 1)
+
+    def test_verified_document_with_incomplete_articles_is_queued_not_overwritten(self):
+        doc = {
+            "slug": "protected-partial", "contentSha256": "a" * 64,
+            "lawType": "law", "sourceUrl": "https://www.ekhtebar.ir/law",
+            "officialSourceUrl": None, "sourceName": "پایگاه خبری اختبار",
+            "articles": [{"number": "1", "body": "الف"}, {"number": "2", "body": "ب"}],
+        }
+        row = {
+            "slug": "protected-partial", "content_sha256": "a" * 64,
+            "law_type": "law", "source_url": "https://www.ekhtebar.ir/law",
+            "official_source_url": None, "source_name": "پایگاه خبری اختبار",
+            "status": "verified", "protected_articles": 1, "existing_articles": 1,
+        }
+        _, refreshable, protected, unchanged = importer.partition_document_updates([doc], [row])
+        self.assertEqual(refreshable, [])
+        self.assertEqual(len(protected), 1)
+        self.assertEqual(unchanged, 0)
+
+    def test_refresh_splits_documents_larger_than_one_d1_batch(self):
+        doc = {
+            "slug": "large-refresh", "title": "قانون نمونه", "lawType": "law",
+            "contentSha256": "a" * 64,
+            "articles": [{"number": str(i), "heading": f"ماده {i}", "body": "متن " + str(i)} for i in range(100)],
+        }
+        calls = []
+        class FakeD1Response:
+            status_code = 200
+            def __init__(self, count): self.count = count
+            def json(self):
+                return {"success": True, "result": [
+                    {"success": True, "meta": {"changes": 1}} for _ in range(self.count)
+                ]}
+        def fake_post(url, **kwargs):
+            count = len(kwargs["json"]["batch"])
+            calls.append(count)
+            return FakeD1Response(count)
+        with patch.object(importer.requests, "post", side_effect=fake_post):
+            stats = importer.refresh_unverified_documents([(doc, "b" * 64)])
+        self.assertGreater(len(calls), 1)
+        self.assertTrue(all(count <= 90 for count in calls))
+        self.assertEqual(stats["documents_updated"], 1)
+        self.assertEqual(stats["articles_inserted"], 100)
+        self.assertEqual(stats["skipped_large"], 0)
+
     def test_metadata_only_changes_trigger_refresh_or_protected_review(self):
         doc = {
             "slug": "reclassified-law",
