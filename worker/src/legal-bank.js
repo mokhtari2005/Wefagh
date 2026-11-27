@@ -59,7 +59,9 @@ export async function handleLegalBank(request, env, path) {
       const documentDate = clean(b.documentDate,40);
       const subject = clean(b.subject,500);
       const sourceUrlInput = clean(b.sourceUrl,1200);
-      const officialSourceUrl = clean(b.officialSourceUrl,1200) || sourceUrlInput;
+      // A discovery URL (for example, Ekhtbar) is not an official source.
+      // Keep the official link empty unless the importer supplied a distinct verified-domain URL.
+      const officialSourceUrl = clean(b.officialSourceUrl,1200);
       const sourceUrl = sourceUrlInput || officialSourceUrl;
       const discoverySourceUrl = clean(b.discoverySourceUrl,1200);
       const contentSha256 = clean(b.contentSha256,64).toLowerCase();
