@@ -24,10 +24,11 @@ PHASE_TYPES = {
         "administrative_court_unified_precedent", "administrative_court_general_board",
         "administrative_court_specialized_board", "administrative_court_decision",
         "judicial_advisory_opinion", "advisory_opinion", "guardian_council_opinion",
-        "judicial_circular", "judicial_decision", "judicial_session", "parliamentary_review_opinion",
+        "judicial_circular", "judicial_decision", "judicial_session",
     },
+    "parliamentary": {"bill", "parliamentary_review_opinion"},
 }
-PHASE_TYPES["all"] = PHASE_TYPES["laws"] | PHASE_TYPES["regulations"] | PHASE_TYPES["judicial"]
+PHASE_TYPES["all"] = PHASE_TYPES["laws"] | PHASE_TYPES["regulations"] | PHASE_TYPES["judicial"] | PHASE_TYPES["parliamentary"]
 if IMPORT_PHASE not in PHASE_TYPES:
     raise SystemExit("LEGAL_IMPORT_PHASE must be one of: laws, regulations, judicial, all")
 DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩","01234567890123456789")
@@ -72,7 +73,7 @@ def category_type(path, title):
     if len(parts)<3 or parts[1]!="cats":
         return classify(title)
     category=parts[2].replace("\u200c"," ").strip()
-    value=re.sub(r"\\s+"," ",title.replace("\u200c"," ").strip())
+    value=re.sub(r"\s+"," ",title.replace("\u200c"," ").strip())
     if category=="آرا وحدت رویه":
         return "supreme_court_unified_precedent" if "دیوان عدالت اداری" not in value else "administrative_court_unified_precedent"
     if category=="نظریه‌های مشورتی":
@@ -143,7 +144,7 @@ def parse_doc(path, index):
     if not title: return None,"missing-title"
     source=""
     for line in lines[:12]:
-        m=re.search(r"https://www\.ekhtebar\.ir/[^\s)>]+",line)
+        m=re.search(r"https?://(?:www\.)?ekhtebar\.ir/[^\s)>]+",line)
         if m: source=m.group(0).rstrip(".,؛)"); break
     stem=path.rsplit("/",1)[-1][:-3]
     item=index.get(stem)
@@ -176,7 +177,7 @@ def parse_doc(path, index):
         # instead of splitting incidental citations into fake "articles".
         body_lines=[]
         for line in lines:
-            if line.strip()==f"# {title}" or re.match(r"^>\\s*(?:منبع|پی.?دی.?اف)\\s*:",line.strip(),re.I):
+            if line.strip()==f"# {title}" or re.match(r"^>\s*(?:منبع|پی.?دی.?اف)\s*:",line.strip(),re.I):
                 continue
             body_lines.append(line)
         body="\n".join(body_lines).strip()
