@@ -176,6 +176,26 @@
       "mode": "manual",
       "authoritative": false,
       "discovery_only": true
+    },
+    {
+      "key": "iran-laws-graphrag",
+      "url": "https://huggingface.co/datasets/justicedao/ipfs_iran_laws_ir",
+      "authority": "پیکره پژوهشی قوانین ایران (برگرفته از DOTIC؛ منبع ثانویه)",
+      "types": [
+        "law",
+        "bylaw",
+        "executive_regulation",
+        "executive_circular",
+        "executive_resolution",
+        "general_policies",
+        "treaty",
+        "bill",
+        "other"
+      ],
+      "mode": "bulk_download",
+      "authoritative": false,
+      "discovery_only": true,
+      "note": "نسخه پژوهشی CID-keyed از داده‌های بالادستی DOTIC؛ شامل اسناد و بخش‌های حقوقی. snapshot جایگزین روزنامه رسمی یا سامانه ملی قوانین و مقررات نیست. همه رکوردها نیازمند بررسی و مقابله رسمی باقی می‌مانند."
     }
   ]
 }
