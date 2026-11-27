@@ -73,7 +73,7 @@ test('بارگذاری دستیار نسخه تازه رابط را دریافت
   assert.match(html, /js\/app\.js\?v=20261126-home-hero-preload-1/u);
   assert.match(html, /css\/styles\.css\?v=20261125-gpt-primary-ui-1/u);
   assert.match(app, /assistant\.js\?v=20261126-assistant-config-split-1/u);
-  assert.match(app, /assistant-forms\.js\?v=20261123-assistant-loading-fix-1/u);
+  assert.match(app, /assistant-forms\.js\?v=20261126-assistant-config-split-1/u);
   assert.match(app, /timeoutMs = 20000/u);
   assert.match(app, /page_load_timeout/u);
   assert.match(app, /تلاش دوباره/u);
