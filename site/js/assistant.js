@@ -125,8 +125,21 @@ export function checkNewFile(file, current = []) {
 }
 /** پیام‌های کاربر و پاسخ دستیار برای ارسال دوباره به سرور؛ سقف ۴۰ پیام مطابق محدودیت سرور. */
 export function trimHistory(history) {
-  // سقف با محدودیت سمت سرور هماهنگ است تا گفت‌وگوی طولانی مشاوره در زمان تنظیم سند حذف نشود.
-  return history.slice(-40).map((m) => ({ role: m.role, text: String(m.text || '').slice(0, 4000) }));
+  // سقف مجموع با محدودیت سمت سرور هماهنگ است؛ قدیمی‌ترین پیام‌ها زودتر کنار می‌روند.
+  let total = 0;
+  const output = [];
+  for (const item of history.slice(-40).reverse()) {
+    const text = String(item.text || '').slice(0, 4000);
+    if (!text) continue;
+    if (total + text.length > 30000) {
+      const remaining = 30000 - total;
+      if (remaining > 0) output.push({ role: item.role, text: text.slice(-remaining) });
+      break;
+    }
+    output.push({ role: item.role, text });
+    total += text.length;
+  }
+  return output.reverse();
 }
 
 /** متن پاسخ دستیار برای تاریخچه: پرسش‌های تکمیلی یا متن پیش‌نویس. */
@@ -1238,16 +1251,24 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     status.textContent = '';
     const sent = attachments.slice();
     let res;
-    if (sent.length) {
-      const form = new FormData();
-      form.append('mode', mode);
-      form.append('docType', docSelect.value);
-      form.append('message', typed);
-      form.append('history', JSON.stringify(trimHistory(history)));
-      for (const a of sent) form.append('files', a.file, a.file.name);
-      res = await postForm('/api/ai/assistant', form, { timeoutMs: 120000, networkRetries: 2 });
-    } else {
-      res = await postJson('/api/ai/assistant', { mode, docType: docSelect.value, message: typed, history: trimHistory(history) }, { timeoutMs: 120000, networkRetries: 2 });
+    try {
+      if (sent.length) {
+        const form = new FormData();
+        form.append('mode', mode);
+        form.append('docType', docSelect.value);
+        form.append('message', typed);
+        form.append('history', JSON.stringify(trimHistory(history)));
+        for (const a of sent) form.append('files', a.file, a.file.name);
+        res = await postForm('/api/ai/assistant', form, { timeoutMs: 120000, networkRetries: 2 });
+      } else {
+        res = await postJson('/api/ai/assistant', { mode, docType: docSelect.value, message: typed, history: trimHistory(history) }, { timeoutMs: 120000, networkRetries: 2 });
+      }
+    } catch (error) {
+      // هیچ خطای غیرمنتظره‌ای نباید دکمه ارسال را برای همیشه قفل کند.
+      res = {
+        status: 0, ok: false, data: null, networkError: true,
+        networkErrorType: error instanceof Error ? error.name : 'OtherError',
+      };
     }
     stopPendingProgress();
     busy = false;
@@ -1273,6 +1294,9 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
         res.apiProbe?.status === 'timeout' ? 'آزمون API: بررسی سلامت سرور نیز زمان‌بر شد' : '',
         res.apiProbe?.status === 'http_error' ? `آزمون API: پاسخ HTTP ${res.apiProbe.httpStatus}` : '',
         res.status ? `HTTP ${res.status}` : '',
+        res.requestId ? `شناسه پیگیری: ${res.requestId}` : '',
+        Number.isFinite(res.elapsedMs) ? `زمان انتقال: ${(res.elapsedMs / 1000).toFixed(1)} ثانیه` : '',
+        res.requestAttempt ? `تلاش: ${res.requestAttempt}` : '',
         res.data === null && res.status ? 'پاسخ غیر JSON' : '',
       ].filter(Boolean).join(' · ');
       status.textContent = `${errorText(code)}${which} (کد: ${code}${res.data?.providerStatus ? ` · HTTP ${res.data.providerStatus}` : ''}${res.data?.providerReason ? ` ${res.data.providerReason}` : ''}${res.data?.reason ? ` · ${res.data.reason}` : ''}${tech ? ` · ${tech}` : ''})${fallbackInfo} متن و پیوست‌های شما حفظ شد.`;
