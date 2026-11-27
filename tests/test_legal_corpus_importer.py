@@ -35,6 +35,8 @@ class LegalCorpusImporterTests(unittest.TestCase):
         self.assertIn("judicial_decision", importer.PHASE_TYPES["all"])
         self.assertNotIn("judicial_advisory_opinion", importer.PHASE_TYPES["laws"])
         self.assertIn("judicial_advisory_opinion", importer.PHASE_TYPES["judicial"])
+        self.assertIn("bill", importer.PHASE_TYPES["parliamentary"])
+        self.assertIn("bill", importer.PHASE_TYPES["all"])
 
     def test_category_files_are_discovered_with_recursive_tree(self):
         fake = type("Response", (), {"json": lambda self: {"truncated": False, "tree": [
