@@ -8,6 +8,7 @@ import { handleAcademy } from './academy/routes.js';
 import { handleMedia } from './media/routes.js';
 import { handleDeadlines } from './deadlines/routes.js';
 import { handleCases } from './cases/routes.js';
+import { handleCasework } from './casework/routes.js';
 import { handleMootBank } from './moot/routes.js';
 import { handleDashboard } from './dashboard.js';
 import { handleAdminCases } from './admin-cases.js';
@@ -205,6 +206,11 @@ export default {
     if (path === '/api/moot/cases' || path.startsWith('/api/moot/cases/') || path === '/api/moot/history') {
       const res = await handleMootBank(request, env, path);
       if (res) return res;
+    }
+
+    if (path.startsWith('/api/casework/')) {
+      try { const res = await handleCasework(request, env, path); if (res) return res; }
+      catch (err) { console.error(JSON.stringify({ where: 'route:casework', error: err?.name || 'Error' })); return json({ ok: false, error: 'INTERNAL_ERROR' }, 500); }
     }
 
     if (path === '/api/cases' || path.startsWith('/api/cases/') || path === '/api/moot/sessions' || path.startsWith('/api/moot/sessions/')) {
