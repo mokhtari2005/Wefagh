@@ -95,6 +95,9 @@ class LegalCorpusImporterTests(unittest.TestCase):
             "contentSha256":"a"*64,"articles":[{"number":"1","heading":"ماده ۱","body":"متن"}]
         })
         combined = "\n".join(sql for sql,_ in statements)
+        self.assertIn("INSERT INTO legal_document_versions", combined)
+        self.assertIn("INSERT INTO legal_article_versions", combined)
+        self.assertIn("automatic_source_refresh", combined)
         self.assertIn("status='needs_review'", combined)
         self.assertIn("NOT EXISTS", combined)
         self.assertIn("p.status IN ('verified','amended','repealed')", combined)
