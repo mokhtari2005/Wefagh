@@ -315,8 +315,8 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
     if (found) caseSelect.value = found.id;
     await loadCaseServices(caseSelect.value);
   }
-  caseSelect.addEventListener('change', () => loadCaseServices(caseSelect.value));
-  serviceSelect.addEventListener('change', () => { selectedServiceId = serviceSelect.value; });
+  caseSelect.addEventListener('change', async () => { await loadCaseServices(caseSelect.value); renderLog(); });
+  serviceSelect.addEventListener('change', () => { selectedServiceId = serviceSelect.value; renderLog(); });
   const modeGroup = h('div', { class: 'ai-seg', role: 'group', 'aria-label': 'نوع کار' });
   const modeIcons = { consult: 'scale', draft: 'edit', analyze: 'search', litigation: 'gavel', research: 'book-open-check', review: 'clipboard-list' };
   const modeButtons = MODES.map(([value, label]) => {
