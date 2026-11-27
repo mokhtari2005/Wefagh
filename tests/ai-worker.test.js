@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../worker/src/index.js';
 import { AiError, extractText, generateText, synthesizeSpeech, aiConfigured, modelIds } from '../worker/src/ai/gemini.js';
-import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims } from '../worker/src/ai/routes.js';
+import { cleanHistory, rateLimited, LIMITS, transcriptText, SPEAKERS, VOICES, guardUnverifiedLegalClaims, buildEvidenceSources } from '../worker/src/ai/routes.js';
 import { findVerifiedJudicialAuthorities } from '../worker/src/legal-bank.js';
 import { buildSafeLegalSearchQuery, retrieveOfficialPageText } from '../worker/src/ai/legal-search.js';
 import { mootSystemPrompt, mootEvaluationPrompt, assistantSystemPrompt, LEGAL_DISCLAIMER } from '../worker/src/ai/prompts.js';
@@ -130,6 +130,22 @@ test('محدودکنندهٔ نرخ هر کاربر بعد از سقف درخو�
   for (let i = 0; i < LIMITS.callsPerMinute; i++) assert.equal(rateLimited(id, now), false);
   assert.equal(rateLimited(id, now), true);
   assert.equal(rateLimited(id, now + 61_000), false);
+});
+
+test('منابع دادرس فقط به‌عنوان منبع ثانویه و با پیوند امن نمایش داده می‌شوند', () => {
+  const sources = buildEvidenceSources({
+    secondarySources: [{
+      title: 'ماده ۱۰ قانون مدنی',
+      url: 'https://dadrasai.com/laws/madeh-10',
+      domain: 'dadrasai.com',
+      status: 'منبع ثانویه؛ برای تطبیق با متن رسمی',
+      excerpt: 'قراردادهای خصوصی در صورتی که مخالف صریح قانون نباشد نافذ است.',
+    }],
+  });
+  assert.equal(sources.length, 1);
+  assert.equal(sources[0].type, 'منبع حقوقی تکمیلی');
+  assert.equal(sources[0].status, 'منبع ثانویه؛ برای تطبیق با متن رسمی');
+  assert.equal(sources[0].url, 'https://dadrasai.com/laws/madeh-10');
 });
 
 test('مسیرهای هوش مصنوعی بدون ورود رد می‌شوند', async () => {

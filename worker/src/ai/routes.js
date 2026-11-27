@@ -3,6 +3,7 @@
 import { getPublishedCase, SLUG_RE } from '../moot/caseStore.js';
 import { findVerifiedLegalArticles, findVerifiedJudicialAuthorities } from '../legal-bank.js';
 import { searchLegalAuthorities } from './legal-search.js';
+import { searchDadrasLegal } from './dadras-mcp.js';
 import { json, readJsonBody } from '../http.js';
 import { currentUser } from '../auth/routes.js';
 import { registrationRequired } from '../access.js';
@@ -47,7 +48,7 @@ function safeEvidenceUrl(value) {
 }
 
 /** منابع بازیابی‌شده را با تفکیک منبع داخلیِ تأییدشده و سرنخ جست‌وجو به رابط کاربر می‌دهد. */
-export function buildEvidenceSources({ legalArticles = [], judicialAuthorities = [], webSources = [] } = {}) {
+export function buildEvidenceSources({ legalArticles = [], judicialAuthorities = [], webSources = [], secondarySources = [] } = {}) {
   const output = [];
   const seen = new Set();
   const add = (source) => {
@@ -86,6 +87,17 @@ export function buildEvidenceSources({ legalArticles = [], judicialAuthorities =
       domain: authority.issuingAuthority || authority.sourceName,
       status: 'سند و متن آن در بانک حقوقی با وضعیت تأییدشده بازیابی شد',
       excerpt: authority.body,
+    });
+  }
+
+  for (const source of (Array.isArray(secondarySources) ? secondarySources : []).slice(0, 4)) {
+    add({
+      type: 'منبع حقوقی تکمیلی',
+      title: source.title || 'نتیجه جست‌وجوی تکمیلی',
+      url: source.url,
+      domain: source.domain || 'dadrasai.com',
+      status: source.status || 'منبع ثانویه؛ برای تطبیق با متن رسمی',
+      excerpt: source.excerpt,
     });
   }
 
@@ -745,6 +757,31 @@ async function assistant(request, env) {
       ...(VEHICLE_DEFECT_TOPIC.test(legalSearchText) ? VEHICLE_DEFECT_ARTICLES : []),
       ...executionTransferArticles,
     ];
+    let dadrasResearch = { status: 'not_run', sources: [] };
+    const legalModes = ['consult', 'litigation', 'draft', 'analyze', 'research'];
+    if (env?.AI_BILLING_MODE === 'zero' && legalModes.includes(mode)
+      && curatedArticles.length + legalArticles.length < 4) {
+      stage = 'dadras_legal_search';
+      dadrasResearch = await searchDadrasLegal(legalSearchText, { limit: 5, timeoutMs: 4500 });
+      if (dadrasResearch.sources.length) {
+        // Dadras فقط سرنخ ثانویه است؛ متن تأییدشده را دوباره و فقط از D1 داخلی بازیابی می‌کنیم.
+        const discoveryTitles = dadrasResearch.sources.map((source) => source.title).join(' ');
+        try {
+          const supplemental = await findVerifiedLegalArticles(env.DB, legalSearchText + ' ' + discoveryTitles);
+          const seen = new Set(legalArticles.map((article) => String(article.lawTitle) + '::' + String(article.articleNumber)));
+          for (const article of supplemental) {
+            const key = String(article.lawTitle) + '::' + String(article.articleNumber);
+            if (!seen.has(key)) {
+              seen.add(key);
+              legalArticles.push(article);
+            }
+          }
+        } catch (err) {
+          legalBankUnavailable = true;
+          console.error(JSON.stringify({ where: 'ai', stage: 'dadras_local_recheck', error: err?.name || 'Error' }));
+        }
+      }
+    }
     // مواد صریح و مرتبطِ ازپیش‌تطبیق‌شده باید در ابتدای زمینه باشند تا در سقف ورودی بازبین حذف نشوند.
     const promptArticles = [...curatedArticles, ...legalArticles];
     const statuteContext = promptArticles.length ? promptArticles.map((a) => `قانون: ${a.lawTitle}\nماده ${a.articleNumber}${a.heading ? ` ـ ${a.heading}` : ''}\n${a.body}\nمنبع ثبت‌شده: ${a.sourceName || 'ثبت نشده'}${a.sourceUrl ? ` (${a.sourceUrl})` : ''}`).join('\n\n---\n\n') : '';
@@ -795,12 +832,20 @@ async function assistant(request, env) {
       }
     } else if (['consult', 'litigation', 'draft', 'analyze', 'research'].includes(mode)) {
       webResearch = { status: 'disabled_zero_cost_mode', sources: [], routesTried: [] };
-      webResearchContext = 'برای جلوگیری از فراخوانی سرویس جست‌وجوی مبتنی بر Gemini، جست‌وجوی برخط در حالت صفرهزینه اجرا نشد. بانک داخلی قوانین و آرای تأییدشده همچنان مبنای بازیابی است؛ نبود نتیجه در بانک به‌معنای نبودن مستند قانونی نیست.';
+      webResearchContext = 'جست‌وجوی Google Search وابسته به Gemini در حالت صفرهزینه اجرا نشد. بانک داخلی قوانین و آرای تأییدشده مبنای استناد است؛ نبود نتیجه در بانک به‌معنای نبودن مستند قانونی نیست.';
     }
     stage = 'primary_model_generation';
     const generationMode = mode;
     const generated = await generateTextWithFallback(env, {
-      system: [assistantSystemPrompt({ mode: generationMode, docType, hasAttachments: attachments.length > 0, legalContext }), webResearchContext].filter(Boolean).join('\n\n'),
+      system: [
+        assistantSystemPrompt({ mode: generationMode, docType, hasAttachments: attachments.length > 0, legalContext }),
+        webResearchContext,
+        dadrasResearch.sources.length ? [
+          'سرنخ‌های جست‌وجو از کتابخانه تکمیلی دادرس (منبع ثانویه و غیررسمی):',
+          JSON.stringify(dadrasResearch.sources.map((source) => ({ title: source.title, url: source.url }))),
+          'این سرنخ‌ها فقط برای کشف عنوان سند هستند؛ متن آن‌ها را رسمی یا تأییدشده تلقی نکن و هیچ حکم یا ماده‌ای را صرفاً بر پایه آن‌ها مستند نکن. فقط رکوردهای verified بازیابی‌شده از بانک داخلی مبنای استناد قطعی‌اند.',
+        ].join('\n') : '',
+      ].filter(Boolean).join('\n\n'),
       contents,
       // توکن‌های «تفکر» مدل هم از این سقف کم می‌شوند؛ سقف پایین باعث قطع شدن پیش‌نویس‌های فارسی می‌شد.
       maxOutputTokens: generationMode === 'consult' ? 5500 : 6000,
@@ -929,7 +974,7 @@ async function assistant(request, env) {
       ...(reviewReport ? { reviewReport } : {}),
       reviewFollowups: reviewFollowups,
       reviewStatus,
-      sources: buildEvidenceSources({ legalArticles, judicialAuthorities, webSources: webResearch?.sources || [] }),
+      sources: buildEvidenceSources({ legalArticles, judicialAuthorities, webSources: webResearch?.sources || [], secondarySources: dadrasResearch?.sources || [] }),
       attachments: summarizeAttachments(attachments),
     });
   } catch (err) {
