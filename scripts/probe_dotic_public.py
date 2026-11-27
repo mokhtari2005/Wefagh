@@ -33,9 +33,9 @@ def _integer(value: str | None):
 
 def check_robots(response, target_url: str, user_agent: str = USER_AGENT) -> dict:
     status = int(response.status_code)
-    if 400 <= status < 500:
+    if status in (404, 410):
         return {"status_code": status, "available": False, "allowed": True,
-                "reason": "robots_not_found_or_client_error_no_rules"}
+                "reason": "robots_not_found_no_published_rules"}
     if status != 200:
         return {"status_code": status, "available": False, "allowed": False,
                 "reason": "robots_unavailable_fail_closed"}
