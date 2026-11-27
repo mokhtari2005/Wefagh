@@ -374,7 +374,7 @@ export async function requestPasswordReset(request, env) {
   if (!user || user.status !== 'active' || !user.email_verified_at) {
     return json({ ok: true, message: RESET_REQUEST_MSG }, 202);
   }
-  const recent = await env.DB.prepare("SELECT created_at FROM email_tokens WHERE user_id=?1 AND purpose='reset_password' ORDER BY created_at DESC LIMIT 1").bind(user.id).first();
+  const recent = await env.DB.prepare("SELECT created_at FROM email_tokens WHERE user_id=?1 AND purpose='reset_password' AND used_at IS NULL ORDER BY created_at DESC LIMIT 1").bind(user.id).first();
   if (recent && Date.now() - Date.parse(recent.created_at) < RESEND_COOLDOWN_MS) {
     return json({ ok: true, message: RESET_REQUEST_MSG }, 202);
   }
@@ -386,6 +386,7 @@ export async function requestPasswordReset(request, env) {
     .bind(await hashToken(token), user.id, addMs(now, RESET_TOKEN_TTL_MS)).run();
   try {
     await mailer(env)({
+      from: 'Mokhtari Law Academy <edu@mokhtari.ir>',
       to: email,
       subject: 'بازیابی رمز عبور | آکادمی وکالت شهرام مختاری',
       text: [
