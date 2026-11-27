@@ -13,6 +13,8 @@ from urllib.robotparser import RobotFileParser
 import requests
 
 BASE = "https://qavanin.ir/"
+DB_ID = "a02aeb28-b6e7-4423-9671-1ce3f9e3038b"
+SOURCE_KEY = "national-regulations"
 USER_AGENT = "MokhtariLawAcademyLegalBankBot/1.0 (+https://mokhtari.ir; edu@mokhtari.ir)"
 DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
 
