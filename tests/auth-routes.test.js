@@ -292,6 +292,27 @@ test('/api/me بدون کوکی ۴۰۱ و با کوکی معتبر اطلاعا�
   assert.deepEqual(body.user.roles, ['super_admin']);
 });
 
+test('حساب مدیر قدیمی با ایمیل ADMIN_EMAIL بدون نیاز به تصویب عضویت وارد می‌شود و نقش ترمیم می‌شود', { skip }, async () => {
+  const { db, env, sent } = setup();
+  // حساب پیش از تعیین ADMIN_EMAIL ساخته شده و نقش super_admin ندارد.
+  await call(env, '/api/auth/register', { body: validUser });
+  const token = tokenFromMail(sent);
+  await call(env, '/api/auth/verify-email', { body: { token } });
+  env.ADMIN_EMAIL = 'SHAHRAM@example.com';
+
+  const login = await call(env, '/api/auth/login', { body: { email: validUser.email, password: validUser.password } });
+  assert.equal(login.status, 200, 'configured admin must not be blocked by pending membership approval');
+  const cookie = sessionCookieFrom(login);
+  assert.ok(cookie);
+
+  const me = await call(env, '/api/me', { method: 'GET', cookie });
+  assert.equal(me.status, 200);
+  const body = await me.json();
+  assert.ok(body.user.roles.includes('super_admin'));
+  const role = db.prepare("SELECT role FROM user_roles WHERE user_id=1 AND role='super_admin'").get();
+  assert.equal(role?.role, 'super_admin');
+});
+
 test('ادمین اصلی با ثبت‌نام همان ایمیل نقش super_admin می‌گیرد؛ کاربر عادی نمی‌گیرد', { skip }, async () => {
   const { db, env } = setup({ adminEmail: 'Shahram@Example.com' });
   await call(env, '/api/auth/register', { body: validUser });
@@ -437,4 +458,63 @@ test('ارسال مجدد پس از خطای سرویس، حساب گیرکرد�
   const token = tokenFromMail(sent);
   const ok = await call(env, '/api/auth/verify-email', { body: { token } });
   assert.equal(ok.status, 200);
+});
+
+
+test('بازیابی رمز: لینک یک‌بارمصرف ایمیلی رمز را تغییر می‌دهد و نشست‌های قبلی را باطل می‌کند', { skip }, async () => {
+  const { db, env, sent } = setup();
+  await call(env, '/api/auth/register', { body: validUser });
+  await call(env, '/api/auth/verify-email', { body: { token: tokenFromMail(sent) } });
+  await approveMembership(env);
+  const login = await call(env, '/api/auth/login', { body: { email: validUser.email, password: validUser.password } });
+  assert.equal(login.status, 200);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM sessions').get().n, 1);
+
+  const requestReset = await call(env, '/api/auth/request-password-reset', { body: { email: validUser.email } });
+  assert.equal(requestReset.status, 202);
+  assert.equal(sent.at(-1)?.from, 'Mokhtari Law Academy <edu@mokhtari.ir>');
+  const resetToken = tokenFromMail(sent);
+  assert.ok(resetToken);
+  const newPassword = 'رمز-تازه-و-امن-۱۴۰۵';
+  const reset = await call(env, '/api/auth/reset-password', { body: { token: resetToken, password: newPassword } });
+  assert.equal(reset.status, 200);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM sessions').get().n, 0);
+  const oldLogin = await call(env, '/api/auth/login', { body: { email: validUser.email, password: validUser.password } });
+  assert.equal(oldLogin.status, 401);
+  const newLogin = await call(env, '/api/auth/login', { body: { email: validUser.email, password: newPassword } });
+  assert.equal(newLogin.status, 200);
+  const reuse = await call(env, '/api/auth/reset-password', { body: { token: resetToken, password: validUser.password } });
+  assert.equal(reuse.status, 400);
+});
+
+test('درخواست بازیابی برای ایمیل ناموجود پاسخ عمومی می‌دهد و ایمیلی ارسال نمی‌کند', { skip }, async () => {
+  const { env, sent } = setup();
+  const res = await call(env, '/api/auth/request-password-reset', { body: { email: 'unknown@example.com' } });
+  assert.equal(res.status, 202);
+  assert.match((await res.json()).message, /اگر حسابی/);
+  assert.equal(sent.length, 0);
+});
+
+
+test('بازیابی رمز پس از شکست ارسال ایمیل، بدون انتظار برای پایان مهلت، دوباره قابل درخواست است', { skip }, async () => {
+  const { env, sent } = setup();
+  await call(env, '/api/auth/register', { body: validUser });
+  await call(env, '/api/auth/verify-email', { body: { token: tokenFromMail(sent) } });
+  await approveMembership(env);
+  const deliver = env.mailer;
+  env.mailer = async () => { throw new Error('MAIL_TEMPORARY_FAILURE'); };
+  const originalError = console.error;
+  console.error = () => {};
+  let failed;
+  try {
+    failed = await call(env, '/api/auth/request-password-reset', { body: { email: validUser.email } });
+  } finally {
+    console.error = originalError;
+  }
+  assert.equal(failed.status, 503);
+  env.mailer = deliver;
+  const retried = await call(env, '/api/auth/request-password-reset', { body: { email: validUser.email } });
+  assert.equal(retried.status, 202);
+  assert.equal(sent.length, 2);
+  assert.equal(sent.at(-1)?.from, 'Mokhtari Law Academy <edu@mokhtari.ir>');
 });
