@@ -43,7 +43,10 @@ const validBody = {
 test('GET /api/health پاسخ سلامت می‌دهد', async () => {
   const res = await worker.fetch(new Request(URL_BASE + '/api/health'), {});
   assert.equal(res.status, 200);
-  assert.deepEqual(await res.json(), { ok: true, service: 'wefagh-api' });
+  const health = await res.json();
+  assert.equal(health.ok, true);
+  assert.equal(health.service, 'wefagh-api');
+  for (const key of ['databaseConfigured', 'recordingStorageConfigured', 'b2EndpointConfigured', 'b2BucketConfigured', 'b2KeyIdConfigured', 'b2ApplicationKeyConfigured']) assert.equal(typeof health[key], 'boolean');
   assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
 });
 
