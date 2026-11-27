@@ -221,26 +221,27 @@ class LegalCorpusImporterTests(unittest.TestCase):
             "slug": "large-refresh", "title": "قانون نمونه", "lawType": "law",
             "sourceName": "پایگاه خبری اختبار", "sourceUrl": "https://www.ekhtebar.ir/law",
             "officialSourceUrl": None, "notes": "test", "contentSha256": "a" * 64,
-            "articles": [{"number": str(i), "heading": f"ماده {i}", "body": "متن " + str(i)} for i in range(100)],
+            "articles": [{"number": str(i), "heading": f"ماده {i}", "body": "متن " + str(i)} for i in range(5000)],
         }
         calls = []
         class FakeD1Response:
             status_code = 200
-            def __init__(self, count): self.count = count
+            def __init__(self, batch): self.batch = batch
             def json(self):
                 return {"success": True, "result": [
-                    {"success": True, "meta": {"changes": 1}} for _ in range(self.count)
+                    {"success": True, "meta": {"changes": 50 if item["sql"].startswith("INSERT INTO legal_articles") else 1}}
+                    for item in self.batch
                 ]}
         def fake_post(url, **kwargs):
-            count = len(kwargs["json"]["batch"])
-            calls.append(count)
-            return FakeD1Response(count)
+            batch = kwargs["json"]["batch"]
+            calls.append(len(batch))
+            return FakeD1Response(batch)
         with patch.object(importer.requests, "post", side_effect=fake_post):
             stats = importer.refresh_unverified_documents([(doc, "b" * 64)])
         self.assertGreater(len(calls), 1)
         self.assertTrue(all(count <= 90 for count in calls))
         self.assertEqual(stats["documents_updated"], 1)
-        self.assertEqual(stats["articles_inserted"], 100)
+        self.assertEqual(stats["articles_inserted"], 5000)
         self.assertEqual(stats["skipped_large"], 0)
 
     def test_metadata_only_changes_trigger_refresh_or_protected_review(self):
