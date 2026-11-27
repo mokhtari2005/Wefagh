@@ -29,7 +29,7 @@ PHASE_TYPES = {
 }
 PHASE_TYPES["all"] = PHASE_TYPES["laws"] | PHASE_TYPES["regulations"] | PHASE_TYPES["judicial"] | PHASE_TYPES["parliamentary"]
 if IMPORT_PHASE not in PHASE_TYPES:
-    raise SystemExit("LEGAL_IMPORT_PHASE must be one of: laws, regulations, judicial, all")
+    raise SystemExit("LEGAL_IMPORT_PHASE must be one of: laws, regulations, judicial, parliamentary, all")
 DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩","01234567890123456789")
 ARTICLE = re.compile(r"^\s*(?:#{1,6}\s*)?(ماده|اصل)\s*[\(（]?\s*([0-9۰-۹٠-٩]+(?:\s*(?:مکرر|الحاقی))?|[آ-ی‌]+(?:\s+و\s+[آ-ی‌]+)?)(?=\s*(?:[ـ\-–—:：؛،.]|[\)）]|$))\s*[\)）]?\s*(?:[ـ\-–—:：؛،.]\s*)?(.*)$")
 SINGLE = re.compile(r"^\s*(?:#{1,6}\s*)?ماده[\s‌ـ\-]*واحده\s*(?:[ـ\-–—:：]\s*)?(.*)$")
