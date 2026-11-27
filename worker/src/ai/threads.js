@@ -253,6 +253,13 @@ export async function handleThreads(request, env, path) {
       .bind(thread.id, role, content, JSON.stringify(metadata))
       .run();
     await env.DB.prepare('UPDATE assistant_threads SET updated_at = ?1 WHERE id = ?2').bind(nowIso, thread.id).run();
+    if (thread.case_id) {
+      await env.DB.prepare(`INSERT INTO case_timeline(case_id,user_id,service_id,event_type,title,details_json)
+        VALUES(?1,?2,?3,'assistant_message_added','اقدام جدید در گفت‌وگوی دستیار وکیل',?4)`)
+        .bind(thread.case_id,user.id,thread.casework_service_id||null,JSON.stringify({threadId:thread.id,role,characters:content.length})).run();
+      await env.DB.prepare('UPDATE case_records SET last_activity_at=?1,updated_at=?1 WHERE id=?2 AND user_id=?3')
+        .bind(nowIso,thread.case_id,user.id).run();
+    }
     return json({ ok: true }, 201);
   }
 
