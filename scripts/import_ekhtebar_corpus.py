@@ -126,7 +126,7 @@ def find_official_source_url(raw):
     # Only inspect the document header, where source citations are declared;
     # links appearing inside the legal body may refer to unrelated authorities.
     header = "\n".join(raw.splitlines()[:12])
-    matches = re.findall(r"https?://(?:www[.]?)?(?:qavanin[.]ir|rrk[.]ir)/[^\s\"'<>)]*", header, flags=re.IGNORECASE)
+    matches = re.findall(r"https?://(?:www[.]?)?(?:qavanin[.]ir|rrk[.]ir|dotic[.]ir|media[.]dotic[.]ir)/[^\s\"'<>)]*", header, flags=re.IGNORECASE)
     for candidate in matches:
         candidate = candidate.rstrip(".,؛،)")
         if candidate.lower().startswith("https://"):
