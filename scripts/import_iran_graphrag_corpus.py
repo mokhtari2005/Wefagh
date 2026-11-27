@@ -262,7 +262,9 @@ def queue_statement(existing, doc):
         "title": doc["title"], "lawType": doc["law_type"], "sourceName": SOURCE_NAME,
         "sourceUrl": doc["source_url"], "officialSourceUrl": doc["official_source_url"],
         "discoverySourceUrl": DATASET_URL, "contentSha256": doc["content_sha256"],
-        "notes": doc["notes"], "articles": doc["articles"],
+        "notes": doc["notes"], "articles": doc["articles"][:10],
+        "proposedArticlesCount": len(doc["articles"]),
+        "proposedPayloadTruncated": len(doc["articles"]) > 10,
     }
     return {
         "sql": """INSERT OR IGNORE INTO legal_document_update_queue
