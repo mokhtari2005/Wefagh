@@ -44,8 +44,8 @@ export function academyList() {
 export async function academyCoursesPage() {
   const wrap = h('div', {}, [
     h('p', {}, [h('a', { href: '#/academy', text: '← بازگشت به آکادمی' })]),
-    h('h1', { text: 'دوره‌های آموزشی' }),
-    h('p', { class: 'lead', text: 'هر درس با مطالعه، تحلیل پرونده، تمرین کتبی و آزمونک پیش می‌رود؛ نتیجه و پیشرفت در حساب کارآموز ثبت می‌شود.' }),
+    h('h1', { text: 'کارگاه‌ها و مسیرهای آموزشی' }),
+    h('p', { class: 'lead', text: 'هر کارگاه با مطالعه، تحلیل پرونده، تمرین کتبی و آزمونک پیش می‌رود؛ نتیجه و پیشرفت در حساب کاربر ثبت می‌شود.' }),
   ]);
   const grid = h('div', { class: 'cards' });
   wrap.append(grid);
@@ -60,7 +60,7 @@ export async function academyCoursesPage() {
   }
   for (const c of res.data.courses) {
     grid.append(h('a', { class: 'card', href: `#/academy/${c.id}` }, [
-      h('span', { class: 'badge', text: `${c.level} · ${c.lessonCount} درس` }),
+      h('span', { class: 'badge', text: `${c.format === 'workshop' ? 'کارگاه آموزشی' : c.level} · ${c.lessonCount} درس` }),
       c.status === 'draft' ? h('span', { class: 'badge badge-draft', text: 'پیش‌نویس ـ در دست تهیه' }) : h('span'),
       c.enrolled ? h('span', { class: 'badge badge-soft', text: 'ثبت‌نام شده‌اید' }) : h('span'),
       h('h3', { text: c.title }), h('p', { text: c.summary }),
@@ -85,6 +85,7 @@ export async function academyCourse(courseId) {
   const course = res.data.course;
   wrap.append(
     h('p', {}, [h('a', { href: course.format === 'workshop' ? '#/academy/workshops' : '#/courses', text: course.format === 'workshop' ? '← همه کارگاه‌ها' : '← همه دوره‌ها' })]),
+    h('span', { class: 'section-kicker', text: course.format === 'workshop' ? 'کارگاه آموزشی مهارت‌محور' : 'محتوای آموزشی' }),
     h('h1', { text: course.title }),
     h('p', { class: 'muted', text: course.level }),
     h('p', { class: 'lead', text: course.summary }),
