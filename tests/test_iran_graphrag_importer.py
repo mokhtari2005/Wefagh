@@ -1,9 +1,28 @@
 import unittest
 
-from scripts.import_iran_graphrag_corpus import build_documents, classify_title, normalize_url, is_d1_daily_write_quota_error
+from scripts.import_iran_graphrag_corpus import build_documents, classify_title, normalize_url, is_d1_daily_write_quota_error, is_usable_legal_title
 
 
 class IranGraphRagCorpusImporterTests(unittest.TestCase):
+    def test_invalid_ocr_and_empty_document_titles_are_rejected(self):
+        self.assertFalse(is_usable_legal_title(""))
+        self.assertFalse(is_usable_legal_title("عنوان فاقد نشانه حقوقی"))
+        self.assertFalse(is_usable_legal_title("با صلوات بر محمد و آل محمد"))
+        self.assertTrue(is_usable_legal_title("قانون مدنی"))
+        self.assertTrue(is_usable_legal_title("مجموعه نظرات شورای نگهبان در مورد مصوبات مجلس شورای اسلامی"))
+
+    def test_build_documents_reports_and_skips_invalid_titles(self):
+        rows = [
+            {"record_type": "law", "law_cid": "bad-1", "title": "", "body": "متن نامعتبر"},
+            {"record_type": "article", "law_cid": "bad-1", "article_number": "1", "body": "متن"},
+            {"record_type": "law", "law_cid": "good-1", "instrument_title": "قانون مدنی", "body": ""},
+            {"record_type": "article", "law_cid": "good-1", "instrument_title": "قانون مدنی", "article_number": "1", "body": "متن ماده"},
+        ]
+        documents, rejected = build_documents(rows, "revision", return_rejected=True)
+        self.assertEqual(rejected, 1)
+        self.assertEqual(len(documents), 1)
+        self.assertEqual(documents[0]["law_type"], "law")
+
     def test_d1_free_tier_quota_error_is_recognized(self):
         self.assertTrue(is_d1_daily_write_quota_error(RuntimeError("D1 batch HTTP 400: code 7500 daily row write limit")))
         self.assertTrue(is_d1_daily_write_quota_error(RuntimeError("daily row write limit exceeded")))

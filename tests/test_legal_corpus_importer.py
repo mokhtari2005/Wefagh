@@ -155,13 +155,15 @@ class LegalCorpusImporterTests(unittest.TestCase):
             [{"type": "other", "status": "needs_review", "count": 4}],
             [{"type": "law", "total": 6, "with_official_link": 2}],
             [{"source_name": "DOTIC", "count": 6}],
+            [{"source_name": "DOTIC", "type": "other", "article_count": 24000}],
             [{"slug": "x", "title": "سند بدون عنوان", "source_url": "https://dotic.ir/x"}],
         ]
         with patch.object(importer, "d1_query", side_effect=responses) as query:
             audit = importer.audit_database()
-        self.assertEqual(query.call_count, 6)
+        self.assertEqual(query.call_count, 7)
         self.assertEqual(audit["official_links_by_type"][0]["with_official_link"], 2)
         self.assertEqual(audit["source_name_counts"][0]["source_name"], "DOTIC")
+        self.assertEqual(audit["articles_by_source_type"][0]["article_count"], 24000)
         self.assertEqual(audit["other_document_samples"][0]["title"], "سند بدون عنوان")
 
     def test_daily_refresh_budget_defers_excess_articles_deterministically(self):

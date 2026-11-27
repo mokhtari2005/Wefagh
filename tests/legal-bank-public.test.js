@@ -23,7 +23,7 @@ function dbFor({ docStatus = 'needs_review' } = {}) {
               if (sql.includes('legal_document_sources')) {
                 return { results: [{ key: 'national-regulations', title: 'سامانه ملی قوانین و مقررات', lastSuccessAt: null }] };
               }
-              if (sql.includes('GROUP BY law_type,status')) {
+              if (sql.includes('GROUP BY l.law_type,l.status')) {
                 return { results: [{ type: 'law', status: 'needs_review', count: 1 }] };
               }
               if (sql.includes('FROM legal_articles') && sql.includes('COUNT(*) AS total')) {
@@ -45,10 +45,11 @@ function dbFor({ docStatus = 'needs_review' } = {}) {
         },
         all: async () => {
           calls.push({ sql, bindings: [] });
-          if (sql.includes('GROUP BY law_type,status')) return { results: [{ type: 'law', status: 'needs_review', count: 1 }] };
           if (sql.includes('legal_document_sources')) return { results: [] };
-          if (sql.includes('legal_laws')) return { results: [{ ...document, articleCount: 4 }] };
-          if (sql.includes('legal_articles')) return { results: [{ total: 4, verified: 0, needsReview: 4 }] };
+          if (sql.includes('FROM legal_articles') && sql.includes('COUNT(*) AS total')) return { results: [{ total: 4, verified: 0, needsReview: 4 }] };
+          if (sql.includes('GROUP BY l.law_type,l.status')) return { results: [{ type: 'law', status: 'needs_review', count: 1 }] };
+          if (sql.includes('FROM legal_laws') && sql.includes('GROUP BY l.id')) return { results: [{ ...document, articleCount: 4 }] };
+          if (sql.includes('FROM legal_laws')) return { results: [{ total: 1, verified: 0, needsReview: 1 }] };
           return { results: [] };
         },
         first: async () => {
@@ -69,6 +70,36 @@ test('public legal bank statistics are readable without authentication', async (
   assert.ok(Array.isArray(body.byType));
   assert.ok(Array.isArray(body.sources));
   assert.ok(Array.isArray(body.latest));
+});
+
+test('public statistics and search exclude malformed DOTIC research chunks', async () => {
+  const DB = dbFor();
+  const stats = await handleLegalBank(new Request('https://mokhtari.ir/api/legal-bank/public-stats'), { DB }, '/api/legal-bank/public-stats');
+  assert.equal(stats.status, 200);
+  const statsSql = DB.calls.map(call => call.sql).join('\n');
+  assert.match(statsSql, /پیکره پژوهشی قوانین ایران/);
+  assert.match(statsSql, /law_type='other'/);
+  assert.match(statsSql, /JOIN legal_laws l ON l.id=a.law_id/);
+
+  DB.calls.length = 0;
+  const search = await handleLegalBank(
+    new Request('https://mokhtari.ir/api/legal-bank/public-search?q=قانون'),
+    { DB },
+    '/api/legal-bank/public-search',
+  );
+  assert.equal(search.status, 200);
+  assert.match(DB.calls[0].sql, /پیکره پژوهشی قوانین ایران/);
+});
+
+test('public document lookup also excludes malformed DOTIC records', async () => {
+  const DB = dbFor();
+  const response = await handleLegalBank(
+    new Request('https://mokhtari.ir/api/legal-bank/public-document?id=7'),
+    { DB },
+    '/api/legal-bank/public-document',
+  );
+  assert.equal(response.status, 200);
+  assert.match(DB.calls[0].sql, /پیکره پژوهشی قوانین ایران/);
 });
 
 test('public search is read-only and does not require a login', async () => {

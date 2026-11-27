@@ -4,6 +4,9 @@ import { currentUser } from './auth/routes.js';
 import { requireAdmin } from './admin.js';
 
 const clean = (v, max = 500) => typeof v === 'string' ? v.trim().slice(0, max) : '';
+// Keep malformed DOTIC research chunks in D1 for audit, but exclude them from the public legal corpus.
+const PUBLIC_DOCUMENT_FILTER = `NOT (l.source_name LIKE 'پیکره پژوهشی قوانین ایران%' AND (l.law_type='other' OR l.title IS NULL OR TRIM(l.title)=''))`;
+const PUBLIC_DOCUMENT_FILTER_UNALIASED = `NOT (source_name LIKE 'پیکره پژوهشی قوانین ایران%' AND (law_type='other' OR title IS NULL OR TRIM(title)=''))`;
 const STATUSES = new Set(['needs_review', 'verified', 'amended', 'repealed']);
 const TYPES = new Set([
   'law', 'regulation', 'bylaw', 'circular', 'unified_precedent', 'advisory_opinion', 'other',
@@ -38,17 +41,17 @@ export async function handleLegalBank(request, env, path) {
     if (request.method !== 'GET') return json({ok:false,error:'METHOD_NOT_ALLOWED'},405,{Allow:'GET'});
     const [lawTotals,articleTotals,types,sources,latest] = await Promise.all([
       env.DB.prepare(`SELECT COUNT(*) AS total,
-        SUM(CASE WHEN status='verified' THEN 1 ELSE 0 END) AS verified,
-        SUM(CASE WHEN status='needs_review' THEN 1 ELSE 0 END) AS needsReview,
-        SUM(CASE WHEN status='amended' THEN 1 ELSE 0 END) AS amended,
-        SUM(CASE WHEN status='repealed' THEN 1 ELSE 0 END) AS repealed,
-        MAX(updated_at) AS lastUpdated FROM legal_laws`).all(),
+        SUM(CASE WHEN l.status='verified' THEN 1 ELSE 0 END) AS verified,
+        SUM(CASE WHEN l.status='needs_review' THEN 1 ELSE 0 END) AS needsReview,
+        SUM(CASE WHEN l.status='amended' THEN 1 ELSE 0 END) AS amended,
+        SUM(CASE WHEN l.status='repealed' THEN 1 ELSE 0 END) AS repealed,
+        MAX(l.updated_at) AS lastUpdated FROM legal_laws l WHERE ${PUBLIC_DOCUMENT_FILTER}`).all(),
       env.DB.prepare(`SELECT COUNT(*) AS total,
-        SUM(CASE WHEN status='verified' THEN 1 ELSE 0 END) AS verified,
-        SUM(CASE WHEN status='needs_review' THEN 1 ELSE 0 END) AS needsReview,
-        SUM(CASE WHEN status='amended' THEN 1 ELSE 0 END) AS amended,
-        SUM(CASE WHEN status='repealed' THEN 1 ELSE 0 END) AS repealed FROM legal_articles`).all(),
-      env.DB.prepare('SELECT law_type AS type,status,COUNT(*) AS count FROM legal_laws GROUP BY law_type,status ORDER BY law_type,status').all(),
+        SUM(CASE WHEN a.status='verified' THEN 1 ELSE 0 END) AS verified,
+        SUM(CASE WHEN a.status='needs_review' THEN 1 ELSE 0 END) AS needsReview,
+        SUM(CASE WHEN a.status='amended' THEN 1 ELSE 0 END) AS amended,
+        SUM(CASE WHEN a.status='repealed' THEN 1 ELSE 0 END) AS repealed FROM legal_articles a JOIN legal_laws l ON l.id=a.law_id WHERE ${PUBLIC_DOCUMENT_FILTER}`).all(),
+      env.DB.prepare(`SELECT l.law_type AS type,l.status,COUNT(*) AS count FROM legal_laws l WHERE ${PUBLIC_DOCUMENT_FILTER} GROUP BY l.law_type,l.status ORDER BY l.law_type,l.status`).all(),
       env.DB.prepare(`SELECT source_key AS key,title,authority,base_url AS url,access_mode AS accessMode,
         enabled,last_checked_at AS lastCheckedAt,last_success_at AS lastSuccessAt,
         CASE WHEN last_error IS NULL THEN 'ok' ELSE 'warning' END AS syncStatus
@@ -59,6 +62,7 @@ export async function handleLegalBank(request, env, path) {
         l.source_url AS sourceUrl,l.official_source_url AS officialSourceUrl,
         l.updated_at AS updatedAt,COUNT(a.id) AS articleCount
         FROM legal_laws l LEFT JOIN legal_articles a ON a.law_id=l.id
+        WHERE ${PUBLIC_DOCUMENT_FILTER}
         GROUP BY l.id ORDER BY l.updated_at DESC,l.id DESC LIMIT 12`).all(),
     ]);
     return json({ok:true,
@@ -75,7 +79,7 @@ export async function handleLegalBank(request, env, path) {
     if (query.length < 2 && !type) return json({ok:true,items:[],page:1,hasMore:false});
     const page = Math.min(1000,Math.max(1,Number.parseInt(url.searchParams.get('page')||'1',10)||1));
     const limit = 30, offset = (page-1)*limit;
-    const conditions=[],bindings=[];
+    const conditions=[PUBLIC_DOCUMENT_FILTER],bindings=[];
     if (type) { bindings.push(type); conditions.push(`l.law_type=?${bindings.length}`); }
     if (query.length>=2) {
       const terms=[...new Set(query.split(/[\s،؛,.()]+/).map(x=>x.trim()).filter(x=>x.length>=2))].slice(0,5);
@@ -109,7 +113,7 @@ export async function handleLegalBank(request, env, path) {
       publication_date AS publicationDate,effective_date AS effectiveDate,
       source_name AS sourceName,source_url AS sourceUrl,
       official_source_url AS officialSourceUrl,discovery_source_url AS discoverySourceUrl,
-      updated_at AS updatedAt FROM legal_laws WHERE ${Number.isInteger(id)&&id>0?'id=?1':'slug=?1'}`)
+      updated_at AS updatedAt FROM legal_laws WHERE ${Number.isInteger(id)&&id>0?'id=?1':'slug=?1'} AND ${PUBLIC_DOCUMENT_FILTER_UNALIASED}`)
       .bind(Number.isInteger(id)&&id>0?id:slug).first();
     if (!doc) return json({ok:false,error:'NOT_FOUND'},404);
     if (doc.status!=='verified') return json({ok:true,document:doc,textAvailable:false,articles:[],message:'متن این سند هنوز برای انتشار عمومی تأیید نشده است.'});

@@ -54,6 +54,24 @@ def normalize_url(value):
     return value
 
 
+def is_usable_legal_title(title):
+    value = text(title).replace("ي", "ی").replace("ك", "ک").replace("\u200c", " ").strip()
+    if len(value) < 8:
+        return False
+    letters = [ch for ch in value if ch.isalpha()]
+    persian_letters = [ch for ch in letters if "\u0600" <= ch <= "\u06ff"]
+    if len(persian_letters) < 6 or len(persian_letters) / max(1, len(letters)) < 0.45:
+        return False
+    compact = re.sub(r"[\s\u200c]+", "", value)
+    legal_signals = (
+        "قانون", "آیین", "آئین", "مقرره", "بخشنامه", "مصوبه", "رأی", "رای",
+        "نظریه", "استفساریه", "معاهده", "موافقتنامه", "اساسنامه", "دستورالعمل",
+        "تصویبنامه", "سیاست", "مجمع", "شوراینگهبان", "فتوا", "استفتاء",
+        "نشستقضایی", "قواعدداوری", "مجموعهقوانین", "مجموعهنظرات", "ماده",
+    )
+    return any(signal in compact for signal in legal_signals)
+
+
 def classify_title(title):
     value = text(title).replace("ي", "ی").replace("ك", "ک")
     compact = re.sub(r"[\s\u200c]+", "", value)
@@ -64,15 +82,25 @@ def classify_title(title):
         return "interpretive_law"
     if "مجمع تشخیص مصلحت" in value and ("مصوبه" in value or "مصلحت نظام" in value):
         return "expediency_council_resolution"
+    if "شورای نگهبان" in value and any(term in value for term in ("نظر", "نظریه", "تفسیر")):
+        return "guardian_council_opinion"
+    if "رأی وحدت رویه" in value or "رای وحدت رویه" in value:
+        return "supreme_court_unified_precedent"
+    if "هیئت عمومی دیوان عدالت اداری" in value or "هیات عمومی دیوان عدالت اداری" in value:
+        return "administrative_court_general_board"
+    if "نظریه مشورتی" in value or "اداره کل حقوقی" in value:
+        return "judicial_advisory_opinion"
+    if "نشست قضایی" in value:
+        return "judicial_session"
     if value.startswith("قانون") or value.startswith("قوانین"):
         return "law"
     if value.startswith("طرح") or value.startswith("لایحه"):
         return "bill"
     if "سیاستهای کلی" in compact:
         return "general_policies"
-    if "آیین نامه" in value or "آیین‌نامه" in value or "آئین نامه" in value:
+    if any(term in compact for term in ("آییننامه", "آئیننامه", "نظامنامه")):
         return "bylaw"
-    if "تصویب نامه" in value or "تصویب‌نامه" in value:
+    if "تصویبنامه" in compact:
         return "executive_regulation"
     if "بخشنامه" in value or "دستورالعمل" in value:
         return "executive_circular"
@@ -86,7 +114,7 @@ def stable_law_key(row):
     return text(row.get("law_cid") or row.get("instrument_id") or row.get("entry_cid") or row.get("source_url") or row.get("instrument_title") or row.get("title"))
 
 
-def build_documents(rows, revision):
+def build_documents(rows, revision, return_rejected=False):
     docs = {}
     for row in rows:
         kind = text(row.get("record_type")).lower()
@@ -126,8 +154,12 @@ def build_documents(rows, revision):
                 "entry": entry,
             })
     result = []
+    rejected_invalid_titles = 0
     for key, doc in docs.items():
-        title = doc["title"] or "سند حقوقی بدون عنوان"
+        title = doc["title"] or ""
+        if not is_usable_legal_title(title):
+            rejected_invalid_titles += 1
+            continue
         doc["law_type"] = classify_title(title)
         if not doc["articles"] and doc["law_body"]:
             doc["articles"] = [{"number": "متن کامل", "heading": title[:240], "body": doc["law_body"][:100000], "entry": ""}]
@@ -165,7 +197,7 @@ def build_documents(rows, revision):
             + json.dumps(doc["metadata"], ensure_ascii=False, separators=(",", ":"))
         )[:5000]
         result.append(doc)
-    return result
+    return (result, rejected_invalid_titles) if return_rejected else result
 
 
 def get_revision(session):
@@ -362,7 +394,8 @@ def run_import(dry_run=False):
                 for batch in parquet.iter_batches(batch_size=1024):
                     rows.extend(batch.to_pylist())
         report["rows_read"] = len(rows)
-        documents = build_documents(rows, revision)
+        documents, rejected_titles = build_documents(rows, revision, return_rejected=True)
+        report["documents_rejected_invalid_titles"] = rejected_titles
         report["documents_discovered"] = len(documents)
         report["articles_discovered"] = sum(len(doc["articles"]) for doc in documents)
         if dry_run:
