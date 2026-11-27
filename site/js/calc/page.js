@@ -1,4 +1,5 @@
 // صفحهٔ محاسبه‌گرها. فرم‌ها با DOM امن ساخته می‌شوند؛ خروجی فقط متن است. تاریخ‌ها شمسی وارد می‌شوند.
+import { postJson } from '../api.js';
 import { delayInterest } from './core.js';
 import { applyRule } from './engine.js';
 import { findRule, rulesFor } from './rates.js';
@@ -757,10 +758,36 @@ function calculatorStyles() {
 }
 
 /** صفحهٔ مستقل هر محاسبه‌گر با مسیر خودش. */
-function toolPage(kind) {
+function toolPage(kind, params = {}) {
   const tool = TOOL_PAGES[kind];
   const visual = TOOL_VISUALS[kind];
   const section = tool.build();
+  section.addEventListener('submit', (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    queueMicrotask(async () => {
+      const resultScope = form.closest('.tool') || section;
+      const resultNode = resultScope.querySelector('.regional-result, .tool-out .result');
+      if (!resultNode || resultNode.classList.contains('notice')) return;
+      const inputData = Object.fromEntries([...form.elements].filter(control => control.name || control.id).map(control => {
+        const key = control.name || control.id;
+        const label = control.labels?.[0]?.textContent?.trim() || control.closest('.field')?.querySelector('label')?.textContent?.trim() || key;
+        const value = control.type === 'checkbox' ? (control.checked ? 'بله' : 'خیر')
+          : control.type === 'radio' ? (control.checked ? (control.labels?.[0]?.textContent?.trim() || control.value) : '')
+          : control.tagName === 'SELECT' ? (control.selectedOptions?.[0]?.textContent?.trim() || '')
+          : String(control.value ?? '').trim();
+        return [label, value];
+      }).filter(([, value]) => value !== ''));
+      const caseId = String(params.caseId || params.case || '').trim();
+      try {
+        await postJson('/api/casework/actions', {
+          actionType: 'calculator', calculatorKey: kind, title: tool.title,
+          caseId: /^[0-9a-f-]{36}$/i.test(caseId) ? caseId : null,
+          inputData, resultData: { text: String(resultNode.innerText || resultNode.textContent || '').slice(0, 3500) },
+        });
+      } catch {}
+    });
+  });
   // Some legacy/global page styles can collapse nested tool sections. Keep the
   // actual calculator workspace mounted and visible on its dedicated route.
   section.hidden = false;
@@ -787,7 +814,7 @@ function toolPage(kind) {
     h('span', { text: CALC_NOTICE }),
   ]);
   return h('div', { class: 'calculators-page calculator-detail-page' }, [
-    h('a', { class: 'calculator-back', href: '#/calculators' }, [icon('arrow-right', { size: 17 }), h('span', { text: 'بازگشت به همهٔ محاسبه‌گرها' })]),
+    h('a', { class: 'calculator-back', href: params.caseId || params.case ? '#/casework/' + encodeURIComponent(params.caseId || params.case) : '#/calculators' }, [icon('arrow-right', { size: 17 }), h('span', { text: params.caseId || params.case ? 'بازگشت به بایگانی پرونده' : 'بازگشت به همهٔ محاسبه‌گرها' })]),
     hero,
     guidance,
     section,
@@ -814,7 +841,7 @@ function calculatorCard(key, tool) {
 
 export function calculatorsPage(params = {}) {
   calculatorStyles();
-  if (params.tool && TOOL_PAGES[params.tool]) return toolPage(params.tool);
+  if (params.tool && TOOL_PAGES[params.tool]) return toolPage(params.tool, params);
   const entries = Object.entries(TOOL_PAGES);
   const search = h('input', { type: 'search', class: 'calculator-search-input', placeholder: 'جست‌وجوی محاسبه‌گر…', 'aria-label': 'جست‌وجو در محاسبه‌گرها' });
   const cards = h('div', { class: 'calculator-grid' }, entries.map(([key, tool]) => calculatorCard(key, tool)));
