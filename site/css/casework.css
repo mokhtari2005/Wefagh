@@ -94,3 +94,5 @@
  .casework-document-actions button{flex:1 1 auto}
  .casework-panel{padding:.8rem}
 }
+
+.casework-trash-list{display:grid;gap:.55rem;max-height:60vh;overflow:auto}.casework-trash-item{display:flex;align-items:center;justify-content:space-between;gap:.7rem;border:1px solid var(--sand-line);border-radius:10px;padding:.6rem}.casework-trash-item strong,.casework-trash-item small{display:block;overflow-wrap:anywhere}.casework-trash-item small{color:var(--ink-soft);font-size:.78rem}
