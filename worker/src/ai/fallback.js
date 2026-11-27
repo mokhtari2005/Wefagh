@@ -64,7 +64,7 @@ export async function generateTextWithFallback(env, prompt, {
       if (!aiConfigured(env) || (env?.GEMINI_TEXT_MODEL || 'gemini-3.5-flash-lite') !== 'gemini-3.5-flash-lite') {
         throw Object.assign(new Error('AI_ZERO_COST_GEMINI_NOT_CONFIGURED'), { code: 'AI_ZERO_COST_GEMINI_NOT_CONFIGURED', status: 503 });
       }
-      const result = await generateText(env, prompt, { allowModelFallback: false, useGoogleSearch: false });
+      const result = await generateText(env, { ...prompt, allowModelFallback: false, useGoogleSearch: false });
       return cleanProviderResult({ ...result, provider: 'gemini' });
     }
     // تا زمان تأیید دستی وضعیت Free Tier گوگل، مسیر فعلی Workers AI حفظ می‌شود.
