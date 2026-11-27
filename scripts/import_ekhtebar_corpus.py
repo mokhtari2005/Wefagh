@@ -3,7 +3,7 @@
 All records remain needs_review until source-by-source human verification.
 The workflow applies pending D1 migrations before importing and writes an audit artifact.
 """
-import concurrent.futures, hashlib, json, os, re, time
+import concurrent.futures, hashlib, json, os, re, time, uuid
 from urllib.parse import parse_qs, urlparse
 import requests
 
@@ -310,11 +310,25 @@ def partition_document_updates(documents, existing_rows):
     return new_docs, refreshable_docs, protected_docs, unchanged
 
 
-def refresh_statements(doc):
-    """Build a guarded replacement for a document whose law and articles remain unverified."""
+def refresh_statements(doc, version_key=None):
+    """Build a guarded replacement and archive the full previous version first."""
     slug = doc["slug"]
+    version_key = version_key or uuid.uuid4().hex
     protected = "NOT EXISTS (SELECT 1 FROM legal_articles p WHERE p.law_id=legal_laws.id AND p.status IN ('verified','amended','repealed'))"
     statements = [
+        (f"""INSERT INTO legal_document_versions
+            (version_key,law_id,slug,title,law_type,status,issuing_authority,approved_date,publication_date,
+             effective_date,source_name,source_url,official_source_url,discovery_source_url,notes,content_sha256,archive_reason)
+            SELECT ?1,id,slug,title,law_type,status,issuing_authority,approved_date,publication_date,
+             effective_date,source_name,source_url,official_source_url,discovery_source_url,notes,content_sha256,
+             'automatic_source_refresh'
+            FROM legal_laws WHERE slug=?2 AND status='needs_review' AND {protected}""",
+         [version_key,slug]),
+        ("""INSERT INTO legal_article_versions
+            (version_id,original_article_id,article_number,heading,body,status)
+            SELECT v.id,a.id,a.article_number,a.heading,a.body,a.status
+            FROM legal_document_versions v JOIN legal_articles a ON a.law_id=v.law_id
+            WHERE v.version_key=?1""", [version_key]),
         (f"""UPDATE legal_laws SET title=?1,law_type=?2,source_name=?3,source_url=?4,notes=?5,
             official_source_url=?6,discovery_source_url=?7,content_sha256=?8,
             updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
@@ -371,7 +385,7 @@ def refresh_unverified_documents(refreshable_docs):
     """Replace only needs_review text; verified/amended/repealed content is never touched."""
     if not refreshable_docs:
         return {"documents_updated":0,"articles_deleted":0,"articles_inserted":0,"queue_accepted":0,"skipped_large":0}
-    stats = {"documents_updated":0,"articles_deleted":0,"articles_inserted":0,"queue_accepted":0,"skipped_large":0}
+    stats = {"documents_updated":0,"versions_archived":0,"articles_archived":0,"articles_deleted":0,"articles_inserted":0,"queue_accepted":0,"skipped_large":0}
     batch = []
     batch_bytes = 0
 
@@ -388,7 +402,11 @@ def refresh_unverified_documents(refreshable_docs):
             raise RuntimeError("Legal auto-refresh batch failed: "+json.dumps(result.get("errors",results),ensure_ascii=False)[:1000])
         for (sql,_),item in zip(items,results):
             changes = int((item.get("meta") or {}).get("changes") or 0)
-            if sql.startswith("UPDATE legal_laws SET"):
+            if sql.startswith("INSERT INTO legal_document_versions"):
+                stats["versions_archived"] += changes
+            elif sql.startswith("INSERT INTO legal_article_versions"):
+                stats["articles_archived"] += changes
+            elif sql.startswith("UPDATE legal_laws SET"):
                 stats["documents_updated"] += changes
             elif sql.startswith("DELETE FROM legal_articles"):
                 stats["articles_deleted"] += changes
@@ -398,7 +416,7 @@ def refresh_unverified_documents(refreshable_docs):
                 stats["queue_accepted"] += changes
 
     for doc,_previous_hash in refreshable_docs:
-        statements = refresh_statements(doc)
+        statements = refresh_statements(doc,uuid.uuid4().hex)
         encoded_size = sum(len(sql.encode("utf-8"))+len(json.dumps(params,ensure_ascii=False).encode("utf-8")) for sql,params in statements)
         if len(statements) > 90 or encoded_size > 3_500_000:
             stats["skipped_large"] += 1
@@ -497,7 +515,7 @@ def main():
     with open(os.path.join(os.path.dirname(__file__), "legal_priority_documents.json"), encoding="utf-8") as priority_file:
         priority_manifest=json.load(priority_file)
     priority_audit=priority_coverage([*docs, *phase_skipped], priority_manifest)
-    report={"priority_coverage":priority_audit,"source":"https://github.com/SaeedAqamiri/laws-mcp","index_source":"https://www.ekhtebar.ir/قوانین/","official_sources":["https://qavanin.ir/","https://www.rrk.ir/"],"discovery_sources":discovery_sources,"official_links_found":sum(1 for d in docs if d.get("officialSourceUrl")),"documents_without_direct_official_link":sum(1 for d in docs if not d.get("officialSourceUrl")),"files_found":len(files),"phase":IMPORT_PHASE,"documents_parsed":parsed_count,"documents_selected":len(docs),"documents_excluded_by_phase":len(phase_skipped),"documents_processed":done,"documents_new":len(new_docs),"documents_unchanged":unchanged_docs,"documents_changed_detected":len(changed_docs),"updates_logged":queued_updates,"documents_auto_refreshed":refresh_stats["documents_updated"],"articles_replaced_deleted":refresh_stats["articles_deleted"],"articles_refreshed_inserted":refresh_stats["articles_inserted"],"updates_auto_accepted":refresh_stats["queue_accepted"],"protected_documents_pending_review":len(protected_docs)+refresh_stats["skipped_large"],"auto_refresh_skipped_large":refresh_stats["skipped_large"],"documents_inserted":inserted["laws"],"articles_inserted":inserted["articles"],"selected_type_counts":type_counts,"documents_skipped":skipped,"skip_reason_counts":skip_reason_counts,"database_audit":database_audit,"status":"needs_review","automation_policy":"new documents remain needs_review; changed unverified documents are refreshed automatically; documents with verified/amended/repealed law or article status are only queued for review","selected_types":sorted(PHASE_TYPES[IMPORT_PHASE]),"phase_excluded_sample":[{"slug":d["slug"],"title":d["title"],"type":d["lawType"]} for d in phase_skipped[:100]],"skip_sample":errors[:200]}
+    report={"priority_coverage":priority_audit,"source":"https://github.com/SaeedAqamiri/laws-mcp","index_source":"https://www.ekhtebar.ir/قوانین/","official_sources":["https://qavanin.ir/","https://www.rrk.ir/"],"discovery_sources":discovery_sources,"official_links_found":sum(1 for d in docs if d.get("officialSourceUrl")),"documents_without_direct_official_link":sum(1 for d in docs if not d.get("officialSourceUrl")),"files_found":len(files),"phase":IMPORT_PHASE,"documents_parsed":parsed_count,"documents_selected":len(docs),"documents_excluded_by_phase":len(phase_skipped),"documents_processed":done,"documents_new":len(new_docs),"documents_unchanged":unchanged_docs,"documents_changed_detected":len(changed_docs),"updates_logged":queued_updates,"documents_auto_refreshed":refresh_stats["documents_updated"],"versions_archived":refresh_stats["versions_archived"],"articles_archived":refresh_stats["articles_archived"],"articles_replaced_deleted":refresh_stats["articles_deleted"],"articles_refreshed_inserted":refresh_stats["articles_inserted"],"updates_auto_accepted":refresh_stats["queue_accepted"],"protected_documents_pending_review":len(protected_docs)+refresh_stats["skipped_large"],"auto_refresh_skipped_large":refresh_stats["skipped_large"],"documents_inserted":inserted["laws"],"articles_inserted":inserted["articles"],"selected_type_counts":type_counts,"documents_skipped":skipped,"skip_reason_counts":skip_reason_counts,"database_audit":database_audit,"status":"needs_review","automation_policy":"new documents remain needs_review; changed unverified documents are refreshed automatically; documents with verified/amended/repealed law or article status are only queued for review","selected_types":sorted(PHASE_TYPES[IMPORT_PHASE]),"phase_excluded_sample":[{"slug":d["slug"],"title":d["title"],"type":d["lawType"]} for d in phase_skipped[:100]],"skip_sample":errors[:200]}
     with open("artifacts/legal-bank-import-report.json","w",encoding="utf-8") as f: json.dump(report,f,ensure_ascii=False,indent=2)
     print(json.dumps({k:v for k,v in report.items() if k!="skip_sample"},ensure_ascii=False))
 
