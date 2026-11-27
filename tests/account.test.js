@@ -113,19 +113,23 @@ async function registerAndLogin(env, sent, { email, phone }) {
 
 test('تغییر رمز: نیاز به ورود دارد', { skip }, async () => {
   const { env } = setup();
-  const res = await call(env, '/api/auth/change-password', { body: { newPassword: NEW } });
+  const res = await call(env, '/api/auth/change-password', { body: { currentPassword: OLD, newPassword: NEW } });
   assert.equal(res.status, 401);
 });
 
-test('تغییر رمز: بدون ارسال رمز فعلی انجام می‌شود و رمز ضعیف رد می‌شود', { skip }, async () => {
+test('تغییر رمز: رمز فعلی اشتباه، رمز ضعیف و رمز تکراری رد می‌شوند', { skip }, async () => {
   const { env, sent } = setup();
   const cookie = await registerAndLogin(env, sent, { email: 'a@example.com', phone: '09121111111' });
 
-  const weak = await call(env, '/api/auth/change-password', { cookie, body: { newPassword: 'کوتاه' } });
+  const wrong = await call(env, '/api/auth/change-password', { cookie, body: { currentPassword: 'اشتباه-اشتباه', newPassword: NEW } });
+  assert.equal(wrong.status, 400);
+  assert.equal((await wrong.json()).error, 'WRONG_PASSWORD');
+
+  const weak = await call(env, '/api/auth/change-password', { cookie, body: { currentPassword: OLD, newPassword: 'کوتاه' } });
   assert.equal(weak.status, 422);
 
-  const changed = await call(env, '/api/auth/change-password', { cookie, body: { newPassword: NEW } });
-  assert.equal(changed.status, 200);
+  const same = await call(env, '/api/auth/change-password', { cookie, body: { currentPassword: OLD, newPassword: OLD } });
+  assert.equal(same.status, 422);
 });
 
 test('تغییر رمز: رمز جدید جایگزین می‌شود و نشست‌های دیگر باطل می‌شوند', { skip }, async () => {
