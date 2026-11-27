@@ -29,7 +29,7 @@ export async function handleDashboard(request, env, path) {
 
   const enrolledIds = (enrollmentRows?.results || []).map((row) => row.course_id);
   const completed = new Set((progressRows?.results || []).map((row) => `${row.course_id}:${row.lesson_id}`));
-  const managedCourses = (managedCourseRows?.results || []).flatMap((row) => { try { const payload = JSON.parse(row.payload_json); return [{ id: row.slug, title: row.title, lessons: payload.lessons }]; } catch { return []; } });
+  const managedCourses = (managedCourseRows?.results || []).flatMap((row) => { try { const payload = JSON.parse(row.payload_json); return [{ id: row.slug, title: row.title, format: payload.format === 'workshop' ? 'workshop' : 'course', lessons: payload.lessons }]; } catch { return []; } });
   const allCourses = [...COURSES, ...managedCourses];
   const courses = enrolledIds.map((id) => {
     const course = allCourses.find((item) => item.id === id);
