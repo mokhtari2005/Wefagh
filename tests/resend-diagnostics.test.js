@@ -5,12 +5,12 @@ import { sendMail } from '../worker/src/email/resend.js';
 import { logError } from '../worker/src/auth/routes.js';
 
 const KEY = 're_secret_never_log';
-const env = { RESEND_API_KEY: KEY, RESEND_FROM: 'Vefagh Law Society <noreply@mokhtari.ir>' };
+const env = { RESEND_API_KEY: KEY, RESEND_FROM: 'Mokhtari Law Academy <edu@mokhtari.ir>' };
 const call = (fetchImpl, e = env) => sendMail({
   env: e, to: 'user@example.com', subject: 'تأیید حساب وِفاق', text: 'لینک تأیید', fetchImpl,
 });
 
-test('ارسال موفق: درخواست استاندارد Resend و فرستنده دامنه وفاق', async () => {
+test('ارسال موفق: درخواست استاندارد Resend و فرستنده آکادمی مختاری', async () => {
   let request;
   await call(async (url, options) => {
     request = { url, options };
@@ -19,7 +19,7 @@ test('ارسال موفق: درخواست استاندارد Resend و فرست�
   assert.equal(request.url, 'https://api.resend.com/emails');
   assert.equal(request.options.headers.Authorization, `Bearer ${KEY}`);
   const body = JSON.parse(request.options.body);
-  assert.equal(body.from, 'Vefagh Law Society <noreply@mokhtari.ir>');
+  assert.equal(body.from, 'Mokhtari Law Academy <edu@mokhtari.ir>');
   assert.deepEqual(body.to, ['user@example.com']);
   assert.equal(body.subject, 'تأیید حساب وِفاق');
 });
@@ -71,4 +71,33 @@ test('لاگ خطای ارسال نام متغیر را نشان می‌دهد،
   try { logError('auth.send_verification', err); } finally { console.error = old; }
   assert.ok(!lines[0].includes(KEY));
   assert.equal(JSON.parse(lines[0]).status, 401);
+});
+
+
+test('فرستنده پیش‌فرض ایمیل آکادمی از نشانی edu استفاده می‌کند', async () => {
+  let body;
+  await sendMail({
+    env: { RESEND_API_KEY: KEY },
+    to: 'user@example.com',
+    subject: 'Password reset',
+    text: 'Reset link',
+    fetchImpl: async (_url, options) => {
+      body = JSON.parse(options.body);
+      return new Response(JSON.stringify({ id: 'email-id' }), { status: 200 });
+    },
+  });
+  assert.equal(body.from, 'Mokhtari Law Academy <edu@mokhtari.ir>');
+});
+
+test('در صورت خطای Resend، خطا به‌عنوان ارسال ناموفق برمی‌گردد', async () => {
+  await assert.rejects(
+    sendMail({
+      env: { RESEND_API_KEY: KEY },
+      to: 'user@example.com',
+      subject: 'Password reset',
+      text: 'Reset link',
+      fetchImpl: async () => new Response(JSON.stringify({ name: 'validation_error' }), { status: 422 }),
+    }),
+    (err) => err.status === 422 && err.reason === 'validation_error',
+  );
 });
