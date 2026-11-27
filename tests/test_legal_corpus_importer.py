@@ -91,6 +91,7 @@ class LegalCorpusImporterTests(unittest.TestCase):
         self.assertEqual(importer.find_official_source_url("https://www.ekhtebar.ir/law/"), "")
         self.assertEqual(importer.find_official_source_url("منبع: https://qavanin.ir/Law/TreeText/?IDS=123"), "https://qavanin.ir/Law/TreeText/?IDS=123")
         self.assertEqual(importer.find_official_source_url("https://www.rrk.ir/News/ShowNews.aspx?id=12"), "https://www.rrk.ir/News/ShowNews.aspx?id=12")
+        self.assertEqual(importer.find_official_source_url("https://dotic.ir/news/123"), "https://dotic.ir/news/123")
         unrelated_body = "\n".join(["# قانون نمونه", "متن ماده", *("متن" for _ in range(12)), "https://qavanin.ir/Law/TreeText/?IDS=456"])
         self.assertEqual(importer.find_official_source_url(unrelated_body), "")
 
