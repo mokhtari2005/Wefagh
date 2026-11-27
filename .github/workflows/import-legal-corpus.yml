@@ -6,7 +6,10 @@ on:
       - main
     paths:
       - 'scripts/import_ekhtebar_corpus.py'
+      - 'scripts/import_iran_graphrag_corpus.py'
+      - 'scripts/legal_document_sources.json'
       - 'scripts/legal_priority_documents.json'
+      - 'worker/migrations/**'
       - '.github/workflows/import-legal-corpus.yml'
   schedule:
     # Daily source refresh and change detection; changed existing documents are queued for review.
@@ -52,7 +55,7 @@ jobs:
       - name: Install dependencies
         run: |
           npm install --global wrangler
-          python -m pip install --upgrade pip requests
+          python -m pip install --upgrade pip requests pyarrow
       - name: Normalize and verify Cloudflare credentials
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -107,6 +110,19 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           GITHUB_TOKEN: ${{ github.token }}
         run: python scripts/import_ekhtebar_corpus.py
+      - name: Import DOTIC-derived national legal corpus
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: python scripts/import_iran_graphrag_corpus.py
+      - name: Upload DOTIC snapshot report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iran-laws-graphrag-import-report
+          path: artifacts/dotic-snapshot-report.json
+          if-no-files-found: ignore
+          retention-days: 30
       - name: Upload import report
         if: always()
         uses: actions/upload-artifact@v4
