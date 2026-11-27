@@ -180,6 +180,31 @@ async function updateService(env,userId,serviceId,body) {
   await event(env,userId,row.case_id,'service_updated','وضعیت خدمت تغییر کرد',{serviceId,details:{title,status}});
   return json({ok:true});
 }
+async function listTrash(env,userId) {
+  const [cases,documents]=await Promise.all([
+    env.DB.prepare(`SELECT c.*,
+      (SELECT COUNT(*) FROM case_services s WHERE s.case_id=c.id) AS service_count,
+      (SELECT COUNT(*) FROM case_documents d WHERE d.case_id=c.id AND d.deleted_at IS NULL) AS document_count,
+      0 AS upload_count,0 AS generated_count
+      FROM case_records c WHERE c.user_id=?1 AND c.deleted_at IS NOT NULL ORDER BY c.deleted_at DESC LIMIT 100`).bind(userId).all(),
+    env.DB.prepare('SELECT * FROM case_documents WHERE user_id=?1 AND deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT 200').bind(userId).all(),
+  ]);
+  return json({ok:true,cases:(cases.results||[]).map(caseDto),documents:(documents.results||[]).map(documentDto)});
+}
+async function restoreCase(env,userId,caseId) {
+  const row=await env.DB.prepare('SELECT * FROM case_records WHERE id=?1 AND user_id=?2 AND deleted_at IS NOT NULL').bind(caseId,userId).first();
+  if(!row)return fail('NOT_FOUND',404);
+  await env.DB.prepare('UPDATE case_records SET deleted_at=NULL,updated_at=?1,last_activity_at=?1 WHERE id=?2 AND user_id=?3').bind(now(),caseId,userId).run();
+  await event(env,userId,caseId,'case_restored','پرونده از سطل بازیابی بازگردانده شد');
+  return json({ok:true});
+}
+async function restoreDocument(env,userId,documentId) {
+  const row=await ownDocument(env,userId,documentId);
+  if(!row||!row.deleted_at)return fail('NOT_FOUND',404);
+  await env.DB.prepare("UPDATE case_documents SET deleted_at=NULL,status='active',updated_at=?1 WHERE id=?2 AND user_id=?3").bind(now(),documentId,userId).run();
+  await event(env,userId,row.case_id,'document_restored','سند از سطل بازیابی بازگردانده شد',{serviceId:row.service_id,documentId});
+  return json({ok:true});
+}
 async function uploadDocument(request,env,userId,caseId) {
   const parent=await ownCase(env,userId,caseId); if(!parent) return fail('NOT_FOUND',404);
   if(!env.B2_ENDPOINT||!env.B2_BUCKET||!env.B2_KEY_ID||!env.B2_APPLICATION_KEY) return fail('FILE_STORAGE_NOT_CONFIGURED',503);
@@ -250,6 +275,10 @@ export async function handleCasework(request,env,path) {
   if(!env.DB)return fail('DB_NOT_CONFIGURED',503);
   const user=await currentUser(request,env);if(!user)return fail('UNAUTHENTICATED',401);
   const method=request.method;
+  if(path==='/api/casework/trash'){
+    if(method!=='GET')return fail('METHOD_NOT_ALLOWED',405);
+    return listTrash(env,user.id);
+  }
   if(path==='/api/casework/cases'){
     if(method==='GET')return listCases(env,user.id,new URL(request.url));
     if(method==='POST'){const parsed=await readBody(request);if(parsed.error)return parsed.error;return createCase(env,user.id,parsed.body);}
@@ -262,6 +291,8 @@ export async function handleCasework(request,env,path) {
     if(method==='DELETE'){const row=await ownCase(env,user.id,caseDetail[1]);if(!row)return fail('NOT_FOUND',404);await env.DB.prepare('UPDATE case_records SET deleted_at=?1,updated_at=?1 WHERE id=?2 AND user_id=?3').bind(now(),row.id,user.id).run();await event(env,user.id,row.id,'case_trashed','پرونده به سطل بازیابی منتقل شد');return json({ok:true});}
     return fail('METHOD_NOT_ALLOWED',405);
   }
+  const restoreCaseMatch=path.match(/^\\/api\\/casework\\/cases\\/([0-9a-f-]{36})\\/restore$/i);
+  if(restoreCaseMatch){if(method!=='POST')return fail('METHOD_NOT_ALLOWED',405);return restoreCase(env,user.id,restoreCaseMatch[1]);}
   const services=path.match(/^\/api\/casework\/cases\/([0-9a-f-]{36})\/services$/i);
   if(services){
     if(method!=='POST')return fail('METHOD_NOT_ALLOWED',405);
@@ -277,9 +308,13 @@ export async function handleCasework(request,env,path) {
     if(method!=='POST')return fail('METHOD_NOT_ALLOWED',405);
     return uploadDocument(request,env,user.id,upload[1]);
   }
-  const document=path.match(/^\/api\/casework\/documents\/([0-9a-f-]{36})(?:\/(content|versions))?$/i);
+  const document=path.match(/^\/api\/casework\/documents\/([0-9a-f-]{36})(?:\/(content|versions|restore))?$/i);
   if(document){
     const documentId=document[1],action=document[2]||'';
+    if(action==='restore'){
+      if(method!=='POST')return fail('METHOD_NOT_ALLOWED',405);
+      return restoreDocument(env,user.id,documentId);
+    }
     if(action==='content'){
       if(method!=='GET'&&method!=='HEAD')return fail('METHOD_NOT_ALLOWED',405);
       return downloadDocument(request,env,user.id,documentId);
