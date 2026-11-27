@@ -3,6 +3,7 @@
 
 import { PRACTICAL_COURSES } from './practical-courses.js';
 import { SPECIALTY_COURSES } from './specialty-courses.js';
+import { WORKSHOP_COURSES } from './workshop-courses.js';
 
 export const COURSES = Object.freeze([
   {
@@ -53,7 +54,8 @@ export const COURSES = Object.freeze([
       },
     ],
   },
-  ...PRACTICAL_COURSES,
+  ...PRACTICAL_COURSES.map((course) => ({ ...course, format: 'workshop' })),
+  ...WORKSHOP_COURSES,
   ...SPECIALTY_COURSES,
 ]);
 
