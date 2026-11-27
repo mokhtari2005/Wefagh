@@ -5,28 +5,6 @@ import { findCourse, findLesson, isPublicCourse } from './catalog.js';
 import { getPublishedCase, SLUG_RE } from '../moot/caseStore.js';
 
 const ID_RE = /^[a-z0-9-]{1,64}$/;
-const ready = new WeakMap();
-
-async function ensureSchema(db) {
-  let pending = ready.get(db);
-  if (!pending) {
-    pending = db.prepare(`CREATE TABLE IF NOT EXISTS academy_case_practices (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      course_id TEXT NOT NULL,
-      lesson_id TEXT NOT NULL,
-      case_id TEXT NOT NULL,
-      response_text TEXT NOT NULL DEFAULT '',
-      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','submitted')),
-      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-    )`).run()
-      .then(() => db.prepare('CREATE INDEX IF NOT EXISTS idx_academy_case_practices_owner ON academy_case_practices(user_id, course_id, lesson_id, id DESC)').run())
-      .catch((error) => { ready.delete(db); throw error; });
-    ready.set(db, pending);
-  }
-  await pending;
-}
 
 async function courseFor(env, id) {
   if (env.DB) {
@@ -59,7 +37,6 @@ async function validateContext(request, env, courseId, lessonId) {
 export async function handleWorkshopPractices(request, env, path) {
   if (!path.startsWith('/api/cases/workshop-practices')) return null;
   if (!env.DB) return json({ok:false,error:'DB_NOT_CONFIGURED'},503);
-  await ensureSchema(env.DB);
   if (path === '/api/cases/workshop-practices') {
     const url = new URL(request.url);
     let body = null;
