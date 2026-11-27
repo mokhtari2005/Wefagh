@@ -100,6 +100,15 @@ export function legalBankPage() {
     ]),
     h('p', { class: 'loading', text: 'در حال دریافت اطلاعات منابع…' }),
   ]);
+  const externalPanel = h('section', { class: 'legal-bank-panel legal-bank-external' }, [
+    h('div', { class: 'legal-bank-section-heading' }, [
+      h('h2', { text: 'کتابخانه برخط تکمیلی' }),
+      h('span', { class: 'muted', text: 'منبع مستقل خارج از آمار بانک داخلی' }),
+    ]),
+    h('p', { text: 'برای جست‌وجوی گسترده‌تر قوانین و مقررات، کتابخانه عمومی دادرس نیز به‌صورت برخط در دسترس است؛ بیش از ۵٬۹۰۰ قانون و مقرره و بیش از ۹۵ هزار ماده.' }),
+    h('a', { href: 'https://dadrasai.com/library', target: '_blank', rel: 'noopener noreferrer', text: 'جست‌وجو در کتابخانه عمومی دادرس' }),
+    h('p', { class: 'muted', text: 'این مجموعه در شمارش پایگاه داخلی منظور نشده است؛ دستیار از آن فقط برای کشف سرنخ‌های حقوقی و با برچسب منبع ثانویه استفاده می‌کند.' }),
+  ]);
   const searchInput = h('input', { type: 'search', placeholder: 'جست‌وجو در عنوان قانون، شماره سند یا موضوع', 'aria-label': 'جست‌وجوی بانک قوانین' });
   const typeSelect = h('select', { 'aria-label': 'نوع سند' }, [
     h('option', { value: '', text: 'همه انواع اسناد' }),
@@ -118,7 +127,7 @@ export function legalBankPage() {
     searchForm, resultsArea,
   ]);
   const detailPanel = h('section', { class: 'legal-bank-panel legal-bank-detail', hidden: '' });
-  root.append(hero, statsArea, sourceArea, searchPanel, detailPanel);
+  root.append(hero, statsArea, sourceArea, externalPanel, searchPanel, detailPanel);
 
   let searchPage = 1;
 
