@@ -148,6 +148,48 @@ class LegalCorpusImporterTests(unittest.TestCase):
         self.assertEqual([(doc["slug"], old_hash) for doc, old_hash in protected], [("protected-law", "e" * 64)])
         self.assertEqual(unchanged, 1)
 
+    def test_metadata_only_changes_trigger_refresh_or_protected_review(self):
+        doc = {
+            "slug": "reclassified-law",
+            "contentSha256": "a" * 64,
+            "lawType": "interpretive_law",
+            "sourceUrl": "https://qavanin.ir/Law/TreeText/?IDS=123",
+            "officialSourceUrl": "https://qavanin.ir/Law/TreeText/?IDS=123",
+            "sourceName": "سامانه ملی قوانین و مقررات",
+        }
+        refreshable_rows = [{
+            "slug": "reclassified-law", "content_sha256": "a" * 64,
+            "law_type": "law", "source_url": "https://www.ekhtebar.ir/old",
+            "official_source_url": None, "source_name": "اختبار",
+            "status": "needs_review", "protected_articles": 0,
+        }]
+        new_docs, refreshable, protected, unchanged = importer.partition_document_updates([doc], refreshable_rows)
+        self.assertEqual(new_docs, [])
+        self.assertEqual(len(refreshable), 1)
+        self.assertEqual(protected, [])
+        self.assertEqual(unchanged, 0)
+
+        verified_rows = [{**refreshable_rows[0], "status": "verified"}]
+        _, refreshable, protected, unchanged = importer.partition_document_updates([doc], verified_rows)
+        self.assertEqual(refreshable, [])
+        self.assertEqual(len(protected), 1)
+        self.assertEqual(unchanged, 0)
+
+    def test_document_fingerprint_changes_when_classification_or_source_changes(self):
+        base = {
+            "contentSha256": "a" * 64, "lawType": "law",
+            "sourceUrl": "https://www.ekhtebar.ir/law",
+            "officialSourceUrl": "", "sourceName": "اختبار",
+        }
+        self.assertNotEqual(
+            importer.document_fingerprint(base),
+            importer.document_fingerprint({**base, "lawType": "interpretive_law"}),
+        )
+        self.assertNotEqual(
+            importer.document_fingerprint(base),
+            importer.document_fingerprint({**base, "officialSourceUrl": "https://qavanin.ir/law"}),
+        )
+
     def test_automatic_updates_preserve_verified_documents_and_refresh_only_unverified(self):
         migration = (MODULE_PATH.parent.parent / "worker" / "migrations" / "0039_legal_document_update_queue.sql").read_text(encoding="utf-8")
         self.assertIn("proposed_payload_json", migration)
