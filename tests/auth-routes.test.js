@@ -100,7 +100,11 @@ const validUser = {
 };
 
 async function approveMembership(env) {
-  await env.DB.prepare("UPDATE users SET membership_status='approved' WHERE email=?1").bind('shahram@example.com').run();
+  const user = await env.DB.prepare('SELECT id FROM users WHERE email=?1').bind('shahram@example.com').first();
+  assert.ok(user?.id, 'test user must exist before membership approval');
+  await env.DB.prepare("UPDATE users SET membership_status='approved' WHERE id=?1").bind(user.id).run();
+  const status = await env.DB.prepare('SELECT membership_status FROM users WHERE id=?1').bind(user.id).first();
+  assert.equal(status?.membership_status, 'approved');
 }
 
 function tokenFromMail(sent) {
@@ -266,7 +270,9 @@ test('/api/me بدون کوکی ۴۰۱ و با کوکی معتبر اطلاعا�
   await call(env, '/api/auth/verify-email', { body: { token: tokenFromMail(sent) } });
   await approveMembership(env);
   const login = await call(env, '/api/auth/login', { body: { email: validUser.email, password: validUser.password } });
+  assert.equal(login.status, 200);
   const cookie = sessionCookieFrom(login);
+  assert.ok(cookie);
 
   const anon = await call(env, '/api/me', { method: 'GET' });
   assert.equal(anon.status, 401);
