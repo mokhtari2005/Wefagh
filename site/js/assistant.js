@@ -6,7 +6,7 @@ import { getJson, postJson, postForm, sendJson } from './api.js';
 import { aiStatus, errorText, blobToBase64, pickRecordingMime, baseMime } from './ai-client.js';
 import { formatShamsi } from './shamsi.js';
 import { VOICE_GREETING_TEXT, VOICE_GREETING_AUDIO_SRC } from './voice-greeting.js';
-import { createDocumentWizard, downloadWordDocument, printDocumentPdf } from './assistant-workflow.js';
+import { createDocumentWizard, createWordDocumentBlob, downloadWordDocument, printDocumentPdf } from './assistant-workflow.js';
 import { CONTRACT_TYPES, ASSISTANT_NOTICE } from './assistant-config.js';
 export { CONTRACT_TYPES, ASSISTANT_NOTICE } from './assistant-config.js';
 
@@ -624,23 +624,24 @@ function assistantWorkspace(initialThread, guestMode = false, method = 'smart', 
       pdf.addEventListener('click', () => { if (!printDocumentPdf(displayText, DOC_TYPES.find(([value]) => value === m.docType)?.[1] || 'سند حقوقی')) status.textContent = 'پنجره چاپ باز نشد؛ اجازه بازشدن پنجره را در مرورگر فعال کنید.'; });
       actions.append(word, pdf);
       if (selectedCaseId) {
-        const saveToCase = h('button', { class: 'btn ai-mini', type: 'button', text: 'ذخیره پیش‌نویس در بایگانی پرونده' });
+        const saveToCase = h('button', { class: 'btn ai-mini', type: 'button', text: 'ذخیره نسخه Word در بایگانی پرونده' });
         saveToCase.addEventListener('click', async () => {
           saveToCase.disabled = true;
           saveToCase.textContent = 'در حال ذخیره…';
           try {
-            const fileName = 'پیش‌نویس-' + (DOC_TYPES.find(([value]) => value === m.docType)?.[0] || 'حقوقی') + '.txt';
+            const fileName = 'پیش‌نویس-' + (DOC_TYPES.find(([value]) => value === m.docType)?.[0] || 'حقوقی') + '.doc';
+            const wordBlob = createWordDocumentBlob(displayText, DOC_TYPES.find(([value]) => value === m.docType)?.[1] || 'سند حقوقی');
             const response = await fetch('/api/casework/cases/' + encodeURIComponent(selectedCaseId) + '/documents', {
               method: 'POST', credentials: 'same-origin',
               headers: {
-                'Content-Type': 'text/plain',
+                'Content-Type': 'application/msword',
                 'X-File-Name': encodeURIComponent(fileName),
                 'X-Document-Type': 'draft',
                 'X-Source-Kind': 'generated',
                 'X-Service-Id': selectedServiceId,
-                'X-Description': 'خروجی تولیدشده توسط دستیار وکیل',
+                'X-Description': 'پیش‌نویس Word تولیدشده توسط دستیار وکیل',
               },
-              body: new Blob([displayText], { type: 'text/plain;charset=utf-8' }),
+              body: wordBlob,
             });
             const data = await response.json().catch(() => null);
             if (!response.ok) throw new Error(data?.error || 'ذخیره پیش‌نویس ناموفق بود.');
