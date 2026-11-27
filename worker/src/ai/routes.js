@@ -130,18 +130,30 @@ function fail(code, status, extra = {}) {
   return json({ ok: false, error: code, ...extra }, status);
 }
 
-function aiFailure(err, stage = 'unknown') {
-  // فقط کد و نوع خطا ثبت می‌شود؛ متن پرونده، prompt، فایل و جزئیات کلید هرگز لاگ نمی‌شوند.
+function aiRequestId(request) {
+  const supplied = request.headers.get('x-client-request-id') || '';
+  if (/^[a-zA-Z0-9-]{8,80}$/.test(supplied)) return supplied;
+  try { if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID(); } catch {}
+  return `server-${Date.now().toString(36)}`;
+}
+
+function withAiRequestId(response, requestId) {
+  if (!response) return response;
+  const headers = new Headers(response.headers);
+  headers.set('X-Request-ID', requestId);
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
+function aiFailure(err, stage = 'unknown', requestId = '') {
+  // فقط شناسه پیگیری، مرحله، نوع و کد خطا ثبت می‌شود؛ متن پرونده، prompt، فایل و کلیدها هرگز لاگ نمی‌شوند.
   if (err instanceof AiError) {
-    console.error(JSON.stringify({ where: 'ai', stage, error: err.name, code: err.code, status: err.status }));
-    return fail(err.code, err.status, err.details || {});
+    console.error(JSON.stringify({ where: 'ai', requestId, stage, error: err.name, code: err.code, status: err.status }));
+    return fail(err.code, err.status, { ...(err.details || {}), ...(requestId ? { requestId } : {}) });
   }
-  // خطای ناشناخته قبلاً به AI_UNAVAILABLE تبدیل می‌شد و نوع واقعی خطا از دید کاربر و لاگ پنهان می‌ماند.
-  // فقط نام/کد شمارشی خطا ثبت و ارسال می‌شود؛ پیام خام ممکن است حاوی دادهٔ کاربر یا جزئیات حساس باشد.
   const errorType = typeof err?.name === 'string' && /^[A-Za-z][A-Za-z0-9]{0,39}$/.test(err.name) ? err.name : 'Error';
   const errorCode = typeof err?.code === 'string' && /^[A-Z][A-Z0-9_]{1,39}$/.test(err.code) ? err.code : undefined;
-  console.error(JSON.stringify({ where: 'ai', stage, error: errorType, ...(errorCode ? { errorCode } : {}) }));
-  return fail('AI_UNAVAILABLE', 503, { stage, errorType, ...(errorCode ? { errorCode } : {}) });
+  console.error(JSON.stringify({ where: 'ai', requestId, stage, error: errorType, ...(errorCode ? { errorCode } : {}) }));
+  return fail('AI_UNAVAILABLE', 503, { stage, errorType, ...(errorCode ? { errorCode } : {}), ...(requestId ? { requestId } : {}) });
 }
 
 function cleanText(value, max) {
@@ -638,7 +650,7 @@ const DEFAULT_ATTACHMENT_MESSAGE = 'پیوست‌ها را بر اساس نوع 
 async function readAssistantInput(request) {
   const type = (request.headers.get('content-type') || '').toLowerCase();
   if (!type.includes('multipart/form-data')) {
-    const parsed = await readBody(request, 32 * 1024);
+    const parsed = await readBody(request, 128 * 1024);
     return parsed.error ? { error: parsed.error } : { body: parsed.body || {}, files: [] };
   }
   const declared = Number(request.headers.get('content-length') || 0);
@@ -669,6 +681,7 @@ async function readAssistantInput(request) {
 }
 
 async function assistant(request, env) {
+  const requestId = aiRequestId(request);
   const auth = await authorized(request, env);
   if (auth.error) return auth.error;
   if (request.method !== 'POST') return fail('METHOD_NOT_ALLOWED', 405);
@@ -914,7 +927,7 @@ async function assistant(request, env) {
       attachments: summarizeAttachments(attachments),
     });
   } catch (err) {
-    return aiFailure(err, stage);
+    return aiFailure(err, stage, requestId);
   }
 }
 
@@ -986,12 +999,12 @@ async function ekhtebarAnswer(request, env) {
 
 /** مسیرهای /api/ai/*. اگر مسیر شناخته نشود null برمی‌گرداند. */
 export async function handleAi(request, env, path) {
-  // هر استثنای پیش‌بینی‌نشده (مثلاً خطای D1 هنگام احراز هویت) باید پاسخ JSON با کد مرحله بدهد،
-  // نه صفحهٔ خطای HTML کلودفلر که مرورگر آن را به‌اشتباه «سرویس در دسترس نیست» نشان می‌دهد.
+  // شناسه درخواست برای تطبیق گزارش مرورگر با گزارش امن Worker؛ هیچ محتوای پرونده‌ای ثبت نمی‌شود.
+  const requestId = aiRequestId(request);
   try {
-    return await routeAi(request, env, path);
+    return withAiRequestId(await routeAi(request, env, path), requestId);
   } catch (err) {
-    return aiFailure(err, 'router');
+    return withAiRequestId(aiFailure(err, 'router', requestId), requestId);
   }
 }
 
