@@ -29,6 +29,8 @@ function learningProfile(data) {
   const total=Number(data.totalEnrolledLessons)||0;
   const percent=total?Math.round(lessons/total*100):0;
   const courses=Number(data.enrolledCourseCount)||0;
+  const workshops=Number(data.workshopEnrollmentCount)||0;
+  const completedWorkshops=Number(data.completedWorkshopCount)||0;
   const sessions=Number(data.mootSessionCount)||0;
   const average=data.averageScore===null||data.averageScore===undefined?'ثبت نشده':String(data.averageScore)+' از ۱۰۰';
   const grid=el('div',{class:'dashboard-list'},[
@@ -41,8 +43,12 @@ function learningProfile(data) {
       el('p',{class:'muted',text:sessions+' جلسه تمرینی ثبت‌شده · میانگین امتیاز: '+average})
     ]),
     el('article',{class:'dashboard-row'},[
+      el('strong',{text:'کارگاه‌های مهارت‌محور'}),
+      el('p',{class:'muted',text:workshops+' کارگاه ثبت‌نام‌شده · '+completedWorkshops+' کارگاه تکمیل‌شده'})
+    ]),
+    el('article',{class:'dashboard-row'},[
       el('strong',{text:'تداوم یادگیری'}),
-      el('p',{class:'muted',text:courses+' دوره ثبت‌نام‌شده · سوابق بر اساس فعالیت واقعی حساب محاسبه می‌شود.'})
+      el('p',{class:'muted',text:courses+' مسیر آموزشی ثبت‌نام‌شده · سوابق بر اساس فعالیت واقعی حساب محاسبه می‌شود.'})
     ])
   ]);
   const box=el('section',{class:'dashboard-section dashboard-learning-profile'},[
@@ -149,7 +155,7 @@ export async function dashboardPage() {
     progress.append(el('span',{style:'--course-progress:'+pct+'%'}));
     courseList.append(el('article',{class:'dashboard-row dashboard-course-row'},[
       el('div',{class:'dashboard-row-heading'},[el('strong',{text:course.title}),el('span',{class:'dashboard-course-percent',text:pct+'٪ · '+course.completedLessons+'/'+course.totalLessons+' درس'})]),
-      progress,el('p',{},[el('a',{href:'#/academy/'+encodeURIComponent(course.id),text:'ادامهٔ دوره'})])
+      progress,el('p',{},[el('a',{href:'#/academy/'+encodeURIComponent(course.id),text:course.format==='workshop'?'ادامهٔ کارگاه':'ادامهٔ دوره'})])
     ]));
   });
   wrap.append(section('پیشرفت دوره‌ها',courseList,{href:'#/academy',text:'مشاهدهٔ همهٔ دوره‌ها'}));
