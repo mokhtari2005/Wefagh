@@ -76,11 +76,11 @@ def category_type(path, title):
     value=re.sub(r"\s+"," ",title.replace("\u200c"," ").strip())
     if category=="آراوحدترویه":
         return "supreme_court_unified_precedent" if "دیوان عدالت اداری" not in value else "administrative_court_unified_precedent"
-    if category=="نظریه‌هایمشورتی":
+    if category=="نظریههایمشورتی":
         return "judicial_advisory_opinion"
-    if category=="آیین‌نامه‌ها":
+    if category=="آییننامهها":
         return "bylaw"
-    if category=="بخشنامه‌ها":
+    if category=="بخشنامهها":
         return "judicial_circular" if any(x in value for x in ("قوه قضائیه","رئیس قوه","دادگستری")) else "executive_circular"
     if category=="آرایدیوانعدالتاداری":
         return "administrative_court_general_board" if "هیئت عمومی" in value else "administrative_court_decision"
@@ -88,13 +88,13 @@ def category_type(path, title):
         return "executive_resolution"
     if category=="طرحولایحه":
         return "bill"
-    if category=="نظریه‌هایرئیس‌مجلس":
+    if category=="نظریههایرئیسمجلس":
         return "parliamentary_review_opinion"
-    if category=="نشست‌هایقضایی":
+    if category=="نشستهایقضایی":
         return "judicial_session"
     if category=="رویهقضایی":
         return "judicial_decision"
-    if category=="سیاست‌هایکلی":
+    if category=="سیاستهایکلی":
         return "general_policies"
     return classify(title)
 
