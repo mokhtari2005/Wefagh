@@ -61,7 +61,7 @@ function caseDto(row) {
 }
 function serviceDto(row) {
   return { id: row.id, caseId: row.case_id, type: row.service_type, title: row.title, status: row.status,
-    details: parseJson(row.details_json, {}), createdAt: row.created_at, updatedAt: row.updated_at, completedAt: row.completed_at };
+    threadId: row.thread_id || null, details: parseJson(row.details_json, {}), createdAt: row.created_at, updatedAt: row.updated_at, completedAt: row.completed_at };
 }
 function documentDto(row) {
   return { id: row.id, caseId: row.case_id, serviceId: row.service_id, name: row.display_name,
@@ -129,7 +129,7 @@ async function getCase(env,userId,caseId) {
   const row=await ownCase(env,userId,caseId);
   if(!row) return fail('NOT_FOUND',404);
   const [services,documents,timeline,calculatorActions]=await Promise.all([
-    env.DB.prepare('SELECT * FROM case_services WHERE case_id=?1 AND user_id=?2 ORDER BY created_at DESC').bind(caseId,userId).all(),
+    env.DB.prepare('SELECT s.*, (SELECT t.id FROM assistant_threads t WHERE t.casework_service_id=s.id ORDER BY t.updated_at DESC LIMIT 1) AS thread_id FROM case_services s WHERE s.case_id=?1 AND s.user_id=?2 ORDER BY s.created_at DESC').bind(caseId,userId).all(),
     env.DB.prepare('SELECT * FROM case_documents WHERE case_id=?1 AND user_id=?2 AND deleted_at IS NULL ORDER BY created_at DESC').bind(caseId,userId).all(),
     env.DB.prepare('SELECT id,service_id,document_id,event_type,title,details_json,created_at FROM case_timeline WHERE case_id=?1 AND user_id=?2 ORDER BY id DESC LIMIT 250').bind(caseId,userId).all(),
     env.DB.prepare('SELECT id,service_id,calculator_key,title,input_json,result_json,created_at FROM casework_user_actions WHERE case_id=?1 AND user_id=?2 ORDER BY created_at DESC,id DESC LIMIT 100').bind(caseId,userId).all(),
