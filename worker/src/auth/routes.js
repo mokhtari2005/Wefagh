@@ -374,24 +374,30 @@ export async function requestPasswordReset(request, env) {
   const requestId = request.headers.get('X-Client-Request-ID') || '';
   let user;
   let token;
+  let failureStage = 'user_lookup';
   try {
     user = await env.DB.prepare("SELECT id, status, email_verified_at FROM users WHERE email=?1").bind(email).first();
     if (!user || user.status !== 'active' || !user.email_verified_at) {
       return json({ ok: true, message: RESET_REQUEST_MSG }, 202);
     }
+    failureStage = 'recent_token_lookup';
     const recent = await env.DB.prepare("SELECT created_at FROM email_tokens WHERE user_id=?1 AND purpose='reset_password' AND used_at IS NULL ORDER BY created_at DESC LIMIT 1").bind(user.id).first();
     if (recent && Date.now() - Date.parse(recent.created_at) < RESEND_COOLDOWN_MS) {
       return json({ ok: true, message: RESET_REQUEST_MSG }, 202);
     }
     const now = new Date();
+    failureStage = 'invalidate_old_tokens';
     await env.DB.prepare("UPDATE email_tokens SET used_at=?1 WHERE user_id=?2 AND purpose='reset_password' AND used_at IS NULL")
       .bind(now.toISOString(), user.id).run();
+    failureStage = 'generate_and_hash_token';
     token = generateToken();
+    const tokenHash = await hashToken(token);
+    failureStage = 'insert_reset_token';
     await env.DB.prepare("INSERT INTO email_tokens (token_hash,user_id,purpose,expires_at) VALUES (?1,?2,'reset_password',?3)")
-      .bind(await hashToken(token), user.id, addMs(now, RESET_TOKEN_TTL_MS)).run();
+      .bind(tokenHash, user.id, addMs(now, RESET_TOKEN_TTL_MS)).run();
   } catch (err) {
-    logError('auth.request_password_reset.prepare', err, requestId);
-    return json({ ok: false, error: 'RESET_UNAVAILABLE', requestId: /^[A-Za-z0-9_-]{8,80}$/.test(requestId) ? requestId : null }, 503);
+    logError(`auth.request_password_reset.${failureStage}`, err, requestId);
+    return json({ ok: false, error: 'RESET_UNAVAILABLE', stage: failureStage, requestId: /^[A-Za-z0-9_-]{8,80}$/.test(requestId) ? requestId : null }, 503);
   }
   try {
     await mailer(env)({
