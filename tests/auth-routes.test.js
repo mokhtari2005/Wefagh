@@ -459,3 +459,37 @@ test('ارسال مجدد پس از خطای سرویس، حساب گیرکرد�
   const ok = await call(env, '/api/auth/verify-email', { body: { token } });
   assert.equal(ok.status, 200);
 });
+
+
+test('بازیابی رمز: لینک یک‌بارمصرف ایمیلی رمز را تغییر می‌دهد و نشست‌های قبلی را باطل می‌کند', { skip }, async () => {
+  const { db, env, sent } = setup();
+  await call(env, '/api/auth/register', { body: validUser });
+  await call(env, '/api/auth/verify-email', { body: { token: tokenFromMail(sent) } });
+  await approveMembership(env);
+  const login = await call(env, '/api/auth/login', { body: { email: validUser.email, password: validUser.password } });
+  assert.equal(login.status, 200);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM sessions').get().n, 1);
+
+  const requestReset = await call(env, '/api/auth/request-password-reset', { body: { email: validUser.email } });
+  assert.equal(requestReset.status, 202);
+  const resetToken = tokenFromMail(sent);
+  assert.ok(resetToken);
+  const newPassword = 'رمز-تازه-و-امن-۱۴۰۵';
+  const reset = await call(env, '/api/auth/reset-password', { body: { token: resetToken, password: newPassword } });
+  assert.equal(reset.status, 200);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM sessions').get().n, 0);
+  const oldLogin = await call(env, '/api/auth/login', { body: { email: validUser.email, password: validUser.password } });
+  assert.equal(oldLogin.status, 401);
+  const newLogin = await call(env, '/api/auth/login', { body: { email: validUser.email, password: newPassword } });
+  assert.equal(newLogin.status, 200);
+  const reuse = await call(env, '/api/auth/reset-password', { body: { token: resetToken, password: validUser.password } });
+  assert.equal(reuse.status, 400);
+});
+
+test('درخواست بازیابی برای ایمیل ناموجود پاسخ عمومی می‌دهد و ایمیلی ارسال نمی‌کند', { skip }, async () => {
+  const { env, sent } = setup();
+  const res = await call(env, '/api/auth/request-password-reset', { body: { email: 'unknown@example.com' } });
+  assert.equal(res.status, 202);
+  assert.match((await res.json()).message, /اگر حسابی/);
+  assert.equal(sent.length, 0);
+});
