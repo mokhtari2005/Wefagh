@@ -6,14 +6,14 @@ const SAFE_CODE = /^[A-Za-z_]{1,60}$/;
 /**
  * @param {{env:{RESEND_API_KEY:string,RESEND_FROM?:string},to:string,subject:string,text:string,fetchImpl?:typeof fetch}} args
  */
-export async function sendMail({ env, to, subject, text, fetchImpl = fetch }) {
+export async function sendMail({ env, from: requestedFrom, to, subject, text, fetchImpl = fetch }) {
   const missing = ['RESEND_API_KEY'].filter((name) => !env[name]);
   if (missing.length) {
     const err = new Error('MAIL_NOT_CONFIGURED');
     err.missing = missing;
     throw err;
   }
-  const from = env.RESEND_FROM || DEFAULT_FROM;
+  const from = requestedFrom || env.RESEND_FROM || DEFAULT_FROM;
   if (/[\r\n]/.test(from) || /[\r\n]/.test(to) || /[\r\n]/.test(subject)) {
     throw new Error('INVALID_MAIL_HEADER');
   }

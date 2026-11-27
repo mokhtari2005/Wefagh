@@ -8,8 +8,9 @@ import { sendMail } from '../email/resend.js';
 import { notifyMembershipAdmins } from '../push/membership.js';
 
 /** گزارش فنی بدون داده‌های کاربر: فقط نام خطا و محل آن (هرگز ایمیل، رمز یا پروفایل). */
-export function logError(where, err) {
+export function logError(where, err, requestId) {
   const entry = { where, error: err?.name || 'Error', detail: String(err?.message || '').slice(0, 200) };
+  if (typeof requestId === 'string' && /^[0-9a-f-]{36}$/i.test(requestId)) entry.requestId = requestId;
   if (Number.isInteger(err?.status)) entry.status = err.status;
   if (typeof err?.reason === 'string' && /^[A-Za-z_]{1,40}$/.test(err.reason)) entry.reason = err.reason;
   if (Array.isArray(err?.missing)) {
@@ -354,7 +355,7 @@ export async function requestPasswordReset(request, env) {
   if (parsed.error) return parsed.error;
   const email = normalizeEmail(parsed.body?.email);
   if (!email) return json({ ok: false, error: 'VALIDATION_FAILED', errors: { email: 'نشانی ایمیل معتبر نیست.' } }, 422);
-  const requestId = request.headers.get('X-Client-Request-ID') || '';
+  const requestId = crypto.randomUUID();
   let user;
   let token;
   let failureStage = 'user_lookup';
@@ -379,8 +380,8 @@ export async function requestPasswordReset(request, env) {
     await env.DB.prepare("INSERT INTO email_tokens (token_hash,user_id,purpose,expires_at) VALUES (?1,?2,'reset_password',?3)")
       .bind(tokenHash, user.id, addMs(now, RESET_TOKEN_TTL_MS)).run();
   } catch (err) {
-    logError(`auth.request_password_reset.${failureStage}`, err);
-    return json({ ok: false, error: 'RESET_UNAVAILABLE' }, 503);
+    logError(`auth.request_password_reset.${failureStage}`, err, requestId);
+    return json({ ok: false, error: 'RESET_UNAVAILABLE', requestId }, 503);
   }
   try {
     await mailer(env)({
@@ -401,11 +402,15 @@ export async function requestPasswordReset(request, env) {
       ].join('\n'),
     });
   } catch (err) {
-    logError('auth.send_password_reset', err);
+    logError('auth.send_password_reset', err, requestId);
     // توکن ارسال‌نشده قابل استفاده نیست و نباید کاربر را پشت پاسخ موفق کاذب نگه دارد.
-    await env.DB.prepare("UPDATE email_tokens SET used_at=?1 WHERE user_id=?2 AND purpose='reset_password' AND used_at IS NULL")
-      .bind(new Date().toISOString(), user.id).run();
-    return json({ ok: false, error: 'MAIL_SEND_FAILED' }, 503);
+    try {
+      await env.DB.prepare("UPDATE email_tokens SET used_at=?1 WHERE user_id=?2 AND purpose='reset_password' AND used_at IS NULL")
+        .bind(new Date().toISOString(), user.id).run();
+    } catch (cleanupError) {
+      logError('auth.cleanup_failed_password_reset_token', cleanupError, requestId);
+    }
+    return json({ ok: false, error: 'MAIL_SEND_FAILED', requestId }, 503);
   }
   return json({ ok: true, message: RESET_REQUEST_MSG }, 202);
 }
