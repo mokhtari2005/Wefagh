@@ -67,15 +67,25 @@ export function caseworkPage(){
   const description=h('textarea',{name:'description',rows:'2',maxlength:'8000',placeholder:'یادداشت اولیه پرونده'});
   const submit=h('button',{type:'submit',class:'btn',text:'ایجاد پرونده و ورود به بایگانی'});
   const cancel=button('انصراف');
-  const createDraftKey='mla.casework.create-draft.v1';
-  try {
-    const saved=JSON.parse(localStorage.getItem(createDraftKey)||'null');
-    if(saved){name.value=saved.name||'';number.value=saved.number||'';subject.value=saved.subject||'';plaintiff.value=saved.plaintiff||'';description.value=saved.description||'';}
-  } catch {}
-  const saveCreateDraft=()=>{
-    try { localStorage.setItem(createDraftKey,JSON.stringify({name:name.value,number:number.value,subject:subject.value,plaintiff:plaintiff.value,description:description.value})); } catch {}
-  };
-  [name,number,subject,plaintiff,description].forEach(input=>input.addEventListener('input',saveCreateDraft));
+  let autosavedCaseId='';
+  let autosaveTimer=null;
+  let autosavePromise=Promise.resolve();
+  const draftPayload=()=>({name:name.value,caseNumber:number.value,subject:subject.value,description:description.value,parties:plaintiff.value.trim()?[{name:plaintiff.value.trim(),role:'طرف اصلی'}]:[],status:'draft'});
+  async function saveDraftToServer(){
+    if(name.value.trim().length<2)return;
+    const payload=draftPayload();
+    const result=autosavedCaseId
+      ? await sendJson('PATCH','/api/casework/cases/'+autosavedCaseId,payload)
+      : await postJson('/api/casework/cases',payload);
+    if(!result.ok)throw new Error(result.data?.error||'ذخیره خودکار پرونده انجام نشد.');
+    if(!autosavedCaseId)autosavedCaseId=result.data.case.id;
+    notice.textContent='پیش‌نویس پرونده به‌صورت خودکار ذخیره شد.';
+  }
+  function scheduleCaseAutosave(){
+    clearTimeout(autosaveTimer);
+    autosaveTimer=setTimeout(()=>{autosavePromise=autosavePromise.then(saveDraftToServer).catch(error=>{notice.textContent=error.message;});},650);
+  }
+  [name,number,subject,plaintiff,description].forEach(input=>input.addEventListener('input',scheduleCaseAutosave));
   form.append(h('h2',{text:'ثبت پرونده جدید'}),h('div',{class:'casework-form-grid'},[
     h('label',{},[h('span',{text:'نام پرونده *'}),name]),
     h('label',{},[h('span',{text:'شماره پرونده / کلاسه'}),number]),
@@ -96,14 +106,19 @@ export function caseworkPage(){
   const help=button('راهنمای این بخش','btn text');
   help.addEventListener('click',()=>showHelp(root,'مدیریت پرونده‌ها','پرونده را حتی بدون فایل ثبت کنید. شناسه پرونده بلافاصله ساخته می‌شود. سپس خدمات متعدد و اسناد هر خدمت را از داخل همان پرونده اضافه کنید. عملیات نیمه‌تمام در «ادامه کار» می‌ماند و اطلاعات آن با خروج از صفحه حذف نمی‌شود.'));
   createButton.addEventListener('click',()=>{form.hidden=!form.hidden;if(!form.hidden)name.focus();});
-  cancel.addEventListener('click',()=>{form.reset();form.hidden=true;try{localStorage.removeItem(createDraftKey);}catch{}});
+  cancel.addEventListener('click',()=>{clearTimeout(autosaveTimer);form.reset();form.hidden=true;if(autosavedCaseId){message(root,'پیش‌نویس ذخیره‌شده در بخش «ادامه کار» باقی می‌ماند.');load();}autosavedCaseId='';});
   form.addEventListener('submit',async e=>{
     e.preventDefault();submit.disabled=true;submit.textContent='در حال ذخیره…';
     try{
-      const res=await postJson('/api/casework/cases',{name:name.value,caseNumber:number.value,subject:subject.value,description:description.value,parties:plaintiff.value.trim()?[{name:plaintiff.value.trim(),role:'طرف اصلی'}]:[]});
-      if(!res.ok)throw new Error(res.data?.error||'ثبت پرونده ناموفق بود');
-      try{localStorage.removeItem(createDraftKey);}catch{}
-      location.hash='#/casework/'+res.data.case.id;
+      clearTimeout(autosaveTimer);
+      await autosavePromise;
+      if(!autosavedCaseId)await saveDraftToServer();
+      else {
+        const updated=await sendJson('PATCH','/api/casework/cases/'+autosavedCaseId,draftPayload());
+        if(!updated.ok)throw new Error(updated.data?.error||'ثبت پرونده ناموفق بود');
+      }
+      if(!autosavedCaseId)throw new Error('شناسه پرونده ایجاد نشد.');
+      location.hash='#/casework/'+autosavedCaseId;
     }catch(err){message(form,err.message,true);}
     finally{submit.disabled=false;submit.textContent='ایجاد پرونده و ورود به بایگانی';}
   });
