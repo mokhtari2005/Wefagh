@@ -283,6 +283,50 @@ def priority_coverage(documents, manifest):
     }
 
 
+def partition_document_updates(documents, existing_rows):
+    """Separate new, unchanged and changed source documents without overwriting D1."""
+    existing = {row["slug"]: row.get("content_sha256") for row in existing_rows}
+    new_docs, changed_docs, unchanged = [], [], 0
+    for doc in documents:
+        old_hash = existing.get(doc["slug"])
+        if doc["slug"] not in existing:
+            new_docs.append(doc)
+        elif old_hash and old_hash == doc.get("contentSha256"):
+            unchanged += 1
+        else:
+            changed_docs.append((doc, old_hash))
+    return new_docs, changed_docs, unchanged
+
+
+def queue_changed_documents(changed_docs):
+    """Persist changed full-text proposals for admin review; never mutate current law text."""
+    if not changed_docs:
+        return 0
+    statements = []
+    for doc, previous_hash in changed_docs:
+        payload = json.dumps(doc, ensure_ascii=False, separators=(",", ":"))
+        statements.append({
+            "sql": """INSERT OR IGNORE INTO legal_document_update_queue
+                (law_id,slug,title,previous_sha256,proposed_sha256,proposed_payload_json,discovery_source_url,official_source_url)
+                SELECT id,?1,?2,?3,?4,?5,?6,?7 FROM legal_laws WHERE slug=?1""",
+            "params": [doc["slug"], doc["title"], previous_hash, doc["contentSha256"], payload,
+                       doc.get("discoverySourceUrl") or doc.get("sourceUrl"), doc.get("officialSourceUrl") or None],
+        })
+    inserted = 0
+    for start in range(0, len(statements), 40):
+        batch = statements[start:start+40]
+        response = requests.post(D1, headers={"Authorization":f"Bearer {TOKEN}","Content-Type":"application/json"},
+            json={"batch":batch}, timeout=240)
+        if response.status_code != 200:
+            raise RuntimeError(f"Legal update queue HTTP {response.status_code}: {response.text[:800]}")
+        result = response.json()
+        items = result.get("result") or []
+        if not result.get("success") or len(items) != len(batch) or any(not item.get("success", True) for item in items):
+            raise RuntimeError("Legal update queue batch failed: " + json.dumps(result.get("errors", items), ensure_ascii=False)[:1000])
+        inserted += sum(int((item.get("meta") or {}).get("changes") or 0) for item in items)
+    return inserted
+
+
 def main():
     index=get_index(); files=get_files()
     print(f"Source mirror: {len(files)} Markdown files; parsing...")
@@ -301,9 +345,13 @@ def main():
     docs = [d for d in docs if d["lawType"] in PHASE_TYPES[IMPORT_PHASE]]
     docs.sort(key=lambda x:x["slug"])
     print(f"Phase: {IMPORT_PHASE}; parsed {parsed_count}; selected {len(docs)}; excluded by phase {len(phase_skipped)}; parse-skipped {skipped}.")
+    existing_rows = d1_query("SELECT slug,content_sha256 FROM legal_laws")
+    new_docs, changed_docs, unchanged_docs = partition_document_updates(docs, existing_rows)
+    queued_updates = queue_changed_documents(changed_docs)
+    print(f"Change detection: {len(new_docs)} new; {len(changed_docs)} changed queued; {unchanged_docs} unchanged.")
     batch=[]; size=0; done=0
     inserted={"laws":0,"articles":0}
-    for d in docs:
+    for d in new_docs:
         for statement, params in sql_for(d):
             n=len(statement.encode("utf-8"))+len(json.dumps(params,ensure_ascii=False).encode("utf-8"))
             if batch and (len(batch)>=90 or size+n>3_500_000):
@@ -328,7 +376,7 @@ def main():
     with open(os.path.join(os.path.dirname(__file__), "legal_priority_documents.json"), encoding="utf-8") as priority_file:
         priority_manifest=json.load(priority_file)
     priority_audit=priority_coverage([*docs, *phase_skipped], priority_manifest)
-    report={"priority_coverage":priority_audit,"source":"https://github.com/SaeedAqamiri/laws-mcp","index_source":"https://www.ekhtebar.ir/قوانین/","official_sources":["https://qavanin.ir/","https://www.rrk.ir/"],"discovery_sources":discovery_sources,"official_links_found":sum(1 for d in docs if d.get("officialSourceUrl")),"documents_without_direct_official_link":sum(1 for d in docs if not d.get("officialSourceUrl")),"files_found":len(files),"phase":IMPORT_PHASE,"documents_parsed":parsed_count,"documents_selected":len(docs),"documents_excluded_by_phase":len(phase_skipped),"documents_processed":done,"documents_inserted":inserted["laws"],"articles_inserted":inserted["articles"],"selected_type_counts":type_counts,"documents_skipped":skipped,"skip_reason_counts":skip_reason_counts,"database_audit":database_audit,"status":"needs_review","selected_types":sorted(PHASE_TYPES[IMPORT_PHASE]),"phase_excluded_sample":[{"slug":d["slug"],"title":d["title"],"type":d["lawType"]} for d in phase_skipped[:100]],"skip_sample":errors[:200]}
+    report={"priority_coverage":priority_audit,"source":"https://github.com/SaeedAqamiri/laws-mcp","index_source":"https://www.ekhtebar.ir/قوانین/","official_sources":["https://qavanin.ir/","https://www.rrk.ir/"],"discovery_sources":discovery_sources,"official_links_found":sum(1 for d in docs if d.get("officialSourceUrl")),"documents_without_direct_official_link":sum(1 for d in docs if not d.get("officialSourceUrl")),"files_found":len(files),"phase":IMPORT_PHASE,"documents_parsed":parsed_count,"documents_selected":len(docs),"documents_excluded_by_phase":len(phase_skipped),"documents_processed":done,"documents_new":len(new_docs),"documents_unchanged":unchanged_docs,"documents_changed_detected":len(changed_docs),"updates_queued_for_review":queued_updates,"documents_inserted":inserted["laws"],"articles_inserted":inserted["articles"],"selected_type_counts":type_counts,"documents_skipped":skipped,"skip_reason_counts":skip_reason_counts,"database_audit":database_audit,"status":"needs_review","automation_policy":"new documents are imported as needs_review; changed existing documents are queued and never overwrite current text automatically","selected_types":sorted(PHASE_TYPES[IMPORT_PHASE]),"phase_excluded_sample":[{"slug":d["slug"],"title":d["title"],"type":d["lawType"]} for d in phase_skipped[:100]],"skip_sample":errors[:200]}
     with open("artifacts/legal-bank-import-report.json","w",encoding="utf-8") as f: json.dump(report,f,ensure_ascii=False,indent=2)
     print(json.dumps({k:v for k,v in report.items() if k!="skip_sample"},ensure_ascii=False))
 
