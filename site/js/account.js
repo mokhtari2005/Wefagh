@@ -1,7 +1,7 @@
 // صفحات حساب کاربری: ورود، ثبت‌نام، تأیید ایمیل، و نمایش حساب. DOM امن (بدون innerHTML با داده).
 import { postJson, getJson } from './api.js';
 import { messageFor } from './auth-messages.js';
-import { changePasswordForm, profileEditForm } from './account-manage.js';
+import { profileEditForm } from './account-manage.js';
 import { PROFESSIONAL_STATUS, EXPERIENCE_BANDS, PRACTICE_AREAS, LEARNING_GOALS, SKILL_AREAS, LEARNING_FORMATS, toLatinDigits } from './registration-options.js';
 
 function h(tag, attrs = {}, children = []) {
@@ -281,7 +281,8 @@ export async function accountPanel({ onLogout }) {
     ]),
     h('details', { class: 'account-edit' }, [
       h('summary', { text: 'تغییر رمز عبور' }),
-      changePasswordForm(),
+      h('p', { class: 'muted', text: 'برای تعیین رمز جدید نیازی به دانستن رمز فعلی نیست. لینک امن بازیابی به نشانی ایمیل حساب شما ارسال می‌شود.' }),
+      h('a', { class: 'btn', href: '#/account?mode=forgot', text: 'ارسال لینک تعیین رمز جدید' }),
     ]),
     user.roles?.length ? h('p', { class: 'muted', text: `نقش‌ها: ${user.roles.join('، ')}` }) : h('span'),
     user.roles?.some((role) => ['admin', 'super_admin', 'academy_manager', 'media_editor'].includes(role)) ? h('p', {}, [h('a', { class: 'btn secondary', href: '#/admin', text: 'ورود به مدیریت محتوا' })]) : h('span'),
