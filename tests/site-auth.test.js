@@ -50,8 +50,7 @@ test('فرم ورود لینک بازیابی رمز را واقعاً نمای�
   assert.match(source, /href: '#\/account\?mode=forgot'/);
 });
 
-test('فرم تغییر رمز مسیر بازیابی ایمیلی را برای رمز قبلیِ در دسترس‌نبودنی ارائه می‌کند', () => {
+test('فرم تغییر رمز نیازی به رمز فعلی ندارد', () => {
   const source = readFileSync(new URL('../site/js/account-manage.js', import.meta.url), 'utf8');
-  assert.match(source, /بازیابی رمز از طریق ایمیل/);
-  assert.match(source, /href: '#\/account\?mode=forgot'/);
+  assert.doesNotMatch(source, /رمز عبور فعلی|currentPassword/);
 });
