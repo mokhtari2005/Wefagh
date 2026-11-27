@@ -126,7 +126,7 @@ export function legalBankPage() {
     detailPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     try {
       const params = doc.id ? 'id=' + encodeURIComponent(doc.id) : 'slug=' + encodeURIComponent(doc.slug);
-      const data = await requestJson('/api/legal-bank/public-document?' + params);
+      const data = await requestJson('/api/legal-bank/public-document?' + params + '&limit=20');
       const item = data.document;
       const close = h('button', { class: 'btn secondary', type: 'button', text: 'بستن' });
       close.addEventListener('click', () => { detailPanel.hidden = true; });
@@ -155,18 +155,21 @@ export function legalBankPage() {
           ]));
         }
         if (data.nextOffset != null) {
+          let nextOffset = data.nextOffset;
           const more = h('button', { class: 'btn secondary', type: 'button', text: 'نمایش بخش‌های بعدی' });
           more.addEventListener('click', async () => {
             more.disabled = true;
             try {
-              const next = await requestJson('/api/legal-bank/public-document?' + params + '&offset=' + data.nextOffset);
+              const next = await requestJson('/api/legal-bank/public-document?' + params + '&offset=' + nextOffset + '&limit=20');
               for (const article of next.articles || []) {
                 content.append(h('article', { class: 'legal-bank-article' }, [
                   h('h3', { text: article.heading || article.number }),
                   h('p', { text: article.body }),
                 ]));
               }
-              more.remove();
+              nextOffset = next.nextOffset;
+              if (nextOffset == null) more.remove();
+              else more.disabled = false;
             } catch {
               more.disabled = false;
               more.textContent = 'تلاش دوباره برای دریافت بخش‌ها';
@@ -250,7 +253,7 @@ export function legalBankPage() {
             h('small', { text: source.authority }),
           ]),
           h('div', { class: 'legal-bank-source-date' }, [
-            h('span', { text: source.lastSuccessAt ? 'آخرین همگام‌سازی: ' + dateLabel(source.lastSuccessAt) : 'همگام‌سازی ثبت نشده' }),
+            h('span', { text: source.lastSuccessAt ? 'آخرین همگام‌سازی: ' + dateLabel(source.lastSuccessAt) : (source.lastCheckedAt ? 'آخرین بررسی: ' + dateLabel(source.lastCheckedAt) : 'همگام‌سازی ثبت نشده') }),
             h('a', { href: source.url, target: '_blank', rel: 'noopener noreferrer', text: 'وبگاه منبع' }),
           ]),
         ])),
