@@ -11,7 +11,7 @@ const TYPES = new Set([
   'administrative_court_unified_precedent', 'administrative_court_general_board',
   'administrative_court_specialized_board', 'judicial_advisory_opinion',
   'judicial_circular', 'executive_circular', 'executive_regulation',
-  'treaty', 'guardian_council_opinion', 'parliamentary_research', 'judicial_decision', 'executive_resolution', 'general_policies', 'bill', 'parliamentary_review_opinion', 'administrative_court_decision', 'judicial_session'
+  'treaty', 'guardian_council_opinion', 'parliamentary_research', 'judicial_decision', 'executive_resolution', 'general_policies', 'bill', 'parliamentary_review_opinion', 'administrative_court_decision', 'judicial_session', 'interpretive_law', 'expediency_council_resolution', 'fatwa'
 ]);
 
 const JUDICIAL_TYPES = new Set([
