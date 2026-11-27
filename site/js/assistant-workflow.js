@@ -185,8 +185,12 @@ function htmlDocument(text, title) {
   </style></head><body><h1>${title}</h1><pre>${escaped}</pre></body></html>`;
 }
 
+export function createWordDocumentBlob(text, title = 'سند حقوقی') {
+  return new Blob(['\ufeff', htmlDocument(text, title)], { type: 'application/msword;charset=utf-8' });
+}
+
 export function downloadWordDocument(text, title = 'سند حقوقی') {
-  const blob = new Blob(['\ufeff', htmlDocument(text, title)], { type: 'application/msword;charset=utf-8' });
+  const blob = createWordDocumentBlob(text, title);
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
