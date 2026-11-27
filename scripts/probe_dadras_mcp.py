@@ -54,6 +54,14 @@ def main():
     report = {"endpoint": ENDPOINT, "status": "started"}
     session = requests.Session()
     try:
+        direct_call, _ = rpc(
+            session,
+            "tools/call",
+            {"name": "search_iranian_law", "arguments": {"query": "ماده ۱۰ قانون مدنی", "limit": 1}},
+            request_id=99,
+        )
+        direct_result = (direct_call.get("result") or {}).get("content", [])
+        report["stateless_tool_call"] = "available" if any(item.get("type") == "text" for item in direct_result) else "unavailable"
         initialized, session_id = rpc(
             session,
             "initialize",
