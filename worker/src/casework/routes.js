@@ -291,7 +291,7 @@ export async function handleCasework(request,env,path) {
     if(method==='DELETE'){const row=await ownCase(env,user.id,caseDetail[1]);if(!row)return fail('NOT_FOUND',404);await env.DB.prepare('UPDATE case_records SET deleted_at=?1,updated_at=?1 WHERE id=?2 AND user_id=?3').bind(now(),row.id,user.id).run();await event(env,user.id,row.id,'case_trashed','پرونده به سطل بازیابی منتقل شد');return json({ok:true});}
     return fail('METHOD_NOT_ALLOWED',405);
   }
-  const restoreCaseMatch=path.match(/^\\/api\\/casework\\/cases\\/([0-9a-f-]{36})\\/restore$/i);
+  const restoreCaseMatch=path.match(/^\/api\/casework\/cases\/([0-9a-f-]{36})\/restore$/i);
   if(restoreCaseMatch){if(method!=='POST')return fail('METHOD_NOT_ALLOWED',405);return restoreCase(env,user.id,restoreCaseMatch[1]);}
   const services=path.match(/^\/api\/casework\/cases\/([0-9a-f-]{36})\/services$/i);
   if(services){
