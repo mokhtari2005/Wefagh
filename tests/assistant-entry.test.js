@@ -10,7 +10,7 @@ const prompt = readFileSync(new URL('../worker/src/ai/prompts.js', import.meta.u
 const routes = readFileSync(new URL('../worker/src/ai/routes.js', import.meta.url), 'utf8');
 
 test('همهٔ بخش‌های دستیار مستقیماً محیط یکپارچهٔ متنی و صوتی را باز می‌کنند', () => {
-  assert.match(source, /assistantWorkspace\(guestMode \? null : params\.thread, guestMode, 'smart', initialMode\)/u);
+  assert.match(source, /assistantWorkspace\(guestMode \? null : params\.thread, guestMode, 'smart', initialMode, params\.caseId \|\| null\)/u);
   assert.doesNotMatch(source, /methodChooser|پاسخ‌گویی متنی/u);
   assert.match(source, /پیام خود را برای دستیار بنویسید/u);
   assert.match(source, /voicePanel\.hidden = !voiceAllowed/u);
@@ -72,11 +72,17 @@ test('دستور مشاوره تولید و نمایش پرسش‌های تکم�
 test('بارگذاری دستیار نسخه تازه رابط را دریافت می‌کند و در انتظار نامحدود نمی‌ماند', () => {
   assert.match(html, /js\/app\.js\?v=20261126-home-hero-preload-1/u);
   assert.match(html, /css\/styles\.css\?v=20261125-gpt-primary-ui-1/u);
-  assert.match(app, /assistant\.js\?v=20261126-assistant-config-split-1/u);
+  assert.match(app, /assistant\.js\?v=20261127-casework-1/u);
   assert.match(app, /assistant-forms\.js\?v=20261126-assistant-config-split-1/u);
   assert.match(app, /timeoutMs = 20000/u);
   assert.match(app, /page_load_timeout/u);
   assert.match(app, /تلاش دوباره/u);
+});
+test('خروجی پیش‌نویس دستیار به پرونده و خدمت انتخاب‌شده قابل ذخیره است', () => {
+  assert.ok(source.includes("'/api/casework/cases?sort=activity'"));
+  assert.match(source, /X-Source-Kind': 'generated'/u);
+  assert.match(source, /X-Service-Id': selectedServiceId/u);
+  assert.match(source, /ذخیره نسخه Word در بایگانی پرونده/u);
 });
 
 
