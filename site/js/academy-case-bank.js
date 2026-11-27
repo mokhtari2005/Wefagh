@@ -22,7 +22,7 @@ export function academyCaseBank(courseId, lessonId) {
   const pager = node('div', { class: 'academy-case-bank-pager' });
   const detail = node('div', { class: 'academy-case-bank-detail' });
   const history = node('div', { class: 'academy-case-practice-history' });
-  let page = 1, selectedCase = null, total = 0, loading = false;
+  let page = 1, selectedCase = null, total = 0, loading = false, initialized = false, historyPage = 1;
 
   async function loadCases(nextPage = 1) {
     if (loading) return;
@@ -92,8 +92,9 @@ export function academyCaseBank(courseId, lessonId) {
     detail.replaceChildren(body, node('label', { class: 'academy-answer-label' }, [node('span', { text: 'یادداشت و تحلیل پرونده' }), answer]), save, status);
   }
 
-  async function loadHistory() {
-    const params = new URLSearchParams({ courseId, lessonId, page: '1', pageSize: '20' });
+  async function loadHistory(nextPage = 1) {
+    historyPage = nextPage;
+    const params = new URLSearchParams({ courseId, lessonId, page: String(historyPage), pageSize: '20' });
     const response = await getJson('/api/cases/workshop-practices?' + params.toString());
     history.replaceChildren(node('h4', { text: 'بایگانی تمرین‌های این درس' }));
     if (!response.ok) { history.append(node('p', { class: 'muted', text: 'سوابق تمرین فعلاً قابل دریافت نیست.' })); return; }
@@ -106,13 +107,33 @@ export function academyCaseBank(courseId, lessonId) {
       ]);
       history.append(card);
     }
-    if (response.data.hasMore) history.append(node('p', { class: 'muted', text: 'برای مشاهده سوابق قدیمی‌تر، صفحه‌بندی بایگانی در دسترس است.' }));
+    if (response.data.total > 20) {
+      const nav = node('div', { class: 'academy-case-bank-pager' });
+      const previous = node('button', { type: 'button', class: 'btn btn-outline', text: 'سوابق جدیدتر' });
+      const next = node('button', { type: 'button', class: 'btn btn-outline', text: 'سوابق قدیمی‌تر' });
+      previous.disabled = historyPage <= 1; next.disabled = !response.data.hasMore;
+      previous.addEventListener('click', () => loadHistory(historyPage - 1));
+      next.addEventListener('click', () => loadHistory(historyPage + 1));
+      nav.append(previous, node('span', { text: 'صفحه ' + historyPage.toLocaleString('fa-IR') }), next);
+      history.append(nav);
+    }
   }
 
   searchButton.addEventListener('click', () => loadCases(1));
   search.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); loadCases(1); } });
-  section.append(heading, intro, node('div', { class: 'academy-case-bank-search' }, [search, searchButton]), results, pager, detail, history);
-  loadCases();
-  loadHistory();
+  const content = node('div', { class: 'academy-case-bank-content' }, [
+    heading, intro, node('div', { class: 'academy-case-bank-search' }, [search, searchButton]), results, pager, detail, history
+  ]);
+  const disclosure = node('details', { class: 'academy-case-bank-disclosure' }, [
+    node('summary', { text: 'انتخاب پرونده و بایگانی تمرین‌های این درس' }), content
+  ]);
+  disclosure.addEventListener('toggle', () => {
+    if (disclosure.open && !initialized) {
+      initialized = true;
+      loadCases();
+      loadHistory();
+    }
+  });
+  section.append(disclosure);
   return section;
 }
