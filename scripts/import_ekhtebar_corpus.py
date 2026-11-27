@@ -142,7 +142,7 @@ def parse_doc(path, index):
     if not title: return None,"missing-title"
     source=""
     for line in lines[:12]:
-        m=re.search(r"https://www\.ekhtebar\.ir/[^\s)>]+",line)
+        m=re.search(r"https?://(?:www\.)?ekhtebar\.ir/[^\s)>]+",line)
         if m: source=m.group(0).rstrip(".,؛)"); break
     stem=path.rsplit("/",1)[-1][:-3]
     item=index.get(stem)
