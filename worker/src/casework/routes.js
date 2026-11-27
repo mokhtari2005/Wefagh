@@ -219,6 +219,9 @@ async function uploadDocument(request,env,userId,caseId) {
   if(serviceId){const service=await ownService(env,userId,serviceId);if(!service||service.case_id!==caseId)return fail('SERVICE_NOT_FOUND',404);}
   const documentType=request.headers.get('x-document-type')||'attachment';
   if(!DOCUMENT_TYPES.has(documentType))return fail('INVALID_DOCUMENT_TYPE',422);
+  const sourceKind=request.headers.get('x-source-kind')||'upload';
+  if(!['upload','generated'].includes(sourceKind))return fail('INVALID_SOURCE_KIND',422);
+  if(sourceKind==='generated'&&kind.ext!=='txt')return fail('INVALID_GENERATED_DOCUMENT_TYPE',422);
   const versionOf=request.headers.get('x-version-of')||'';
   let versionGroup=id(),versionNumber=1,parentId=null;
   if(versionOf){
@@ -234,8 +237,8 @@ async function uploadDocument(request,env,userId,caseId) {
   catch(error){ console.error(JSON.stringify({where:'casework.upload',error:error?.name||'Error'}));return fail('FILE_STORAGE_FAILED',502); }
   try {
     await env.DB.prepare(`INSERT INTO case_documents(id,case_id,service_id,user_id,display_name,original_name,document_type,source_kind,mime_type,size_bytes,storage_key,sha256,status,version_group_id,version_number,parent_document_id,description)
-      VALUES(?1,?2,?3,?4,?5,?6,?7,'upload',?8,?9,?10,?11,'active',?12,?13,?14,?15)`)
-      .bind(documentId,caseId,serviceId,userId,name,name,documentType,mime,bytes.length,storageKey,shaHex,versionGroup,versionNumber,parentId,clean(request.headers.get('x-description'),2000)).run();
+      VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)`)
+      .bind(documentId,caseId,serviceId,userId,name,name,documentType,sourceKind,mime,bytes.length,storageKey,shaHex,documentType==='draft'?'draft':'active',versionGroup,versionNumber,parentId,clean(request.headers.get('x-description'),2000)).run();
   } catch(error){
     console.error(JSON.stringify({where:'casework.metadata',error:error?.name||'Error',detail:String(error?.message||'').slice(0,180)}));
     return fail('DOCUMENT_REGISTER_FAILED',500);
