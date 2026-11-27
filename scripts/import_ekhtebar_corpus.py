@@ -72,29 +72,29 @@ def category_type(path, title):
     parts=path.split("/")
     if len(parts)<3 or parts[1]!="cats":
         return classify(title)
-    category=parts[2].replace("\u200c"," ").strip()
+    category=re.sub(r"[\s\u200c]+","",parts[2])
     value=re.sub(r"\s+"," ",title.replace("\u200c"," ").strip())
-    if category=="آرا وحدت رویه":
+    if category=="آراوحدترویه":
         return "supreme_court_unified_precedent" if "دیوان عدالت اداری" not in value else "administrative_court_unified_precedent"
-    if category=="نظریه‌های مشورتی":
+    if category=="نظریه‌هایمشورتی":
         return "judicial_advisory_opinion"
     if category=="آیین‌نامه‌ها":
         return "bylaw"
     if category=="بخشنامه‌ها":
         return "judicial_circular" if any(x in value for x in ("قوه قضائیه","رئیس قوه","دادگستری")) else "executive_circular"
-    if category=="آرای دیوان عدالت اداری":
+    if category=="آرایدیوانعدالتاداری":
         return "administrative_court_general_board" if "هیئت عمومی" in value else "administrative_court_decision"
     if category=="مصوبات":
         return "executive_resolution"
-    if category=="طرح و لایحه":
+    if category=="طرحولایحه":
         return "bill"
-    if category=="نظریه‌های رئیس مجلس":
+    if category=="نظریه‌هایرئیس‌مجلس":
         return "parliamentary_review_opinion"
-    if category=="نشست‌های قضایی":
+    if category=="نشست‌هایقضایی":
         return "judicial_session"
-    if category=="رویه قضایی":
+    if category=="رویهقضایی":
         return "judicial_decision"
-    if category=="سیاست‌های کلی":
+    if category=="سیاست‌هایکلی":
         return "general_policies"
     return classify(title)
 
@@ -183,7 +183,7 @@ def parse_doc(path, index):
         body="\n".join(body_lines).strip()
         body=re.sub(r"\n{3,}","\n\n",body)
         if len(body)>100000: body=body[:100000]
-        if len(body)>=180:
+        if len(body)>=80:
             articles=[{"number":"متن کامل","heading":title[:240],"body":body}]
     if not articles: return None,"no-usable-full-text"
     slug="ekhtebar-"+hashlib.sha1(source.encode()).hexdigest()[:20]
