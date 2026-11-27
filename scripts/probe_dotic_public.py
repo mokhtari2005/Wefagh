@@ -93,7 +93,7 @@ def parse_detail_page(html: str, page_url: str = SAMPLE_URL) -> dict:
         if ".pdf" in hint or "download" in hint or "file" in hint or "دریافت متن کامل" in hint:
             if absolute not in candidates:
                 candidates.append(absolute)
-    for raw in re.findall(r"""(?:https?:)?//[^"'\\s<>]+|/[^"'\\s<>]+""", html):
+    for raw in re.findall(r"""(?:https?:)?//[^"'\s<>]+|/[^"'\\s<>]+""", html):
         if ".pdf" in raw.lower():
             absolute = urljoin(page_url, raw)
             if absolute not in candidates:
