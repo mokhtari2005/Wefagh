@@ -1,0 +1,36 @@
+name: Check public Qavanin access
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/probe_qavanin_public.py'
+      - '.github/workflows/probe-qavanin-public.yml'
+  schedule:
+    - cron: '23 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install probe dependency
+        run: python -m pip install requests
+      - name: Check ordinary public access only
+        run: python scripts/probe_qavanin_public.py
+      - name: Upload access report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qavanin-public-access-report
+          path: artifacts/qavanin-public-access-report.json
+          if-no-files-found: ignore
+          retention-days: 30
