@@ -13,13 +13,18 @@ class DoticPublicProbeTests(unittest.TestCase):
     def test_robots_404_is_treated_as_no_published_rules(self):
         result = check_robots(FakeResponse(404), "https://dotic.ir/new-search/")
         self.assertTrue(result["allowed"])
-        self.assertEqual(result["reason"], "robots_not_found_or_client_error_no_rules")
+        self.assertEqual(result["reason"], "robots_not_found_no_published_rules")
 
     def test_robots_disallow_is_respected(self):
         response = FakeResponse(200, "User-agent: *\nDisallow: /new-search/\nAllow: /news/")
         result = check_robots(response, "https://dotic.ir/new-search/")
         self.assertFalse(result["allowed"])
         self.assertEqual(result["reason"], "disallowed_by_robots")
+
+    def test_robots_forbidden_fails_closed(self):
+        result = check_robots(FakeResponse(403), "https://dotic.ir/new-search/")
+        self.assertFalse(result["allowed"])
+        self.assertEqual(result["reason"], "robots_unavailable_fail_closed")
 
     def test_robots_server_error_fails_closed(self):
         result = check_robots(FakeResponse(503), "https://dotic.ir/new-search/")
