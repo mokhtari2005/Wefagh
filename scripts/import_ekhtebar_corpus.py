@@ -378,6 +378,18 @@ def priority_coverage(documents, manifest, source_titles=None):
     }
 
 
+def document_fingerprint(doc):
+    """Fingerprint legal text plus metadata that changes retrieval and source attribution."""
+    payload = {
+        "contentSha256": doc.get("contentSha256"),
+        "lawType": doc.get("lawType"),
+        "sourceUrl": doc.get("sourceUrl"),
+        "officialSourceUrl": doc.get("officialSourceUrl") or "",
+        "sourceName": doc.get("sourceName"),
+    }
+    return hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
 def partition_document_updates(documents, existing_rows):
     """Separate new, unchanged, safely refreshable and protected source documents."""
     existing = {row["slug"]: row for row in existing_rows}
@@ -388,7 +400,18 @@ def partition_document_updates(documents, existing_rows):
             new_docs.append(doc)
             continue
         old_hash = row.get("content_sha256")
-        if old_hash and old_hash == doc.get("contentSha256"):
+        content_unchanged = bool(old_hash and old_hash == doc.get("contentSha256"))
+        metadata_fields = {
+            "law_type": doc.get("lawType"),
+            "source_url": doc.get("sourceUrl"),
+            "official_source_url": doc.get("officialSourceUrl") or None,
+            "source_name": doc.get("sourceName"),
+        }
+        metadata_unchanged = all(
+            field not in row or row.get(field) == value
+            for field, value in metadata_fields.items()
+        )
+        if content_unchanged and metadata_unchanged:
             unchanged += 1
             continue
         protected_articles = int(row.get("protected_articles") or 0)
@@ -533,7 +556,7 @@ def queue_changed_documents(changed_docs):
             "sql": """INSERT OR IGNORE INTO legal_document_update_queue
                 (law_id,slug,title,previous_sha256,proposed_sha256,proposed_payload_json,discovery_source_url,official_source_url)
                 SELECT id,?1,?2,?3,?4,?5,?6,?7 FROM legal_laws WHERE slug=?1""",
-            "params": [doc["slug"], doc["title"], previous_hash, doc["contentSha256"], payload,
+            "params": [doc["slug"], doc["title"], previous_hash, document_fingerprint(doc), payload,
                        doc.get("discoverySourceUrl") or doc.get("sourceUrl"), doc.get("officialSourceUrl") or None],
         })
     inserted = 0
@@ -569,7 +592,7 @@ def main():
     docs = [d for d in docs if d["lawType"] in PHASE_TYPES[IMPORT_PHASE]]
     docs.sort(key=lambda x:x["slug"])
     print(f"Phase: {IMPORT_PHASE}; parsed {parsed_count}; selected {len(docs)}; excluded by phase {len(phase_skipped)}; parse-skipped {skipped}.")
-    existing_rows = d1_query("""SELECT l.slug,l.content_sha256,l.status,
+    existing_rows = d1_query("""SELECT l.slug,l.content_sha256,l.status,l.law_type,l.source_url,l.official_source_url,l.source_name,
         SUM(CASE WHEN a.status IN ('verified','amended','repealed') THEN 1 ELSE 0 END) AS protected_articles
         FROM legal_laws l LEFT JOIN legal_articles a ON a.law_id=l.id GROUP BY l.id""")
     new_docs, refreshable_docs, protected_docs, unchanged_docs = partition_document_updates(docs, existing_rows)
