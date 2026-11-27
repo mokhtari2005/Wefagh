@@ -86,3 +86,60 @@ test('جست‌وجو، فیلتر وضعیت و انتقال نرم پروند�
   const restored=await (await worker.fetch(req('/api/casework/cases',{cookie}),env)).json();
   assert.equal(restored.total,2);
 });
+
+
+test('گفت‌وگوی دستیار به پرونده و خدمت انتخاب‌شده متصل می‌شود', {skip}, async()=>{
+  const {env,cookie}=await setup();
+  const created=await worker.fetch(req('/api/casework/cases',{method:'POST',cookie,body:{name:'پرونده پیگیری قرارداد'}}),env);
+  const caseId=(await created.json()).case.id;
+  const service=await worker.fetch(req('/api/casework/cases/'+caseId+'/services',{method:'POST',cookie,body:{type:'assistant_consult',title:'مشاوره حقوقی'}}),env);
+  const serviceId=(await service.json()).service.id;
+  const thread=await worker.fetch(req('/api/ai/threads',{method:'POST',cookie,body:{title:'مشاوره پرونده',caseId,caseworkServiceId:serviceId}}),env);
+  assert.equal(thread.status,201);
+  const threadData=(await thread.json()).thread;
+  assert.equal(threadData.case_id,caseId);
+  assert.equal(threadData.casework_service_id,serviceId);
+  const events=await (await worker.fetch(req('/api/casework/cases/'+caseId,{cookie}),env)).json();
+  assert.ok(events.timeline.some(x=>x.event_type==='assistant_thread_linked'));
+  assert.equal((await worker.fetch(req('/api/ai/threads',{method:'POST',cookie,body:{title:'خدمت نامرتبط',caseId,caseworkServiceId:'00000000-0000-4000-8000-000000000000'}}),env)).status,404);
+});
+
+test('سوابق استفاده از محاسبه‌گر در حساب کاربر و بایگانی پرونده ذخیره می‌شود', {skip}, async()=>{
+  const {env,cookie,otherCookie}=await setup();
+  const created=await worker.fetch(req('/api/casework/cases',{method:'POST',cookie,body:{name:'پرونده محاسبه خسارت'}}),env);
+  const caseId=(await created.json()).case.id;
+  const service=await worker.fetch(req('/api/casework/cases/'+caseId+'/services',{method:'POST',cookie,body:{type:'analysis',title:'بررسی خسارت'}}),env);
+  const serviceId=(await service.json()).service.id;
+  const saved=await worker.fetch(req('/api/casework/actions',{method:'POST',cookie,body:{
+    actionType:'calculator',calculatorKey:'delay',title:'خسارت تأخیر تأدیه',caseId,serviceId,
+    inputData:{'اصل دین':'۱۰۰۰۰۰۰۰۰','تاریخ شروع':'۱۴۰۴/۰۱/۰۱'},
+    resultData:{text:'مبلغ محاسبه‌شده: ۱۲٬۰۰۰٬۰۰۰ ریال'}
+  }}),env);
+  assert.equal(saved.status,201);
+  const actionId=(await saved.json()).id;
+  const listed=await (await worker.fetch(req('/api/casework/actions?limit=10',{cookie}),env)).json();
+  assert.equal(listed.actions[0].id,actionId);
+  assert.equal(listed.actions[0].caseId,caseId);
+  assert.equal(listed.actions[0].inputData['اصل دین'],'۱۰۰۰۰۰۰۰۰');
+  const detail=await (await worker.fetch(req('/api/casework/cases/'+caseId,{cookie}),env)).json();
+  assert.equal(detail.calculatorActions.length,1);
+  assert.ok(detail.timeline.some(x=>x.event_type==='calculator_used'));
+  assert.equal((await worker.fetch(req('/api/casework/actions',{method:'POST',cookie:otherCookie,body:{
+    actionType:'calculator',calculatorKey:'delay',title:'محاسبه غیرمجاز',caseId
+  }}),env)).status,404);
+  const personal=await worker.fetch(req('/api/casework/actions',{method:'POST',cookie,body:{
+    actionType:'calculator',calculatorKey:'court',title:'هزینه دادرسی',inputData:{مبلغ:'۵۰۰۰'},resultData:{text:'گزارش'}
+  }}),env);
+  assert.equal(personal.status,201);
+  const personalList=await (await worker.fetch(req('/api/casework/actions',{cookie}),env)).json();
+  assert.equal(personalList.actions.length,2);
+  assert.equal(personalList.actions.find(x=>x.title==='هزینه دادرسی').caseId,null);
+});
+
+test('نوع خدمت داوری در مدیریت پرونده‌ها عرضه نمی‌شود', {skip}, async()=>{
+  const {readFileSync}=await import('node:fs');
+  const {fileURLToPath}=await import('node:url');
+  const {join,dirname}=await import('node:path');
+  const source=readFileSync(join(dirname(fileURLToPath(import.meta.url)),'../site/js/casework.js'),'utf8');
+  assert.doesNotMatch(source,/arbitration_award|تنظیم رأی داوری/u);
+});
