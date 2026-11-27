@@ -148,6 +148,22 @@ class LegalCorpusImporterTests(unittest.TestCase):
         self.assertEqual([(doc["slug"], old_hash) for doc, old_hash in protected], [("protected-law", "e" * 64)])
         self.assertEqual(unchanged, 1)
 
+    def test_database_audit_includes_unclassified_samples_and_official_link_coverage(self):
+        responses = [
+            [{"total": 10, "needs_review": 10}],
+            [{"total": 20, "needs_review": 20}],
+            [{"type": "other", "status": "needs_review", "count": 4}],
+            [{"type": "law", "total": 6, "with_official_link": 2}],
+            [{"source_name": "DOTIC", "count": 6}],
+            [{"slug": "x", "title": "سند بدون عنوان", "source_url": "https://dotic.ir/x"}],
+        ]
+        with patch.object(importer, "d1_query", side_effect=responses) as query:
+            audit = importer.audit_database()
+        self.assertEqual(query.call_count, 6)
+        self.assertEqual(audit["official_links_by_type"][0]["with_official_link"], 2)
+        self.assertEqual(audit["source_name_counts"][0]["source_name"], "DOTIC")
+        self.assertEqual(audit["other_document_samples"][0]["title"], "سند بدون عنوان")
+
     def test_daily_refresh_budget_defers_excess_articles_deterministically(self):
         docs = [
             ({"slug": "a", "articles": [{}] * 5}, "a"),
