@@ -164,7 +164,7 @@ function aiFailure(err, stage = 'unknown', requestId = '') {
   }
   const errorType = typeof err?.name === 'string' && /^[A-Za-z][A-Za-z0-9]{0,39}$/.test(err.name) ? err.name : 'Error';
   const errorCode = typeof err?.code === 'string' && /^[A-Z][A-Z0-9_]{1,39}$/.test(err.code) ? err.code : undefined;
-  console.error(JSON.stringify({ where: 'ai', ...(requestId ? { requestId } : {}), stage, error: errorType, ...(errorCode ? { errorCode } : {}) }));
+  console.error(JSON.stringify({ where: 'ai', ...(requestId ? { requestId } : {}), stage, error: errorType, ...(errorCode ? { errorCode } : {}), detail: String(err?.message || '').slice(0, 180) }));
   return fail('AI_UNAVAILABLE', 503, { stage, errorType, ...(errorCode ? { errorCode } : {}), ...(requestId ? { requestId } : {}) });
 }
 
