@@ -79,7 +79,7 @@ test('بارگذاری دستیار نسخه تازه رابط را دریافت
   assert.match(app, /تلاش دوباره/u);
 });
 test('خروجی پیش‌نویس دستیار به پرونده و خدمت انتخاب‌شده قابل ذخیره است', () => {
-  assert.match(source, /casework\\/cases\\?sort=activity/u);
+  assert.ok(source.includes("'/api/casework/cases?sort=activity'"));
   assert.match(source, /X-Source-Kind': 'generated'/u);
   assert.match(source, /X-Service-Id': selectedServiceId/u);
   assert.match(source, /ذخیره نسخه Word در بایگانی پرونده/u);
