@@ -2,8 +2,8 @@ name: Import public Iranian legal corpus
 
 on:
   schedule:
-    # Weekly refresh; all imported records remain needs_review until source-by-source verification.
-    - cron: '17 2 * * 1'
+    # Daily source refresh and change detection; changed existing documents are queued for review.
+    - cron: '17 2 * * *'
   workflow_dispatch:
     inputs:
       confirm:
