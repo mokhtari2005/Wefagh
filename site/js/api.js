@@ -1,9 +1,16 @@
 // فراخوانی API. همهٔ درخواست‌ها هم‌مبدأ هستند (/api) و کوکی همراه‌شان می‌شود.
 
-// فقط نام‌های شناخته‌شدهٔ خطا برای عیب‌یابی برگردانده می‌شوند؛ پیام خام ممکن است دادهٔ حساس داشته باشد.
+// فقط نام خطا ثبت می‌شود؛ پیام خام مرورگر ممکن است دادهٔ حساس داشته باشد.
 function safeFetchErrorType(error) {
   const name = error && typeof error.name === 'string' ? error.name : '';
   return ['TypeError', 'AbortError', 'NetworkError', 'SecurityError'].includes(name) ? name : 'OtherError';
+}
+
+function createRequestId() {
+  try {
+    if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  } catch {}
+  return `client-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 }
 
 async function probeApiHealth() {
@@ -26,7 +33,7 @@ async function probeApiHealth() {
   }
 }
 
-async function fetchFailure(error, timedOut, path, probe = true) {
+async function fetchFailure(error, timedOut, path, probe = true, requestId = '', attempt = 1, startedAt = Date.now()) {
   const result = {
     status: 0,
     ok: false,
@@ -34,82 +41,103 @@ async function fetchFailure(error, timedOut, path, probe = true) {
     networkError: true,
     timeoutError: timedOut,
     networkErrorType: safeFetchErrorType(error),
+    networkErrorPhase: 'fetch',
+    requestId,
+    requestAttempt: attempt,
+    elapsedMs: Math.max(0, Date.now() - startedAt),
   };
-  // فقط پس از شکست اتصال دستیار، یک GET بی‌هزینه و بدون دادهٔ پرونده برای سنجش دسترسی API اجرا می‌شود.
+  // فقط پس از شکست اتصال دستیار، یک GET بی‌هزینه و بدون دادهٔ پرونده اجرا می‌شود.
   if (probe && path === '/api/ai/assistant' && !timedOut) result.apiProbe = await probeApiHealth();
   return result;
 }
 
-// قطع منقطع اتصال (TypeError) با چند تلاش مجدد کوتاه جبران می‌شود؛ تایم‌اوت و خطای HTTP تکرار نمی‌شوند.
 function isRetryableNetworkFailure(result) {
   return Boolean(result?.networkError) && !result.timeoutError && result.networkErrorType === 'TypeError';
 }
 
 async function withNetworkRetries(run, networkRetries) {
-  let result = await run(networkRetries === 0);
+  let result = await run(networkRetries === 0, 1);
   for (let i = 0; i < networkRetries && isRetryableNetworkFailure(result); i += 1) {
     await new Promise(resolve => setTimeout(resolve, 800 * (i + 1)));
-    result = await run(i === networkRetries - 1);
+    result = await run(i === networkRetries - 1, i + 2);
   }
   return result;
 }
 
 export function postJson(path, payload, { timeoutMs = 15000, networkRetries = 0 } = {}) {
-  return withNetworkRetries(lastAttempt => postJsonOnce(path, payload, timeoutMs, lastAttempt), networkRetries);
+  const requestId = createRequestId();
+  return withNetworkRetries((probe, attempt) => postJsonOnce(path, payload, timeoutMs, probe, requestId, attempt), networkRetries);
 }
 
-async function postJsonOnce(path, payload, timeoutMs, probe) {
+async function postJsonOnce(path, payload, timeoutMs, probe, requestId, attempt) {
   const controller = new AbortController();
+  const startedAt = Date.now();
   let timedOut = false;
   const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs);
   try {
     const res = await fetch(path, {
       method: 'POST',
       credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-Client-Request-ID': requestId,
+        'X-Client-Request-Attempt': String(attempt),
+      },
       body: JSON.stringify(payload ?? {}),
+      cache: 'no-store',
       signal: controller.signal,
     });
     let data = null;
-    try {
-      data = await res.json();
-    } catch {
-      data = null;
-    }
-    return { status: res.status, ok: res.ok, data, url: res.url, redirected: res.redirected, allow: res.headers.get('allow'), contentType: res.headers.get('content-type') };
+    try { data = await res.json(); } catch {}
+    return {
+      status: res.status, ok: res.ok, data, url: res.url, redirected: res.redirected,
+      allow: res.headers.get('allow'), contentType: res.headers.get('content-type'),
+      requestId: res.headers.get('x-request-id') || data?.requestId || requestId,
+      requestAttempt: attempt,
+      elapsedMs: Math.max(0, Date.now() - startedAt),
+    };
   } catch (error) {
-    return await fetchFailure(error, timedOut, path, probe);
+    return await fetchFailure(error, timedOut, path, probe, requestId, attempt, startedAt);
   } finally {
     clearTimeout(timer);
   }
 }
 
-/** ارسال FormData (فایل‌ها). هدر Content-Type را مرورگر با مرز (boundary) خودش می‌گذارد. */
+/** ارسال FormData؛ هدر Content-Type را مرورگر با boundary صحیح می‌سازد. */
 export function postForm(path, formData, { timeoutMs = 60000, networkRetries = 0 } = {}) {
-  return withNetworkRetries(lastAttempt => postFormOnce(path, formData, timeoutMs, lastAttempt), networkRetries);
+  const requestId = createRequestId();
+  return withNetworkRetries((probe, attempt) => postFormOnce(path, formData, timeoutMs, probe, requestId, attempt), networkRetries);
 }
 
-async function postFormOnce(path, formData, timeoutMs, probe) {
+async function postFormOnce(path, formData, timeoutMs, probe, requestId, attempt) {
   const controller = new AbortController();
+  const startedAt = Date.now();
   let timedOut = false;
   const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs);
   try {
     const res = await fetch(path, {
       method: 'POST',
       credentials: 'same-origin',
-      headers: { Accept: 'application/json' },
+      headers: {
+        Accept: 'application/json',
+        'X-Client-Request-ID': requestId,
+        'X-Client-Request-Attempt': String(attempt),
+      },
       body: formData,
+      cache: 'no-store',
       signal: controller.signal,
     });
     let data = null;
-    try {
-      data = await res.json();
-    } catch {
-      data = null;
-    }
-    return { status: res.status, ok: res.ok, data };
+    try { data = await res.json(); } catch {}
+    return {
+      status: res.status, ok: res.ok, data,
+      requestId: res.headers.get('x-request-id') || data?.requestId || requestId,
+      requestAttempt: attempt,
+      elapsedMs: Math.max(0, Date.now() - startedAt),
+    };
   } catch (error) {
-    return fetchFailure(error, timedOut, undefined, probe);
+    return await fetchFailure(error, timedOut, path, probe, requestId, attempt, startedAt);
   } finally {
     clearTimeout(timer);
   }
@@ -128,11 +156,7 @@ export async function getJson(path, { timeoutMs = 15000 } = {}) {
       signal: controller.signal,
     });
     let data = null;
-    try {
-      data = await res.json();
-    } catch {
-      data = null;
-    }
+    try { data = await res.json(); } catch {}
     return { status: res.status, ok: res.ok, data };
   } catch (error) {
     return fetchFailure(error, timedOut);
@@ -164,11 +188,7 @@ export async function sendJson(method, path, payload, { timeoutMs = 15000 } = {}
     }
     const res = await fetch(path, init);
     let data = null;
-    try {
-      data = await res.json();
-    } catch {
-      data = null;
-    }
+    try { data = await res.json(); } catch {}
     return { status: res.status, ok: res.ok, data };
   } catch (error) {
     return fetchFailure(error, timedOut);
