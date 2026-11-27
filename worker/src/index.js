@@ -2,7 +2,7 @@
 import { validateContact } from './validate.js';
 import { saveContactMessage } from './contact.js';
 import { json, readJsonBody } from './http.js';
-import { register, verifyEmail, resendVerification, requestPasswordReset, resetPassword, login, logout, me } from './auth/routes.js';
+import { register, verifyEmail, resendVerification, requestPasswordReset, resetPassword, login, logout, me, logError } from './auth/routes.js';
 import { changePassword, updateProfile, updateAvatar, deleteAvatar, getAvatar } from './auth/account.js';
 import { handleAcademy } from './academy/routes.js';
 import { handleMedia } from './media/routes.js';
@@ -136,7 +136,7 @@ export default {
         return await handler(request, env);
       } catch (err) {
         // هر خطای پیش‌بینی‌نشده: پاسخ JSON امن و گزارش فنی بدون داده‌های کاربر.
-        console.error(JSON.stringify({ where: `route:${path}`, error: err?.name || 'Error' }));
+        logError(`route:${path}`, err);
         return json({ ok: false, error: 'INTERNAL_ERROR' }, 500);
       }
     }
