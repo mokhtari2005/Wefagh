@@ -2,7 +2,7 @@
 import { validateContact } from './validate.js';
 import { saveContactMessage } from './contact.js';
 import { json, readJsonBody } from './http.js';
-import { register, verifyEmail, resendVerification, login, logout, me } from './auth/routes.js';
+import { register, verifyEmail, resendVerification, requestPasswordReset, resetPassword, login, logout, me } from './auth/routes.js';
 import { changePassword, updateProfile, updateAvatar, deleteAvatar, getAvatar } from './auth/account.js';
 import { handleAcademy } from './academy/routes.js';
 import { handleMedia } from './media/routes.js';
@@ -65,6 +65,8 @@ const AUTH_ROUTES = {
   '/api/auth/register': ['POST', register],
   '/api/auth/verify-email': ['POST', verifyEmail],
   '/api/auth/resend-verification': ['POST', resendVerification],
+  '/api/auth/request-password-reset': ['POST', requestPasswordReset],
+  '/api/auth/reset-password': ['POST', resetPassword],
   '/api/auth/login': ['POST', login],
   '/api/auth/logout': ['POST', logout],
   '/api/me': ['GET', me],
