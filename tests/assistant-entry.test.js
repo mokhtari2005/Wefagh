@@ -88,8 +88,8 @@ test('خطای ارائه‌دهنده، شکست مسیر جایگزین یا �
   assert.match(readFileSync(new URL('../site/js/ai-client.js', import.meta.url), 'utf8'), /سرویس اصلی هوش مصنوعی موقتاً پاسخ قابل استفاده‌ای/u);
 });
 test('خروجی پیش‌نویس دستیار به پرونده و خدمت انتخاب‌شده قابل ذخیره است', () => {
-  assert.match(source, /casework\\/cases\\?sort=activity/u);
-  assert.match(source, /X-Source-Kind': 'generated'/u);
-  assert.match(source, /X-Service-Id': selectedServiceId/u);
-  assert.match(source, /ذخیره پیش‌نویس در بایگانی پرونده/u);
+  assert.ok(source.includes('/api/casework/cases?sort=activity'));
+  assert.ok(source.includes("'X-Source-Kind': 'generated'"));
+  assert.ok(source.includes("'X-Service-Id': selectedServiceId"));
+  assert.ok(source.includes('ذخیره پیش‌نویس در بایگانی پرونده'));
 });
