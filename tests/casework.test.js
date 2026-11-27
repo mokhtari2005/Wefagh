@@ -51,6 +51,9 @@ test('پرونده بدون فایل ایجاد می‌شود، خدمت و اس
     assert.equal(detail.documents[0].serviceId,serviceId);
     assert.equal(detail.case.documentCount,1);
     assert.ok(detail.timeline.some(x=>x.event_type==='document_uploaded'));
+    const documentId=detail.documents[0].id;
+    assert.equal((await worker.fetch(req('/api/casework/documents/'+documentId,{method:'PATCH',cookie,body:{status:'deleted'}}),env)).status,200);
+    assert.equal((await worker.fetch(req('/api/casework/documents/'+documentId+'/restore',{method:'POST',cookie,body:{} }),env)).status,200);
   }finally{globalThis.fetch=oldFetch;}
 });
 
@@ -74,4 +77,7 @@ test('جست‌وجو، فیلتر وضعیت و انتقال نرم پروند�
   assert.equal((await worker.fetch(req('/api/casework/cases/'+a.case.id,{method:'DELETE',cookie}),env)).status,200);
   const after=await (await worker.fetch(req('/api/casework/cases',{cookie}),env)).json();
   assert.equal(after.total,1);
+  assert.equal((await worker.fetch(req('/api/casework/cases/'+a.case.id+'/restore',{method:'POST',cookie,body:{} }),env)).status,200);
+  const restored=await (await worker.fetch(req('/api/casework/cases',{cookie}),env)).json();
+  assert.equal(restored.total,2);
 });
