@@ -377,6 +377,7 @@ function mobileQuickAccess(path) {
   ];
   const generalLinks = [
     { icon: 'graduation-cap', title: 'آکادمی', href: '#/academy' },
+    { icon: 'book-open', title: 'کارگاه‌های آموزشی', href: '#/academy/workshops' },
     { icon: 'scale', title: 'دستیار وکیل', href: '#/assistant' },
     { icon: 'calculator', title: 'محاسبه‌گرها', href: '#/calculators' },
     { icon: 'calendar', title: 'تقویم مواعد', href: '#/deadlines' },
