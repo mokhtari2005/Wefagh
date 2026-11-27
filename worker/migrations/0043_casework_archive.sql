@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS case_documents (
   size_bytes INTEGER NOT NULL CHECK(size_bytes BETWEEN 1 AND 15728640),
   storage_key TEXT NOT NULL UNIQUE,
   sha256 TEXT NOT NULL DEFAULT '',
-  status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('draft','final','archived','deleted')),
+  status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','draft','final','archived','deleted')),
   version_group_id TEXT NOT NULL,
   version_number INTEGER NOT NULL DEFAULT 1 CHECK(version_number >= 1),
   parent_document_id TEXT REFERENCES case_documents(id) ON DELETE SET NULL,
