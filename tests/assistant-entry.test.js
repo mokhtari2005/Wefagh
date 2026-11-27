@@ -44,7 +44,7 @@ test('پرسش‌های پیشنهادی آغاز مشاوره حذف شده‌�
 });
 
 test('پرسش‌ها و گزینه‌های تکمیلی در جریان اصلی مشاوره نمایش داده می‌شوند', () => {
-  assert.match(source, /if \(mode === 'consult'\) return data\.text \|\| ''/u);
+  assert.match(source, /if \(mode === 'consult'\) return stripAssistantFooterBoilerplate\(data\.text \|\| ''\)/u);
   assert.match(source, /questionOptions: Array\.isArray\(res\.data\.questionOptions\)/u);
   assert.match(source, /'aria-label': 'پرسش‌های تکمیلی مشاوره'/u);
   assert.match(source, /پاسخ انتخاب‌شده:/u);
@@ -59,7 +59,7 @@ test('گزارش بازبینی مستقل پرسش‌های ساخت‌یافت
 });
 
 test('پاسخ اصلی مشاوره فقط متن تحلیل را نشان می‌دهد و گزارش مستقل جدا می‌ماند', () => {
-  assert.match(source, /if \(mode === 'consult'\) return data\.text \|\| ''/u);
+  assert.match(source, /if \(mode === 'consult'\) return stripAssistantFooterBoilerplate\(data\.text \|\| ''\)/u);
   assert.match(source, /freeQuestions\.map\(\(question\) => `- \$\{question\}`\)/u);
 });
 

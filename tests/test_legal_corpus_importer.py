@@ -23,14 +23,25 @@ class LegalCorpusImporterTests(unittest.TestCase):
         self.assertEqual(importer.classify("قانون آیین‌نامه داخلی مجلس شورای اسلامی"), "law")
         self.assertEqual(importer.classify("قانون اصلاح آیین نامه داخلی مجلس"), "law")
 
-    def test_treaty_statutes_are_in_laws_phase(self):
+    def test_all_phase_covers_statutes_and_regulations_without_judicial_opinions(self):
         self.assertIn("treaty", importer.PHASE_TYPES["laws"])
         self.assertNotIn("bylaw", importer.PHASE_TYPES["laws"])
+        self.assertIn("bylaw", importer.PHASE_TYPES["all"])
+        self.assertIn("executive_regulation", importer.PHASE_TYPES["all"])
+        self.assertIn("executive_circular", importer.PHASE_TYPES["all"])
+        self.assertNotIn("judicial_advisory_opinion", importer.PHASE_TYPES["all"])
 
     def test_specific_document_families_keep_precedence(self):
         self.assertEqual(importer.classify("رأی وحدت رویه دیوان عالی کشور"), "supreme_court_unified_precedent")
         self.assertEqual(importer.classify("نظریه مشورتی اداره کل حقوقی قوه قضائیه"), "judicial_advisory_opinion")
         self.assertEqual(importer.classify("کنوانسیون حقوقی"), "treaty")
+
+    def test_official_source_is_only_detected_when_direct_qavanin_or_gazette_link_exists(self):
+        self.assertEqual(importer.find_official_source_url("https://www.ekhtebar.ir/law/"), "")
+        self.assertEqual(importer.find_official_source_url("منبع: https://qavanin.ir/Law/TreeText/?IDS=123"), "https://qavanin.ir/Law/TreeText/?IDS=123")
+        self.assertEqual(importer.find_official_source_url("https://www.rrk.ir/News/ShowNews.aspx?id=12"), "https://www.rrk.ir/News/ShowNews.aspx?id=12")
+        unrelated_body = "\n".join(["# قانون نمونه", "متن ماده", *("متن" for _ in range(12)), "https://qavanin.ir/Law/TreeText/?IDS=456"])
+        self.assertEqual(importer.find_official_source_url(unrelated_body), "")
 
     def test_article_heading_with_closing_parenthesis_is_parsed(self):
         markdown = "# قانون دریایی\nhttps://www.ekhtebar.ir/sample-law/\n\nماده ۱) شرایط تابعیت کشتی\nمتن ماده نخست"
@@ -71,6 +82,10 @@ class LegalCorpusImporterTests(unittest.TestCase):
         self.assertIsNone(reason)
         self.assertEqual(doc["title"], "قانون نمونه")
         self.assertEqual(doc["lawType"], "law")
+        self.assertEqual(doc["officialSourceUrl"], "")
+        self.assertEqual(doc["discoverySourceUrl"], "https://www.ekhtebar.ir/sample-law/")
+        self.assertEqual(doc["sourceUrl"], "https://www.ekhtebar.ir/sample-law/")
+        self.assertEqual(len(doc["contentSha256"]), 64)
         self.assertEqual(len(doc["articles"]), 1)
         self.assertEqual(doc["articles"][0]["number"], "1")
         self.assertIn("متن ماده نخست", doc["articles"][0]["body"])

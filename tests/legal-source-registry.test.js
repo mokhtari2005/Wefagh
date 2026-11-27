@@ -42,12 +42,15 @@ test("legal corpus import defaults to laws and separates the regulations phase",
   const workflow = readFileSync(new URL("../.github/workflows/import-legal-corpus.yml", import.meta.url), "utf8");
   assert.ok(importer.includes('IMPORT_PHASE = os.getenv("LEGAL_IMPORT_PHASE", "laws")'));
   assert.ok(importer.includes('"laws": {"law", "treaty"}'));
-  assert.ok(importer.includes('"regulations": {"bylaw", "executive_regulation", "executive_circular"}'));
+  assert.ok(importer.includes('"regulations": {"bylaw", "executive_regulation", "executive_circular", "circular"}'));
+  assert.ok(importer.includes('PHASE_TYPES["all"] = PHASE_TYPES["laws"] | PHASE_TYPES["regulations"]'));
   assert.ok(importer.includes("documents_excluded_by_phase"));
   assert.ok(importer.includes("phase_excluded_sample"));
-  assert.ok(workflow.includes("default: laws"));
+  assert.ok(workflow.includes("default: all"));
   assert.ok(workflow.includes("LEGAL_IMPORT_PHASE:"));
-  assert.ok(!workflow.includes("- all"));
+  assert.ok(workflow.includes("- all"));
+  assert.ok(!workflow.includes("  push:"));
+  assert.ok(!workflow.includes("Deploy Worker"));
 });
 
 
