@@ -32,6 +32,32 @@ export function caseworkPage(){
     h('div',{},[h('p',{class:'casework-eyebrow',text:'مدیریت حرفه‌ای پرونده‌ها'}),h('h1',{text:'پرونده‌های من'}),h('p',{class:'muted',text:'هر پرونده، یک بایگانی مستقل برای خدمات، اسناد و تمام سوابق آن.'})]),
     button('＋ ثبت پرونده جدید','btn')
   ]);
+  const trashButton=button('سطل بازیابی');
+  header.append(trashButton);
+  trashButton.addEventListener('click',showTrash);
+  async function showTrash(){
+    const result=await getJson('/api/casework/trash');
+    if(!result.ok){message(root,'دریافت سطل بازیابی ناموفق بود.',true);return;}
+    const dialog=h('dialog',{class:'casework-help'},[h('h2',{text:'سطل بازیابی پرونده‌ها و اسناد'})]);
+    const list=h('div',{class:'casework-trash-list'});
+    const items=[
+      ...(result.data.cases||[]).map(item=>({kind:'case',id:item.id,title:item.name,subtitle:'پرونده'})),
+      ...(result.data.documents||[]).map(item=>({kind:'document',id:item.id,title:item.name,subtitle:'سند ـ '+item.originalName})),
+    ];
+    if(!items.length)list.append(empty('سطل بازیابی خالی است.'));
+    for(const item of items){
+      const restore=button('بازیابی','btn secondary');
+      restore.addEventListener('click',async()=>{
+        const url=item.kind==='case'?'/api/casework/cases/'+item.id+'/restore':'/api/casework/documents/'+item.id+'/restore';
+        const response=await sendJson('POST',url,{});
+        if(response.ok){dialog.close();load();}else message(root,'بازیابی انجام نشد.',true);
+      });
+      list.append(h('div',{class:'casework-trash-item'},[h('div',{},[h('strong',{text:item.title}),h('small',{text:item.subtitle})]),restore]));
+    }
+    dialog.append(list,button('بستن'));
+    dialog.querySelector('button:last-child').addEventListener('click',()=>dialog.close());
+    root.append(dialog);dialog.addEventListener('close',()=>dialog.remove(),{once:true});dialog.showModal();
+  }
   const form=h('form',{class:'casework-create',hidden:true});
   const name=h('input',{name:'name',required:true,minlength:'2',maxlength:'180',placeholder:'نام پرونده؛ مثلاً مطالبه وجه قرارداد'});
   const number=h('input',{name:'caseNumber',maxlength:'120',placeholder:'شماره پرونده یا کلاسه (اختیاری)'});
@@ -194,16 +220,17 @@ export function caseworkDetailPage(caseId){
     docList.replaceChildren(...(visible.length?visible.map(documentCard):[empty('سندی با این فیلتر پیدا نشد.')]));
   }
   async function openDocument(d,action){
+    const popup=(action==='preview'||action==='print')?window.open('about:blank','_blank'):null;
     const url='/api/casework/documents/'+d.id+'/content'+(action==='preview'||action==='print'?'?inline=1':'');
     try{
       const response=await fetch(url,{credentials:'same-origin'});if(!response.ok)throw new Error('دریافت سند ناموفق بود.');
       const blob=await response.blob(),fileObj=new File([blob],d.name,{type:d.mimeType});
       if(action==='share'&&navigator.share&&(!navigator.canShare||navigator.canShare({files:[fileObj]}))){await navigator.share({files:[fileObj],title:d.name});return;}
       const objectUrl=URL.createObjectURL(blob);
-      if(action==='preview'){window.open(objectUrl,'_blank','noopener');setTimeout(()=>URL.revokeObjectURL(objectUrl),60000);return;}
-      if(action==='print'){const w=window.open(objectUrl,'_blank');if(w){w.addEventListener('load',()=>w.print());setTimeout(()=>URL.revokeObjectURL(objectUrl),60000);}return;}
+      if(action==='preview'){if(popup)popup.location.href=objectUrl;else{const a=document.createElement('a');a.href=objectUrl;a.target='_blank';a.rel='noopener';a.click();}setTimeout(()=>URL.revokeObjectURL(objectUrl),60000);return;}
+      if(action==='print'){if(popup){popup.location.href=objectUrl;popup.addEventListener('load',()=>popup.print(),{once:true});}else{const a=document.createElement('a');a.href=objectUrl;a.target='_blank';a.click();}setTimeout(()=>URL.revokeObjectURL(objectUrl),60000);return;}
       const a=document.createElement('a');a.href=objectUrl;a.download=d.name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(objectUrl),60000);
-    }catch(err){message(root,err.message||'عملیات فایل انجام نشد.',true);}
+    }catch(err){popup?.close();message(root,err.message||'عملیات فایل انجام نشد.',true);}
   }
   async function showVersions(d){
     const r=await getJson('/api/casework/documents/'+d.id+'/versions');if(!r.ok){message(root,'دریافت نسخه‌ها ناموفق بود.',true);return;}
