@@ -41,10 +41,10 @@ export async function handleLegalBank(request, env, path) {
     if (request.method !== 'GET') return json({ok:false,error:'METHOD_NOT_ALLOWED'},405,{Allow:'GET'});
     const [lawTotals,articleTotals,types,sources,latest] = await Promise.all([
       env.DB.prepare(`SELECT COUNT(*) AS total,
-        SUM(CASE WHEN status='verified' THEN 1 ELSE 0 END) AS verified,
-        SUM(CASE WHEN status='needs_review' THEN 1 ELSE 0 END) AS needsReview,
-        SUM(CASE WHEN status='amended' THEN 1 ELSE 0 END) AS amended,
-        SUM(CASE WHEN status='repealed' THEN 1 ELSE 0 END) AS repealed,
+        SUM(CASE WHEN a.status='verified' THEN 1 ELSE 0 END) AS verified,
+        SUM(CASE WHEN a.status='needs_review' THEN 1 ELSE 0 END) AS needsReview,
+        SUM(CASE WHEN a.status='amended' THEN 1 ELSE 0 END) AS amended,
+        SUM(CASE WHEN a.status='repealed' THEN 1 ELSE 0 END) AS repealed,
         MAX(l.updated_at) AS lastUpdated FROM legal_laws l WHERE ${PUBLIC_DOCUMENT_FILTER}`).all(),
       env.DB.prepare(`SELECT COUNT(*) AS total,
         SUM(CASE WHEN status='verified' THEN 1 ELSE 0 END) AS verified,
