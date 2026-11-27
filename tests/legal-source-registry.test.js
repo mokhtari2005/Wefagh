@@ -43,13 +43,16 @@ test("legal corpus import defaults to laws and separates the regulations phase",
   assert.ok(importer.includes('IMPORT_PHASE = os.getenv("LEGAL_IMPORT_PHASE", "laws")'));
   assert.ok(importer.includes('"laws": {"law", "treaty"}'));
   assert.ok(importer.includes('"regulations": {"bylaw", "executive_regulation", "executive_circular", "circular"}'));
-  assert.ok(importer.includes('PHASE_TYPES["all"] = PHASE_TYPES["laws"] | PHASE_TYPES["regulations"]'));
+  assert.ok(importer.includes('PHASE_TYPES["all"] = PHASE_TYPES["laws"] | PHASE_TYPES["regulations"] | PHASE_TYPES["judicial"]'));
+  assert.ok(importer.includes('"judicial": {'));
   assert.ok(importer.includes("documents_excluded_by_phase"));
   assert.ok(importer.includes("phase_excluded_sample"));
   assert.ok(workflow.includes("default: all"));
   assert.ok(workflow.includes("LEGAL_IMPORT_PHASE:"));
   assert.ok(workflow.includes("- all"));
-  assert.ok(!workflow.includes("  push:"));
+  assert.ok(workflow.includes("  push:"));
+  assert.ok(workflow.includes("\'scripts/legal_priority_documents.json\'"));
+  assert.ok(workflow.includes("github.event_name == \'push\'"));
   assert.ok(!workflow.includes("Deploy Worker"));
 });
 
