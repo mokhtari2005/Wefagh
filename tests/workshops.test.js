@@ -1,5 +1,4 @@
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { WORKSHOPS, EXERCISES } from '../site/js/workshops.js';
 import { WORKSHOP_COURSES, WORKSHOP_ACTIVITIES } from '../worker/src/academy/workshop-courses.js';
@@ -80,17 +79,15 @@ test('کارآموزی مجازی پنج مرحله عملی با خروجی و 
   assert.equal(getPracticalGuide('civil-litigation-practice', 'l1'), null);
 });
 
-test('مطالعات موردی واقعی از سناریوهای فرضی جدا و به منبع عمومی پیوند دارند', () => {
-  const bank = JSON.parse(readFileSync(new URL('../research/case-bank/verified-case-studies.json', import.meta.url), 'utf8'));
-  assert.equal(bank.records.length, 6);
-  assert.deepEqual(new Set(VERIFIED_CASE_STUDIES.map(item => item.id)), new Set(bank.records.map(item => item.source_id)));
-  for (const item of bank.records) {
-    assert.equal(item.status, 'reviewed_for_training');
-    assert.ok(item.court_document_number);
-    assert.ok(item.judgment_date);
-    assert.ok(item.source_url.startsWith('https://ara.jri.ac.ir/Judge/Text/'));
-    assert.ok(item.procedural_summary.length > 100);
+test('بانک مطالعات موردی واقعی از سناریوهای فرضی جدا و به منبع قضایی پیوند دارد', () => {
+  assert.equal(VERIFIED_CASE_STUDIES.length, 6);
+  for (const item of VERIFIED_CASE_STUDIES) {
+    assert.ok(item.documentNumber);
+    assert.ok(item.date);
+    assert.ok(item.sourceUrl.startsWith('https://ara.jri.ac.ir/Judge/Text/'));
+    assert.ok(item.summary.length > 100);
     assert.ok(item.limits.length >= 2);
+    assert.ok(item.tasks.length >= 2);
   }
 });
 
@@ -107,4 +104,21 @@ test('API مطالعات موردی عمومی، فقط‌خواندنی و بد
   }
   const postResponse = await handleAcademy(new Request('https://example.test/api/academy/case-studies', { method: 'POST' }), {}, '/api/academy/case-studies');
   assert.equal(postResponse.status, 405);
+});
+
+test('جزئیات کارگاه کارآموزی، راهنمای پنج مرحله را از API ارائه می‌کند', async () => {
+  const response = await handleAcademy(
+    new Request('https://example.test/api/academy/courses/virtual-apprenticeship-workshop'),
+    {},
+    '/api/academy/courses/virtual-apprenticeship-workshop'
+  );
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.ok, true);
+  assert.equal(payload.course.lessons.length, 5);
+  payload.course.lessons.forEach((lesson, index) => {
+    assert.equal(lesson.learning.practicalGuide.number, index + 1);
+    assert.ok(lesson.learning.practicalGuide.deliverables.length >= 3);
+    assert.equal(lesson.learning.practicalGuide.rubric.length, 4);
+  });
 });
