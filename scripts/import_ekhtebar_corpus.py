@@ -94,7 +94,7 @@ def category_type(path, title):
     if category=="آرایدیوانعدالتاداری":
         return "administrative_court_general_board" if "هیئت عمومی" in value else "administrative_court_decision"
     if category=="مصوبات":
-        return "executive_resolution"
+        return "expediency_council_resolution" if "مجمع تشخیص" in value else "executive_resolution"
     if category=="طرحولایحه":
         return "bill"
     if category=="نظریههایرئیسمجلس":
@@ -118,6 +118,9 @@ def classify(t):
     if "نظریه مشورتی" in text and ("اداره کل حقوقی" in text or "قوه قضائیه" in text): return "judicial_advisory_opinion"
     if "نظریه مشورتی" in text: return "advisory_opinion"
     if "شورای نگهبان" in text and ("تفسیر" in text or "نظریه" in text): return "guardian_council_opinion"
+    if "استفتاء" in text or "استفتا" in text or "مسئله فقهی" in text or "فتوای" in text: return "fatwa"
+    if "قانون تفسیری" in text or "قانون تفسیر" in text or "استفساریه" in text: return "interpretive_law"
+    if "مجمع تشخیص مصلحت" in text and ("مصوبه" in text or "مصلحت نظام" in text): return "expediency_council_resolution"
     if "مرکز پژوهش های مجلس" in text or "مرکز پژوهش‌های مجلس" in text: return "parliamentary_research"
     # A statute approving a treaty is indexed as a treaty, not a bylaw.
     if "کنوانسیون" in text or "معاهده" in text: return "treaty"
