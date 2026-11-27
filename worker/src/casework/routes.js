@@ -90,7 +90,7 @@ function signatureOk(bytes, ext, generated = false) {
   if (ext === 'jpg' || ext === 'jpeg') return starts(0xff,0xd8,0xff);
   if (ext === 'webp') return bytes.length > 12 && new TextDecoder().decode(bytes.slice(0,4)) === 'RIFF' && new TextDecoder().decode(bytes.slice(8,12)) === 'WEBP';
   if (ext === 'docx') return starts(0x50,0x4b,0x03,0x04);
-  if (ext === 'doc') return starts(0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1) || (generated && /^\\s*<!doctype html|^\\s*<html/i.test(new TextDecoder().decode(bytes.slice(0,256))));
+  if (ext === 'doc') return starts(0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1) || (generated && /^\s*<!doctype html|^\s*<html/i.test(new TextDecoder().decode(bytes.slice(0,256))));
   return ext === 'txt' || ext === 'rtf';
 }
 async function listCases(env, userId, url) {
