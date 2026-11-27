@@ -8,8 +8,9 @@ import { sendMail } from '../email/resend.js';
 import { notifyMembershipAdmins } from '../push/membership.js';
 
 /** گزارش فنی بدون داده‌های کاربر: فقط نام خطا و محل آن (هرگز ایمیل، رمز یا پروفایل). */
-export function logError(where, err) {
+export function logError(where, err, requestId = '') {
   const entry = { where, error: err?.name || 'Error', detail: String(err?.message || '').slice(0, 200) };
+  if (typeof requestId === 'string' && /^[A-Za-z0-9_-]{8,80}$/.test(requestId)) entry.requestId = requestId;
   if (Number.isInteger(err?.status)) entry.status = err.status;
   if (typeof err?.reason === 'string' && /^[A-Za-z_]{1,40}$/.test(err.reason)) entry.reason = err.reason;
   if (Array.isArray(err?.missing)) {
@@ -403,11 +404,11 @@ export async function requestPasswordReset(request, env) {
       ].join('\n'),
     });
   } catch (err) {
-    logError('auth.send_password_reset', err);
+    logError('auth.send_password_reset', err, request.headers.get('X-Client-Request-ID') || '');
     // توکن ارسال‌نشده قابل استفاده نیست و نباید کاربر را پشت پاسخ موفق کاذب نگه دارد.
     await env.DB.prepare("UPDATE email_tokens SET used_at=?1 WHERE user_id=?2 AND purpose='reset_password' AND used_at IS NULL")
       .bind(new Date().toISOString(), user.id).run();
-    return json({ ok: false, error: 'MAIL_SEND_FAILED' }, 503);
+    return json({ ok: false, error: 'MAIL_SEND_FAILED', requestId: request.headers.get('X-Client-Request-ID') || null }, 503);
   }
   return json({ ok: true, message: RESET_REQUEST_MSG }, 202);
 }
