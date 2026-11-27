@@ -128,16 +128,18 @@ async function createCase(env,userId,body) {
 async function getCase(env,userId,caseId) {
   const row=await ownCase(env,userId,caseId);
   if(!row) return fail('NOT_FOUND',404);
-  const [services,documents,timeline]=await Promise.all([
+  const [services,documents,timeline,calculatorActions]=await Promise.all([
     env.DB.prepare('SELECT * FROM case_services WHERE case_id=?1 AND user_id=?2 ORDER BY created_at DESC').bind(caseId,userId).all(),
     env.DB.prepare('SELECT * FROM case_documents WHERE case_id=?1 AND user_id=?2 AND deleted_at IS NULL ORDER BY created_at DESC').bind(caseId,userId).all(),
     env.DB.prepare('SELECT id,service_id,document_id,event_type,title,details_json,created_at FROM case_timeline WHERE case_id=?1 AND user_id=?2 ORDER BY id DESC LIMIT 250').bind(caseId,userId).all(),
+    env.DB.prepare('SELECT id,service_id,calculator_key,title,input_json,result_json,created_at FROM casework_user_actions WHERE case_id=?1 AND user_id=?2 ORDER BY created_at DESC,id DESC LIMIT 100').bind(caseId,userId).all(),
   ]);
   const serviceRows=services.results||[], documentRows=documents.results||[];
   const summaryRow={...row,service_count:serviceRows.length,document_count:documentRows.length,
     upload_count:documentRows.filter(x=>x.source_kind==='upload').length,generated_count:documentRows.filter(x=>x.source_kind==='generated').length};
   return json({ok:true,case:caseDto(summaryRow),services:serviceRows.map(serviceDto),
     documents:documentRows.map(documentDto),
+    calculatorActions:(calculatorActions.results||[]).map(x=>({id:x.id,serviceId:x.service_id,calculatorKey:x.calculator_key,title:x.title,inputData:parseJson(x.input_json,{}),resultData:parseJson(x.result_json,{}),createdAt:x.created_at})),
     timeline:(timeline.results||[]).map(x=>({...x,details:parseJson(x.details_json,{})}))});
 }
 async function updateCase(env,userId,caseId,body) {
@@ -273,11 +275,55 @@ async function downloadDocument(request,env,userId,documentId) {
   if(request.method==='HEAD')return new Response(null,{status:200,headers});
   return new Response(object.body,{status:200,headers});
 }
+async function listUserActions(env,userId,url) {
+  const caseId=url.searchParams.get('caseId')||'';
+  if(caseId && !await ownCase(env,userId,caseId)) return fail('NOT_FOUND',404);
+  const limit=Math.min(100,Math.max(1,Number(url.searchParams.get('limit')||30)||30));
+  const rows=await env.DB.prepare(`SELECT a.*,c.name AS case_name,s.title AS service_title
+    FROM casework_user_actions a
+    LEFT JOIN case_records c ON c.id=a.case_id
+    LEFT JOIN case_services s ON s.id=a.service_id
+    WHERE a.user_id=?1 AND (?2='' OR a.case_id=?2)
+    ORDER BY a.created_at DESC,a.id DESC LIMIT ?3`).bind(userId,caseId,limit).all();
+  return json({ok:true,actions:(rows.results||[]).map(row=>({
+    id:row.id,caseId:row.case_id,caseName:row.case_name||'',serviceId:row.service_id,
+    serviceTitle:row.service_title||'',actionType:row.action_type,calculatorKey:row.calculator_key,
+    title:row.title,inputData:parseJson(row.input_json,{}),resultData:parseJson(row.result_json,{}),createdAt:row.created_at
+  }))});
+}
+async function createUserAction(env,userId,body) {
+  const actionType=clean(body.actionType,40)||'calculator';
+  const calculatorKey=clean(body.calculatorKey,40);
+  const title=clean(body.title,180);
+  if(actionType!=='calculator'||!['regional','court','attorney','delay'].includes(calculatorKey)||title.length<2) return fail('INVALID_ACTION',422);
+  const caseId=typeof body.caseId==='string'&&body.caseId?body.caseId:null;
+  if(caseId&&!await ownCase(env,userId,caseId)) return fail('NOT_FOUND',404);
+  const serviceId=typeof body.serviceId==='string'&&body.serviceId?body.serviceId:null;
+  if(serviceId){
+    const service=await ownService(env,userId,serviceId);
+    if(!service||!caseId||service.case_id!==caseId) return fail('SERVICE_NOT_FOUND',404);
+  }
+  const input=body.inputData&&typeof body.inputData==='object'&&!Array.isArray(body.inputData)?body.inputData:{};
+  const result=body.resultData&&typeof body.resultData==='object'&&!Array.isArray(body.resultData)?body.resultData:{};
+  const inputJson=JSON.stringify(input),resultJson=JSON.stringify(result);
+  if(inputJson.length>12000||resultJson.length>12000) return fail('ACTION_DATA_TOO_LARGE',413);
+  const saved=await env.DB.prepare(`INSERT INTO casework_user_actions(user_id,case_id,service_id,action_type,calculator_key,title,input_json,result_json)
+    VALUES(?1,?2,?3,'calculator',?4,?5,?6,?7) RETURNING id`)
+    .bind(userId,caseId,serviceId,calculatorKey,title,inputJson,resultJson).first();
+  if(caseId) await event(env,userId,caseId,'calculator_used','اجرای محاسبه‌گر: '+title,{serviceId,details:{actionId:saved?.id,calculatorKey,title}});
+  return json({ok:true,id:saved?.id??null},201);
+}
+
 export async function handleCasework(request,env,path) {
   if(!path.startsWith('/api/casework/'))return null;
   if(!env.DB)return fail('DB_NOT_CONFIGURED',503);
   const user=await currentUser(request,env);if(!user)return fail('UNAUTHENTICATED',401);
   const method=request.method;
+  if(path==='/api/casework/actions'){
+    if(method==='GET') return listUserActions(env,user.id,new URL(request.url));
+    if(method==='POST'){const parsed=await readBody(request);if(parsed.error)return parsed.error;return createUserAction(env,user.id,parsed.body);}
+    return fail('METHOD_NOT_ALLOWED',405);
+  }
   if(path==='/api/casework/trash'){
     if(method!=='GET')return fail('METHOD_NOT_ALLOWED',405);
     return listTrash(env,user.id);
