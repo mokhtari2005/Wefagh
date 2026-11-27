@@ -403,6 +403,13 @@ def partition_document_updates(documents, existing_rows):
             continue
         old_hash = row.get("content_sha256")
         content_unchanged = bool(old_hash and old_hash == doc.get("contentSha256"))
+        expected_articles = len(doc.get("articles") or [])
+        existing_articles = row.get("existing_articles")
+        article_rows_unchanged = True
+        if existing_articles is not None:
+            existing_articles = int(existing_articles or 0)
+            doc["_existingArticleCount"] = existing_articles
+            article_rows_unchanged = existing_articles == expected_articles
         metadata_fields = {
             "law_type": doc.get("lawType"),
             "source_url": doc.get("sourceUrl"),
@@ -413,7 +420,7 @@ def partition_document_updates(documents, existing_rows):
             field not in row or row.get(field) == value
             for field, value in metadata_fields.items()
         )
-        if content_unchanged and metadata_unchanged:
+        if content_unchanged and metadata_unchanged and article_rows_unchanged:
             unchanged += 1
             continue
         protected_articles = int(row.get("protected_articles") or 0)
@@ -506,7 +513,7 @@ def limit_refresh_batch(refreshable_docs, max_article_rows=MAX_REFRESH_ARTICLES_
     selected_articles = 0
     deferred_articles = 0
     for item in refreshable_docs:
-        article_count = max(1, len(item[0].get("articles") or []))
+        article_count = max(1, len(item[0].get("articles") or []), int(item[0].get("_existingArticleCount") or 0))
         if article_count > max_article_rows or selected_articles + article_count > max_article_rows:
             deferred.append(item)
             deferred_articles += article_count
@@ -569,16 +576,19 @@ def refresh_unverified_documents(refreshable_docs):
 
     for doc,_previous_hash in refreshable_docs:
         statements = refresh_statements(doc,uuid.uuid4().hex)
-        encoded_size = sum(len(sql.encode("utf-8"))+len(json.dumps(params,ensure_ascii=False).encode("utf-8")) for sql,params in statements)
-        if len(statements) > 90 or encoded_size > 3_500_000:
+        sizes = [len(sql.encode("utf-8"))+len(json.dumps(params,ensure_ascii=False).encode("utf-8")) for sql,params in statements]
+        if any(size > 3_500_000 for size in sizes):
             stats["skipped_large"] += 1
             continue
-        if batch and (len(batch)+len(statements)>90 or batch_bytes+encoded_size>3_500_000):
-            submit(batch)
-            batch=[]
-            batch_bytes=0
-        batch.extend(statements)
-        batch_bytes += encoded_size
+        # Split very large documents across bounded D1 batches. If a daily quota
+        # interrupts midway, article-count reconciliation will safely resume them.
+        for statement, statement_size in zip(statements, sizes):
+            if batch and (len(batch) >= 90 or batch_bytes+statement_size > 3_500_000):
+                submit(batch)
+                batch=[]
+                batch_bytes=0
+            batch.append(statement)
+            batch_bytes += statement_size
     if batch:
         submit(batch)
     return stats
@@ -590,7 +600,8 @@ def queue_changed_documents(changed_docs):
         return 0
     statements = []
     for doc, previous_hash in changed_docs:
-        payload = json.dumps(doc, ensure_ascii=False, separators=(",", ":"))
+        payload_doc = {key: value for key, value in doc.items() if not key.startswith("_")}
+        payload = json.dumps(payload_doc, ensure_ascii=False, separators=(",", ":"))
         statements.append({
             "sql": """INSERT OR IGNORE INTO legal_document_update_queue
                 (law_id,slug,title,previous_sha256,proposed_sha256,proposed_payload_json,discovery_source_url,official_source_url)
@@ -632,7 +643,8 @@ def main():
     docs.sort(key=lambda x:x["slug"])
     print(f"Phase: {IMPORT_PHASE}; parsed {parsed_count}; selected {len(docs)}; excluded by phase {len(phase_skipped)}; parse-skipped {skipped}.")
     existing_rows = d1_query("""SELECT l.slug,l.content_sha256,l.status,l.law_type,l.source_url,l.official_source_url,l.source_name,
-        SUM(CASE WHEN a.status IN ('verified','amended','repealed') THEN 1 ELSE 0 END) AS protected_articles
+        SUM(CASE WHEN a.status IN ('verified','amended','repealed') THEN 1 ELSE 0 END) AS protected_articles,
+        COUNT(a.id) AS existing_articles
         FROM legal_laws l LEFT JOIN legal_articles a ON a.law_id=l.id GROUP BY l.id""")
     new_docs, refreshable_docs, protected_docs, unchanged_docs = partition_document_updates(docs, existing_rows)
     changed_docs = refreshable_docs + protected_docs
