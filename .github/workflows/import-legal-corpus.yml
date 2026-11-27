@@ -18,6 +18,7 @@ on:
         options:
           - laws
           - regulations
+          - judicial
           - all
 
 permissions:
