@@ -72,3 +72,14 @@ test('assistant multipart transport probes the correct endpoint after a network 
     globalThis.fetch = originalFetch;
   }
 });
+
+test('AI Worker echoes a validated request id for browser-to-worker correlation', async () => {
+  const { handleAi } = await import('../worker/src/ai/routes.js');
+  const request = new Request('https://mokhtari.ir/api/ai/status', {
+    headers: { 'x-client-request-id': 'trace-12345678' },
+  });
+  const response = await handleAi(request, {}, '/api/ai/status');
+  assert.equal(response.headers.get('x-request-id'), 'trace-12345678');
+  const body = await response.json();
+  assert.equal(body.ok, true);
+});
