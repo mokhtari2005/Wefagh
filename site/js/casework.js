@@ -28,9 +28,10 @@ function empty(text){return h('div',{class:'casework-empty',text});}
 
 export function caseworkPage(){
   const root=h('div',{class:'casework-page'});
+  const createButton=button('＋ ثبت پرونده جدید','btn');
   const header=h('header',{class:'casework-header'},[
     h('div',{},[h('p',{class:'casework-eyebrow',text:'مدیریت حرفه‌ای پرونده‌ها'}),h('h1',{text:'پرونده‌های من'}),h('p',{class:'muted',text:'هر پرونده، یک بایگانی مستقل برای خدمات، اسناد و تمام سوابق آن.'})]),
-    button('＋ ثبت پرونده جدید','btn')
+    createButton
   ]);
   const trashButton=button('سطل بازیابی');
   header.append(trashButton);
@@ -85,7 +86,7 @@ export function caseworkPage(){
   const listPanel=panel('همه پرونده‌ها',list,h('div',{class:'casework-filters'},[search,sort,filter]));
   const help=button('راهنمای این بخش','btn text');
   help.addEventListener('click',()=>showHelp(root,'مدیریت پرونده‌ها','پرونده را حتی بدون فایل ثبت کنید. شناسه پرونده بلافاصله ساخته می‌شود. سپس خدمات متعدد و اسناد هر خدمت را از داخل همان پرونده اضافه کنید. عملیات نیمه‌تمام در «ادامه کار» می‌ماند و اطلاعات آن با خروج از صفحه حذف نمی‌شود.'));
-  header.lastElementChild.addEventListener('click',()=>{form.hidden=!form.hidden;if(!form.hidden)name.focus();});
+  createButton.addEventListener('click',()=>{form.hidden=!form.hidden;if(!form.hidden)name.focus();});
   cancel.addEventListener('click',()=>{form.reset();form.hidden=true;});
   form.addEventListener('submit',async e=>{
     e.preventDefault();submit.disabled=true;submit.textContent='در حال ذخیره…';
