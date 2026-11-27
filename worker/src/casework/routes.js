@@ -238,7 +238,7 @@ async function downloadDocument(request,env,userId,documentId) {
   const headers=new Headers({
     'Content-Type':row.mime_type,
     'Content-Length':String(row.size_bytes),
-    'Content-Disposition':(request.method==='HEAD'?'inline':'attachment')+'; filename*=UTF-8\'\''+encodeURIComponent(row.display_name),
+    'Content-Disposition':(request.method==='HEAD'||new URL(request.url).searchParams.get('inline')==='1'?'inline':'attachment')+'; filename*=UTF-8\'\''+encodeURIComponent(row.display_name),
     'Cache-Control':'private, no-store',
     'X-Content-Type-Options':'nosniff',
   });
