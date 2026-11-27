@@ -74,6 +74,8 @@ def classify(t):
     # A title beginning with قانون remains a statute even when it mentions
     # آیین‌نامه داخلی مجلس or another regulation in its title.
     if re.match(r"^(?:قانون|قوانین)\b", text): return "law"
+    if "لایحه استقلال کانون وکلای دادگستری" in text or "لایحه نحوه خرید و تملک اراضی" in text: return "law"
+    if "فهرست قوانین و احکام نامعتبر" in text: return "law"
     if "بخشنامه" in text and ("قوه قضائیه" in text or "رئیس قوه" in text): return "judicial_circular"
     if "بخشنامه" in text or "دستورالعمل" in text: return "executive_circular"
     if "آیین نامه" in text or "آیین‌نامه" in text: return "bylaw"
@@ -250,42 +252,63 @@ def normalize_title(value):
     return value
 
 
-def priority_coverage(documents, manifest):
-    """Report discoverability in parsed source files; never imply legal verification."""
+def priority_coverage(documents, manifest, source_titles=None):
+    """Report parsed and indexed coverage separately; neither implies legal verification."""
     rows = []
+    normalized_index = sorted({normalize_title(x) for x in (source_titles or []) if x})
     for required in manifest.get("documents", []):
         aliases = [normalize_title(x) for x in [required.get("title", ""), *required.get("aliases", [])] if x]
-        matches = []
+        def matches_title(title):
+            return any(title == alias or title.startswith(alias + " مصوب") or
+                       title.startswith(alias + " با اصلاحات") or title.startswith(alias + " (")
+                       for alias in aliases)
+        parsed_matches = []
         for doc in documents:
             title = normalize_title(doc.get("title", ""))
             if "منسوخ" in title:
                 continue
-            if any(title == alias or title.startswith(alias + " مصوب") or title.startswith(alias + " با اصلاحات") or title.startswith(alias + " (") for alias in aliases):
-                matches.append({"title": doc["title"], "slug": doc["slug"], "type": doc["lawType"]})
+            if matches_title(title):
+                parsed_matches.append({"title": doc["title"], "slug": doc["slug"], "type": doc["lawType"]})
+        indexed_matches = [title for title in normalized_index if "منسوخ" not in title and matches_title(title)]
+        status = "present_in_source_mirror" if parsed_matches else (
+            "indexed_not_parsed" if indexed_matches else "missing_from_source_mirror"
+        )
         rows.append({
             "key": required["key"],
             "required_title": required["title"],
             "domain": required.get("domain", "general"),
             "priority": required.get("priority", "core"),
-            "status": "present_in_source_mirror" if matches else "missing_from_source_mirror",
-            "matches": matches[:5],
+            "status": status,
+            "matches": parsed_matches[:5],
+            "indexed_matches": indexed_matches[:5],
         })
-    present = sum(1 for row in rows if row["status"] == "present_in_source_mirror")
+    parsed = sum(1 for row in rows if row["status"] == "present_in_source_mirror")
+    indexed_only = sum(1 for row in rows if row["status"] == "indexed_not_parsed")
+    missing = sum(1 for row in rows if row["status"] == "missing_from_source_mirror")
     by_domain = {}
     for row in rows:
-        bucket = by_domain.setdefault(row["domain"], {"total": 0, "present_in_source_mirror": 0, "missing_from_source_mirror": 0, "verified": 0})
+        bucket = by_domain.setdefault(row["domain"], {
+            "total":0,"present_in_source_mirror":0,"parsed_in_source_mirror":0,
+            "indexed_not_parsed":0,"missing_from_source_mirror":0,"verified":0
+        })
         bucket["total"] += 1
         if row["status"] == "present_in_source_mirror":
             bucket["present_in_source_mirror"] += 1
+            bucket["parsed_in_source_mirror"] += 1
+        elif row["status"] == "indexed_not_parsed":
+            bucket["present_in_source_mirror"] += 1
+            bucket["indexed_not_parsed"] += 1
         else:
             bucket["missing_from_source_mirror"] += 1
     return {
-        "total_required": len(rows),
-        "present_in_source_mirror": present,
-        "missing_from_source_mirror": len(rows)-present,
-        "verified": 0,
-        "by_domain": by_domain,
-        "documents": rows,
+        "total_required":len(rows),
+        "present_in_source_mirror":parsed+indexed_only,
+        "parsed_in_source_mirror":parsed,
+        "indexed_not_parsed":indexed_only,
+        "missing_from_source_mirror":missing,
+        "verified":0,
+        "by_domain":by_domain,
+        "documents":rows,
     }
 
 
@@ -384,7 +407,8 @@ def refresh_statements(doc, version_key=None):
 def refresh_unverified_documents(refreshable_docs):
     """Replace only needs_review text; verified/amended/repealed content is never touched."""
     if not refreshable_docs:
-        return {"documents_updated":0,"articles_deleted":0,"articles_inserted":0,"queue_accepted":0,"skipped_large":0}
+        return {"documents_updated":0,"versions_archived":0,"articles_archived":0,
+                "articles_deleted":0,"articles_inserted":0,"queue_accepted":0,"skipped_large":0}
     stats = {"documents_updated":0,"versions_archived":0,"articles_archived":0,"articles_deleted":0,"articles_inserted":0,"queue_accepted":0,"skipped_large":0}
     batch = []
     batch_bytes = 0
@@ -514,7 +538,8 @@ def main():
     discovery_sources=[{"key":s["key"],"url":s["url"],"mode":s.get("mode"),"authoritative":s.get("authoritative",True)} for s in source_registry.get("sources",[]) if s.get("discovery_only")]
     with open(os.path.join(os.path.dirname(__file__), "legal_priority_documents.json"), encoding="utf-8") as priority_file:
         priority_manifest=json.load(priority_file)
-    priority_audit=priority_coverage([*docs, *phase_skipped], priority_manifest)
+    priority_audit=priority_coverage([*docs, *phase_skipped], priority_manifest,
+        [item.get("title","") for item in index.values()])
     report={"priority_coverage":priority_audit,"source":"https://github.com/SaeedAqamiri/laws-mcp","index_source":"https://www.ekhtebar.ir/قوانین/","official_sources":["https://qavanin.ir/","https://www.rrk.ir/"],"discovery_sources":discovery_sources,"official_links_found":sum(1 for d in docs if d.get("officialSourceUrl")),"documents_without_direct_official_link":sum(1 for d in docs if not d.get("officialSourceUrl")),"files_found":len(files),"phase":IMPORT_PHASE,"documents_parsed":parsed_count,"documents_selected":len(docs),"documents_excluded_by_phase":len(phase_skipped),"documents_processed":done,"documents_new":len(new_docs),"documents_unchanged":unchanged_docs,"documents_changed_detected":len(changed_docs),"updates_logged":queued_updates,"documents_auto_refreshed":refresh_stats["documents_updated"],"versions_archived":refresh_stats["versions_archived"],"articles_archived":refresh_stats["articles_archived"],"articles_replaced_deleted":refresh_stats["articles_deleted"],"articles_refreshed_inserted":refresh_stats["articles_inserted"],"updates_auto_accepted":refresh_stats["queue_accepted"],"protected_documents_pending_review":len(protected_docs)+refresh_stats["skipped_large"],"auto_refresh_skipped_large":refresh_stats["skipped_large"],"documents_inserted":inserted["laws"],"articles_inserted":inserted["articles"],"selected_type_counts":type_counts,"documents_skipped":skipped,"skip_reason_counts":skip_reason_counts,"database_audit":database_audit,"status":"needs_review","automation_policy":"new documents remain needs_review; changed unverified documents are refreshed automatically; documents with verified/amended/repealed law or article status are only queued for review","selected_types":sorted(PHASE_TYPES[IMPORT_PHASE]),"phase_excluded_sample":[{"slug":d["slug"],"title":d["title"],"type":d["lawType"]} for d in phase_skipped[:100]],"skip_sample":errors[:200]}
     with open("artifacts/legal-bank-import-report.json","w",encoding="utf-8") as f: json.dump(report,f,ensure_ascii=False,indent=2)
     print(json.dumps({k:v for k,v in report.items() if k!="skip_sample"},ensure_ascii=False))
