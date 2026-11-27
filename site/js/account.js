@@ -116,7 +116,7 @@ export function forgotPasswordForm() {
     const errorText = messageFor(res.networkError ? 'NETWORK' : res.data?.error);
     const stageLabels = { user_lookup: 'یافتن حساب', recent_token_lookup: 'بررسی درخواست قبلی', invalidate_old_tokens: 'باطل‌کردن پیوند قبلی', generate_and_hash_token: 'ساخت توکن بازیابی', insert_reset_token: 'ثبت توکن در پایگاه داده' };
     const stage = stageLabels[res.data?.stage] || '';
-    const diagnostic = !res.ok ? `\\nمرحله: ${stage || 'نامشخص'}\\nکد پیگیری: ${res.data?.requestId || res.requestId || 'نامشخص'}${res.status ? ` | HTTP ${res.status}` : ''}` : '';
+    const diagnostic = !res.ok ? `\nمرحله: ${stage || 'نامشخص'}\nکد پیگیری: ${res.data?.requestId || res.requestId || 'نامشخص'}${res.status ? ` | HTTP ${res.status}` : ''}` : '';
     setStatus(status, res.ok ? (res.data?.message || 'در صورت وجود حساب، لینک بازیابی ارسال می‌شود.') : `${errorText}${diagnostic}`, res.ok ? 'ok' : 'err');
   });
   return form;
