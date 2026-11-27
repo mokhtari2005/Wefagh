@@ -300,3 +300,32 @@ test('Workers AI quota exhaustion is not retried and never invokes another provi
   );
   assert.equal(calls, 1);
 });
+
+
+test('Gemini content blocks are not bypassed by switching providers', async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url) => {
+    calls.push(String(url));
+    return new Response(JSON.stringify({ promptFeedback: { blockReason: 'SAFETY' } }), {
+      status: 200, headers: { 'content-type': 'application/json' },
+    });
+  };
+  try {
+    await assert.rejects(generateTextWithFallback({
+      AI_BILLING_MODE: 'zero',
+      GEMINI_FREE_TIER_CONFIRMED: 'true',
+      GEMINI_TEXT_MODEL: 'gemini-3.5-flash-lite',
+      GEMINI_API_KEY: 'test-gemini-free-tier-key',
+      GROQ_FREE_TIER_CONFIRMED: 'true',
+      GROQ_API_KEY: 'test-groq-key-0123456789',
+      WORKERS_AI_FREE_PLAN_CONFIRMED: 'true',
+      WORKERS_AI_PRIMARY_ENABLED: 'true',
+      AI: { run: async () => { throw new Error('must not bypass a content block'); } },
+    }, prompt), error => error?.code === 'AI_BLOCKED');
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].includes('generativelanguage.googleapis.com'), true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
