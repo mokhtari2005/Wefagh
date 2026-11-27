@@ -23,16 +23,23 @@ class LegalCorpusImporterTests(unittest.TestCase):
         self.assertEqual(importer.classify("قانون آیین‌نامه داخلی مجلس شورای اسلامی"), "law")
         self.assertEqual(importer.classify("قانون اصلاح آیین نامه داخلی مجلس"), "law")
 
-    def test_all_phase_covers_statutes_and_regulations_without_judicial_opinions(self):
+    def test_all_phase_covers_statutes_regulations_and_judicial_authorities(self):
         self.assertIn("treaty", importer.PHASE_TYPES["laws"])
         self.assertNotIn("bylaw", importer.PHASE_TYPES["laws"])
         self.assertIn("bylaw", importer.PHASE_TYPES["all"])
         self.assertIn("executive_regulation", importer.PHASE_TYPES["all"])
         self.assertIn("executive_circular", importer.PHASE_TYPES["all"])
-        self.assertNotIn("judicial_advisory_opinion", importer.PHASE_TYPES["all"])
+        self.assertIn("judicial_advisory_opinion", importer.PHASE_TYPES["all"])
+        self.assertIn("supreme_court_unified_precedent", importer.PHASE_TYPES["all"])
+        self.assertIn("administrative_court_general_board", importer.PHASE_TYPES["all"])
+        self.assertIn("judicial_decision", importer.PHASE_TYPES["all"])
+        self.assertNotIn("judicial_advisory_opinion", importer.PHASE_TYPES["laws"])
+        self.assertIn("judicial_advisory_opinion", importer.PHASE_TYPES["judicial"])
 
     def test_specific_document_families_keep_precedence(self):
         self.assertEqual(importer.classify("رأی وحدت رویه دیوان عالی کشور"), "supreme_court_unified_precedent")
+        self.assertEqual(importer.classify("رأی اصراری دیوان عالی کشور"), "supreme_court_insistence_precedent")
+        self.assertEqual(importer.classify("رأی هیئت عمومی دیوان عدالت اداری"), "administrative_court_general_board")
         self.assertEqual(importer.classify("نظریه مشورتی اداره کل حقوقی قوه قضائیه"), "judicial_advisory_opinion")
         self.assertEqual(importer.classify("کنوانسیون حقوقی"), "treaty")
 
