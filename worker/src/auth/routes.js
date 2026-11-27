@@ -51,6 +51,8 @@ export const LOCK_THRESHOLD = 5;
 export const LOCK_MINUTES = 15;
 const GENERIC_REGISTER_MSG = 'اگر این نشانی معتبر باشد، ایمیل تأیید برای شما ارسال شد.';
 const RESEND_MSG = 'اگر این حساب در انتظار تأیید باشد، ایمیل تأیید دوباره ارسال شد.';
+const RESET_REQUEST_MSG = 'اگر حسابی با این ایمیل وجود داشته باشد، لینک بازیابی رمز ارسال می‌شود.';
+const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
 const RESEND_COOLDOWN_MS = 60 * 1000;
 
 // هش ساختگی برای یکسان‌سازی زمان پاسخ وقتی کاربر وجود ندارد.
@@ -358,6 +360,70 @@ export async function getProfile(env, userId) {
     learningFormat: row.learning_format,
     notes: row.notes,
   };
+}
+
+
+/** درخواست بازیابی رمز؛ پاسخ عمومی برای جلوگیری از افشای وجود حساب. */
+export async function requestPasswordReset(request, env) {
+  const parsed = await readJsonBody(request);
+  if (parsed.error) return parsed.error;
+  const email = normalizeEmail(parsed.body?.email);
+  if (!email) return json({ ok: false, error: 'VALIDATION_FAILED', errors: { email: 'نشانی ایمیل معتبر نیست.' } }, 422);
+  const user = await env.DB.prepare("SELECT id, status, email_verified_at FROM users WHERE email=?1").bind(email).first();
+  if (!user || user.status !== 'active' || !user.email_verified_at) {
+    return json({ ok: true, message: RESET_REQUEST_MSG }, 202);
+  }
+  const recent = await env.DB.prepare("SELECT created_at FROM email_tokens WHERE user_id=?1 AND purpose='reset_password' ORDER BY created_at DESC LIMIT 1").bind(user.id).first();
+  if (recent && Date.now() - Date.parse(recent.created_at) < RESEND_COOLDOWN_MS) {
+    return json({ ok: true, message: RESET_REQUEST_MSG }, 202);
+  }
+  const now = new Date();
+  await env.DB.prepare("UPDATE email_tokens SET used_at=?1 WHERE user_id=?2 AND purpose='reset_password' AND used_at IS NULL")
+    .bind(now.toISOString(), user.id).run();
+  const token = generateToken();
+  await env.DB.prepare("INSERT INTO email_tokens (token_hash,user_id,purpose,expires_at) VALUES (?1,?2,'reset_password',?3)")
+    .bind(await hashToken(token), user.id, addMs(now, RESET_TOKEN_TTL_MS)).run();
+  try {
+    await mailer(env)({
+      to: email,
+      subject: 'بازیابی رمز عبور | آکادمی وکالت شهرام مختاری',
+      text: [
+        'با سلام،',
+        '',
+        'درخواست بازیابی رمز عبور حساب شما در آکادمی وکالت شهرام مختاری ثبت شده است.',
+        'برای تعیین رمز جدید، پیوند زیر را باز کنید:',
+        `${publicBaseUrl(env)}/#/reset-password?token=${token}`,
+        '',
+        'این پیوند فقط ۳۰ دقیقه و برای یک‌بار معتبر است.',
+        'اگر شما این درخواست را ثبت نکرده‌اید، این پیام را نادیده بگیرید؛ رمز فعلی شما تغییر نمی‌کند.',
+        '',
+        'آکادمی وکالت شهرام مختاری',
+      ].join('\\n'),
+    });
+  } catch (err) {
+    logError('auth.send_password_reset', err);
+  }
+  return json({ ok: true, message: RESET_REQUEST_MSG }, 202);
+}
+
+/** تعیین رمز تازه با توکن یک‌بارمصرف؛ تمام نشست‌های قبلی باطل می‌شوند. */
+export async function resetPassword(request, env) {
+  const parsed = await readJsonBody(request);
+  if (parsed.error) return parsed.error;
+  const token = typeof parsed.body?.token === 'string' ? parsed.body.token : '';
+  const password = parsed.body?.password;
+  const policy = validatePasswordPolicy(password);
+  if (!token) return json({ ok: false, error: 'INVALID_TOKEN' }, 400);
+  if (!policy.ok) return json({ ok: false, error: 'VALIDATION_FAILED', errors: { password: policy.error } }, 422);
+  const tokenHash = await hashToken(token);
+  const row = await env.DB.prepare("SELECT user_id, expires_at, used_at FROM email_tokens WHERE token_hash=?1 AND purpose='reset_password'").bind(tokenHash).first();
+  const nowIso = new Date().toISOString();
+  if (!row || row.used_at || row.expires_at <= nowIso) return json({ ok: false, error: 'INVALID_TOKEN' }, 400);
+  const passwordHash = await hashPassword(password);
+  await env.DB.prepare("UPDATE email_tokens SET used_at=?1 WHERE token_hash=?2 AND used_at IS NULL").bind(nowIso, tokenHash).run();
+  await env.DB.prepare('UPDATE users SET password_hash=?1, failed_logins=0, locked_until=NULL WHERE id=?2').bind(passwordHash, row.user_id).run();
+  await env.DB.prepare('DELETE FROM sessions WHERE user_id=?1').bind(row.user_id).run();
+  return json({ ok: true });
 }
 
 export async function verifyEmail(request, env) {
