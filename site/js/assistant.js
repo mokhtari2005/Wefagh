@@ -52,12 +52,6 @@ export function stripAssistantFooterBoilerplate(value) {
   return text.replace(/\n{3,}/g, '\n\n').trim();
 }
 
-export function reviewUnavailableMessage(status, notes = []) {');
-    text = text.replace(new RegExp('(?:^|\\n)\\s*' + escaped + '\\s*(?=\\n|$)', 'gu'), '');
-  }
-  return text.replace(/\\n{3,}/g, '\\n\\n').trim();
-}
-
 export function reviewUnavailableMessage(status, notes = []) {
   const note = Array.isArray(notes) ? notes.find((item) => typeof item === 'string' && /بازبینی مستقل/u.test(item)) : '';
   if (note) return note;
