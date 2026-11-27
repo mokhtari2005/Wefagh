@@ -9,7 +9,7 @@ for (const viewport of [
     await page.goto('/?academy-shortcuts-test=1#/', { waitUntil: 'domcontentloaded' });
 
     const shortcuts = page.locator('.home-dashboard .quick-section .quick-tile');
-    await expect(shortcuts).toHaveCount(16, { timeout: 7000 });
+    await expect(shortcuts).toHaveCount(17, { timeout: 7000 });
     await expect(page.locator('.home-dashboard .quick-section')).toBeVisible();
     await expect(page.locator('.home-dashboard .quick-section .loading')).toHaveCount(0);
     await expect(page.locator('.home-dashboard .quick-section .lazy-content-placeholder')).toHaveCount(0);
