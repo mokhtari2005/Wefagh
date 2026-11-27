@@ -25,6 +25,9 @@ jobs:
       - name: Install probe dependency
         run: python -m pip install requests
       - name: Check ordinary public access only
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: python scripts/probe_qavanin_public.py
       - name: Upload access report
         if: always()
