@@ -67,6 +67,15 @@ export function caseworkPage(){
   const description=h('textarea',{name:'description',rows:'2',maxlength:'8000',placeholder:'یادداشت اولیه پرونده'});
   const submit=h('button',{type:'submit',class:'btn',text:'ایجاد پرونده و ورود به بایگانی'});
   const cancel=button('انصراف');
+  const createDraftKey='mla.casework.create-draft.v1';
+  try {
+    const saved=JSON.parse(localStorage.getItem(createDraftKey)||'null');
+    if(saved){name.value=saved.name||'';number.value=saved.number||'';subject.value=saved.subject||'';plaintiff.value=saved.plaintiff||'';description.value=saved.description||'';}
+  } catch {}
+  const saveCreateDraft=()=>{
+    try { localStorage.setItem(createDraftKey,JSON.stringify({name:name.value,number:number.value,subject:subject.value,plaintiff:plaintiff.value,description:description.value})); } catch {}
+  };
+  [name,number,subject,plaintiff,description].forEach(input=>input.addEventListener('input',saveCreateDraft));
   form.append(h('h2',{text:'ثبت پرونده جدید'}),h('div',{class:'casework-form-grid'},[
     h('label',{},[h('span',{text:'نام پرونده *'}),name]),
     h('label',{},[h('span',{text:'شماره پرونده / کلاسه'}),number]),
@@ -87,12 +96,13 @@ export function caseworkPage(){
   const help=button('راهنمای این بخش','btn text');
   help.addEventListener('click',()=>showHelp(root,'مدیریت پرونده‌ها','پرونده را حتی بدون فایل ثبت کنید. شناسه پرونده بلافاصله ساخته می‌شود. سپس خدمات متعدد و اسناد هر خدمت را از داخل همان پرونده اضافه کنید. عملیات نیمه‌تمام در «ادامه کار» می‌ماند و اطلاعات آن با خروج از صفحه حذف نمی‌شود.'));
   createButton.addEventListener('click',()=>{form.hidden=!form.hidden;if(!form.hidden)name.focus();});
-  cancel.addEventListener('click',()=>{form.reset();form.hidden=true;});
+  cancel.addEventListener('click',()=>{form.reset();form.hidden=true;try{localStorage.removeItem(createDraftKey);}catch{}});
   form.addEventListener('submit',async e=>{
     e.preventDefault();submit.disabled=true;submit.textContent='در حال ذخیره…';
     try{
       const res=await postJson('/api/casework/cases',{name:name.value,caseNumber:number.value,subject:subject.value,description:description.value,parties:plaintiff.value.trim()?[{name:plaintiff.value.trim(),role:'طرف اصلی'}]:[]});
       if(!res.ok)throw new Error(res.data?.error||'ثبت پرونده ناموفق بود');
+      try{localStorage.removeItem(createDraftKey);}catch{}
       location.hash='#/casework/'+res.data.case.id;
     }catch(err){message(form,err.message,true);}
     finally{submit.disabled=false;submit.textContent='ایجاد پرونده و ورود به بایگانی';}
@@ -125,7 +135,9 @@ export function caseworkPage(){
     stats.replaceChildren(metric('همه پرونده‌ها',all.length),metric('در حال اجرا',counts.active||0),metric('منتظر تکمیل',all.filter(x=>['draft','waiting_upload','waiting_analysis'].includes(x.status)).length),metric('آماده اقدام',counts.ready_next||0),metric('تکمیل‌شده',counts.completed||0),metric('بایگانی',counts.archived||0));
     const pending=all.filter(x=>['draft','waiting_upload','waiting_analysis'].includes(x.status));
     continuation.lastElementChild.replaceChildren(...(pending.length?pending.slice(0,6).map(caseCard):[empty('در حال حاضر عملیات نیمه‌تمامی وجود ندارد.')]));
-    list.replaceChildren(...(items.length?items.map(caseCard):[empty('پرونده‌ای با این مشخصات پیدا نشد. برای شروع، یک پرونده جدید ثبت کنید.')]));
+    const pendingStatuses=['draft','waiting_upload','waiting_analysis'];
+    const visibleItems=filter.value?items:items.filter(item=>!pendingStatuses.includes(item.status));
+    list.replaceChildren(...(visibleItems.length?visibleItems.map(caseCard):[empty(filter.value?'پرونده‌ای با این وضعیت پیدا نشد.':'پرونده‌های نیمه‌تمام در بخش «ادامه کار» نمایش داده می‌شوند. برای دیدن همه وضعیت‌ها از فیلتر استفاده کنید.')]));
   }
   function caseCard(item){
     const link=h('a',{class:'casework-card',href:'#/casework/'+item.id},[
