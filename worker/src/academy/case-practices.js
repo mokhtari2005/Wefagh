@@ -62,7 +62,16 @@ export async function handleWorkshopPractices(request, env, path) {
   await ensureSchema(env.DB);
   if (path === '/api/cases/workshop-practices') {
     const url = new URL(request.url);
-    const context = await validateContext(request,env,url.searchParams.get('courseId'),url.searchParams.get('lessonId'));
+    let body = null;
+    if (request.method === 'POST') {
+      const parsed = await readJsonBody(request);
+      if (parsed.error) return parsed.error;
+      body = parsed.body || {};
+    }
+    if (request.method !== 'GET' && request.method !== 'POST') return json({ok:false,error:'METHOD_NOT_ALLOWED'},405,{Allow:'GET, POST'});
+    const courseId = request.method === 'POST' ? body.courseId : url.searchParams.get('courseId');
+    const lessonId = request.method === 'POST' ? body.lessonId : url.searchParams.get('lessonId');
+    const context = await validateContext(request,env,courseId,lessonId);
     if (context.error) return context.error;
     if (request.method === 'GET') {
       const page = Math.max(1,Math.min(1000000,Number.parseInt(url.searchParams.get('page')||'1',10)||1));
@@ -75,9 +84,6 @@ export async function handleWorkshopPractices(request, env, path) {
         .bind(context.user.id,context.course.id,context.lesson.id,pageSize,offset).all();
       return json({ok:true,practices:rows.results||[],page,pageSize,total:count?.total||0,hasMore:offset+pageSize<(count?.total||0)});
     }
-    if (request.method !== 'POST') return json({ok:false,error:'METHOD_NOT_ALLOWED'},405,{Allow:'GET, POST'});
-    const parsed=await readJsonBody(request); if(parsed.error)return parsed.error;
-    const body=parsed.body||{};
     const item=typeof body.caseId==='string'&&SLUG_RE.test(body.caseId)?await getPublishedCase(env,body.caseId):null;
     const response=typeof body.responseText==='string'?body.responseText.trim():'';
     if(!item||response.length>12000) return json({ok:false,error:'VALIDATION_FAILED',message:'پرونده منتشرشده یا متن تمرین معتبر نیست.'},422);
