@@ -16,6 +16,8 @@ D1 = f"https://api.cloudflare.com/client/v4/accounts/{ACCOUNT}/d1/database/{DB_I
 GH = {"Accept":"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28"}
 if os.getenv("GITHUB_TOKEN"): GH["Authorization"] = f"Bearer {os.environ['GITHUB_TOKEN']}"
 IMPORT_PHASE = os.getenv("LEGAL_IMPORT_PHASE", "laws").strip().lower()
+MAX_REFRESH_ARTICLES_PER_RUN = 12000
+MAX_NEW_ARTICLES_PER_RUN = 3000
 PHASE_TYPES = {
     "laws": {"law", "treaty", "interpretive_law"},
     "regulations": {"bylaw", "executive_regulation", "executive_circular", "circular", "executive_resolution", "expediency_council_resolution", "general_policies"},
