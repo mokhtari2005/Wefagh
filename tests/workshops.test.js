@@ -6,6 +6,7 @@ import { WORKSHOP_COURSES, WORKSHOP_ACTIVITIES } from '../worker/src/academy/wor
 import { findCourse } from '../worker/src/academy/catalog.js';
 import { lessonLearning } from '../worker/src/academy/learning.js';
 import { PRACTICAL_COMPETENCIES, getPracticalGuide } from '../worker/src/academy/practical-assessment.js';
+import { VERIFIED_CASE_STUDIES } from '../worker/src/academy/case-studies.js';
 
 test('کارگاه‌های مهارت‌محور برای سه گروه مخاطب تعریف شده‌اند', () => {
   assert.equal(WORKSHOPS.length, 13);
@@ -81,6 +82,7 @@ test('کارآموزی مجازی پنج مرحله عملی با خروجی و 
 test('مطالعات موردی واقعی از سناریوهای فرضی جدا و به منبع عمومی پیوند دارند', () => {
   const bank = JSON.parse(readFileSync(new URL('../research/case-bank/verified-case-studies.json', import.meta.url), 'utf8'));
   assert.equal(bank.records.length, 2);
+  assert.deepEqual(new Set(VERIFIED_CASE_STUDIES.map(item => item.id)), new Set(bank.records.map(item => item.source_id)));
   for (const item of bank.records) {
     assert.equal(item.status, 'reviewed_for_training');
     assert.ok(item.court_document_number);
